@@ -1,0 +1,16 @@
+# API keys
+.env
+
+# Virtual environment
+venv/
+
+# ChromaDB databases
+carrier_docs_db/
+test_db/
+
+# Carrier PDFs (too large for GitHub)
+carrier_docs/
+
+# Python cache
+__pycache__/
+*.pyc
