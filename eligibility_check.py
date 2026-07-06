@@ -124,7 +124,7 @@ Output guidelines:
         messages=[{"role": "user", "content": prompt}]
     )
 
-        raw = response.content[0].text.strip()
+    raw = response.content[0].text.strip()
 
     # Remove markdown code blocks if Claude wrapped the JSON
     if "```" in raw:
