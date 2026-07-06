@@ -124,10 +124,16 @@ Output guidelines:
         messages=[{"role": "user", "content": prompt}]
     )
 
-    raw = response.content[0].text.strip()
+        raw = response.content[0].text.strip()
 
+    # Remove markdown code blocks if Claude wrapped the JSON
+    if "```" in raw:
+        raw = raw.replace("```json", "").replace("```", "").strip()
+
+    # Find JSON array boundaries
     start = raw.find('[')
     end = raw.rfind(']') + 1
+
     if start != -1 and end > start:
         json_str = raw[start:end]
     else:
@@ -135,15 +141,21 @@ Output guidelines:
 
     try:
         return json.loads(json_str)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        print("JSON PARSE ERROR:", str(e))
+        print("RAW RESPONSE:", raw[:1000])
         return [{
             "carrier": "Parse Error",
             "status": "INSUFFICIENT_INFORMATION",
-            "reasons": ["Response could not be parsed. Please try again."],
+            "reasons": [
+                "Claude returned an unexpected format. Check the terminal for details.",
+                "Raw response preview: " + raw[:300]
+            ],
             "citations": [],
-            "missing_info": [],
+            "missing_info": ["Try submitting again — this is usually a one-time occurrence"],
             "notes": ""
         }]
+
 
 
 if __name__ == "__main__":
