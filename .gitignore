@@ -10,6 +10,7 @@ test_db/
 
 # Carrier PDFs (too large for GitHub)
 carrier_docs/
+Carrier_Eligibility_PDFs/
 
 # Python cache
 __pycache__/
