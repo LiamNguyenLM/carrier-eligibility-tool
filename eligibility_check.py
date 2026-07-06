@@ -11,7 +11,7 @@ vectorstore = Chroma(
     persist_directory="./carrier_docs_db",
     embedding_function=embeddings
 )
-retriever = vectorstore.as_retriever(search_kwargs={"k": 8})
+retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
 
 # Claude client
 client = anthropic.Anthropic()
