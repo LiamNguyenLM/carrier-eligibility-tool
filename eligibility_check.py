@@ -1,17 +1,17 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from langchain_openai import OpenAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 import anthropic
 
 # Load database
-embeddings = OpenAIEmbeddings()
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 vectorstore = Chroma(
     persist_directory="./carrier_docs_db",
     embedding_function=embeddings
 )
-retriever = vectorstore.as_retriever(search_kwargs={"k": 8})
+retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
 
 # Claude client
 client = anthropic.Anthropic()
@@ -24,9 +24,14 @@ def check_eligibility(property_details):
     year built {property_details['year_built']}
     roof age {property_details['roof_age']} years
     roof type {property_details['roof_type']}
+    roof shape {property_details['roof_shape']}
     construction type {property_details['construction_type']}
-    coastal {property_details['coastal']}
+    plumbing type {property_details['plumbing_type']}
+    coastal property {property_details['coastal']}
+    swimming pool {property_details['swimming_pool']}
+    solar panels {property_details['solar_panels']}
     occupancy {property_details['occupancy_type']}
+    PPC number {property_details['ppc']}
     """
 
     # Retrieve relevant chunks
