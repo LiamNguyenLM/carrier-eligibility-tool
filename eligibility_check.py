@@ -19,15 +19,21 @@ client = anthropic.Anthropic()
 def check_eligibility(property_details):
     # Build search query from property details
     query = f"""
-    homeowners insurance eligibility:
+    homeowners insurance eligibility requirements:
     state {property_details['state']}
     year built {property_details['year_built']}
     roof age {property_details['roof_age']} years
     roof type {property_details['roof_type']}
+    roof shape {property_details['roof_shape']}
     construction type {property_details['construction_type']}
-    coastal {property_details['coastal']}
+    plumbing type {property_details['plumbing_type']}
     occupancy {property_details['occupancy_type']}
+    coastal property {property_details['coastal']}
+    swimming pool {property_details['swimming_pool']}
+    solar panels {property_details['solar_panels']}
+    PPC {property_details['ppc']}
     """
+
 
     # Retrieve relevant chunks
     chunks = retriever.invoke(query)
