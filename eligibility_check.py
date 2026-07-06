@@ -29,6 +29,8 @@ def check_eligibility(property_details):
     coastal {property_details['coastal_tier']}
     swimming pool {property_details['swimming_pool']}
     pool accessories {property_details['pool_accessories']}
+    dogs on premises {property_details['has_dogs']}
+    aggressive breed dogs {property_details['aggressive_breed']}
     solar panels {property_details['solar_panels']}
     PPC {property_details['ppc']}
     """
@@ -44,6 +46,8 @@ def check_eligibility(property_details):
         risk_factors.append("diving board slide pool liability ineligible")
     if property_details['coastal_tier'] in ['Tier 1', 'Tier 2']:
         risk_factors.append("coastal tier wind coverage restrictions ineligible")
+    if property_details['aggressive_breed'] == 'Yes':
+        risk_factors.append("aggressive dog breed ineligible prohibited liability")
 
     if risk_factors:
         risk_chunks = retriever.invoke(" ".join(risk_factors))
@@ -76,6 +80,8 @@ Occupancy Type: {property_details['occupancy_type']}
 Coastal Tier: {property_details['coastal_tier']}
 Swimming Pool: {property_details['swimming_pool']}
 Pool Accessories: {property_details['pool_accessories']}
+Dogs on Premises: {property_details['has_dogs']}
+Aggressive Breed Dogs: {property_details['aggressive_breed']}
 Solar Panels: {property_details['solar_panels']}
 PPC Number: {property_details['ppc']}
 
@@ -89,9 +95,10 @@ Each object must follow this exact structure:
   {{
     "carrier": "carrier name from document",
     "status": "ELIGIBLE",
-    "reasons": ["brief reason"],
-    "citations": ["exact short quote from document"],
-    "missing_info": ["item needed"]
+    "reasons": ["reason 1", "reason 2"],
+    "citations": ["carrier name: exact short quote from document"],
+    "missing_info": ["item needed for final determination"],
+    "notes": "any important coverage distinctions such as RCV vs ACV"
   }}
 ]
 
@@ -99,10 +106,16 @@ Status must be exactly one of: ELIGIBLE, INELIGIBLE, REFER, INSUFFICIENT_INFORMA
 - ELIGIBLE: property meets all guidelines found in documents
 - INELIGIBLE: property fails one or more clear guidelines
 - REFER: eligible but needs underwriter review before binding
-- INSUFFICIENT_INFORMATION: guidelines not present in provided documents
-- Do not invent rules. If not in documents, note it in missing_info.
-- Only include carriers that appear in the provided documents.
-- Return ONLY the JSON array. No other text.
+- INSUFFICIENT_INFORMATION: relevant guidelines not present in provided documents
+
+Output guidelines:
+- Provide 2 to 4 analysis points in reasons covering the key property characteristics
+- Include 1 to 2 citations with enough context to identify where the rule appears
+- List all missing information needed to make a final determination
+- Use the notes field for important coverage distinctions like replacement cost vs ACV
+- Do not invent rules not found in the documents
+- Only include carriers that appear in the provided documents
+- Return ONLY the JSON array, no other text
 """
 
     response = client.messages.create(
@@ -128,7 +141,8 @@ Status must be exactly one of: ELIGIBLE, INELIGIBLE, REFER, INSUFFICIENT_INFORMA
             "status": "INSUFFICIENT_INFORMATION",
             "reasons": ["Response could not be parsed. Please try again."],
             "citations": [],
-            "missing_info": []
+            "missing_info": [],
+            "notes": ""
         }]
 
 
@@ -144,6 +158,8 @@ if __name__ == "__main__":
         "coastal_tier": "Not Coastal",
         "swimming_pool": "No Pool",
         "pool_accessories": "None",
+        "has_dogs": "No",
+        "aggressive_breed": "No",
         "solar_panels": "No",
         "ppc": "3"
     }
