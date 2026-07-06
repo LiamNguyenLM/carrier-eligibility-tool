@@ -33,7 +33,17 @@ def check_eligibility(property_details):
     solar panels {property_details['solar_panels']}
     PPC {property_details['ppc']}
     """
-
+    # Secondary targeted query for specific risk factors
+    risk_factors = []
+    if property_details['plumbing_type'] in ['Galvanized', 'Polybutylene']:
+        risk_factors.append("galvanized plumbing ineligible")
+    if property_details['swimming_pool'] != 'No Pool' and 'Unfenced' in property_details['swimming_pool']:
+        risk_factors.append("swimming pool fence requirement ineligible")
+    
+    if risk_factors:
+        risk_query = " ".join(risk_factors)
+        risk_chunks = retriever.invoke(risk_query)
+        chunks = chunks + risk_chunks
 
     # Retrieve relevant chunks
     chunks = retriever.invoke(query)
