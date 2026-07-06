@@ -5,7 +5,6 @@
 venv/
 
 # ChromaDB databases
-carrier_docs_db/
 test_db/
 
 # Carrier PDFs (too large for GitHub)
