@@ -1,17 +1,17 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
 import anthropic
 
 # Load database
-embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+embeddings = OpenAIEmbeddings()
 vectorstore = Chroma(
     persist_directory="./carrier_docs_db",
     embedding_function=embeddings
 )
-retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
+retriever = vectorstore.as_retriever(search_kwargs={"k": 8})
 
 # Claude client
 client = anthropic.Anthropic()
@@ -19,7 +19,7 @@ client = anthropic.Anthropic()
 def check_eligibility(property_details):
     # Build search query from property details
     query = f"""
-    homeowners insurance eligibility:
+    homeowners insurance eligibility requirements:
     state {property_details['state']}
     year built {property_details['year_built']}
     roof age {property_details['roof_age']} years
@@ -27,12 +27,23 @@ def check_eligibility(property_details):
     roof shape {property_details['roof_shape']}
     construction type {property_details['construction_type']}
     plumbing type {property_details['plumbing_type']}
+    occupancy {property_details['occupancy_type']}
     coastal property {property_details['coastal']}
     swimming pool {property_details['swimming_pool']}
     solar panels {property_details['solar_panels']}
-    occupancy {property_details['occupancy_type']}
-    PPC number {property_details['ppc']}
+    PPC {property_details['ppc']}
     """
+    # Secondary targeted query for specific risk factors
+    risk_factors = []
+    if property_details['plumbing_type'] in ['Galvanized', 'Polybutylene']:
+        risk_factors.append("galvanized plumbing ineligible")
+    if property_details['swimming_pool'] != 'No Pool' and 'Unfenced' in property_details['swimming_pool']:
+        risk_factors.append("swimming pool fence requirement ineligible")
+    
+    if risk_factors:
+        risk_query = " ".join(risk_factors)
+        risk_chunks = retriever.invoke(risk_query)
+        chunks = chunks + risk_chunks
 
     # Retrieve relevant chunks
     chunks = retriever.invoke(query)
