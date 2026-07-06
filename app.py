@@ -107,6 +107,7 @@ with col2:
         "Mansard",
         "Other"
     ])
+
     swimming_pool = st.selectbox("Swimming Pool", [
         "No Pool",
         "Above Ground - Fenced",
@@ -124,6 +125,27 @@ with col2:
         ])
     else:
         pool_accessories = "None"
+
+    if swimming_pool == "In Ground - Unfenced":
+        has_dogs = st.checkbox("Dogs on premises?")
+        if has_dogs:
+            aggressive_breed = st.checkbox(
+                "Aggressive breed present?",
+                help=(
+                    "Aggressive breeds typically include: "
+                    "Pit Bull, American Bulldog, Presa Canario, Cane Corso, "
+                    "Dogo Argentino (Gull Dong), Tosa Inu, Fila Brasileiro, "
+                    "American Bandogge, Belgian Shepherd, German Shepherd, "
+                    "Beauceron, Akita, Doberman Pinscher, Chow Chow, "
+                    "Rottweiler, Wolf Hybrid. "
+                    "Check individual carrier guidelines for complete lists."
+                )
+            )
+        else:
+            aggressive_breed = False
+    else:
+        has_dogs = False
+        aggressive_breed = False
 
     solar_panels = st.toggle(
         "Solar Panels",
@@ -153,6 +175,8 @@ if submitted:
         "coastal_tier": coastal_clean,
         "swimming_pool": swimming_pool,
         "pool_accessories": pool_accessories,
+        "has_dogs": "Yes" if has_dogs else "No",
+        "aggressive_breed": "Yes" if aggressive_breed else "No",
         "solar_panels": "Yes" if solar_panels else "No",
         "ppc": ppc
     }
@@ -173,15 +197,18 @@ if submitted:
         if eligible:
             for carrier in eligible:
                 with st.expander(carrier["carrier"]):
-                    if carrier["reasons"]:
+                    if carrier.get("reasons"):
                         st.markdown("**Analysis**")
                         for reason in carrier["reasons"]:
                             st.markdown("- " + reason)
-                    if carrier["citations"]:
+                    if carrier.get("citations"):
                         st.markdown("**Citations**")
                         for citation in carrier["citations"]:
                             st.markdown("> " + citation)
-                    if carrier["missing_info"]:
+                    if carrier.get("notes"):
+                        st.markdown("**Notes**")
+                        st.markdown(carrier["notes"])
+                    if carrier.get("missing_info"):
                         st.markdown("**Missing Information**")
                         for item in carrier["missing_info"]:
                             st.markdown("- " + item)
@@ -194,19 +221,20 @@ if submitted:
             for carrier in not_eligible:
                 label = carrier["status"].replace("_", " ")
                 with st.expander(carrier["carrier"] + "  |  " + label):
-                    if carrier["reasons"]:
+                    if carrier.get("reasons"):
                         st.markdown("**Analysis**")
                         for reason in carrier["reasons"]:
                             st.markdown("- " + reason)
-                    if carrier["citations"]:
+                    if carrier.get("citations"):
                         st.markdown("**Citations**")
                         for citation in carrier["citations"]:
                             st.markdown("> " + citation)
-                    if carrier["missing_info"]:
+                    if carrier.get("notes"):
+                        st.markdown("**Notes**")
+                        st.markdown(carrier["notes"])
+                    if carrier.get("missing_info"):
                         st.markdown("**Missing Information**")
                         for item in carrier["missing_info"]:
                             st.markdown("- " + item)
         else:
             st.success("All carriers appear eligible.")
-
-    st.markdown(result)
