@@ -1,26 +1,24 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from langchain_openai import OpenAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 import anthropic
+import json
 
-# Load database
-embeddings = OpenAIEmbeddings()
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 vectorstore = Chroma(
     persist_directory="./carrier_docs_db",
     embedding_function=embeddings
 )
 retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
-
-# Claude client
 client = anthropic.Anthropic()
 
 def check_eligibility(property_details):
-    # Build search query from property details
+
     query = f"""
     homeowners insurance eligibility requirements:
-    state {property_details['state']}
+    state TX
     year built {property_details['year_built']}
     roof age {property_details['roof_age']} years
     roof type {property_details['roof_type']}
@@ -28,42 +26,46 @@ def check_eligibility(property_details):
     construction type {property_details['construction_type']}
     plumbing type {property_details['plumbing_type']}
     occupancy {property_details['occupancy_type']}
-    coastal property {property_details['coastal']}
+    coastal {property_details['coastal_tier']}
     swimming pool {property_details['swimming_pool']}
+    pool accessories {property_details['pool_accessories']}
     solar panels {property_details['solar_panels']}
     PPC {property_details['ppc']}
     """
-    # Secondary targeted query for specific risk factors
+
+    chunks = retriever.invoke(query)
+
     risk_factors = []
     if property_details['plumbing_type'] in ['Galvanized', 'Polybutylene']:
-        risk_factors.append("galvanized plumbing ineligible")
-    if property_details['swimming_pool'] != 'No Pool' and 'Unfenced' in property_details['swimming_pool']:
-        risk_factors.append("swimming pool fence requirement ineligible")
-    
-    if risk_factors:
-        risk_query = " ".join(risk_factors)
-        risk_chunks = retriever.invoke(risk_query)
-        chunks = chunks + risk_chunks
+        risk_factors.append("galvanized polybutylene plumbing ineligible requirements")
+    if 'Unfenced' in property_details['swimming_pool']:
+        risk_factors.append("swimming pool fence requirement ineligible unfenced")
+    if property_details['pool_accessories'] != 'None':
+        risk_factors.append("diving board slide pool liability ineligible")
+    if property_details['coastal_tier'] in ['Tier 1', 'Tier 2']:
+        risk_factors.append("coastal tier wind coverage restrictions ineligible")
 
-    # Retrieve relevant chunks
-    chunks = retriever.invoke(query)
-    
-    # Build context from chunks
+    if risk_factors:
+        risk_chunks = retriever.invoke(" ".join(risk_factors))
+        seen = set()
+        combined = []
+        for chunk in chunks + risk_chunks:
+            if chunk.page_content not in seen:
+                seen.add(chunk.page_content)
+                combined.append(chunk)
+        chunks = combined
+
     context = ""
     for chunk in chunks:
-        context += f"\n--- {chunk.metadata.get('carrier')} ---\n"
-        context += chunk.page_content
-        context += "\n"
+        context += f"\n--- {chunk.metadata.get('carrier', 'Unknown')} (page {chunk.metadata.get('page', '?')}) ---\n"
+        context += chunk.page_content + "\n"
 
-    # Build prompt
-    prompt = f"""
-You are an insurance underwriting assistant for an independent insurance agency.
+    prompt = f"""You are an insurance underwriting assistant for an independent Texas agency.
 
-Using ONLY the carrier documents provided below, analyze this property's eligibility 
-for each carrier. Do not make assumptions or invent rules not in the documents.
+Using ONLY the carrier documents provided below, analyze this property for each carrier.
 
 PROPERTY DETAILS:
-State: {property_details['state']}
+State: TX
 Year Built: {property_details['year_built']}
 Roof Age: {property_details['roof_age']} years
 Roof Type: {property_details['roof_type']}
@@ -71,39 +73,67 @@ Roof Shape: {property_details['roof_shape']}
 Construction Type: {property_details['construction_type']}
 Plumbing Type: {property_details['plumbing_type']}
 Occupancy Type: {property_details['occupancy_type']}
-Coastal Property: {property_details['coastal']}
+Coastal Tier: {property_details['coastal_tier']}
 Swimming Pool: {property_details['swimming_pool']}
+Pool Accessories: {property_details['pool_accessories']}
 Solar Panels: {property_details['solar_panels']}
 PPC Number: {property_details['ppc']}
 
 CARRIER DOCUMENTS:
 {context}
 
-For each carrier in the documents above, provide:
-1. ELIGIBLE or INELIGIBLE or REFER (needs underwriter review)
-2. Specific reasons based on the documents
-3. Exact citation (carrier name and relevant rule)
-4. Any missing information needed to make a final determination
+Return ONLY a JSON array with no text before or after it.
+Each object must follow this exact structure:
 
-If a carrier's guidelines do not address a specific property characteristic, 
-note it as "not specified in guidelines."
+[
+  {{
+    "carrier": "carrier name from document",
+    "status": "ELIGIBLE",
+    "reasons": ["brief reason"],
+    "citations": ["exact short quote from document"],
+    "missing_info": ["item needed"]
+  }}
+]
 
-Format your response clearly with each carrier as a separate section.
+Status must be exactly one of: ELIGIBLE, INELIGIBLE, REFER, INSUFFICIENT_INFORMATION
+- ELIGIBLE: property meets all guidelines found in documents
+- INELIGIBLE: property fails one or more clear guidelines
+- REFER: eligible but needs underwriter review before binding
+- INSUFFICIENT_INFORMATION: guidelines not present in provided documents
+- Do not invent rules. If not in documents, note it in missing_info.
+- Only include carriers that appear in the provided documents.
+- Return ONLY the JSON array. No other text.
 """
 
     response = client.messages.create(
         model="claude-sonnet-4-5",
-        max_tokens=2000,
+        max_tokens=3000,
         messages=[{"role": "user", "content": prompt}]
     )
 
-    return response.content[0].text
+    raw = response.content[0].text.strip()
+
+    start = raw.find('[')
+    end = raw.rfind(']') + 1
+    if start != -1 and end > start:
+        json_str = raw[start:end]
+    else:
+        json_str = raw
+
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError:
+        return [{
+            "carrier": "Parse Error",
+            "status": "INSUFFICIENT_INFORMATION",
+            "reasons": ["Response could not be parsed. Please try again."],
+            "citations": [],
+            "missing_info": []
+        }]
 
 
-# Test it with a sample property
 if __name__ == "__main__":
     test_property = {
-        "state": "TX",
         "year_built": 1998,
         "roof_age": 12,
         "roof_type": "Composition Shingle",
@@ -111,12 +141,12 @@ if __name__ == "__main__":
         "construction_type": "Frame",
         "plumbing_type": "Copper",
         "occupancy_type": "Owner Occupied",
-        "coastal": "No",
+        "coastal_tier": "Not Coastal",
         "swimming_pool": "No Pool",
+        "pool_accessories": "None",
         "solar_panels": "No",
         "ppc": "3"
     }
-
-    print("Running eligibility check...\n")
-    result = check_eligibility(test_property)
-    print(result)
+    results = check_eligibility(test_property)
+    for r in results:
+        print(r["carrier"], "-", r["status"])
