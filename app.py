@@ -2,7 +2,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import streamlit as st
+import os
+
+if "ANTHROPIC_API_KEY" in st.secrets:
+    os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
+
 from eligibility_check import check_eligibility
+from upload_carrier import add_carrier_to_database, list_carriers_in_database
 
 st.set_page_config(
     page_title="Carrier Eligibility Tool",
@@ -10,231 +16,238 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🏠 Property Details")
-st.caption("Enter your property information to check carrier eligibility")
+tab1, tab2 = st.tabs(["Eligibility Check", "Manage Carriers"])
 
-# --- LOCATION ---
-st.subheader("📍 Location")
-col1, col2 = st.columns(2)
+# ============================================================
+# TAB 1: ELIGIBILITY CHECK
+# ============================================================
+with tab1:
+    st.title("🏠 Property Details")
+    st.caption("Enter your property information to check carrier eligibility")
 
-with col1:
-    ppc = st.selectbox("PPC Number", [
-        "N/A", "1", "2", "3", "4", "5",
-        "6", "7", "8", "8A", "8B", "9", "10"
-    ])
+    st.subheader("📍 Location")
+    col1, col2 = st.columns(2)
+    with col1:
+        ppc = st.selectbox("PPC Number", [
+            "N/A", "1", "2", "3", "4", "5",
+            "6", "7", "8", "8A", "8B", "9", "10"
+        ], key="ppc")
+    with col2:
+        coastal_tier = st.selectbox(
+            "Coastal Tier",
+            [
+                "Not Coastal",
+                "Tier 1 - Closest to coast",
+                "Tier 2 - Moderate coastal area",
+                "Tier 3 - Outer coastal zone"
+            ],
+            help="Tier 1 is highest wind risk, typically within 1 mile of Gulf or bay waters.",
+            key="coastal"
+        )
+        occupancy_type = st.selectbox("Occupancy Type", [
+            "Owner Occupied", "Tenant Occupied", "Seasonal",
+            "Vacant", "Secondary Home"
+        ], key="occupancy")
 
-with col2:
-    coastal_tier = st.selectbox(
-        "Coastal Tier",
-        [
-            "Not Coastal",
-            "Tier 1 - Closest to coast",
-            "Tier 2 - Moderate coastal area",
-            "Tier 3 - Outer coastal zone"
-        ],
-        help="Tier 1 is highest wind risk, typically within 1 mile of Gulf or bay waters."
-    )
-    occupancy_type = st.selectbox("Occupancy Type", [
-        "Owner Occupied",
-        "Tenant Occupied",
-        "Seasonal",
-        "Vacant",
-        "Secondary Home"
-    ])
+    st.divider()
 
-st.divider()
+    st.subheader("📅 Property Age")
+    col1, col2 = st.columns(2)
+    with col1:
+        year_built = st.number_input("Year Built", min_value=1800, max_value=2026, value=2000, key="year")
+    with col2:
+        roof_age = st.number_input("Roof Age (years)", min_value=0, max_value=100, value=10, key="roofage")
 
-# --- PROPERTY AGE ---
-st.subheader("📅 Property Age")
-col1, col2 = st.columns(2)
+    st.divider()
 
-with col1:
-    year_built = st.number_input(
-        "Year Built",
-        min_value=1800,
-        max_value=2026,
-        value=2000
-    )
+    st.subheader("🛡️ Construction Details")
+    col1, col2 = st.columns(2)
+    with col1:
+        roof_type = st.selectbox("Roof Type", [
+            "Composition Shingle", "Architectural Shingle", "Metal",
+            "Tile", "Slate", "Wood Shake", "Flat/Built-Up", "Other"
+        ], key="rooftype")
+        construction_type = st.selectbox("Construction Type", [
+            "Frame", "Masonry", "Masonry Veneer", "Superior", "Manufactured/Mobile"
+        ], key="construction")
+        plumbing_type = st.selectbox("Plumbing Type", [
+            "Copper", "PVC", "PEX", "Galvanized", "Polybutylene", "Unknown", "Other"
+        ], key="plumbing")
+    with col2:
+        roof_shape = st.selectbox("Roof Shape", [
+            "Gable", "Hip", "Flat", "Gambrel", "Mansard", "Other"
+        ], key="roofshape")
+        swimming_pool = st.selectbox("Swimming Pool", [
+            "No Pool", "Above Ground - Fenced", "Above Ground - Unfenced",
+            "In Ground - Fenced", "In Ground - Unfenced"
+        ], key="pool")
 
-with col2:
-    roof_age = st.number_input(
-        "Roof Age (years)",
-        min_value=0,
-        max_value=100,
-        value=10
-    )
+        if swimming_pool != "No Pool":
+            pool_accessories = st.selectbox("Pool Accessories", [
+                "None", "Slide only", "Diving board only", "Both slide and diving board"
+            ], key="poolacc")
+        else:
+            pool_accessories = "None"
 
-st.divider()
-
-# --- CONSTRUCTION DETAILS ---
-st.subheader("🛡️ Construction Details")
-col1, col2 = st.columns(2)
-
-with col1:
-    roof_type = st.selectbox("Roof Type", [
-        "Composition Shingle",
-        "Architectural Shingle",
-        "Metal",
-        "Tile",
-        "Slate",
-        "Wood Shake",
-        "Flat/Built-Up",
-        "Other"
-    ])
-    construction_type = st.selectbox("Construction Type", [
-        "Frame",
-        "Masonry",
-        "Masonry Veneer",
-        "Superior",
-        "Manufactured/Mobile"
-    ])
-    plumbing_type = st.selectbox("Plumbing Type", [
-        "Copper",
-        "PVC",
-        "PEX",
-        "Galvanized",
-        "Polybutylene",
-        "Unknown",
-        "Other"
-    ])
-
-with col2:
-    roof_shape = st.selectbox("Roof Shape", [
-        "Gable",
-        "Hip",
-        "Flat",
-        "Gambrel",
-        "Mansard",
-        "Other"
-    ])
-
-    swimming_pool = st.selectbox("Swimming Pool", [
-        "No Pool",
-        "Above Ground - Fenced",
-        "Above Ground - Unfenced",
-        "In Ground - Fenced",
-        "In Ground - Unfenced"
-    ])
-
-    if swimming_pool != "No Pool":
-        pool_accessories = st.selectbox("Pool Accessories", [
-            "None",
-            "Slide only",
-            "Diving board only",
-            "Both slide and diving board"
-        ])
-    else:
-        pool_accessories = "None"
-
-    if swimming_pool == "In Ground - Unfenced":
-        has_dogs = st.checkbox("Dogs on premises?")
-        if has_dogs:
-            aggressive_breed = st.checkbox(
-                "Aggressive breed present?",
-                help=(
-                    "Aggressive breeds typically include: "
-                    "Pit Bull, American Bulldog, Presa Canario, Cane Corso, "
-                    "Dogo Argentino (Gull Dong), Tosa Inu, Fila Brasileiro, "
-                    "American Bandogge, Belgian Shepherd, German Shepherd, "
-                    "Beauceron, Akita, Doberman Pinscher, Chow Chow, "
-                    "Rottweiler, Wolf Hybrid. "
-                    "Check individual carrier guidelines for complete lists."
+        if swimming_pool == "In Ground - Unfenced":
+            has_dogs = st.checkbox("Dogs on premises?", key="dogs")
+            if has_dogs:
+                aggressive_breed = st.checkbox(
+                    "Aggressive breed present?",
+                    help=(
+                        "Aggressive breeds typically include: Pit Bull, American Bulldog, "
+                        "Presa Canario, Cane Corso, Dogo Argentino (Gull Dong), Tosa Inu, "
+                        "Fila Brasileiro, American Bandogge, Belgian Shepherd, German Shepherd, "
+                        "Beauceron, Akita, Doberman Pinscher, Chow Chow, Rottweiler, Wolf Hybrid."
+                    ),
+                    key="aggressive"
                 )
-            )
+            else:
+                aggressive_breed = False
         else:
+            has_dogs = False
             aggressive_breed = False
-    else:
-        has_dogs = False
-        aggressive_breed = False
 
-    solar_panels = st.toggle(
-        "Solar Panels",
-        help="Does the property have solar panels installed?"
+        solar_panels = st.toggle("Solar Panels", key="solar",
+            help="Does the property have solar panels installed?")
+
+    st.divider()
+
+    submitted = st.button("Check Carrier Eligibility", type="primary",
+                          use_container_width=True, key="submit")
+
+    if submitted:
+        coastal_clean = coastal_tier.split(" - ")[0]
+        property_details = {
+            "year_built": year_built,
+            "roof_age": roof_age,
+            "roof_type": roof_type,
+            "roof_shape": roof_shape,
+            "construction_type": construction_type,
+            "plumbing_type": plumbing_type,
+            "occupancy_type": occupancy_type,
+            "coastal_tier": coastal_clean,
+            "swimming_pool": swimming_pool,
+            "pool_accessories": pool_accessories,
+            "has_dogs": "Yes" if has_dogs else "No",
+            "aggressive_breed": "Yes" if aggressive_breed else "No",
+            "solar_panels": "Yes" if solar_panels else "No",
+            "ppc": ppc
+        }
+
+        with st.spinner("Analyzing carrier eligibility..."):
+            results = check_eligibility(property_details)
+
+        st.markdown("---")
+        st.subheader("CARRIER ELIGIBILITY ANALYSIS")
+
+        eligible = [r for r in results if r["status"] == "ELIGIBLE"]
+        not_eligible = [r for r in results if r["status"] != "ELIGIBLE"]
+
+        col_yes, col_no = st.columns(2)
+
+        with col_yes:
+            st.markdown("### Eligible")
+            if eligible:
+                for carrier in eligible:
+                    with st.expander(carrier["carrier"]):
+                        if carrier.get("reasons"):
+                            st.markdown("**Analysis**")
+                            for reason in carrier["reasons"]:
+                                st.markdown("- " + reason)
+                        if carrier.get("citations"):
+                            st.markdown("**Citations**")
+                            for citation in carrier["citations"]:
+                                st.markdown("> " + citation)
+                        if carrier.get("notes"):
+                            st.markdown("**Notes**")
+                            st.markdown(carrier["notes"])
+                        if carrier.get("missing_info"):
+                            st.markdown("**Missing Information**")
+                            for item in carrier["missing_info"]:
+                                st.markdown("- " + item)
+            else:
+                st.info("No carriers eligible based on provided information.")
+
+        with col_no:
+            st.markdown("### Not Eligible")
+            if not_eligible:
+                for carrier in not_eligible:
+                    label = carrier["status"].replace("_", " ")
+                    with st.expander(carrier["carrier"] + "  |  " + label):
+                        if carrier.get("reasons"):
+                            st.markdown("**Analysis**")
+                            for reason in carrier["reasons"]:
+                                st.markdown("- " + reason)
+                        if carrier.get("citations"):
+                            st.markdown("**Citations**")
+                            for citation in carrier["citations"]:
+                                st.markdown("> " + citation)
+                        if carrier.get("notes"):
+                            st.markdown("**Notes**")
+                            st.markdown(carrier["notes"])
+                        if carrier.get("missing_info"):
+                            st.markdown("**Missing Information**")
+                            for item in carrier["missing_info"]:
+                                st.markdown("- " + item)
+            else:
+                st.success("All carriers appear eligible.")
+
+
+# ============================================================
+# TAB 2: MANAGE CARRIERS
+# ============================================================
+with tab2:
+    st.title("Manage Carrier Documents")
+    st.caption("Add new carrier PDFs to the eligibility database")
+
+    st.subheader("Current Carriers In Database")
+    try:
+        carriers = list_carriers_in_database()
+        if carriers:
+            for carrier in carriers:
+                st.markdown("- " + carrier)
+        else:
+            st.info("No carriers found in database.")
+    except Exception as e:
+        st.warning("Could not load carrier list: " + str(e))
+
+    st.divider()
+
+    st.subheader("Upload New Carrier PDF")
+
+    uploaded_file = st.file_uploader(
+        "Select a carrier PDF to upload",
+        type="pdf",
+        help="Upload an underwriting guideline or appetite guide PDF"
     )
 
-st.divider()
+    if uploaded_file:
+        col1, col2 = st.columns(2)
+        with col1:
+            default_name = uploaded_file.name.replace(".pdf", "").replace(".PDF", "")
+            carrier_name = st.text_input("Carrier Name", value=default_name,
+                help="This name will appear in eligibility results")
+        with col2:
+            lob = st.selectbox("Line of Business", [
+                "HO3", "DP3", "HOA", "HOB", "Unknown"
+            ])
 
-submitted = st.button(
-    "Check Carrier Eligibility",
-    type="primary",
-    use_container_width=True
-)
+        if st.button("Process and Add to Database", type="primary"):
+            with st.spinner("Processing PDF and updating database..."):
+                pdf_bytes = uploaded_file.read()
+                chunks_added, error = add_carrier_to_database(pdf_bytes, carrier_name, lob)
 
-# --- OUTPUT ---
-if submitted:
-    coastal_clean = coastal_tier.split(" - ")[0]
+            if error:
+                st.error("Error processing PDF: " + error)
+            else:
+                st.success(
+                    carrier_name + " added successfully. " +
+                    str(chunks_added) + " searchable sections created."
+                )
+                st.info(
+                    "The new carrier is now active in the eligibility tool. "
+                    "Switch to the Eligibility Check tab to use it."
+                )
 
-    property_details = {
-        "year_built": year_built,
-        "roof_age": roof_age,
-        "roof_type": roof_type,
-        "roof_shape": roof_shape,
-        "construction_type": construction_type,
-        "plumbing_type": plumbing_type,
-        "occupancy_type": occupancy_type,
-        "coastal_tier": coastal_clean,
-        "swimming_pool": swimming_pool,
-        "pool_accessories": pool_accessories,
-        "has_dogs": "Yes" if has_dogs else "No",
-        "aggressive_breed": "Yes" if aggressive_breed else "No",
-        "solar_panels": "Yes" if solar_panels else "No",
-        "ppc": ppc
-    }
-
-    with st.spinner("Analyzing carrier eligibility..."):
-        results = check_eligibility(property_details)
-
-    st.markdown("---")
-    st.subheader("CARRIER ELIGIBILITY ANALYSIS")
-
-    eligible = [r for r in results if r["status"] == "ELIGIBLE"]
-    not_eligible = [r for r in results if r["status"] != "ELIGIBLE"]
-
-    col_yes, col_no = st.columns(2)
-
-    with col_yes:
-        st.markdown("### Eligible")
-        if eligible:
-            for carrier in eligible:
-                with st.expander(carrier["carrier"]):
-                    if carrier.get("reasons"):
-                        st.markdown("**Analysis**")
-                        for reason in carrier["reasons"]:
-                            st.markdown("- " + reason)
-                    if carrier.get("citations"):
-                        st.markdown("**Citations**")
-                        for citation in carrier["citations"]:
-                            st.markdown("> " + citation)
-                    if carrier.get("notes"):
-                        st.markdown("**Notes**")
-                        st.markdown(carrier["notes"])
-                    if carrier.get("missing_info"):
-                        st.markdown("**Missing Information**")
-                        for item in carrier["missing_info"]:
-                            st.markdown("- " + item)
-        else:
-            st.info("No carriers eligible based on provided information.")
-
-    with col_no:
-        st.markdown("### Not Eligible")
-        if not_eligible:
-            for carrier in not_eligible:
-                label = carrier["status"].replace("_", " ")
-                with st.expander(carrier["carrier"] + "  |  " + label):
-                    if carrier.get("reasons"):
-                        st.markdown("**Analysis**")
-                        for reason in carrier["reasons"]:
-                            st.markdown("- " + reason)
-                    if carrier.get("citations"):
-                        st.markdown("**Citations**")
-                        for citation in carrier["citations"]:
-                            st.markdown("> " + citation)
-                    if carrier.get("notes"):
-                        st.markdown("**Notes**")
-                        st.markdown(carrier["notes"])
-                    if carrier.get("missing_info"):
-                        st.markdown("**Missing Information**")
-                        for item in carrier["missing_info"]:
-                            st.markdown("- " + item)
-        else:
             st.success("All carriers appear eligible.")
