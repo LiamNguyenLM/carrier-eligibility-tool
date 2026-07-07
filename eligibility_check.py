@@ -5,6 +5,14 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 import anthropic
 import json
+import os
+import streamlit as st
+
+try:
+    if "ANTHROPIC_API_KEY" in st.secrets:
+        os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
+except Exception:
+    pass
 
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 vectorstore = Chroma(
@@ -13,6 +21,7 @@ vectorstore = Chroma(
 )
 retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
 client = anthropic.Anthropic()
+
 
 def check_eligibility(property_details):
 
@@ -38,16 +47,26 @@ def check_eligibility(property_details):
     chunks = retriever.invoke(query)
 
     risk_factors = []
+
     if property_details['plumbing_type'] in ['Galvanized', 'Polybutylene']:
         risk_factors.append("galvanized polybutylene plumbing ineligible requirements")
+
     if 'Unfenced' in property_details['swimming_pool']:
         risk_factors.append("swimming pool fence requirement ineligible unfenced")
+
     if property_details['pool_accessories'] != 'None':
         risk_factors.append("diving board slide pool liability ineligible")
+
     if property_details['coastal_tier'] in ['Tier 1', 'Tier 2']:
         risk_factors.append("coastal tier wind coverage restrictions ineligible")
+
     if property_details['aggressive_breed'] == 'Yes':
         risk_factors.append("aggressive dog breed ineligible prohibited liability")
+
+    if property_details['occupancy_type'] not in ['Owner Occupied']:
+        risk_factors.append("tenant occupied rental dwelling occupancy requirements")
+        risk_factors.append("DP3 dwelling policy tenant rental occupancy eligibility")
+        risk_factors.append("HO3 owner occupancy requirement restriction")
 
     if risk_factors:
         risk_chunks = retriever.invoke(" ".join(risk_factors))
@@ -64,6 +83,8 @@ def check_eligibility(property_details):
         context += f"\n--- {chunk.metadata.get('carrier', 'Unknown')} (page {chunk.metadata.get('page', '?')}) ---\n"
         context += chunk.page_content + "\n"
 
+    occupancy = property_details['occupancy_type']
+
     prompt = f"""You are an insurance underwriting assistant for an independent Texas agency.
 
 Using ONLY the carrier documents provided below, analyze this property for each carrier.
@@ -76,7 +97,7 @@ Roof Type: {property_details['roof_type']}
 Roof Shape: {property_details['roof_shape']}
 Construction Type: {property_details['construction_type']}
 Plumbing Type: {property_details['plumbing_type']}
-Occupancy Type: {property_details['occupancy_type']}
+Occupancy Type: {occupancy}
 Coastal Tier: {property_details['coastal_tier']}
 Swimming Pool: {property_details['swimming_pool']}
 Pool Accessories: {property_details['pool_accessories']}
@@ -84,6 +105,14 @@ Dogs on Premises: {property_details['has_dogs']}
 Aggressive Breed Dogs: {property_details['aggressive_breed']}
 Solar Panels: {property_details['solar_panels']}
 PPC Number: {property_details['ppc']}
+
+POLICY TYPE AND OCCUPANCY CONTEXT:
+- HO3 (Homeowners 3): Designed for owner-occupied properties. Not appropriate for tenant-occupied or rental properties. If occupancy is not owner-occupied, HO3 policies should be marked INELIGIBLE for occupancy reason.
+- DP3 (Dwelling Fire 3): Designed for non-owner-occupied properties including rentals and tenant-occupied dwellings. If occupancy is Tenant Occupied, DP3 policies should be evaluated normally and not excluded.
+- HOA / HOB: Condominium and unit-owner programs.
+- Current occupancy is: {occupancy}
+- If Owner Occupied: Do not include DP3 policies in results.
+- If Tenant Occupied or any non-owner occupancy: Evaluate DP3 policies fully. Flag HO3 policies as INELIGIBLE if they require owner occupancy.
 
 CARRIER DOCUMENTS:
 {context}
@@ -98,18 +127,20 @@ Each object must follow this exact structure:
     "reasons": ["reason 1", "reason 2"],
     "citations": ["carrier name: exact short quote from document"],
     "missing_info": ["item needed for final determination"],
-    "notes": "any important coverage distinctions such as RCV vs ACV"
+    "notes": "any important coverage distinctions such as RCV vs ACV",
+    "flaw_count": 0
   }}
 ]
 
 Status must be exactly one of: ELIGIBLE, INELIGIBLE, REFER, INSUFFICIENT_INFORMATION
-- ELIGIBLE: property meets all guidelines found in documents
-- INELIGIBLE: property fails one or more clear guidelines
-- REFER: eligible but needs underwriter review before binding
-- INSUFFICIENT_INFORMATION: relevant guidelines not present in provided documents
+flaw_count rules:
+- ELIGIBLE: always 0
+- INELIGIBLE: count the number of distinct ineligibility factors found
+- REFER: always 0
+- INSUFFICIENT_INFORMATION: always 0
 
 Output guidelines:
-- Provide 2 to 4 analysis points in reasons covering the key property characteristics
+- Provide 2 to 4 analysis points in reasons covering key property characteristics
 - Include 1 to 2 citations with enough context to identify where the rule appears
 - List all missing information needed to make a final determination
 - Use the notes field for important coverage distinctions like replacement cost vs ACV
@@ -126,14 +157,11 @@ Output guidelines:
 
     raw = response.content[0].text.strip()
 
-    # Remove markdown code blocks if Claude wrapped the JSON
     if "```" in raw:
         raw = raw.replace("```json", "").replace("```", "").strip()
 
-    # Find JSON array boundaries
     start = raw.find('[')
     end = raw.rfind(']') + 1
-
     if start != -1 and end > start:
         json_str = raw[start:end]
     else:
@@ -148,25 +176,25 @@ Output guidelines:
             "carrier": "Parse Error",
             "status": "INSUFFICIENT_INFORMATION",
             "reasons": [
-                "Claude returned an unexpected format. Check the terminal for details.",
-                "Raw response preview: " + raw[:300]
+                "Claude returned an unexpected format. Please try again.",
+                "Raw preview: " + raw[:200]
             ],
             "citations": [],
-            "missing_info": ["Try submitting again — this is usually a one-time occurrence"],
-            "notes": ""
+            "missing_info": ["Try submitting again"],
+            "notes": "",
+            "flaw_count": 0
         }]
-
 
 
 if __name__ == "__main__":
     test_property = {
-        "year_built": 1998,
-        "roof_age": 12,
+        "year_built": 2000,
+        "roof_age": 10,
         "roof_type": "Composition Shingle",
         "roof_shape": "Gable",
         "construction_type": "Frame",
         "plumbing_type": "Copper",
-        "occupancy_type": "Owner Occupied",
+        "occupancy_type": "Tenant Occupied",
         "coastal_tier": "Not Coastal",
         "swimming_pool": "No Pool",
         "pool_accessories": "None",
@@ -177,4 +205,4 @@ if __name__ == "__main__":
     }
     results = check_eligibility(test_property)
     for r in results:
-        print(r["carrier"], "-", r["status"])
+        print(r["carrier"], "-", r["status"], "- flaws:", r.get("flaw_count", 0))
