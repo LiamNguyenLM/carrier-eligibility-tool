@@ -3,7 +3,7 @@ langchain
 langchain-community
 langchain-anthropic
 chromadb
-sentence-transformers
+fastembed
 streamlit
 pypdf
 python-dotenv
