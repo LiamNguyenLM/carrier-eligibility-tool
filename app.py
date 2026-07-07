@@ -4,8 +4,12 @@ load_dotenv()
 import streamlit as st
 import os
 
-if "ANTHROPIC_API_KEY" in st.secrets:
-    os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
+try:
+    if "ANTHROPIC_API_KEY" in st.secrets:
+        os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
+except Exception:
+    pass
+
 
 from eligibility_check import check_eligibility
 from upload_carrier import add_carrier_to_database, list_carriers_in_database
