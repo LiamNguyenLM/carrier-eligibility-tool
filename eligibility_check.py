@@ -111,8 +111,8 @@ POLICY TYPE AND OCCUPANCY CONTEXT:
 - DP3 (Dwelling Fire 3): Designed for non-owner-occupied properties including rentals and tenant-occupied dwellings. If occupancy is Tenant Occupied, DP3 policies should be evaluated normally and not excluded.
 - HOA / HOB: Condominium and unit-owner programs.
 - Current occupancy is: {occupancy}
-- If Owner Occupied: Do not include DP3 policies in results.
-- If Tenant Occupied or any non-owner occupancy: Evaluate DP3 policies fully. Flag HO3 policies as INELIGIBLE if they require owner occupancy.
+- If Owner Occupied: Do NOT include DP3 carriers in your response at all. Exclude them entirely.
+- If Tenant Occupied or any non-owner occupancy: Do NOT include HO3 or HOMEOWNERS carriers in your response at all. Exclude them entirely. Only evaluate DP3, HOA, and HOB programs.
 
 CARRIER DOCUMENTS:
 {context}
