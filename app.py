@@ -10,9 +10,12 @@ try:
 except Exception:
     pass
 
-
 from eligibility_check import check_eligibility
-from upload_carrier import add_carrier_to_database, list_carriers_in_database
+from upload_carrier import (
+    add_carrier_to_database,
+    remove_carrier_from_database,
+    list_carriers_in_database
+)
 
 st.set_page_config(
     page_title="Carrier Eligibility Tool",
@@ -21,6 +24,7 @@ st.set_page_config(
 )
 
 tab1, tab2 = st.tabs(["Eligibility Check", "Manage Carriers"])
+
 
 # ============================================================
 # TAB 1: ELIGIBILITY CHECK
@@ -58,9 +62,11 @@ with tab1:
     st.subheader("📅 Property Age")
     col1, col2 = st.columns(2)
     with col1:
-        year_built = st.number_input("Year Built", min_value=1800, max_value=2026, value=2000, key="year")
+        year_built = st.number_input("Year Built", min_value=1800,
+            max_value=2026, value=2000, key="year")
     with col2:
-        roof_age = st.number_input("Roof Age (years)", min_value=0, max_value=100, value=10, key="roofage")
+        roof_age = st.number_input("Roof Age (years)", min_value=0,
+            max_value=100, value=10, key="roofage")
 
     st.divider()
 
@@ -88,7 +94,8 @@ with tab1:
 
         if swimming_pool != "No Pool":
             pool_accessories = st.selectbox("Pool Accessories", [
-                "None", "Slide only", "Diving board only", "Both slide and diving board"
+                "None", "Slide only", "Diving board only",
+                "Both slide and diving board"
             ], key="poolacc")
         else:
             pool_accessories = "None"
@@ -145,57 +152,68 @@ with tab1:
         st.markdown("---")
         st.subheader("CARRIER ELIGIBILITY ANALYSIS")
 
-        eligible = [r for r in results if r["status"] == "ELIGIBLE"]
-        not_eligible = [r for r in results if r["status"] != "ELIGIBLE"]
+        eligible = [r for r in results if r.get("status") == "ELIGIBLE"]
+        one_issue = [
+            r for r in results
+            if (r.get("status") == "INELIGIBLE" and r.get("flaw_count", 0) == 1)
+            or r.get("status") == "REFER"
+        ]
+        not_eligible = [
+            r for r in results
+            if r.get("status") not in ["ELIGIBLE"]
+            and not (
+                (r.get("status") == "INELIGIBLE" and r.get("flaw_count", 0) == 1)
+                or r.get("status") == "REFER"
+            )
+        ]
 
-        col_yes, col_no = st.columns(2)
+        col_yes, col_one, col_no = st.columns(3)
+
+        def render_carrier(carrier):
+            if carrier.get("reasons"):
+                st.markdown("**Analysis**")
+                for reason in carrier["reasons"]:
+                    st.markdown("- " + reason)
+            if carrier.get("citations"):
+                st.markdown("**Citations**")
+                for citation in carrier["citations"]:
+                    st.markdown("> " + citation)
+            if carrier.get("notes"):
+                st.markdown("**Notes**")
+                st.markdown(carrier["notes"])
+            if carrier.get("missing_info"):
+                st.markdown("**Missing Information**")
+                for item in carrier["missing_info"]:
+                    st.markdown("- " + item)
 
         with col_yes:
             st.markdown("### Eligible")
             if eligible:
                 for carrier in eligible:
                     with st.expander(carrier["carrier"]):
-                        if carrier.get("reasons"):
-                            st.markdown("**Analysis**")
-                            for reason in carrier["reasons"]:
-                                st.markdown("- " + reason)
-                        if carrier.get("citations"):
-                            st.markdown("**Citations**")
-                            for citation in carrier["citations"]:
-                                st.markdown("> " + citation)
-                        if carrier.get("notes"):
-                            st.markdown("**Notes**")
-                            st.markdown(carrier["notes"])
-                        if carrier.get("missing_info"):
-                            st.markdown("**Missing Information**")
-                            for item in carrier["missing_info"]:
-                                st.markdown("- " + item)
+                        render_carrier(carrier)
             else:
-                st.info("No carriers eligible based on provided information.")
+                st.info("No carriers fully eligible.")
+
+        with col_one:
+            st.markdown("### One Issue")
+            if one_issue:
+                for carrier in one_issue:
+                    label = carrier.get("status", "").replace("_", " ")
+                    with st.expander(carrier["carrier"] + "  |  " + label):
+                        render_carrier(carrier)
+            else:
+                st.info("No carriers with a single resolvable issue.")
 
         with col_no:
             st.markdown("### Not Eligible")
             if not_eligible:
                 for carrier in not_eligible:
-                    label = carrier["status"].replace("_", " ")
+                    label = carrier.get("status", "").replace("_", " ")
                     with st.expander(carrier["carrier"] + "  |  " + label):
-                        if carrier.get("reasons"):
-                            st.markdown("**Analysis**")
-                            for reason in carrier["reasons"]:
-                                st.markdown("- " + reason)
-                        if carrier.get("citations"):
-                            st.markdown("**Citations**")
-                            for citation in carrier["citations"]:
-                                st.markdown("> " + citation)
-                        if carrier.get("notes"):
-                            st.markdown("**Notes**")
-                            st.markdown(carrier["notes"])
-                        if carrier.get("missing_info"):
-                            st.markdown("**Missing Information**")
-                            for item in carrier["missing_info"]:
-                                st.markdown("- " + item)
+                        render_carrier(carrier)
             else:
-                st.success("All carriers appear eligible.")
+                st.success("No carriers fully ineligible.")
 
 
 # ============================================================
@@ -203,7 +221,6 @@ with tab1:
 # ============================================================
 with tab2:
     st.title("Manage Carrier Documents")
-    st.caption("Add new carrier PDFs to the eligibility database")
 
     st.subheader("Current Carriers In Database")
     try:
@@ -218,7 +235,35 @@ with tab2:
 
     st.divider()
 
+    st.subheader("Remove Carrier")
+    st.caption("Permanently removes all document sections for the selected carrier.")
+    try:
+        carriers_for_removal = list_carriers_in_database()
+        if carriers_for_removal:
+            carrier_to_remove = st.selectbox(
+                "Select carrier to remove",
+                carriers_for_removal,
+                key="remove_select"
+            )
+            if st.button("Remove From Database", key="remove_btn"):
+                with st.spinner("Removing " + carrier_to_remove + "..."):
+                    chunks_removed = remove_carrier_from_database(carrier_to_remove)
+                if chunks_removed > 0:
+                    st.success(
+                        carrier_to_remove + " removed successfully. " +
+                        str(chunks_removed) + " sections deleted."
+                    )
+                else:
+                    st.warning("No sections found for " + carrier_to_remove + ".")
+        else:
+            st.info("No carriers in database to remove.")
+    except Exception as e:
+        st.warning("Could not load carriers for removal: " + str(e))
+
+    st.divider()
+
     st.subheader("Upload New Carrier PDF")
+    st.caption("The line of business is detected automatically from the file name.")
 
     uploaded_file = st.file_uploader(
         "Select a carrier PDF to upload",
@@ -227,20 +272,32 @@ with tab2:
     )
 
     if uploaded_file:
-        col1, col2 = st.columns(2)
-        with col1:
-            default_name = uploaded_file.name.replace(".pdf", "").replace(".PDF", "")
-            carrier_name = st.text_input("Carrier Name", value=default_name,
-                help="This name will appear in eligibility results")
-        with col2:
-            lob = st.selectbox("Line of Business", [
-                "HO3", "DP3", "HOA", "HOB", "Unknown"
-            ])
+        default_name = uploaded_file.name.replace(".pdf", "").replace(".PDF", "")
+        carrier_name = st.text_input(
+            "Carrier Name",
+            value=default_name,
+            help="This name will appear in eligibility results"
+        )
 
-        if st.button("Process and Add to Database", type="primary"):
+        detected_lob = ""
+        name_upper = carrier_name.upper()
+        if "DP3" in name_upper:
+            detected_lob = "DP3"
+        elif "HOA" in name_upper:
+            detected_lob = "HOA"
+        elif "HOB" in name_upper:
+            detected_lob = "HOB"
+        elif "HO3" in name_upper or "HOMEOWNERS" in name_upper:
+            detected_lob = "HO3"
+        else:
+            detected_lob = "Unknown"
+
+        st.caption("Detected line of business: **" + detected_lob + "**")
+
+        if st.button("Process and Add to Database", type="primary", key="upload_btn"):
             with st.spinner("Processing PDF and updating database..."):
                 pdf_bytes = uploaded_file.read()
-                chunks_added, error = add_carrier_to_database(pdf_bytes, carrier_name, lob)
+                chunks_added, error = add_carrier_to_database(pdf_bytes, carrier_name)
 
             if error:
                 st.error("Error processing PDF: " + error)
@@ -250,8 +307,6 @@ with tab2:
                     str(chunks_added) + " searchable sections created."
                 )
                 st.info(
-                    "The new carrier is now active in the eligibility tool. "
+                    "The new carrier is now active. "
                     "Switch to the Eligibility Check tab to use it."
                 )
-
-            st.success("All carriers appear eligible.")
