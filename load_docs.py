@@ -29,8 +29,8 @@ print("Found " + str(len(pdf_files)) + " PDFs")
 all_chunks = []
 
 splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000,
-    chunk_overlap=150
+    chunk_size=500,
+    chunk_overlap=75
 )
 
 for pdf_file in pdf_files:
