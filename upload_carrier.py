@@ -7,8 +7,27 @@ from langchain_community.vectorstores import Chroma
 
 DB_FOLDER = "./carrier_docs_db"
 
-def add_carrier_to_database(pdf_bytes, carrier_name, lob):
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
+def get_embeddings():
+    return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
+
+def detect_lob_from_name(carrier_name):
+    name = carrier_name.upper()
+    if "DP3" in name or "DP-3" in name:
+        return "DP3"
+    if "HOA" in name:
+        return "HOA"
+    if "HOB" in name:
+        return "HOB"
+    if "HO3" in name or "HO-3" in name or "HOMEOWNERS" in name:
+        return "HO3"
+    return "Unknown"
+
+
+def add_carrier_to_database(pdf_bytes, carrier_name):
+    embeddings = get_embeddings()
+    lob = detect_lob_from_name(carrier_name)
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         tmp.write(pdf_bytes)
@@ -44,8 +63,22 @@ def add_carrier_to_database(pdf_bytes, carrier_name, lob):
     return len(chunks), None
 
 
+def remove_carrier_from_database(carrier_name):
+    embeddings = get_embeddings()
+    vectorstore = Chroma(
+        persist_directory=DB_FOLDER,
+        embedding_function=embeddings
+    )
+    collection = vectorstore._collection
+    results = collection.get(where={"carrier": carrier_name})
+    if results["ids"]:
+        collection.delete(ids=results["ids"])
+        return len(results["ids"])
+    return 0
+
+
 def list_carriers_in_database():
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    embeddings = get_embeddings()
     vectorstore = Chroma(
         persist_directory=DB_FOLDER,
         embedding_function=embeddings
