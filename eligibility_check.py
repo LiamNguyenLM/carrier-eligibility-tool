@@ -168,8 +168,24 @@ Output guidelines:
         json_str = raw
 
     try:
-        return json.loads(json_str)
+        parsed = json.loads(json_str)
+
+        occupancy = property_details.get('occupancy_type', 'Owner Occupied')
+        filtered = []
+        for r in parsed:
+            name = r.get("carrier", "").upper()
+            is_ho3 = "HO3" in name or "HOMEOWNERS" in name
+            is_dp3 = "DP3" in name or "DP-3" in name
+            if occupancy != "Owner Occupied" and is_ho3:
+                continue
+            if occupancy == "Owner Occupied" and is_dp3:
+                continue
+            filtered.append(r)
+
+        return filtered
+
     except json.JSONDecodeError as e:
+
         print("JSON PARSE ERROR:", str(e))
         print("RAW RESPONSE:", raw[:1000])
         return [{
