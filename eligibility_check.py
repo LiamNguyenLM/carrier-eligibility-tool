@@ -35,6 +35,7 @@ def check_eligibility(property_details):
     construction type {property_details['construction_type']}
     plumbing type {property_details['plumbing_type']}
     occupancy {property_details['occupancy_type']}
+    ownership {property_details.get('ownership_type', 'Individual Owner')}
     coastal {property_details['coastal_tier']}
     swimming pool {property_details['swimming_pool']}
     pool accessories {property_details['pool_accessories']}
@@ -63,6 +64,12 @@ def check_eligibility(property_details):
     if property_details['aggressive_breed'] == 'Yes':
         risk_factors.append("aggressive dog breed ineligible prohibited liability")
 
+    if property_details.get('ownership_type') == 'LLC':
+        risk_factors.append("LLC business corporation owned property ineligible not eligible")
+
+    if property_details.get('ownership_type') == 'Trust':
+        risk_factors.append("trust owned property eligibility requirements named insured grantor")
+
     if property_details['occupancy_type'] not in ['Owner Occupied']:
         risk_factors.append("tenant occupied rental dwelling occupancy requirements")
         risk_factors.append("DP3 dwelling policy tenant rental occupancy eligibility")
@@ -84,6 +91,7 @@ def check_eligibility(property_details):
         context += chunk.page_content + "\n"
 
     occupancy = property_details['occupancy_type']
+    ownership = property_details.get('ownership_type', 'Individual Owner')
 
     prompt = f"""You are an insurance underwriting assistant for an independent Texas agency.
 
@@ -98,6 +106,7 @@ Roof Shape: {property_details['roof_shape']}
 Construction Type: {property_details['construction_type']}
 Plumbing Type: {property_details['plumbing_type']}
 Occupancy Type: {occupancy}
+Ownership Structure: {ownership}
 Coastal Tier: {property_details['coastal_tier']}
 Swimming Pool: {property_details['swimming_pool']}
 Pool Accessories: {property_details['pool_accessories']}
@@ -111,8 +120,12 @@ POLICY TYPE AND OCCUPANCY CONTEXT:
 - DP3 (Dwelling Fire 3): Designed for non-owner-occupied properties including rentals and tenant-occupied dwellings. If occupancy is Tenant Occupied, DP3 policies should be evaluated normally and not excluded.
 - HOA / HOB: Condominium and unit-owner programs.
 - Current occupancy is: {occupancy}
+- Current ownership structure is: {ownership}
 - If Owner Occupied: Do NOT include DP3 carriers in your response at all. Exclude them entirely.
 - If Tenant Occupied or any non-owner occupancy: Do NOT include HO3 or HOMEOWNERS carriers in your response at all. Exclude them entirely. Only evaluate DP3, HOA, and HOB programs.
+- If ownership is LLC: Most HO3 carriers do not accept LLC or business-owned properties. Flag as INELIGIBLE if carrier guidelines prohibit business ownership.
+- If ownership is Trust: Some carriers allow trust-owned properties if the grantor lives in the dwelling and is the named insured. The trust itself cannot be listed as named insured. Check guidelines carefully and flag any trust-specific requirements.
+- If ownership is Individual Owner: No additional restrictions from ownership structure.
 
 CARRIER DOCUMENTS:
 {context}
@@ -185,7 +198,6 @@ Output guidelines:
         return filtered
 
     except json.JSONDecodeError as e:
-
         print("JSON PARSE ERROR:", str(e))
         print("RAW RESPONSE:", raw[:1000])
         return [{
@@ -210,7 +222,8 @@ if __name__ == "__main__":
         "roof_shape": "Gable",
         "construction_type": "Frame",
         "plumbing_type": "Copper",
-        "occupancy_type": "Tenant Occupied",
+        "occupancy_type": "Owner Occupied",
+        "ownership_type": "Trust",
         "coastal_tier": "Not Coastal",
         "swimming_pool": "No Pool",
         "pool_accessories": "None",
