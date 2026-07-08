@@ -57,6 +57,17 @@ with tab1:
             "Vacant", "Secondary Home"
         ], key="occupancy")
 
+        if occupancy_type == "Owner Occupied":
+            ownership_type = st.radio(
+                "Ownership Structure",
+                options=["Individual Owner", "Trust", "LLC"],
+                horizontal=True,
+                key="ownership"
+            )
+        else:
+            ownership_type = "Individual Owner"
+
+
     st.divider()
 
     st.subheader("📅 Property Age")
