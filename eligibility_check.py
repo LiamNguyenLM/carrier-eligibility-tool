@@ -1,7 +1,6 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_community.vectorstores import Chroma
 import anthropic
 import json
@@ -14,15 +13,12 @@ try:
 except Exception:
     pass
 
+from shared_resources import get_embeddings, get_vectorstore
+
 
 @st.cache_resource
 def load_retriever():
-    embeddings = FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5")
-    vectorstore = Chroma(
-        persist_directory="./carrier_docs_db",
-        embedding_function=embeddings
-    )
-    return vectorstore.as_retriever(search_kwargs={"k": 15})
+    return get_vectorstore().as_retriever(search_kwargs={"k": 15})
 
 
 retriever = load_retriever()
@@ -31,8 +27,6 @@ client = anthropic.Anthropic()
 
 def is_eligibility_content(chunk):
     content = chunk.page_content.lower()
-    # Filter out Allied Trust's discount list page (page 4-5)
-    # These phrase combos only appear on the discounts/optional coverages pages
     if "accredited builder" in content and "burglary prevention" in content:
         return False
     if "additional amount of insurance" in content and "lock replacement" in content:

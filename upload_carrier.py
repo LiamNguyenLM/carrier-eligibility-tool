@@ -1,15 +1,11 @@
 import tempfile
 import os
+import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_community.vectorstores import Chroma
 
-DB_FOLDER = "./carrier_docs_db"
-
-
-def get_embeddings():
-    return FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5")
+from shared_resources import get_embeddings, DB_FOLDER
 
 
 def detect_lob_from_name(carrier_name):
