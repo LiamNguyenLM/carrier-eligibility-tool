@@ -14,13 +14,30 @@ try:
 except Exception:
     pass
 
-embeddings = FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5")
-vectorstore = Chroma(
-    persist_directory="./carrier_docs_db",
-    embedding_function=embeddings
-)
-retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
+
+@st.cache_resource
+def load_retriever():
+    embeddings = FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5")
+    vectorstore = Chroma(
+        persist_directory="./carrier_docs_db",
+        embedding_function=embeddings
+    )
+    return vectorstore.as_retriever(search_kwargs={"k": 15})
+
+
+retriever = load_retriever()
 client = anthropic.Anthropic()
+
+
+def is_eligibility_content(chunk):
+    content = chunk.page_content.lower()
+    # Filter out Allied Trust's discount list page (page 4-5)
+    # These phrase combos only appear on the discounts/optional coverages pages
+    if "accredited builder" in content and "burglary prevention" in content:
+        return False
+    if "additional amount of insurance" in content and "lock replacement" in content:
+        return False
+    return True
 
 
 def check_eligibility(property_details):
@@ -46,6 +63,7 @@ def check_eligibility(property_details):
     """
 
     chunks = retriever.invoke(query)
+    chunks = [c for c in chunks if is_eligibility_content(c)]
 
     risk_factors = []
 
@@ -77,6 +95,7 @@ def check_eligibility(property_details):
 
     if risk_factors:
         risk_chunks = retriever.invoke(" ".join(risk_factors))
+        risk_chunks = [c for c in risk_chunks if is_eligibility_content(c)]
         seen = set()
         combined = []
         for chunk in chunks + risk_chunks:
@@ -216,21 +235,21 @@ Output guidelines:
 
 if __name__ == "__main__":
     test_property = {
-        "year_built": 2000,
-        "roof_age": 10,
-        "roof_type": "Composition Shingle",
+        "year_built": 2009,
+        "roof_age": 6,
+        "roof_type": "Architectural Shingle",
         "roof_shape": "Gable",
         "construction_type": "Frame",
-        "plumbing_type": "Copper",
+        "plumbing_type": "PVC",
         "occupancy_type": "Owner Occupied",
-        "ownership_type": "Trust",
+        "ownership_type": "Individual Owner",
         "coastal_tier": "Not Coastal",
-        "swimming_pool": "No Pool",
-        "pool_accessories": "None",
+        "swimming_pool": "In Ground - Fenced",
+        "pool_accessories": "Slide only",
         "has_dogs": "No",
         "aggressive_breed": "No",
-        "solar_panels": "No",
-        "ppc": "3"
+        "solar_panels": "Yes",
+        "ppc": "2"
     }
     results = check_eligibility(test_property)
     for r in results:
