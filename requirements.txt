@@ -7,3 +7,4 @@ fastembed
 streamlit
 pypdf
 python-dotenv
+cryptography
