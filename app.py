@@ -57,6 +57,17 @@ with tab1:
             "Vacant", "Secondary Home"
         ], key="occupancy")
 
+        if occupancy_type == "Owner Occupied":
+            ownership_type = st.radio(
+                "Ownership Structure",
+                options=["Individual Owner", "Trust", "LLC"],
+                horizontal=True,
+                key="ownership"
+            )
+        else:
+            ownership_type = "Individual Owner"
+
+
     st.divider()
 
     st.subheader("📅 Property Age")
@@ -140,6 +151,7 @@ with tab1:
             "coastal_tier": coastal_clean,
             "swimming_pool": swimming_pool,
             "pool_accessories": pool_accessories,
+            "ownership_type": ownership_type,
             "has_dogs": "Yes" if has_dogs else "No",
             "aggressive_breed": "Yes" if aggressive_breed else "No",
             "solar_panels": "Yes" if solar_panels else "No",
