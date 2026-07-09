@@ -1,11 +1,8 @@
 import tempfile
 import os
-import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
-
-from shared_resources import get_embeddings, DB_FOLDER
+from shared_resources import get_embeddings, get_vectorstore, DB_FOLDER
 
 
 def detect_lob_from_name(carrier_name):
@@ -22,7 +19,6 @@ def detect_lob_from_name(carrier_name):
 
 
 def add_carrier_to_database(pdf_bytes, carrier_name):
-    embeddings = get_embeddings()
     lob = detect_lob_from_name(carrier_name)
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
@@ -44,27 +40,24 @@ def add_carrier_to_database(pdf_bytes, carrier_name):
     )
     chunks = splitter.split_documents(pages)
 
+    chunks = [c for c in chunks if c.page_content.strip() and len(c.page_content.strip()) > 20]
+    if not chunks:
+        return 0, "No readable text found in this PDF. It may be a scanned document. Please convert it using an OCR tool first."
+
     for chunk in chunks:
         chunk.metadata["carrier"] = carrier_name
         chunk.metadata["source_file"] = carrier_name + ".pdf"
         chunk.metadata["lob"] = lob
         chunk.metadata["state"] = "TX"
 
-    vectorstore = Chroma(
-        persist_directory=DB_FOLDER,
-        embedding_function=embeddings
-    )
+    vectorstore = get_vectorstore()
     vectorstore.add_documents(chunks)
 
     return len(chunks), None
 
 
 def remove_carrier_from_database(carrier_name):
-    embeddings = get_embeddings()
-    vectorstore = Chroma(
-        persist_directory=DB_FOLDER,
-        embedding_function=embeddings
-    )
+    vectorstore = get_vectorstore()
     collection = vectorstore._collection
     results = collection.get(where={"carrier": carrier_name})
     if results["ids"]:
@@ -74,11 +67,7 @@ def remove_carrier_from_database(carrier_name):
 
 
 def list_carriers_in_database():
-    embeddings = get_embeddings()
-    vectorstore = Chroma(
-        persist_directory=DB_FOLDER,
-        embedding_function=embeddings
-    )
+    vectorstore = get_vectorstore()
     collection = vectorstore._collection
     results = collection.get(include=["metadatas"])
     carriers = set()
