@@ -82,6 +82,12 @@ def check_eligibility(property_details):
     if property_details.get('ownership_type') == 'Trust':
         risk_factors.append("trust owned property eligibility requirements named insured grantor")
 
+    risk_factors.append(f"{property_details['roof_type']} roof {property_details['roof_age']} years old eligibility requirements")
+    if property_details['swimming_pool'] != 'No Pool':
+        risk_factors.append(f"swimming pool {property_details['swimming_pool']} eligibility requirements fencing")
+    if property_details['solar_panels'] == 'Yes':
+        risk_factors.append("solar panels roof eligibility requirements")
+
     if property_details['occupancy_type'] not in ['Owner Occupied']:
         risk_factors.append("tenant occupied rental dwelling occupancy requirements")
         risk_factors.append("DP3 dwelling policy tenant rental occupancy eligibility")
