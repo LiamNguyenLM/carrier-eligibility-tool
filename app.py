@@ -28,18 +28,15 @@ st.set_page_config(
 # LOGIN
 # ============================================================
 def get_role(password):
-    try:
-        user_pwd = st.secrets.get("USER_PASSWORD", "") or os.environ.get("USER_PASSWORD", "")
-        admin_pwd = st.secrets.get("ADMIN_PASSWORD", "") or os.environ.get("ADMIN_PASSWORD", "")
-    except Exception:
-        user_pwd = os.environ.get("USER_PASSWORD", "")
-        admin_pwd = os.environ.get("ADMIN_PASSWORD", "")
+    user_pwd = os.environ.get("USER_PASSWORD", "")
+    admin_pwd = os.environ.get("ADMIN_PASSWORD", "")
 
     if admin_pwd and password == admin_pwd:
         return "admin"
     elif user_pwd and password == user_pwd:
         return "user"
     return None
+
 
 
 if "role" not in st.session_state:
