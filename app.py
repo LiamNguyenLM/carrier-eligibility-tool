@@ -33,13 +33,16 @@ with tab1:
     st.title("🏠 Property Details")
     st.caption("Enter your property information to check carrier eligibility")
 
+    # --- LOCATION ---
     st.subheader("📍 Location")
     col1, col2 = st.columns(2)
+
     with col1:
         ppc = st.selectbox("PPC Number", [
             "N/A", "1", "2", "3", "4", "5",
             "6", "7", "8", "8A", "8B", "9", "10"
         ], key="ppc")
+
     with col2:
         coastal_tier = st.selectbox(
             "Coastal Tier",
@@ -67,79 +70,126 @@ with tab1:
         else:
             ownership_type = "Individual Owner"
 
+    has_dogs = st.toggle("Dogs on Premises", key="dogs")
+    if has_dogs:
+        aggressive_breed = st.toggle(
+            "Aggressive Breed?",
+            help=(
+                "Aggressive breeds typically include: Pit Bull, American Bulldog, "
+                "Presa Canario, Cane Corso, Dogo Argentino (Gull Dong), Tosa Inu, "
+                "Fila Brasileiro, American Bandogge, Belgian Shepherd, German Shepherd, "
+                "Beauceron, Akita, Doberman Pinscher, Chow Chow, Rottweiler, Wolf Hybrid."
+            ),
+            key="aggressive"
+        )
+    else:
+        aggressive_breed = False
 
     st.divider()
 
+    # --- PROPERTY AGE ---
     st.subheader("📅 Property Age")
     col1, col2 = st.columns(2)
+
     with col1:
-        year_built = st.number_input("Year Built", min_value=1800,
-            max_value=2026, value=2000, key="year")
+        year_built = st.number_input(
+            "Year Built",
+            min_value=1800,
+            max_value=2026,
+            value=2000,
+            key="year"
+        )
+
     with col2:
-        roof_age = st.number_input("Roof Age (years)", min_value=0,
-            max_value=100, value=10, key="roofage")
+        roof_age = st.number_input(
+            "Roof Age (years)",
+            min_value=0,
+            max_value=100,
+            value=10,
+            key="roofage"
+        )
 
     st.divider()
 
+    # --- CONSTRUCTION DETAILS ---
     st.subheader("🛡️ Construction Details")
     col1, col2 = st.columns(2)
+
     with col1:
         roof_type = st.selectbox("Roof Type", [
-            "Composition Shingle", "Architectural Shingle", "Metal",
-            "Tile", "Slate", "Wood Shake", "Flat/Built-Up", "Other"
+            "Composition Shingle",
+            "Architectural Shingle",
+            "Metal",
+            "Tile",
+            "Slate",
+            "Wood Shake",
+            "Flat/Built-Up",
+            "Other"
         ], key="rooftype")
         construction_type = st.selectbox("Construction Type", [
-            "Frame", "Masonry", "Masonry Veneer", "Superior", "Manufactured/Mobile"
+            "Frame",
+            "Masonry",
+            "Masonry Veneer",
+            "Superior",
+            "Manufactured/Mobile"
         ], key="construction")
         plumbing_type = st.selectbox("Plumbing Type", [
-            "Copper", "PVC", "PEX", "Galvanized", "Polybutylene", "Unknown", "Other"
+            "Copper",
+            "PVC",
+            "PEX",
+            "Galvanized",
+            "Polybutylene",
+            "Unknown",
+            "Other"
         ], key="plumbing")
+
     with col2:
         roof_shape = st.selectbox("Roof Shape", [
-            "Gable", "Hip", "Flat", "Gambrel", "Mansard", "Other"
+            "Gable",
+            "Hip",
+            "Flat",
+            "Gambrel",
+            "Mansard",
+            "Other"
         ], key="roofshape")
+
         swimming_pool = st.selectbox("Swimming Pool", [
-            "No Pool", "Above Ground - Fenced", "Above Ground - Unfenced",
-            "In Ground - Fenced", "In Ground - Unfenced"
+            "No Pool",
+            "Above Ground - Fenced",
+            "Above Ground - Unfenced",
+            "In Ground - Fenced",
+            "In Ground - Unfenced"
         ], key="pool")
 
         if swimming_pool != "No Pool":
             pool_accessories = st.selectbox("Pool Accessories", [
-                "None", "Slide only", "Diving board only",
+                "None",
+                "Slide only",
+                "Diving board only",
                 "Both slide and diving board"
             ], key="poolacc")
         else:
             pool_accessories = "None"
 
-        if swimming_pool == "In Ground - Unfenced":
-            has_dogs = st.checkbox("Dogs on premises?", key="dogs")
-            if has_dogs:
-                aggressive_breed = st.checkbox(
-                    "Aggressive breed present?",
-                    help=(
-                        "Aggressive breeds typically include: Pit Bull, American Bulldog, "
-                        "Presa Canario, Cane Corso, Dogo Argentino (Gull Dong), Tosa Inu, "
-                        "Fila Brasileiro, American Bandogge, Belgian Shepherd, German Shepherd, "
-                        "Beauceron, Akita, Doberman Pinscher, Chow Chow, Rottweiler, Wolf Hybrid."
-                    ),
-                    key="aggressive"
-                )
-            else:
-                aggressive_breed = False
-        else:
-            has_dogs = False
-            aggressive_breed = False
-
-        solar_panels = st.toggle("Solar Panels", key="solar",
-            help="Does the property have solar panels installed?")
+        solar_panels = st.toggle(
+            "Solar Panels",
+            key="solar",
+            help="Does the property have solar panels installed?"
+        )
 
     st.divider()
 
-    submitted = st.button("Check Carrier Eligibility", type="primary",
-                          use_container_width=True, key="submit")
+    submitted = st.button(
+        "Check Carrier Eligibility",
+        type="primary",
+        use_container_width=True,
+        key="submit"
+    )
 
+    # --- OUTPUT ---
     if submitted:
         coastal_clean = coastal_tier.split(" - ")[0]
+
         property_details = {
             "year_built": year_built,
             "roof_age": roof_age,
@@ -148,10 +198,10 @@ with tab1:
             "construction_type": construction_type,
             "plumbing_type": plumbing_type,
             "occupancy_type": occupancy_type,
+            "ownership_type": ownership_type,
             "coastal_tier": coastal_clean,
             "swimming_pool": swimming_pool,
             "pool_accessories": pool_accessories,
-            "ownership_type": ownership_type,
             "has_dogs": "Yes" if has_dogs else "No",
             "aggressive_breed": "Yes" if aggressive_breed else "No",
             "solar_panels": "Yes" if solar_panels else "No",
@@ -179,8 +229,6 @@ with tab1:
             )
         ]
 
-        col_yes, col_one, col_no = st.columns(3)
-
         def render_carrier(carrier):
             if carrier.get("reasons"):
                 st.markdown("**Analysis**")
@@ -197,6 +245,8 @@ with tab1:
                 st.markdown("**Missing Information**")
                 for item in carrier["missing_info"]:
                     st.markdown("- " + item)
+
+        col_yes, col_one, col_no = st.columns(3)
 
         with col_yes:
             st.markdown("### Eligible")
@@ -291,7 +341,6 @@ with tab2:
             help="This name will appear in eligibility results"
         )
 
-        detected_lob = ""
         name_upper = carrier_name.upper()
         if "DP3" in name_upper:
             detected_lob = "DP3"
