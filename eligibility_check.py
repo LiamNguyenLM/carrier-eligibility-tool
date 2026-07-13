@@ -218,7 +218,7 @@ Output guidelines:
 - List all missing information needed to make a final determination
 - Use the notes field for important coverage distinctions like replacement cost vs ACV
 - Do not invent rules not found in the documents
-- Only include carriers that appear in the provided documents
+- You MUST include every single carrier that appears in the provided documents. Never skip or omit a carrier. If you cannot determine eligibility for a carrier from the provided excerpts, use status INSUFFICIENT_INFORMATION. All carriers in the context above must appear in your response.
 - Return ONLY the JSON array, no other text
 """
 
