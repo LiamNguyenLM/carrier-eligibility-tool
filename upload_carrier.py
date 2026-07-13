@@ -50,11 +50,16 @@ def add_carrier_to_database(pdf_bytes, carrier_name):
         chunk.metadata["lob"] = lob
         chunk.metadata["state"] = "TX"
 
+    import gc
     vectorstore = get_vectorstore()
-    vectorstore.add_documents(chunks)
+
+    batch_size = 50
+    for i in range(0, len(chunks), batch_size):
+        batch = chunks[i:i + batch_size]
+        vectorstore.add_documents(batch)
+        gc.collect()
 
     return len(chunks), None
-
 
 def remove_carrier_from_database(carrier_name):
     vectorstore = get_vectorstore()
