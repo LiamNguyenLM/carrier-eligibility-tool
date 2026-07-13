@@ -13,6 +13,8 @@ def detect_lob_from_name(carrier_name):
         return "HOA"
     if "HOB" in name:
         return "HOB"
+     if "HO6" in name or "HO-6" in name:
+        return "HO6"
     if "HO3" in name or "HO-3" in name or "HOMEOWNERS" in name:
         return "HO3"
     return "Unknown"
