@@ -23,58 +23,7 @@ st.set_page_config(
     layout="wide"
 )
 
-
-# ============================================================
-# LOGIN
-# ============================================================
-def get_role(password):
-    user_pwd = os.environ.get("USER_PASSWORD", "").strip()
-    admin_pwd = os.environ.get("ADMIN_PASSWORD", "").strip()
-
-    st.caption(f"Debug — user_pwd loaded: {len(user_pwd)} chars | admin_pwd loaded: {len(admin_pwd)} chars | entered: {len(password.strip())} chars")
-
-    if admin_pwd and password.strip() == admin_pwd:
-        return "admin"
-    elif user_pwd and password.strip() == user_pwd:
-        return "user"
-    return None
-
-
-if "role" not in st.session_state:
-    st.session_state.role = None
-
-if st.session_state.role is None:
-    st.title("🏠 Carrier Eligibility Tool")
-    st.markdown("---")
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.subheader("Sign In")
-        password = st.text_input("Password", type="password", key="login_pw")
-        if st.button("Log In", type="primary", use_container_width=True):
-            role = get_role(password)
-            if role:
-                st.session_state.role = role
-                st.rerun()
-            else:
-                st.error("Incorrect password. Please try again.")
-    st.stop()
-
-
-# ============================================================
-# LOGGED IN — SHOW APP
-# ============================================================
-with st.sidebar:
-    st.markdown("**Carrier Eligibility Tool**")
-    st.caption("Role: " + st.session_state.role.capitalize())
-    if st.button("Log Out", use_container_width=True):
-        st.session_state.role = None
-        st.rerun()
-
-if st.session_state.role == "admin":
-    tab1, tab2 = st.tabs(["Eligibility Check", "Manage Carriers"])
-else:
-    tab1 = st.tabs(["Eligibility Check"])[0]
-    tab2 = None
+tab1, tab2 = st.tabs(["Eligibility Check", "Manage Carriers"])
 
 
 # ============================================================
@@ -275,82 +224,81 @@ with tab1:
 
 
 # ============================================================
-# TAB 2: MANAGE CARRIERS (ADMIN ONLY)
+# TAB 2: MANAGE CARRIERS
 # ============================================================
-if tab2 is not None:
-    with tab2:
-        st.title("Manage Carrier Documents")
+with tab2:
+    st.title("Manage Carrier Documents")
 
-        st.subheader("Current Carriers In Database")
-        try:
-            carriers = list_carriers_in_database()
-            if carriers:
-                for carrier in carriers:
-                    st.markdown("- " + carrier)
-            else:
-                st.info("No carriers found in database.")
-        except Exception as e:
-            st.warning("Could not load carrier list: " + str(e))
+    st.subheader("Current Carriers In Database")
+    try:
+        carriers = list_carriers_in_database()
+        if carriers:
+            for carrier in carriers:
+                st.markdown("- " + carrier)
+        else:
+            st.info("No carriers found in database.")
+    except Exception as e:
+        st.warning("Could not load carrier list: " + str(e))
 
-        st.divider()
+    st.divider()
 
-        st.subheader("Remove Carrier")
-        st.caption("Permanently removes all document sections for the selected carrier.")
-        try:
-            carriers_for_removal = list_carriers_in_database()
-            if carriers_for_removal:
-                carrier_to_remove = st.selectbox(
-                    "Select carrier to remove",
-                    carriers_for_removal,
-                    key="remove_select"
-                )
-                if st.button("Remove From Database", key="remove_btn"):
-                    with st.spinner("Removing " + carrier_to_remove + "..."):
-                        chunks_removed = remove_carrier_from_database(carrier_to_remove)
-                    if chunks_removed > 0:
-                        st.success(carrier_to_remove + " removed. " +
-                                   str(chunks_removed) + " sections deleted.")
-                    else:
-                        st.warning("No sections found for " + carrier_to_remove)
-            else:
-                st.info("No carriers in database to remove.")
-        except Exception as e:
-            st.warning("Could not load carriers for removal: " + str(e))
-
-        st.divider()
-
-        st.subheader("Upload New Carrier PDF")
-        st.caption("Line of business is detected automatically from the file name.")
-
-        uploaded_file = st.file_uploader("Select a carrier PDF",
-            type="pdf", help="Upload an underwriting guideline or appetite guide PDF")
-
-        if uploaded_file:
-            default_name = uploaded_file.name.replace(".pdf", "").replace(".PDF", "")
-            carrier_name = st.text_input("Carrier Name", value=default_name,
-                help="This name will appear in eligibility results")
-
-            name_upper = carrier_name.upper()
-            if "DP3" in name_upper:
-                detected_lob = "DP3"
-            elif "HOA" in name_upper:
-                detected_lob = "HOA"
-            elif "HOB" in name_upper:
-                detected_lob = "HOB"
-            elif "HO3" in name_upper or "HOMEOWNERS" in name_upper:
-                detected_lob = "HO3"
-            else:
-                detected_lob = "Unknown"
-
-            st.caption("Detected line of business: **" + detected_lob + "**")
-
-            if st.button("Process and Add to Database", type="primary", key="upload_btn"):
-                with st.spinner("Processing PDF and updating database..."):
-                    pdf_bytes = uploaded_file.read()
-                    chunks_added, error = add_carrier_to_database(pdf_bytes, carrier_name)
-                if error:
-                    st.error("Error processing PDF: " + error)
+    st.subheader("Remove Carrier")
+    st.caption("Permanently removes all document sections for the selected carrier.")
+    try:
+        carriers_for_removal = list_carriers_in_database()
+        if carriers_for_removal:
+            carrier_to_remove = st.selectbox(
+                "Select carrier to remove",
+                carriers_for_removal,
+                key="remove_select"
+            )
+            if st.button("Remove From Database", key="remove_btn"):
+                with st.spinner("Removing " + carrier_to_remove + "..."):
+                    chunks_removed = remove_carrier_from_database(carrier_to_remove)
+                if chunks_removed > 0:
+                    st.success(carrier_to_remove + " removed. " +
+                               str(chunks_removed) + " sections deleted.")
                 else:
-                    st.success(carrier_name + " added successfully. " +
-                               str(chunks_added) + " searchable sections created.")
-                    st.info("Switch to the Eligibility Check tab to use it.")
+                    st.warning("No sections found for " + carrier_to_remove)
+        else:
+            st.info("No carriers in database to remove.")
+    except Exception as e:
+        st.warning("Could not load carriers for removal: " + str(e))
+
+    st.divider()
+
+    st.subheader("Upload New Carrier PDF")
+    st.caption("Line of business is detected automatically from the file name.")
+
+    uploaded_file = st.file_uploader("Select a carrier PDF",
+        type="pdf", help="Upload an underwriting guideline or appetite guide PDF")
+
+    if uploaded_file:
+        default_name = uploaded_file.name.replace(".pdf", "").replace(".PDF", "")
+        carrier_name = st.text_input("Carrier Name", value=default_name,
+            help="This name will appear in eligibility results")
+
+        name_upper = carrier_name.upper()
+        if "DP3" in name_upper:
+            detected_lob = "DP3"
+        elif "HOA" in name_upper:
+            detected_lob = "HOA"
+        elif "HOB" in name_upper:
+            detected_lob = "HOB"
+        elif "HO3" in name_upper or "HOMEOWNERS" in name_upper:
+            detected_lob = "HO3"
+        else:
+            detected_lob = "Unknown"
+
+        st.caption("Detected line of business: **" + detected_lob + "**")
+
+        if st.button("Process and Add to Database", type="primary", key="upload_btn"):
+            with st.spinner("Processing PDF and updating database..."):
+                pdf_bytes = uploaded_file.read()
+                chunks_added, error = add_carrier_to_database(pdf_bytes, carrier_name)
+            if error:
+                st.error("Error processing PDF: " + error)
+            else:
+                st.success(carrier_name + " added successfully. " +
+                           str(chunks_added) + " searchable sections created.")
+                st.info("Switch to the Eligibility Check tab to use it.")
