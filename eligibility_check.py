@@ -18,7 +18,7 @@ from shared_resources import get_embeddings, get_vectorstore
 
 @st.cache_resource
 def load_retriever():
-    return get_vectorstore().as_retriever(search_kwargs={"k": 15})
+    return get_vectorstore().as_retriever(search_kwargs={"k": 10})
 
 
 retriever = load_retriever()
@@ -31,10 +31,35 @@ def is_eligibility_content(chunk):
         return False
     if "additional amount of insurance" in content and "lock replacement" in content:
         return False
+    if "paved driveway at least 12 feet" in content and "firefighting apparatus" in content:
+        return False
     return True
 
 
+def get_carriers_for_occupancy(occupancy):
+    vectorstore = get_vectorstore()
+    collection = vectorstore._collection
+    results = collection.get(include=["metadatas"])
+    all_carriers = set()
+    for m in results["metadatas"]:
+        if "carrier" in m:
+            all_carriers.add(m["carrier"])
+
+    relevant = []
+    for carrier in sorted(all_carriers):
+        upper = carrier.upper()
+        is_ho3 = "HO3" in upper or "HOMEOWNERS" in upper or "HO6" in upper
+        is_dp3 = "DP3" in upper
+        if occupancy == "Owner Occupied" and is_dp3:
+            continue
+        if occupancy != "Owner Occupied" and is_ho3:
+            continue
+        relevant.append(carrier)
+    return relevant
+
+
 def check_eligibility(property_details):
+    occupancy = property_details['occupancy_type']
 
     query = f"""
     homeowners insurance eligibility requirements:
@@ -45,7 +70,7 @@ def check_eligibility(property_details):
     roof shape {property_details['roof_shape']}
     construction type {property_details['construction_type']}
     plumbing type {property_details['plumbing_type']}
-    occupancy {property_details['occupancy_type']}
+    occupancy {occupancy}
     ownership {property_details.get('ownership_type', 'Individual Owner')}
     coastal {property_details['coastal_tier']}
     swimming pool {property_details['swimming_pool']}
@@ -56,8 +81,24 @@ def check_eligibility(property_details):
     PPC {property_details['ppc']}
     """
 
-    chunks = retriever.invoke(query)
-    chunks = [c for c in chunks if is_eligibility_content(c)]
+    relevant_carriers = get_carriers_for_occupancy(occupancy)
+    vectorstore = get_vectorstore()
+
+    seen = set()
+    chunks = []
+
+    for carrier in relevant_carriers:
+        try:
+            car_chunks = vectorstore.similarity_search(
+                query, k=3, filter={"carrier": carrier}
+            )
+            car_chunks = [c for c in car_chunks if is_eligibility_content(c)]
+            for chunk in car_chunks:
+                if chunk.page_content not in seen:
+                    seen.add(chunk.page_content)
+                    chunks.append(chunk)
+        except Exception:
+            continue
 
     risk_factors = []
 
@@ -82,34 +123,34 @@ def check_eligibility(property_details):
     if property_details.get('ownership_type') == 'Trust':
         risk_factors.append("trust owned property eligibility requirements named insured grantor")
 
-    risk_factors.append(f"{property_details['roof_type']} roof {property_details['roof_age']} years old eligibility requirements")
-    if property_details['swimming_pool'] != 'No Pool':
-        risk_factors.append(f"swimming pool {property_details['swimming_pool']} eligibility requirements fencing")
-    if property_details['solar_panels'] == 'Yes':
-        risk_factors.append("solar panels roof eligibility requirements")
-
-    if property_details['occupancy_type'] not in ['Owner Occupied']:
+    if occupancy not in ['Owner Occupied']:
         risk_factors.append("tenant occupied rental dwelling occupancy requirements")
         risk_factors.append("DP3 dwelling policy tenant rental occupancy eligibility")
         risk_factors.append("HO3 owner occupancy requirement restriction")
 
+    risk_factors.append(
+        f"{property_details['roof_type']} roof {property_details['roof_age']} years old eligibility requirements"
+    )
+    if property_details['swimming_pool'] != 'No Pool':
+        risk_factors.append(
+            f"swimming pool {property_details['swimming_pool']} eligibility requirements"
+        )
+    if property_details['solar_panels'] == 'Yes':
+        risk_factors.append("solar panels roof eligibility requirements")
+
     if risk_factors:
         risk_chunks = retriever.invoke(" ".join(risk_factors))
         risk_chunks = [c for c in risk_chunks if is_eligibility_content(c)]
-        seen = set()
-        combined = []
-        for chunk in chunks + risk_chunks:
+        for chunk in risk_chunks:
             if chunk.page_content not in seen:
                 seen.add(chunk.page_content)
-                combined.append(chunk)
-        chunks = combined
+                chunks.append(chunk)
 
     context = ""
     for chunk in chunks:
         context += f"\n--- {chunk.metadata.get('carrier', 'Unknown')} (page {chunk.metadata.get('page', '?')}) ---\n"
         context += chunk.page_content + "\n"
 
-    occupancy = property_details['occupancy_type']
     ownership = property_details.get('ownership_type', 'Individual Owner')
 
     prompt = f"""You are an insurance underwriting assistant for an independent Texas agency.
@@ -137,11 +178,11 @@ PPC Number: {property_details['ppc']}
 POLICY TYPE AND OCCUPANCY CONTEXT:
 - HO3 (Homeowners 3): Designed for owner-occupied properties. Not appropriate for tenant-occupied or rental properties. If occupancy is not owner-occupied, HO3 policies should be marked INELIGIBLE for occupancy reason.
 - DP3 (Dwelling Fire 3): Designed for non-owner-occupied properties including rentals and tenant-occupied dwellings. If occupancy is Tenant Occupied, DP3 policies should be evaluated normally and not excluded.
-- HOA / HOB: Condominium and unit-owner programs.
+- HOA / HOB / HO6: Condominium and unit-owner programs. HO6 is specifically for condo unit owners.
 - Current occupancy is: {occupancy}
 - Current ownership structure is: {ownership}
 - If Owner Occupied: Do NOT include DP3 carriers in your response at all. Exclude them entirely.
-- If Tenant Occupied or any non-owner occupancy: Do NOT include HO3 or HOMEOWNERS carriers in your response at all. Exclude them entirely. Only evaluate DP3, HOA, and HOB programs.
+- If Tenant Occupied or any non-owner occupancy: Do NOT include HO3 or HOMEOWNERS carriers in your response at all. Exclude them entirely. Only evaluate DP3, HOA, HOB, and HO6 programs.
 - If ownership is LLC: Most HO3 carriers do not accept LLC or business-owned properties. Flag as INELIGIBLE if carrier guidelines prohibit business ownership.
 - If ownership is Trust: Some carriers allow trust-owned properties if the grantor lives in the dwelling and is the named insured. The trust itself cannot be listed as named insured. Check guidelines carefully and flag any trust-specific requirements.
 - If ownership is Individual Owner: No additional restrictions from ownership structure.
@@ -183,7 +224,7 @@ Output guidelines:
 
     response = client.messages.create(
         model="claude-sonnet-4-5",
-        max_tokens=3000,
+        max_tokens=4000,
         messages=[{"role": "user", "content": prompt}]
     )
 
@@ -202,7 +243,6 @@ Output guidelines:
     try:
         parsed = json.loads(json_str)
 
-        occupancy = property_details.get('occupancy_type', 'Owner Occupied')
         filtered = []
         for r in parsed:
             name = r.get("carrier", "").upper()
