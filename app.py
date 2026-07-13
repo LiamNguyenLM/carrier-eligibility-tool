@@ -23,6 +23,39 @@ st.set_page_config(
     layout="wide"
 )
 
+
+# ============================================================
+# LOGIN
+# ============================================================
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.title("🏠 Carrier Eligibility Tool")
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.subheader("Sign In")
+        password = st.text_input("Password", type="password", key="login_pw")
+        if st.button("Log In", type="primary", use_container_width=True):
+            app_password = os.environ.get("APP_PASSWORD", "")
+            if app_password and password == app_password:
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("Incorrect password. Please try again.")
+    st.stop()
+
+
+# ============================================================
+# LOGGED IN — SHOW APP
+# ============================================================
+with st.sidebar:
+    st.markdown("**Carrier Eligibility Tool**")
+    if st.button("Log Out", use_container_width=True):
+        st.session_state.authenticated = False
+        st.rerun()
+
 tab1, tab2 = st.tabs(["Eligibility Check", "Manage Carriers"])
 
 
