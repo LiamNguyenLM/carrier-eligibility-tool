@@ -93,20 +93,72 @@ def _extract_page_blocks(page, table_settings=None):
     return blocks
 
 
-# A table chunk this large risks exceeding the embedding model's max
-# sequence length (FastEmbed's bge-small is BERT-based, typically capped
-# around 512 tokens / ~2000 chars) -- past that point the embedding
-# function may silently truncate it, which would defeat the point of
-# keeping it atomic. Not auto-split (that would reintroduce the original
-# bug); just flagged loudly so an oversized table gets noticed rather
-# than silently mis-embedded.
-TABLE_SIZE_WARNING_THRESHOLD = 2000
+# Rough point past which FastEmbed's underlying model (bge-small, BERT-
+# based, typically ~512 token max) may start truncating input before
+# creating the embedding -- meaning content past this point in a chunk
+# may not meaningfully affect what that chunk matches against in a
+# similarity search, even though the full text still reaches the LLM if
+# the chunk gets retrieved. Char-per-token ratio varies (table syntax with
+# lots of "|" and "---" is less token-efficient than prose), so these are
+# deliberately conservative, not exact.
+TABLE_SPLIT_THRESHOLD = 1800
+TABLE_SPLIT_TARGET_SIZE = 1200
+
+
+def _split_markdown_table(table_text, max_chars=TABLE_SPLIT_TARGET_SIZE):
+    """Split an oversized Markdown table into row-grouped pieces, each
+    small enough to be well-represented by the embedding model, with the
+    header + separator row repeated at the top of every piece.
+
+    Splitting by ROW GROUPS (not raw characters) is what makes this safe:
+    every row stays paired with its column headers in whichever piece it
+    lands in, so a PPC-9-specific row several groups deep in a large
+    table is still fully self-contained and interpretable on its own --
+    unlike the original character-based splitter, which could separate a
+    row from its header entirely.
+
+    Returns a list with the original text unchanged if the table isn't a
+    well-formed 2+ header-row Markdown grid, or if splitting wouldn't
+    actually produce more than one piece.
+    """
+    lines = table_text.split("\n")
+    if len(lines) < 3 or not lines[0].strip().startswith("|"):
+        return [table_text]  # not a table shape we recognize -- don't risk mangling it
+
+    header_line, separator_line = lines[0], lines[1]
+    data_lines = lines[2:]
+
+    prefix = header_line + "\n" + separator_line
+    prefix_len = len(prefix) + 1  # +1 for the newline before the first data row
+
+    groups = []
+    current_group = []
+    current_len = prefix_len
+
+    for row in data_lines:
+        row_len = len(row) + 1
+        if current_group and current_len + row_len > max_chars:
+            groups.append(current_group)
+            current_group = []
+            current_len = prefix_len
+        current_group.append(row)
+        current_len += row_len
+
+    if current_group:
+        groups.append(current_group)
+
+    if len(groups) <= 1:
+        return [table_text]  # no benefit to splitting -- keep as one chunk
+
+    return [prefix + "\n" + "\n".join(g) for g in groups]
 
 
 def chunk_documents(pages, splitter):
     """Chunk a list of page-level Documents (from load_pdf_as_documents),
-    splitting prose normally but keeping every table Document as a single
-    atomic chunk, however large. Use this INSTEAD of calling
+    splitting prose normally, and splitting tables by ROW GROUPS (never
+    mid-row) only if they're large enough to risk exceeding the embedding
+    model's effective window -- small tables stay as one atomic chunk
+    exactly as before. Use this INSTEAD of calling
     splitter.split_documents(pages) directly, in both upload_carrier.py
     and load_docs.py, so both ingestion paths get this fix consistently.
     """
@@ -116,15 +168,34 @@ def chunk_documents(pages, splitter):
     chunks = splitter.split_documents(prose_docs) if prose_docs else []
 
     for doc in table_docs:
-        if len(doc.page_content) > TABLE_SIZE_WARNING_THRESHOLD:
+        if len(doc.page_content) <= TABLE_SPLIT_THRESHOLD:
+            chunks.append(doc)
+            continue
+
+        pieces = _split_markdown_table(doc.page_content)
+
+        if len(pieces) > 1:
+            print(
+                f"INFO: table on page {doc.metadata.get('page')} "
+                f"({doc.metadata.get('carrier', doc.metadata.get('source_file', '?'))}) "
+                f"was {len(doc.page_content)} chars -- split into {len(pieces)} "
+                f"row-grouped pieces (header repeated in each)."
+            )
+            for piece in pieces:
+                chunks.append(Document(page_content=piece, metadata=dict(doc.metadata)))
+        else:
+            # Couldn't usefully split (e.g. one row alone exceeds the
+            # target, or it wasn't a recognizable table shape) -- keep it
+            # atomic as before rather than risk mangling it, but still
+            # flag it since it's genuinely at risk of truncation.
             print(
                 f"WARNING: table on page {doc.metadata.get('page')} "
                 f"({doc.metadata.get('carrier', doc.metadata.get('source_file', '?'))}) "
-                f"is {len(doc.page_content)} chars -- may exceed the embedding "
-                f"model's max sequence length and get silently truncated. "
-                f"Consider manually reviewing this table."
+                f"is {len(doc.page_content)} chars and could not be usefully "
+                f"row-split -- keeping as one chunk. Consider manually reviewing "
+                f"this table."
             )
-        chunks.append(doc)
+            chunks.append(doc)
 
     return chunks
 
