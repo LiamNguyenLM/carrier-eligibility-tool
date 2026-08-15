@@ -2,9 +2,13 @@ anthropic
 langchain
 langchain-community
 langchain-anthropic
+langchain-text-splitters
 chromadb
 fastembed
 streamlit
-pypdf
+pdfplumber
 python-dotenv
 cryptography
+gspread
+google-auth
+requests

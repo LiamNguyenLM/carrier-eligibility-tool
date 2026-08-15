@@ -1,8 +1,11 @@
 import tempfile
 import os
-from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import Chroma
+import gc
+
 from shared_resources import get_embeddings, get_vectorstore, DB_FOLDER
+from pdf_extraction import load_pdf_as_documents
 
 
 def detect_lob_from_name(carrier_name):
@@ -28,8 +31,11 @@ def add_carrier_to_database(pdf_bytes, carrier_name):
         tmp_path = tmp.name
 
     try:
-        loader = PyPDFLoader(tmp_path)
-        pages = loader.load()
+        # CHANGED: table-aware extraction (pdfplumber) instead of PyPDFLoader.
+        # Underwriting matrices (roof age x roof type, etc.) survive as
+        # Markdown tables instead of getting chopped into meaningless
+        # fragments. See pdf_extraction.py for details.
+        pages = load_pdf_as_documents(tmp_path)
     except Exception as e:
         os.unlink(tmp_path)
         return 0, str(e)
@@ -44,7 +50,7 @@ def add_carrier_to_database(pdf_bytes, carrier_name):
 
     chunks = [c for c in chunks if c.page_content.strip() and len(c.page_content.strip()) > 20]
     if not chunks:
-        return 0, "No readable text found in this PDF. It may be a scanned document. Please convert it using an OCR tool first."
+        return 0, "No readable text found in this PDF. It may be a scanned document. Please convert it using an OCR tool first (ilovepdf.com/ocr-pdf)."
 
     for chunk in chunks:
         chunk.metadata["carrier"] = carrier_name
@@ -52,7 +58,6 @@ def add_carrier_to_database(pdf_bytes, carrier_name):
         chunk.metadata["lob"] = lob
         chunk.metadata["state"] = "TX"
 
-    import gc
     vectorstore = get_vectorstore()
 
     batch_size = 50
@@ -62,6 +67,7 @@ def add_carrier_to_database(pdf_bytes, carrier_name):
         gc.collect()
 
     return len(chunks), None
+
 
 def remove_carrier_from_database(carrier_name):
     vectorstore = get_vectorstore()

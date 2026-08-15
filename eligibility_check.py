@@ -25,6 +25,67 @@ retriever = load_retriever()
 client = anthropic.Anthropic()
 
 
+# CHANGED: split out into a module-level constant so the exact same bytes
+# are sent as the `system` block on every call -- required for prompt
+# caching to actually hit. Anything that varies per property (occupancy,
+# ownership, the retrieved carrier excerpts) stays OUT of this block and
+# goes in the per-call user message instead, further down.
+#
+# NOTE: Anthropic enforces a minimum token count before a cached block is
+# actually eligible for caching (it's been 1024 tokens for Sonnet-class
+# models, higher for Haiku, as of last time I checked -- verify current
+# minimums at https://docs.claude.com/en/docs/build-with-claude/prompt-caching
+# since this may have changed). This block runs a bit under that on its own.
+# If cache_read_input_tokens stays at 0 in testing (see the print statement
+# below), the block is too short to cache -- that's an easy thing to verify
+# once you're running real queries, not a reason to hold off shipping this.
+SYSTEM_INSTRUCTIONS = """You are an insurance underwriting assistant for an independent Texas agency.
+
+Using ONLY the carrier documents provided in the user message, analyze the property for each carrier.
+
+POLICY TYPE AND OCCUPANCY CONTEXT:
+- HO3 (Homeowners 3): Designed for owner-occupied properties. Not appropriate for tenant-occupied or rental properties. If occupancy is not owner-occupied, HO3 policies should be marked INELIGIBLE for occupancy reason.
+- DP3 (Dwelling Fire 3): Designed for non-owner-occupied properties including rentals and tenant-occupied dwellings. If occupancy is Tenant Occupied, DP3 policies should be evaluated normally and not excluded.
+- HOA / HOB / HO6: Condominium and unit-owner programs. HO6 is specifically for condo unit owners.
+- If the property's Occupancy Type (given in PROPERTY DETAILS below) is Owner Occupied: Do NOT include DP3 carriers in your response at all. Exclude them entirely.
+- If the property's Occupancy Type is Tenant Occupied or any non-owner occupancy: Do NOT include HO3 or HOMEOWNERS carriers in your response at all. Exclude them entirely. Only evaluate DP3, HOA, HOB, and HO6 programs.
+- If Ownership Structure is LLC: Most HO3 carriers do not accept LLC or business-owned properties. Flag as INELIGIBLE if carrier guidelines prohibit business ownership.
+- If Ownership Structure is Trust: Some carriers allow trust-owned properties if the grantor lives in the dwelling and is the named insured. The trust itself cannot be listed as named insured. Check guidelines carefully and flag any trust-specific requirements.
+- If Ownership Structure is Individual Owner: No additional restrictions from ownership structure.
+
+Return ONLY a JSON array with no text before or after it.
+Each object must follow this exact structure:
+
+[
+  {
+    "carrier": "carrier name from document",
+    "status": "ELIGIBLE",
+    "reasons": ["reason 1", "reason 2"],
+    "citations": ["carrier name: exact short quote from document"],
+    "missing_info": ["item needed for final determination"],
+    "notes": "any important coverage distinctions such as RCV vs ACV",
+    "flaw_count": 0
+  }
+]
+
+Status must be exactly one of: ELIGIBLE, INELIGIBLE, REFER, INSUFFICIENT_INFORMATION
+flaw_count rules:
+- ELIGIBLE: always 0
+- INELIGIBLE: count the number of distinct ineligibility factors found
+- REFER: always 0
+- INSUFFICIENT_INFORMATION: always 0
+
+Output guidelines:
+- Provide 2 to 4 analysis points in reasons covering key property characteristics
+- Include 1 to 2 citations with enough context to identify where the rule appears
+- List all missing information needed to make a final determination
+- Use the notes field for important coverage distinctions like replacement cost vs ACV
+- Do not invent rules not found in the documents
+- You MUST include every single carrier that appears in the provided documents. Never skip or omit a carrier. If you cannot determine eligibility for a carrier from the provided excerpts, use status INSUFFICIENT_INFORMATION. All carriers in the context above must appear in your response.
+- Return ONLY the JSON array, no other text
+"""
+
+
 def is_eligibility_content(chunk):
     content = chunk.page_content.lower()
     if "accredited builder" in content and "burglary prevention" in content:
@@ -153,11 +214,10 @@ def check_eligibility(property_details):
 
     ownership = property_details.get('ownership_type', 'Individual Owner')
 
-    prompt = f"""You are an insurance underwriting assistant for an independent Texas agency.
-
-Using ONLY the carrier documents provided below, analyze this property for each carrier.
-
-PROPERTY DETAILS:
+    # CHANGED: this is now just the dynamic per-property content. The
+    # instructions/schema/output-format text that used to live in this
+    # same f-string moved to SYSTEM_INSTRUCTIONS above so it can be cached.
+    user_content = f"""PROPERTY DETAILS:
 State: TX
 Year Built: {property_details['year_built']}
 Roof Age: {property_details['roof_age']} years
@@ -175,58 +235,37 @@ Aggressive Breed Dogs: {property_details['aggressive_breed']}
 Solar Panels: {property_details['solar_panels']}
 PPC Number: {property_details['ppc']}
 
-POLICY TYPE AND OCCUPANCY CONTEXT:
-- HO3 (Homeowners 3): Designed for owner-occupied properties. Not appropriate for tenant-occupied or rental properties. If occupancy is not owner-occupied, HO3 policies should be marked INELIGIBLE for occupancy reason.
-- DP3 (Dwelling Fire 3): Designed for non-owner-occupied properties including rentals and tenant-occupied dwellings. If occupancy is Tenant Occupied, DP3 policies should be evaluated normally and not excluded.
-- HOA / HOB / HO6: Condominium and unit-owner programs. HO6 is specifically for condo unit owners.
-- Current occupancy is: {occupancy}
-- Current ownership structure is: {ownership}
-- If Owner Occupied: Do NOT include DP3 carriers in your response at all. Exclude them entirely.
-- If Tenant Occupied or any non-owner occupancy: Do NOT include HO3 or HOMEOWNERS carriers in your response at all. Exclude them entirely. Only evaluate DP3, HOA, HOB, and HO6 programs.
-- If ownership is LLC: Most HO3 carriers do not accept LLC or business-owned properties. Flag as INELIGIBLE if carrier guidelines prohibit business ownership.
-- If ownership is Trust: Some carriers allow trust-owned properties if the grantor lives in the dwelling and is the named insured. The trust itself cannot be listed as named insured. Check guidelines carefully and flag any trust-specific requirements.
-- If ownership is Individual Owner: No additional restrictions from ownership structure.
-
 CARRIER DOCUMENTS:
 {context}
-
-Return ONLY a JSON array with no text before or after it.
-Each object must follow this exact structure:
-
-[
-  {{
-    "carrier": "carrier name from document",
-    "status": "ELIGIBLE",
-    "reasons": ["reason 1", "reason 2"],
-    "citations": ["carrier name: exact short quote from document"],
-    "missing_info": ["item needed for final determination"],
-    "notes": "any important coverage distinctions such as RCV vs ACV",
-    "flaw_count": 0
-  }}
-]
-
-Status must be exactly one of: ELIGIBLE, INELIGIBLE, REFER, INSUFFICIENT_INFORMATION
-flaw_count rules:
-- ELIGIBLE: always 0
-- INELIGIBLE: count the number of distinct ineligibility factors found
-- REFER: always 0
-- INSUFFICIENT_INFORMATION: always 0
-
-Output guidelines:
-- Provide 2 to 4 analysis points in reasons covering key property characteristics
-- Include 1 to 2 citations with enough context to identify where the rule appears
-- List all missing information needed to make a final determination
-- Use the notes field for important coverage distinctions like replacement cost vs ACV
-- Do not invent rules not found in the documents
-- You MUST include every single carrier that appears in the provided documents. Never skip or omit a carrier. If you cannot determine eligibility for a carrier from the provided excerpts, use status INSUFFICIENT_INFORMATION. All carriers in the context above must appear in your response.
-- Return ONLY the JSON array, no other text
 """
 
     response = client.messages.create(
         model="claude-sonnet-4-5",
-        max_tokens=8000,
-        messages=[{"role": "user", "content": prompt}]
+        max_tokens=12000,
+        system=[
+            {
+                "type": "text",
+                "text": SYSTEM_INSTRUCTIONS,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
+        messages=[{"role": "user", "content": user_content}],
     )
+
+    # CHANGED: cache visibility. cache_read_input_tokens > 0 means this call
+    # got a cache hit; cache_creation_input_tokens > 0 means this call just
+    # wrote the cache (normal on the first call, or after the ~5 min TTL
+    # lapses between checks).
+    usage = getattr(response, "usage", None)
+    if usage is not None:
+        print(
+            "Cache: read=%s created=%s input=%s"
+            % (
+                getattr(usage, "cache_read_input_tokens", "n/a"),
+                getattr(usage, "cache_creation_input_tokens", "n/a"),
+                getattr(usage, "input_tokens", "n/a"),
+            )
+        )
 
     raw = response.content[0].text.strip()
 
@@ -271,26 +310,3 @@ Output guidelines:
             "notes": "",
             "flaw_count": 0
         }]
-
-
-if __name__ == "__main__":
-    test_property = {
-        "year_built": 2009,
-        "roof_age": 6,
-        "roof_type": "Architectural Shingle",
-        "roof_shape": "Gable",
-        "construction_type": "Frame",
-        "plumbing_type": "PVC",
-        "occupancy_type": "Owner Occupied",
-        "ownership_type": "Individual Owner",
-        "coastal_tier": "Not Coastal",
-        "swimming_pool": "In Ground - Fenced",
-        "pool_accessories": "Slide only",
-        "has_dogs": "No",
-        "aggressive_breed": "No",
-        "solar_panels": "Yes",
-        "ppc": "2"
-    }
-    results = check_eligibility(test_property)
-    for r in results:
-        print(r["carrier"], "-", r["status"], "- flaws:", r.get("flaw_count", 0))

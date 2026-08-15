@@ -12,6 +12,8 @@ test_db/
 carrier_docs/
 Carrier_Eligibility_PDFs/
 carrier_docs_db/
+!carrier_docs_db_seed/
+!carrier_docs_db_seed/**
 
 # Python cache
 __pycache__/

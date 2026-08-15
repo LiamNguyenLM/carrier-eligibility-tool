@@ -1,14 +1,20 @@
+# Used to initially build the database from local PDFs. Run once.
+# (Or re-run into a fresh DB_FOLDER to rebuild after this pdfplumber upgrade
+#  -- see the migration notes in the accompanying README.)
+
 from dotenv import load_dotenv
 load_dotenv()
 
-from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_community.vectorstores import Chroma
 import os
 
+from pdf_extraction import load_pdf_as_documents
+
 PDF_FOLDER = "Carrier_Eligibility_PDFs"
-DB_FOLDER = "./carrier_docs_db"
+DB_FOLDER = "./carrier_docs_db"  # point this at a fresh folder (e.g. ./carrier_docs_db_v2) to re-index without overwriting the live DB
+
 
 def detect_lob(filename):
     name = filename.upper()
@@ -18,9 +24,12 @@ def detect_lob(filename):
         return "HOA"
     if "HOB" in name:
         return "HOB"
+    if "HO6" in name or "HO-6" in name:
+        return "HO6"
     if "HO3" in name or "HO-3" in name or "HOMEOWNERS" in name:
         return "HO3"
     return "Unknown"
+
 
 print("Looking for PDFs...")
 pdf_files = [f for f in os.listdir(PDF_FOLDER) if f.lower().endswith(".pdf")]
@@ -37,14 +46,15 @@ for pdf_file in pdf_files:
     print("Processing: " + pdf_file)
 
     try:
-        loader = PyPDFLoader(os.path.join(PDF_FOLDER, pdf_file))
-        pages = loader.load()
+        # CHANGED: table-aware extraction (pdfplumber) instead of PyPDFLoader.
+        pages = load_pdf_as_documents(os.path.join(PDF_FOLDER, pdf_file))
         print("  Loaded " + str(len(pages)) + " pages")
     except Exception as e:
         print("  ERROR loading " + pdf_file + ": " + str(e))
         continue
 
     chunks = splitter.split_documents(pages)
+    chunks = [c for c in chunks if c.page_content.strip() and len(c.page_content.strip()) > 20]
     print("  Created " + str(len(chunks)) + " chunks")
 
     carrier_name = pdf_file.replace(".pdf", "").replace(".PDF", "")
