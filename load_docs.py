@@ -10,7 +10,7 @@ from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_community.vectorstores import Chroma
 import os
 
-from pdf_extraction import load_pdf_as_documents
+from pdf_extraction import load_pdf_as_documents, chunk_documents
 
 PDF_FOLDER = "Carrier_Eligibility_PDFs"
 DB_FOLDER = "./carrier_docs_db"  # point this at a fresh folder (e.g. ./carrier_docs_db_v2) to re-index without overwriting the live DB
@@ -53,7 +53,7 @@ for pdf_file in pdf_files:
         print("  ERROR loading " + pdf_file + ": " + str(e))
         continue
 
-    chunks = splitter.split_documents(pages)
+    chunks = chunk_documents(pages, splitter)
     chunks = [c for c in chunks if c.page_content.strip() and len(c.page_content.strip()) > 20]
     print("  Created " + str(len(chunks)) + " chunks")
 

@@ -5,7 +5,7 @@ from langchain_community.vectorstores import Chroma
 import gc
 
 from shared_resources import get_embeddings, get_vectorstore, DB_FOLDER
-from pdf_extraction import load_pdf_as_documents
+from pdf_extraction import load_pdf_as_documents, chunk_documents
 
 
 def detect_lob_from_name(carrier_name):
@@ -46,7 +46,7 @@ def add_carrier_to_database(pdf_bytes, carrier_name):
         chunk_size=500,
         chunk_overlap=75
     )
-    chunks = splitter.split_documents(pages)
+    chunks = chunk_documents(pages, splitter)
 
     chunks = [c for c in chunks if c.page_content.strip() and len(c.page_content.strip()) > 20]
     if not chunks:
