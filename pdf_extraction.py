@@ -46,6 +46,25 @@ def _table_to_markdown(table_data):
     return "\n".join(lines)
 
 
+def _is_full_page_bbox(bbox, page, tolerance=0.05):
+    """True if a detected table's bbox spans essentially the entire page.
+    pdfplumber's line-based detector can mistake a page border (or a stray
+    full-width rule) for table edges, producing a 1-column "table" whose
+    handful of "rows" are actually the whole page's content flattened into
+    a couple of giant cells. Diagnosed on all 4 Swyfft PDFs -- every page
+    had exactly one of these alongside the real, properly-bounded tables,
+    and its two-giant-cell shape is why _split_markdown_table() had only
+    one real data row to split and gave up ("could not be usefully
+    row-split")."""
+    x0, top, x1, bottom = bbox
+    return (
+        x0 <= tolerance * page.width
+        and top <= tolerance * page.height
+        and x1 >= (1 - tolerance) * page.width
+        and bottom >= (1 - tolerance) * page.height
+    )
+
+
 def _extract_page_blocks(page, table_settings=None):
     """Extract one page as a list of (text, is_table) tuples. Prose and
     table content are kept as SEPARATE blocks (rather than one merged
@@ -62,6 +81,7 @@ def _extract_page_blocks(page, table_settings=None):
     intact.
     """
     tables = page.find_tables(table_settings=table_settings) if table_settings else page.find_tables()
+    tables = [t for t in tables if not _is_full_page_bbox(t.bbox, page)]
     if not tables:
         text = page.extract_text() or ""
         return [(text, False)] if text.strip() else []

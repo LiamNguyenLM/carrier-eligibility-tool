@@ -3,8 +3,11 @@ load_dotenv()
 
 from langchain_community.vectorstores import Chroma
 import anthropic
+import difflib
 import json
 import os
+import re
+from datetime import date
 import streamlit as st
 
 try:
@@ -53,6 +56,10 @@ POLICY TYPE AND OCCUPANCY CONTEXT:
 - If Ownership Structure is Trust: Some carriers allow trust-owned properties if the grantor lives in the dwelling and is the named insured. The trust itself cannot be listed as named insured. Check guidelines carefully and flag any trust-specific requirements.
 - If Ownership Structure is Individual Owner: No additional restrictions from ownership structure.
 
+Use the Home Age value given in PROPERTY DETAILS as-is. It has already been computed from the current date -- do not re-derive it from Year Built yourself.
+
+If the user message includes a "CARRIERS WITH NO RETRIEVED INFORMATION" section, you MUST include every carrier listed there in your response with status INSUFFICIENT_INFORMATION, even though no excerpt for them appears in CARRIER DOCUMENTS.
+
 Return ONLY a JSON array with no text before or after it.
 Each object must follow this exact structure:
 
@@ -86,6 +93,27 @@ Output guidelines:
 """
 
 
+def _is_header_only_table(page_content):
+    """True if page_content is a Markdown table with a header + separator
+    row and NO data rows -- e.g. a repeated page-header banner ("| Texas
+    Homeowners | Eligibility Rules |") that pdfplumber's line-based table
+    detector mistakes for a real 1-row table. These carry zero eligibility
+    information, but their literal text (carrier name, "Homeowners",
+    "Eligibility") echoes the retrieval query closely enough to outrank
+    every real content chunk for that carrier -- diagnosed via
+    verification/diagnose_carrier.py against Allied Trust HO3, where 12
+    byte-identical copies of one such banner were the ONLY chunks the
+    carrier ever contributed to the prompt."""
+    lines = [l for l in page_content.strip().split("\n") if l.strip()]
+    if len(lines) != 2:
+        return False
+    header, separator = lines
+    sep = separator.strip()
+    if not header.strip().startswith("|") or not sep.startswith("|"):
+        return False
+    return all(ch in "|-: " for ch in sep)
+
+
 def is_eligibility_content(chunk):
     content = chunk.page_content.lower()
     if "accredited builder" in content and "burglary prevention" in content:
@@ -94,10 +122,12 @@ def is_eligibility_content(chunk):
         return False
     if "paved driveway at least 12 feet" in content and "firefighting apparatus" in content:
         return False
+    if _is_header_only_table(chunk.page_content):
+        return False
     return True
 
 
-def get_carriers_for_occupancy(occupancy):
+def get_all_carriers():
     vectorstore = get_vectorstore()
     collection = vectorstore._collection
     results = collection.get(include=["metadatas"])
@@ -105,12 +135,34 @@ def get_carriers_for_occupancy(occupancy):
     for m in results["metadatas"]:
         if "carrier" in m:
             all_carriers.add(m["carrier"])
+    return all_carriers
+
+
+def get_combined_program_carriers():
+    """Carriers whose filename bundles more than one program, e.g.
+    Foremost_DP3_and_HO3_-_07.01.2026.pdf. These must never be excluded
+    by the DP3/HO3 occupancy heuristic -- they're valid for both."""
+    combined = set()
+    for carrier in get_all_carriers():
+        upper = carrier.upper()
+        is_ho3 = "HO3" in upper or "HOMEOWNERS" in upper
+        is_dp3 = "DP3" in upper or "DP-3" in upper
+        if is_ho3 and is_dp3:
+            combined.add(carrier)
+    return combined
+
+
+def get_carriers_for_occupancy(occupancy):
+    combined = get_combined_program_carriers()
 
     relevant = []
-    for carrier in sorted(all_carriers):
+    for carrier in sorted(get_all_carriers()):
+        if carrier in combined:
+            relevant.append(carrier)
+            continue
         upper = carrier.upper()
         is_ho3 = "HO3" in upper or "HOMEOWNERS" in upper or "HO6" in upper
-        is_dp3 = "DP3" in upper
+        is_dp3 = "DP3" in upper or "DP-3" in upper
         if occupancy == "Owner Occupied" and is_dp3:
             continue
         if occupancy != "Owner Occupied" and is_ho3:
@@ -119,13 +171,17 @@ def get_carriers_for_occupancy(occupancy):
     return relevant
 
 
-def check_eligibility(property_details):
+def build_retrieval_query(property_details, home_age):
+    """The similarity-search query used for the per-carrier retrieval pass
+    in check_eligibility(). Factored out so verification/diagnose_carrier.py
+    can run the identical query against a single carrier -- duplicating
+    this inline would drift out of sync with the real prompt over time."""
     occupancy = property_details['occupancy_type']
-
-    query = f"""
+    return f"""
     homeowners insurance eligibility requirements:
     state TX
     year built {property_details['year_built']}
+    home age {home_age} years
     roof age {property_details['roof_age']} years
     roof type {property_details['roof_type']}
     roof shape {property_details['roof_shape']}
@@ -139,8 +195,31 @@ def check_eligibility(property_details):
     dogs on premises {property_details['has_dogs']}
     aggressive breed dogs {property_details['aggressive_breed']}
     solar panels {property_details['solar_panels']}
-    PPC {property_details['ppc']}
+    protection class PPC {property_details['ppc']}
     """
+
+
+# CHANGED: over-fetch past is_eligibility_content filtering. Filtering used
+# to run AFTER a k=3 search, so if the top 3 raw hits for a carrier were all
+# junk (e.g. duplicate page-header banners), the carrier got zero real
+# content with no fallback -- diagnosed against Allied Trust HO3 via
+# verification/diagnose_carrier.py, which had 12 byte-identical banner
+# chunks outranking all 582 real content chunks for every query. Fetching
+# wider and keeping only the first PER_CARRIER_KEEP survivors preserves the
+# original per-carrier chunk budget while giving filtering room to work.
+PER_CARRIER_FETCH_K = 15
+PER_CARRIER_KEEP = 3
+
+
+def check_eligibility(property_details):
+    occupancy = property_details['occupancy_type']
+
+    # CHANGED: home age computed here instead of leaving the model to infer
+    # the current year -- it was previously off by one year when the model
+    # assumed the wrong current year.
+    home_age = date.today().year - property_details['year_built']
+
+    query = build_retrieval_query(property_details, home_age)
 
     relevant_carriers = get_carriers_for_occupancy(occupancy)
     vectorstore = get_vectorstore()
@@ -151,9 +230,9 @@ def check_eligibility(property_details):
     for carrier in relevant_carriers:
         try:
             car_chunks = vectorstore.similarity_search(
-                query, k=3, filter={"carrier": carrier}
+                query, k=PER_CARRIER_FETCH_K, filter={"carrier": carrier}
             )
-            car_chunks = [c for c in car_chunks if is_eligibility_content(c)]
+            car_chunks = [c for c in car_chunks if is_eligibility_content(c)][:PER_CARRIER_KEEP]
             for chunk in car_chunks:
                 if chunk.page_content not in seen:
                     seen.add(chunk.page_content)
@@ -184,6 +263,11 @@ def check_eligibility(property_details):
     if property_details.get('ownership_type') == 'Trust':
         risk_factors.append("trust owned property eligibility requirements named insured grantor")
 
+    if property_details['ppc'] != 'N/A':
+        risk_factors.append(
+            f"protection class PPC {property_details['ppc']} fire district eligibility requirements"
+        )
+
     if occupancy not in ['Owner Occupied']:
         risk_factors.append("tenant occupied rental dwelling occupancy requirements")
         risk_factors.append("DP3 dwelling policy tenant rental occupancy eligibility")
@@ -212,6 +296,15 @@ def check_eligibility(property_details):
         context += f"\n--- {chunk.metadata.get('carrier', 'Unknown')} (page {chunk.metadata.get('page', '?')}) ---\n"
         context += chunk.page_content + "\n"
 
+    # CHANGED: carrier safety net. A carrier can pass the occupancy filter
+    # but still end up with zero chunks in `chunks` (e.g. retrieval just
+    # didn't surface anything relevant) -- without this, the model has no
+    # way to know the carrier was ever supposed to be evaluated, and would
+    # silently omit it from the response instead of reporting
+    # INSUFFICIENT_INFORMATION.
+    carriers_with_chunks = {chunk.metadata.get('carrier') for chunk in chunks}
+    no_chunk_carriers = [c for c in relevant_carriers if c not in carriers_with_chunks]
+
     ownership = property_details.get('ownership_type', 'Individual Owner')
 
     # CHANGED: this is now just the dynamic per-property content. The
@@ -220,6 +313,7 @@ def check_eligibility(property_details):
     user_content = f"""PROPERTY DETAILS:
 State: TX
 Year Built: {property_details['year_built']}
+Home Age: {home_age} years
 Roof Age: {property_details['roof_age']} years
 Roof Type: {property_details['roof_type']}
 Roof Shape: {property_details['roof_shape']}
@@ -239,9 +333,15 @@ CARRIER DOCUMENTS:
 {context}
 """
 
+    if no_chunk_carriers:
+        user_content += "\nCARRIERS WITH NO RETRIEVED INFORMATION:\n"
+        user_content += "\n".join(f"- {c}" for c in no_chunk_carriers)
+        user_content += "\n"
+
     response = client.messages.create(
         model="claude-sonnet-4-5",
         max_tokens=12000,
+        temperature=0,
         system=[
             {
                 "type": "text",
@@ -282,9 +382,29 @@ CARRIER DOCUMENTS:
     try:
         parsed = json.loads(json_str)
 
+        # CHANGED: the model's own restated carrier name can drop a token
+        # from an ambiguous combined-program name (e.g. return "Foremost"
+        # instead of "Foremost DP3 and HO3"), which would make the naive
+        # DP3/HO3 substring check below wrongly exclude it. Trust a fuzzy
+        # match against the known combined-program carriers (derived from
+        # the reliable raw metadata name) before applying that heuristic.
+        combined_carriers = get_combined_program_carriers()
+        combined_brands = {
+            re.split(r"[\s_\-]+", c)[0].upper() for c in combined_carriers if c
+        }
+        combined_upper = [c.upper() for c in combined_carriers]
+
+        def is_combined_program(name_upper):
+            if any(brand in name_upper for brand in combined_brands if brand):
+                return True
+            return bool(difflib.get_close_matches(name_upper, combined_upper, n=1, cutoff=0.3))
+
         filtered = []
         for r in parsed:
             name = r.get("carrier", "").upper()
+            if is_combined_program(name):
+                filtered.append(r)
+                continue
             is_ho3 = "HO3" in name or "HOMEOWNERS" in name
             is_dp3 = "DP3" in name or "DP-3" in name
             if occupancy != "Owner Occupied" and is_ho3:
