@@ -11,6 +11,11 @@ from datetime import date
 import streamlit as st
 
 try:
+    from langchain_core.documents import Document
+except ImportError:
+    from langchain.schema import Document
+
+try:
     if "ANTHROPIC_API_KEY" in st.secrets:
         os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
 except Exception:
@@ -59,6 +64,8 @@ POLICY TYPE AND OCCUPANCY CONTEXT:
 Use the Home Age value given in PROPERTY DETAILS as-is. It has already been computed from the current date -- do not re-derive it from Year Built yourself.
 
 If the user message includes a "CARRIERS WITH NO RETRIEVED INFORMATION" section, you MUST include every carrier listed there in your response with status INSUFFICIENT_INFORMATION, even though no excerpt for them appears in CARRIER DOCUMENTS.
+
+Do not decline a carrier over a fact that ISN'T given in PROPERTY DETAILS (e.g. county, driving distance to the nearest fire station, wildfire risk score) and isn't otherwise computable from what IS given. A fact simply not being provided is not the same as the property failing that fact's requirement -- treat it as missing_info, not as grounds for INELIGIBLE, unless the carrier's own rule is unconditional regardless of that fact. Protection Class / PPC is given in PROPERTY DETAILS: if a carrier's documents key eligibility off Protection Class (directly, or via Fire Protection Class + distance to a fire station), you MUST check the carrier's Protection Class rule against the given PPC value and reason about it explicitly -- do not silently omit it just because the exact driving-distance figure isn't given.
 
 Return ONLY a JSON array with no text before or after it.
 Each object must follow this exact structure:
@@ -152,6 +159,22 @@ def get_combined_program_carriers():
     return combined
 
 
+def _mentions_protection_class(content):
+    """Matches both naming conventions carriers use for this concept: ISO's
+    "(Public) Protection Class" / "PPC", and the SageSure family's own
+    "Fire Protection Class" / "FPC" -- confirmed on Sage Auros HO3, where
+    the actual "FPC 9 or greater ... Risk is ineligible" rule never spells
+    out "protection class" at all, so a filter checking only for that
+    phrase (or "PPC") missed it entirely even though it's the exact rule
+    this lookup exists to guarantee."""
+    lower = content.lower()
+    return (
+        "protection class" in lower
+        or re.search(r"\bppc\b", lower) is not None
+        or re.search(r"\bfpc\b", lower) is not None
+    )
+
+
 def get_carriers_for_occupancy(occupancy):
     combined = get_combined_program_carriers()
 
@@ -234,11 +257,56 @@ def check_eligibility(property_details):
             )
             car_chunks = [c for c in car_chunks if is_eligibility_content(c)][:PER_CARRIER_KEEP]
             for chunk in car_chunks:
-                if chunk.page_content not in seen:
-                    seen.add(chunk.page_content)
+                # CHANGED: dedup key includes carrier, not just content. Two
+                # different carriers can legitimately share identical
+                # underlying document text (e.g. Liberty Mutual HO6 and HO3
+                # turned out to be byte-identical PDFs) -- deduping on
+                # content alone silently zeroed out every chunk for
+                # whichever carrier sorted second, which then tripped the
+                # zero-chunk safety net into falsely reporting "no
+                # documents retrieved" for a carrier that had real, matching
+                # content all along.
+                key = (carrier, chunk.page_content)
+                if key not in seen:
+                    seen.add(key)
                     chunks.append(chunk)
         except Exception:
             continue
+
+    # CHANGED: guaranteed per-carrier Protection Class / PPC lookup, by exact
+    # keyword rather than embedding similarity. PPC is flagged across three
+    # audit rounds as the single most consequential fact in this profile,
+    # but its embedding rank is unreliable -- carriers often bury their PPC
+    # rule as one bullet in a list of a dozen unrelated ineligibility
+    # criteria, diluting the chunk's embedding enough that neither the main
+    # query above nor a PPC-specific similarity search reliably surfaces it
+    # in the top few results (confirmed on Swyfft Lloyd's Surplus HO3: the
+    # carrier's own "ISO Protection Class 9 or 10" decline ranked #7 under
+    # the main query and still only #4 under a dedicated PPC query, in a
+    # 19-chunk document). An exact keyword scan across each carrier's full
+    # raw chunk set sidesteps that entirely.
+    MAX_PPC_CHUNKS_PER_CARRIER = 2
+    if property_details['ppc'] != 'N/A':
+        collection = vectorstore._collection
+        ppc_value = str(property_details['ppc'])
+        for carrier in relevant_carriers:
+            try:
+                raw = collection.get(where={"carrier": carrier}, include=["documents", "metadatas"])
+            except Exception:
+                continue
+            candidates = [
+                Document(page_content=doc, metadata=meta)
+                for doc, meta in zip(raw["documents"], raw["metadatas"])
+                if _mentions_protection_class(doc)
+            ]
+            candidates = [c for c in candidates if is_eligibility_content(c)]
+            # prefer chunks that name this exact PPC value over generic ones
+            candidates.sort(key=lambda c: ppc_value not in c.page_content)
+            for chunk in candidates[:MAX_PPC_CHUNKS_PER_CARRIER]:
+                key = (carrier, chunk.page_content)
+                if key not in seen:
+                    seen.add(key)
+                    chunks.append(chunk)
 
     risk_factors = []
 
@@ -287,8 +355,9 @@ def check_eligibility(property_details):
         risk_chunks = retriever.invoke(" ".join(risk_factors))
         risk_chunks = [c for c in risk_chunks if is_eligibility_content(c)]
         for chunk in risk_chunks:
-            if chunk.page_content not in seen:
-                seen.add(chunk.page_content)
+            key = (chunk.metadata.get('carrier'), chunk.page_content)
+            if key not in seen:
+                seen.add(key)
                 chunks.append(chunk)
 
     context = ""
