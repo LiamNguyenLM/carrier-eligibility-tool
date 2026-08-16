@@ -55,8 +55,8 @@ EXPECTED = {
     "ARI_(HOA+)": {
         "status": "ELIGIBLE",
         "must_mention": [],
-        "fragile": False,
-        "known_issue": None,
+        "fragile": True,
+        "known_issue": "Real pool rule is a 6-ft fence with a locked/self-locking gate (unconfirmed by intake, legitimately missing) -- round 7 found the tool using a generic templated 6-choice fence-mechanism menu instead of this carrier's actual 'locked or self-locking' wording. Grounding fix added same day should produce the correct specific wording if the gap is flagged at all.",
         "note": "PPC 9 carries no restriction in this carrier's classification table -- only PPC 10 does. Fixed round 6 (round 4 misread this as a distance-gated rule).",
     },
     "ARI_(HOB)": {
@@ -69,8 +69,8 @@ EXPECTED = {
     "Allied_Trust_HO3": {
         "status": "ELIGIBLE",
         "must_mention": [],
-        "fragile": False,
-        "known_issue": "4-ft pool-fence-with-locking-gate requirement confirmed present in the document, never mentioned across 3+ rounds.",
+        "fragile": True,
+        "known_issue": "4-ft pool-fence-with-locking-gate requirement confirmed present in the document, never mentioned across 3+ rounds. When it IS mentioned, round 7 found it phrased as a generic templated 'self-latching/combination lock/padlock' menu rather than this document's actual 'locking gate' wording -- grounding fix added same day should fix the wording if the gap gets flagged at all.",
         "note": "Status itself has been stable; the pool-fence gap is a separate, still-open issue.",
     },
     "CHUBB_HO_-_05.22.2026": {
@@ -92,7 +92,7 @@ EXPECTED = {
         "must_mention": ["3 years"],
         "fragile": True,
         "known_issue": None,
-        "note": "The '3 years old or newer' PPC-review trigger doesn't apply to this 17-year-old home. Correct in rounds 3, 4, 6; wrong in rounds 1, 2, 5 -- specifically flag if this reverts to Refer/Ineligible.",
+        "note": "The '3 years old or newer' PPC-review trigger doesn't apply to this 17-year-old home. Correct in rounds 3, 4, 6; wrong in rounds 1, 2, 5 -- specifically flag if this reverts to Refer/Ineligible. Round 7 also found this carrier getting a fabricated pool-fence missing_info item despite never mentioning pools at all -- fixed same day (grounded pool rules in each carrier's own excerpt); if a pool item reappears here, that fix regressed.",
     },
     "Liberty_Mutual_HO3_-_02.21.2026": {
         "status": "INSUFFICIENT_INFORMATION",
@@ -133,7 +133,7 @@ EXPECTED = {
         "status": "ELIGIBLE",
         "must_mention": [],
         "fragile": True,
-        "known_issue": "Pool-fence rule (4-ft fence, no diving board/slide) inconsistently surfaced -- sometimes flagged, sometimes silently dropped, across different runs of the identical input.",
+        "known_issue": "The document's 4-ft-fence pool language is explicitly scoped to an OPTIONAL liability endorsement ('this endorsement,' 'to qualify for this coverage'), not base HO3 eligibility. Round 7 found the tool treating it as a missing_info blocker anyway, driving status to Insufficient Information -- even while its own reasoning text correctly identifies it as 'for optional pool liability coverage.' Added an explicit base-eligibility-vs-endorsement instruction same day, but the model still didn't consistently apply its own stated distinction to the missing_info/status decision -- not fully fixed, same failure shape as the round 5 verdict-tag bug (correct diagnosis, wrong downstream conclusion) but on a smaller category of fact.",
         "note": "Round 5's verdict-tag self-contradiction (analysis said PPC 9 fine, verdict said Ineligible) is confirmed fixed round 6.",
     },
     "Progressive_HO3_-_04.01.2026": {
@@ -162,7 +162,7 @@ EXPECTED = {
         "must_mention": ["protection class"],
         "fragile": False,
         "known_issue": "$100,000 minimum Coverage A requirement never mentioned across 4+ rounds.",
-        "note": "Own favorable 'Protection Classes 1-10 are eligible' line correctly cited since round 4/5.",
+        "note": "Own favorable 'Protection Classes 1-10 are eligible' line correctly cited since round 4/5. Round 7 left a roof-age boundary case unresolved ('at the boundary' without concluding) despite the document's 'holds depreciation for 10 years' wording supporting the same clear RCV-applies conclusion Mercury and TWICO reached on their own boundary cases -- added explicit guidance same day that 'holds/defers X for N years' is inclusive of year N.",
     },
     "Sage_-_Occidental_HO3": {
         "status": "INSUFFICIENT_INFORMATION",
@@ -237,9 +237,9 @@ EXPECTED = {
     "TWICO_HO3": {
         "status": "ELIGIBLE",
         "must_mention": [],
-        "fragile": False,
-        "known_issue": "Pool disqualifier clause (diving board/slide/unfenced = ineligible) never checked, 5 consecutive rounds -- this customer's actual pool would pass it, but the tool has never verified that.",
-        "note": None,
+        "fragile": True,
+        "known_issue": None,
+        "note": "Round 7's real bug (fixed same day): got assigned a fabricated 'self-latching/combination lock/padlock' fence-mechanism question that traces verbatim to the Sage family's documents, not TWICO's own (TWICO's real rule is just diving board/slide/unfenced, which this customer's 'fenced, no accessories' pool already satisfies). Fixed by grounding pool-related missing_info in each carrier's own excerpt. Verified fixed same day -- if a fence-height/gate-mechanism item reappears for TWICO, that fix regressed.",
     },
     "Travelers_HO3_-_06.12.2026": {
         "status": "ELIGIBLE",
