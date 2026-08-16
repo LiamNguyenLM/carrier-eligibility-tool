@@ -67,11 +67,11 @@ EXPECTED = {
         "note": "Stable/clean since round 4.",
     },
     "Allied_Trust_HO3": {
-        "status": "ELIGIBLE",
-        "must_mention": [],
+        "status": "INSUFFICIENT_INFORMATION",
+        "must_mention": ["locking gate"],
         "fragile": True,
-        "known_issue": "4-ft pool-fence-with-locking-gate requirement confirmed present in the document, never mentioned across 3+ rounds. When it IS mentioned, round 7 found it phrased as a generic templated 'self-latching/combination lock/padlock' menu rather than this document's actual 'locking gate' wording -- grounding fix added same day should fix the wording if the gap gets flagged at all.",
-        "note": "Status itself has been stable; the pool-fence gap is a separate, still-open issue.",
+        "known_issue": None,
+        "note": "4-ft pool-fence-with-locking-gate requirement confirmed present in the document, unmentioned for 3+ rounds, then fabricated as a generic 'self-latching/combination lock/padlock' menu in round 7. Round 8 added a guaranteed keyword-based pool-rule lookup (same pattern as the PPC guarantee) -- verified same day now correctly cites this carrier's own real 'fence at least 4-foot-high with a locking gate' wording verbatim, and status correctly moved to INSUFFICIENT_INFORMATION since that height/gate detail isn't in the intake. Previously accepted ELIGIBLE as the baseline while this gap went unflagged -- INSUFFICIENT_INFORMATION is the newly-correct target now that it's properly grounded.",
     },
     "CHUBB_HO_-_05.22.2026": {
         "status": "ELIGIBLE",
@@ -118,8 +118,8 @@ EXPECTED = {
     "NatGen_Custom360_HO3_-_06.25.2026": {
         "status": "INELIGIBLE",
         "must_mention": [],
-        "fragile": False,
-        "known_issue": None,
+        "fragile": True,
+        "known_issue": "Round 8 found this carrier dropped from the output entirely (not shown at all, not even as a correctly-excluded result) despite passing the occupancy filter -- confirmed the carrier IS in relevant_carriers (a deterministic, retrieval-level check), so this is a pure model omission violating the 'must include every carrier' instruction, not a retrieval bug. Matches the general carrier-list-instability pattern (also seen with Foremost round 5, Progressive HO6/HOAIC DP Guide round 3) -- a symptom of the same run-to-run instability documented on Swyfft Lloyd's and Orion, not something a targeted fix addresses.",
         "note": "Landlord/rental-only program, no owner-occupied section. Stable since round 3.",
     },
     "NatGen_Premier_OneChoice_HO3_-_02.26.2025": {
@@ -133,7 +133,7 @@ EXPECTED = {
         "status": "ELIGIBLE",
         "must_mention": [],
         "fragile": True,
-        "known_issue": "The document's 4-ft-fence pool language is explicitly scoped to an OPTIONAL liability endorsement ('this endorsement,' 'to qualify for this coverage'), not base HO3 eligibility. Round 7 found the tool treating it as a missing_info blocker anyway, driving status to Insufficient Information -- even while its own reasoning text correctly identifies it as 'for optional pool liability coverage.' Added an explicit base-eligibility-vs-endorsement instruction same day, but the model still didn't consistently apply its own stated distinction to the missing_info/status decision -- not fully fixed, same failure shape as the round 5 verdict-tag bug (correct diagnosis, wrong downstream conclusion) but on a smaller category of fact.",
+        "known_issue": "The document's 4-ft-fence pool language is explicitly scoped to an OPTIONAL liability endorsement ('this endorsement,' 'to qualify for this coverage'), not base HO3 eligibility. Round 7 found the tool treating it as a missing_info blocker anyway even while correctly identifying it as endorsement-scoped in its own reasoning text; added an explicit base-eligibility-vs-endorsement instruction that same day. Round 8's external audit run found this carrier CORRECT (\"the clearest win of the round\") -- but a same-day internal test with the identical code found it WRONG again (endorsement correctly identified in reasoning, still treated as a blocking missing_info item, status still Insufficient Information). This is genuine run-to-run instability, not an unfixed bug -- the instruction clearly CAN work, just not reliably every run. Same failure shape as the round 5 verdict-tag bug (correct diagnosis, wrong downstream conclusion) on a smaller category of fact.",
         "note": "Round 5's verdict-tag self-contradiction (analysis said PPC 9 fine, verdict said Ineligible) is confirmed fixed round 6.",
     },
     "Progressive_HO3_-_04.01.2026": {
@@ -167,9 +167,9 @@ EXPECTED = {
     "Sage_-_Occidental_HO3": {
         "status": "INSUFFICIENT_INFORMATION",
         "must_mention": [("fire protection class", "fpc"), ("driving distance", "fire station")],
-        "fragile": False,
+        "fragile": True,
         "known_issue": None,
-        "note": "Part of the Sage six -- see Sage_-_Auros_HO3 note.",
+        "note": "Part of the Sage six -- see Sage_-_Auros_HO3 note. Round 8 found this specific sibling's pool-fence rule ranking #19/57 under the main query (outside the fetch window) while the other five ranked well enough by luck, causing this carrier alone to flatly claim 'no fence-height or gate rule exists' when its document has the identical 4-ft-fence rule as its siblings. Fixed same day with a guaranteed keyword-based pool-rule lookup -- verified now correctly cites this carrier's own 'combination/padlock or self-locking/self-latching' wording near-verbatim.",
     },
     "Sage_-_SURE_HO-3_-_01.31.2026": {
         "status": "INSUFFICIENT_INFORMATION",
@@ -239,7 +239,7 @@ EXPECTED = {
         "must_mention": [],
         "fragile": True,
         "known_issue": None,
-        "note": "Round 7's real bug (fixed same day): got assigned a fabricated 'self-latching/combination lock/padlock' fence-mechanism question that traces verbatim to the Sage family's documents, not TWICO's own (TWICO's real rule is just diving board/slide/unfenced, which this customer's 'fenced, no accessories' pool already satisfies). Fixed by grounding pool-related missing_info in each carrier's own excerpt. Verified fixed same day -- if a fence-height/gate-mechanism item reappears for TWICO, that fix regressed.",
+        "note": "Round 7's real bug (fixed round 7): got assigned a fabricated 'self-latching/combination lock/padlock' fence-mechanism question that traces verbatim to the Sage family's documents, not TWICO's own (TWICO's real rule is just diving board/slide/unfenced, which this customer's 'fenced, no accessories' pool already satisfies). Round 8 found a second, different bug: a genuine (not fabricated) circuit-panel-inspection rule -- 'homes built 1960+ must have panel checked within the last 35 years' -- applied to this 17-year-old home, where the home's own age already makes the question moot (it can't have gone unchecked for 35 years). Fixed same day with a general 'within the last N years' inference rule; verified same day now correctly reasons 'cannot have gone unchecked for longer than 17 years, so automatically satisfied' and returns ELIGIBLE.",
     },
     "Travelers_HO3_-_06.12.2026": {
         "status": "ELIGIBLE",

@@ -78,6 +78,10 @@ When comparing the property's Home Age, Roof Age (or any given number) against a
 
 Pay close attention to whether a threshold is INCLUSIVE or EXCLUSIVE of the boundary value itself, especially when the given value EQUALS the threshold number exactly. "Older than X," "more than X," and "over X" are EXCLUSIVE -- a value of exactly X does NOT satisfy them (e.g. a roof that is exactly 10 years old does NOT meet "required for roofs older than 10 years old"). "X or newer," "X or more," "up to X," and "X or less" are INCLUSIVE -- a value of exactly X DOES satisfy them. When the given value is exactly equal to a rule's stated number, explicitly check the rule's wording for "than"/"over" (exclusive, boundary fails) versus "or"/"up to" (inclusive, boundary passes) before concluding. "Holds/pauses/defers [depreciation or a coverage basis] for N years" is also INCLUSIVE of year N -- a roof at exactly N years old is still within that held/deferred period, so the favorable coverage basis (e.g. RCV) still applies at exactly N. Reach a definite conclusion in these cases -- do not describe the property as merely "at the boundary" without stating which side of it applies.
 
+A rule requiring something to have occurred "within the last N years" (an inspection, a check, an update) tied to the home's or a system's age is AUTOMATICALLY satisfied if Home Age itself is less than N -- the system cannot have gone unchecked for longer than the home has existed. Do not flag this as missing information; the given Home Age already answers it. (Example: "circuit panel must have been checked within the last 35 years" cannot be an open question for a 17-year-old home.)
+
+Carrier documents are frequently split across multiple separate excerpts below, and a rule can be cut off mid-sentence or mid-clause in one excerpt with its continuation appearing in a DIFFERENT excerpt for the SAME carrier (they won't necessarily be adjacent in this prompt). Before concluding that a rule's specific number or detail is "not stated" or "not specified in the retrieved excerpts," check ALL of this carrier's other excerpts for a continuation of the same sentence or clause -- a value that looks absent in one excerpt is often completed a sentence or two later in another.
+
 When a carrier's rule requires a SPECIFIC attribute (an exact fence height, a particular gate mechanism, a named material) and PROPERTY DETAILS only gives a more general description (e.g. Swimming Pool is "In Ground - Fenced" with no height or gate type stated), do not assume the specific requirement is met -- list the specific missing attribute in missing_info. Never state a specific number or detail in reasons, citations, or notes as if it were a fact about THIS property when it actually came from the carrier's rule and was never confirmed by the customer (e.g. do not say "the property has a 4-foot fence" when the customer only said "fenced").
 
 SWIMMING POOL RULES SPECIFICALLY: a pool fence height or gate-mechanism requirement (e.g. "4-foot fence," "self-latching gate," "combination lock or padlock") is a DIFFERENT rule from one carrier's document to the next -- some carriers state a specific number and mechanism, some only say "fenced" or "secured" in general terms, and some don't mention pools at all. Before adding ANY pool-related item to missing_info, or citing a specific height or gate-mechanism type, check THIS carrier's own retrieved excerpt for it specifically:
@@ -200,6 +204,17 @@ def _mentions_protection_class(content):
         or re.search(r"\bppc\b", lower) is not None
         or re.search(r"\bfpc\b", lower) is not None
     )
+
+
+def _mentions_pool_rule(content):
+    """Swimming pool rules have the same embedding-rank problem PPC did:
+    confirmed on Sage Occidental HO3, whose own 4-ft-fence-and-locking-gate
+    pool rule ranked #19 of 57 chunks under the main query -- well outside
+    the per-carrier fetch window -- while its five sibling carriers'
+    equivalent rule happened to rank well enough in the same run. An exact
+    keyword scan sidesteps the ranking lottery."""
+    lower = content.lower()
+    return "pool" in lower or "swimming" in lower
 
 
 def _is_ppc_disambiguation_table(content):
@@ -329,9 +344,10 @@ def check_eligibility(property_details):
     # the main query and still only #4 under a dedicated PPC query, in a
     # 19-chunk document). An exact keyword scan across each carrier's full
     # raw chunk set sidesteps that entirely.
+    collection = vectorstore._collection
+
     MAX_PPC_CHUNKS_PER_CARRIER = 2
     if property_details['ppc'] != 'N/A':
-        collection = vectorstore._collection
         ppc_value = str(property_details['ppc'])
         for carrier in relevant_carriers:
             try:
@@ -347,6 +363,35 @@ def check_eligibility(property_details):
             # prefer chunks that name this exact PPC value over generic ones
             candidates.sort(key=lambda c: ppc_value not in c.page_content)
             for chunk in candidates[:MAX_PPC_CHUNKS_PER_CARRIER]:
+                key = (carrier, chunk.page_content)
+                if key not in seen:
+                    seen.add(key)
+                    chunks.append(chunk)
+
+    # CHANGED: guaranteed per-carrier swimming pool rule lookup, same
+    # rationale and pattern as the PPC guarantee above -- confirmed on Sage
+    # Occidental HO3 (see _mentions_pool_rule docstring), where the
+    # carrier's own pool-fence rule ranked #19/57 under the main query.
+    MAX_POOL_CHUNKS_PER_CARRIER = 3
+    if property_details['swimming_pool'] != 'No Pool':
+        for carrier in relevant_carriers:
+            try:
+                raw = collection.get(where={"carrier": carrier}, include=["documents", "metadatas"])
+            except Exception:
+                continue
+            candidates = [
+                Document(page_content=doc, metadata=meta)
+                for doc, meta in zip(raw["documents"], raw["metadatas"])
+                if _mentions_pool_rule(doc)
+            ]
+            candidates = [c for c in candidates if is_eligibility_content(c)]
+            # prefer chunks that pair "pool" with fence/gate language over
+            # incidental pool mentions (acreage referrals, construction
+            # material exclusions, etc. that happen to name "pool" once)
+            candidates.sort(key=lambda c: not (
+                "fenc" in c.page_content.lower() or "gate" in c.page_content.lower()
+            ))
+            for chunk in candidates[:MAX_POOL_CHUNKS_PER_CARRIER]:
                 key = (carrier, chunk.page_content)
                 if key not in seen:
                     seen.add(key)
