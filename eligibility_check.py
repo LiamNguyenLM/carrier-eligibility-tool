@@ -65,7 +65,18 @@ Use the Home Age value given in PROPERTY DETAILS as-is. It has already been comp
 
 If the user message includes a "CARRIERS WITH NO RETRIEVED INFORMATION" section, you MUST include every carrier listed there in your response with status INSUFFICIENT_INFORMATION, even though no excerpt for them appears in CARRIER DOCUMENTS.
 
-Do not decline a carrier over a fact that ISN'T given in PROPERTY DETAILS (e.g. county, driving distance to the nearest fire station, wildfire risk score) and isn't otherwise computable from what IS given. A fact simply not being provided is not the same as the property failing that fact's requirement -- treat it as missing_info, not as grounds for INELIGIBLE, unless the carrier's own rule is unconditional regardless of that fact. Protection Class / PPC is given in PROPERTY DETAILS: if a carrier's documents key eligibility off Protection Class (directly, or via Fire Protection Class + distance to a fire station), you MUST check the carrier's Protection Class rule against the given PPC value and reason about it explicitly -- do not silently omit it just because the exact driving-distance figure isn't given.
+Do not decline a carrier over a fact that ISN'T given in PROPERTY DETAILS (e.g. county, driving distance to the nearest fire station, wildfire risk score) and isn't otherwise computable from what IS given. A fact simply not being provided is not the same as the property failing that fact's requirement -- treat it as missing_info, not as grounds for INELIGIBLE, unless the carrier's own rule is unconditional regardless of that fact.
+
+Protection Class / PPC is given in PROPERTY DETAILS as a single, final number -- it is NOT ambiguous and does NOT need re-deriving. Before using ANY Protection-Class-related table or sentence from a carrier's document, first classify it as exactly one of these two kinds, and follow the matching rule. Do not skip this classification step.
+  (a) A DIRECT RULE that states what happens for a given PPC value or range (e.g. "PPC 9 or greater is ineligible", "PPC 9 is eligible within 5 miles of a fire station, ineligible beyond it", a table capping Coverage A by PPC band). Apply this directly to the given PPC value. If the rule itself depends on a fact that is truly not given anywhere in PROPERTY DETAILS (such as driving distance to a fire station), that specific fact goes in missing_info -- but still state which outcome each possible value of that fact would produce.
+  (b) A DISAMBIGUATION RULE whose own text exists to choose between two numbers ISO assigned to the same location (signal phrases: "two or more classifications are shown", "split rating", a slash like "6/9"). This kind of table is IRRELEVANT here and must be treated as if it were never retrieved: do not cite it, do not mention it in reasons, do not add anything about it to missing_info, and do not let it affect the status. The customer's single given PPC number already reflects whatever this table would have resolved.
+If you are not sure which of (a) or (b) a table is, re-read the sentence immediately before the table -- that sentence states its purpose.
+
+More generally: when a rule has its own stated conditions (an age threshold, a coverage amount, a home-age-plus-PPC combination) and the given facts place the property OUTSIDE those conditions, the rule simply does not restrict this property -- treat PPC (or whatever the rule covers) as unrestricted here, exactly as if that rule did not exist in the document at all. This means the property PASSES that criterion; it counts toward ELIGIBLE, not toward REFER or missing_info. Do not add anything to missing_info or reasons about "whether the carrier has some other rule" for a combination its own document doesn't address, and do not use REFER for a condition you've just determined doesn't apply. Only flag something as missing when the document's OWN applicable rule (one whose conditions the property actually meets) itself depends on a fact you don't have.
+
+When comparing the property's Home Age (or any given number) against a numeric threshold in a rule (e.g. "eligible up to 20 years", "must be under 15 years"), work out the actual arithmetic comparison explicitly before concluding which side of the threshold the property falls on -- state the comparison itself (e.g. "17 is less than 20, so this condition is met") rather than jumping straight to a conclusion. A carrier's own name (e.g. one containing "Plus" or a product suffix) is NOT evidence about which side of a threshold applies -- only the rule's stated number and the given value decide that.
+
+When a carrier's rule requires a SPECIFIC attribute (an exact fence height, a particular gate mechanism, a named material) and PROPERTY DETAILS only gives a more general description (e.g. Swimming Pool is "In Ground - Fenced" with no height or gate type stated), do not assume the specific requirement is met -- list the specific missing attribute in missing_info. Never state a specific number or detail in reasons, citations, or notes as if it were a fact about THIS property when it actually came from the carrier's rule and was never confirmed by the customer (e.g. do not say "the property has a 4-foot fence" when the customer only said "fenced").
 
 Return ONLY a JSON array with no text before or after it.
 Each object must follow this exact structure:
@@ -173,6 +184,23 @@ def _mentions_protection_class(content):
         or re.search(r"\bppc\b", lower) is not None
         or re.search(r"\bfpc\b", lower) is not None
     )
+
+
+def _is_ppc_disambiguation_table(content):
+    """A Protection Class table whose own text exists to resolve which of
+    TWO ISO-assigned classes applies to one location (e.g. a "6/9" split
+    rating) is never applicable here -- this app's intake only ever
+    collects a single, final PPC number, never a split rating, so this
+    kind of table can't be the actually-governing rule for any query this
+    app will run. Confirmed on ARI (HOA+): even with an explicit prompt
+    instruction telling the model to classify a PPC table as a direct rule
+    vs. a disambiguation rule before using it, the model still repeatedly
+    misapplied this exact table as a direct eligibility gate across
+    multiple real API test runs. Excluding it at retrieval time is more
+    reliable than asking the model to make that judgment call correctly
+    every single time."""
+    lower = content.lower()
+    return "two or more classification" in lower or "classifications are shown" in lower
 
 
 def get_carriers_for_occupancy(occupancy):
@@ -297,7 +325,7 @@ def check_eligibility(property_details):
             candidates = [
                 Document(page_content=doc, metadata=meta)
                 for doc, meta in zip(raw["documents"], raw["metadatas"])
-                if _mentions_protection_class(doc)
+                if _mentions_protection_class(doc) and not _is_ppc_disambiguation_table(doc)
             ]
             candidates = [c for c in candidates if is_eligibility_content(c)]
             # prefer chunks that name this exact PPC value over generic ones
