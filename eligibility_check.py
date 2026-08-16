@@ -79,21 +79,27 @@ When comparing the property's Home Age (or any given number) against a numeric t
 When a carrier's rule requires a SPECIFIC attribute (an exact fence height, a particular gate mechanism, a named material) and PROPERTY DETAILS only gives a more general description (e.g. Swimming Pool is "In Ground - Fenced" with no height or gate type stated), do not assume the specific requirement is met -- list the specific missing attribute in missing_info. Never state a specific number or detail in reasons, citations, or notes as if it were a fact about THIS property when it actually came from the carrier's rule and was never confirmed by the customer (e.g. do not say "the property has a 4-foot fence" when the customer only said "fenced").
 
 Return ONLY a JSON array with no text before or after it.
-Each object must follow this exact structure:
+Each object must follow this exact structure -- NOTE the field order: work out reasons, citations, missing_info, and notes FIRST, and only decide status and flaw_count LAST, after that analysis is already written. Do not decide the verdict before you've written the reasoning -- the verdict must be the conclusion your own reasons/notes already reached, never a separate judgment made in advance of them.
 
 [
   {
     "carrier": "carrier name from document",
-    "status": "ELIGIBLE",
     "reasons": ["reason 1", "reason 2"],
     "citations": ["carrier name: exact short quote from document"],
     "missing_info": ["item needed for final determination"],
     "notes": "any important coverage distinctions such as RCV vs ACV",
+    "status": "ELIGIBLE",
     "flaw_count": 0
   }
 ]
 
-Status must be exactly one of: ELIGIBLE, INELIGIBLE, REFER, INSUFFICIENT_INFORMATION
+Status must be exactly one of: ELIGIBLE, INELIGIBLE, REFER, INSUFFICIENT_INFORMATION. Use this decision rule, in order:
+1. INELIGIBLE -- ONLY when the document states a flat exclusion (no underwriting discretion, no referral path) AND the customer's KNOWN facts (given in PROPERTY DETAILS, or a threshold already fully resolved above) actually satisfy that exclusion. If your own reasons/notes just concluded the customer's number is on the ALLOWED side of a cutoff, or that a rule's conditions don't apply to this property, the status CANNOT be INELIGIBLE for that rule.
+2. REFER -- ONLY when the carrier's OWN document explicitly offers a referral, underwriting-discretion, or manual-review path for THIS specific situation (using its own language -- "refer to underwriting," "subject to underwriter approval," etc.). A flat binary rule (e.g. "eligible under 5 miles, ineligible beyond it") is NOT a referral just because the outcome depends on a fact you don't have -- that's INSUFFICIENT_INFORMATION instead, unless the document's own words for that specific rule invoke discretion or review.
+3. INSUFFICIENT_INFORMATION -- when a fact genuinely required to reach ELIGIBLE or INELIGIBLE is simply not known (not given in PROPERTY DETAILS and not resolvable from what is given), and the document does NOT itself offer a referral/discretion path for it.
+4. ELIGIBLE -- otherwise: no applicable flat exclusion is satisfied, no referral path is invoked, and no required fact is missing.
+Before writing status, re-read what you just wrote in reasons and notes for this same carrier -- status must match that conclusion exactly. A self-contradiction (reasons/notes conclude the property passes a rule, but status says INELIGIBLE or REFER for that same rule) is a hard error; catch it before finalizing.
+
 flaw_count rules:
 - ELIGIBLE: always 0
 - INELIGIBLE: count the number of distinct ineligibility factors found
@@ -388,10 +394,32 @@ def check_eligibility(property_details):
                 seen.add(key)
                 chunks.append(chunk)
 
-    context = ""
+    # CHANGED: group by carrier instead of emitting chunks in insertion
+    # order. `chunks` is built in separate passes (main per-carrier query,
+    # then the guaranteed PPC lookup, then the global risk-factor pass) --
+    # rendered in insertion order, that meant every carrier's main content
+    # appeared in one place and that SAME carrier's guaranteed PPC chunk
+    # showed up far later, after every other carrier's main content, in a
+    # 25k+ token prompt. Diagnosed on Swyfft Lloyd's Surplus HO3: the
+    # guaranteed PPC chunk was confirmed present in `chunks`, but the model
+    # still reported PPC as missing -- its own evidence for this carrier
+    # was split across two widely separated locations in the context. This
+    # also incidentally guards against the risk-factor pass (which searches
+    # the whole DB, not just relevant_carriers) leaking content from a
+    # carrier the occupancy filter already excluded.
+    relevant_carrier_set = set(relevant_carriers)
+    chunks_by_carrier = {}
     for chunk in chunks:
-        context += f"\n--- {chunk.metadata.get('carrier', 'Unknown')} (page {chunk.metadata.get('page', '?')}) ---\n"
-        context += chunk.page_content + "\n"
+        carrier_name = chunk.metadata.get('carrier', 'Unknown')
+        if carrier_name not in relevant_carrier_set:
+            continue
+        chunks_by_carrier.setdefault(carrier_name, []).append(chunk)
+
+    context = ""
+    for carrier in relevant_carriers:
+        for chunk in chunks_by_carrier.get(carrier, []):
+            context += f"\n--- {carrier} (page {chunk.metadata.get('page', '?')}) ---\n"
+            context += chunk.page_content + "\n"
 
     # CHANGED: carrier safety net. A carrier can pass the occupancy filter
     # but still end up with zero chunks in `chunks` (e.g. retrieval just
