@@ -23,34 +23,11 @@ from eligibility_check import (
     is_eligibility_content,
 )
 from shared_resources import get_vectorstore
+from profiles import STANDARD_PROFILE as TEST_PROFILE, resolve_carrier as _resolve_carrier
 
-# Same profile used across both audit rounds (see handoff.md) -- keep using
-# it for round 3 so results stay comparable.
-TEST_PROFILE = {
-    "year_built": 2009,
-    "roof_age": 10,
-    "roof_type": "Composition Shingle",
-    "roof_shape": "Gable",
-    "construction_type": "Frame",
-    "plumbing_type": "PVC",
-    "occupancy_type": "Owner Occupied",
-    "ownership_type": "Individual Owner",
-    "coastal_tier": "Not Coastal",
-    "swimming_pool": "In Ground - Fenced",
-    "pool_accessories": "None",
-    "has_dogs": "No",
-    "aggressive_breed": "No",
-    "solar_panels": "No",
-    "ppc": "9",
-}
 
 def resolve_carrier(query_substring):
-    def normalize(s):
-        return "".join(ch for ch in s.upper() if ch.isalnum())
-
-    target = normalize(query_substring)
-    matches = [c for c in get_all_carriers() if target in normalize(c)]
-    return sorted(matches)
+    return _resolve_carrier(query_substring, get_all_carriers())
 
 
 def main():
