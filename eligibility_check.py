@@ -72,13 +72,15 @@ Protection Class / PPC is given in PROPERTY DETAILS as a single, final number --
   (b) A DISAMBIGUATION RULE whose own text exists to choose between two numbers ISO assigned to the same location (signal phrases: "two or more classifications are shown", "split rating", a slash like "6/9"). This kind of table is IRRELEVANT here and must be treated as if it were never retrieved: do not cite it, do not mention it in reasons, do not add anything about it to missing_info, and do not let it affect the status. The customer's single given PPC number already reflects whatever this table would have resolved.
 If you are not sure which of (a) or (b) a table is, re-read the sentence immediately before the table -- that sentence states its purpose.
 
+A rule requiring MULTIPLE conditions joined by "AND" (e.g. "FPC is 9 or greater, AND driving distance is greater than 5 miles = ineligible") only matters if EVERY condition could plausibly be true. Check each AND-condition against the given PPC value FIRST, before considering any other condition: if the given PPC value already fails just the first condition (e.g. customer's PPC is 1, and the rule requires PPC/FPC 9 or greater), the entire rule cannot apply regardless of the other condition's value -- do not ask for driving distance, hydrant distance, or any other fact tied to that same AND-rule, since no answer to it can change the outcome. Likewise, a rule or missing_info item written for a DIFFERENT specific PPC value than the customer's own (e.g. a "PPC 10" rule, when the customer's PPC is 1) has no bearing here -- do not cite it or list it as missing.
+
+Do not reuse a specific term, concept, or classification scheme (e.g. a named "Classification A/B/C" system) that you saw in ONE carrier's excerpt when writing about a DIFFERENT carrier, even one from the same underwriting family (e.g. carriers sharing a common program administrator) -- each carrier's rule structure and terminology is independent unless that exact term also appears in that other carrier's own excerpt.
+
 More generally: when a rule has its own stated conditions (an age threshold, a coverage amount, a home-age-plus-PPC combination) and the given facts place the property OUTSIDE those conditions, the rule simply does not restrict this property -- treat PPC (or whatever the rule covers) as unrestricted here, exactly as if that rule did not exist in the document at all. This means the property PASSES that criterion; it counts toward ELIGIBLE, not toward REFER or missing_info. Do not add anything to missing_info or reasons about "whether the carrier has some other rule" for a combination its own document doesn't address, and do not use REFER for a condition you've just determined doesn't apply. Only flag something as missing when the document's OWN applicable rule (one whose conditions the property actually meets) itself depends on a fact you don't have.
 
 When comparing the property's Home Age, Roof Age (or any given number) against a numeric threshold in a rule (e.g. "eligible up to 20 years", "must be under 15 years"), work out the actual arithmetic comparison explicitly before concluding which side of the threshold the property falls on -- state the comparison itself (e.g. "17 is less than 20, so this condition is met") rather than jumping straight to a conclusion. A carrier's own name (e.g. one containing "Plus" or a product suffix) is NOT evidence about which side of a threshold applies -- only the rule's stated number and the given value decide that.
 
 Pay close attention to whether a threshold is INCLUSIVE or EXCLUSIVE of the boundary value itself, especially when the given value EQUALS the threshold number exactly. "Older than X," "more than X," and "over X" are EXCLUSIVE -- a value of exactly X does NOT satisfy them (e.g. a roof that is exactly 10 years old does NOT meet "required for roofs older than 10 years old"). "X or newer," "X or more," "up to X," and "X or less" are INCLUSIVE -- a value of exactly X DOES satisfy them. When the given value is exactly equal to a rule's stated number, explicitly check the rule's wording for "than"/"over" (exclusive, boundary fails) versus "or"/"up to" (inclusive, boundary passes) before concluding. "Holds/pauses/defers [depreciation or a coverage basis] for N years" is also INCLUSIVE of year N -- a roof at exactly N years old is still within that held/deferred period, so the favorable coverage basis (e.g. RCV) still applies at exactly N. Reach a definite conclusion in these cases -- do not describe the property as merely "at the boundary" without stating which side of it applies.
-
-A rule requiring something to have occurred "within the last N years" (an inspection, a check, an update) tied to the home's or a system's age is AUTOMATICALLY satisfied if Home Age itself is less than N -- the system cannot have gone unchecked for longer than the home has existed. Do not flag this as missing information; the given Home Age already answers it. (Example: "circuit panel must have been checked within the last 35 years" cannot be an open question for a 17-year-old home.)
 
 Carrier documents are frequently split across multiple separate excerpts below, and a rule can be cut off mid-sentence or mid-clause in one excerpt with its continuation appearing in a DIFFERENT excerpt for the SAME carrier (they won't necessarily be adjacent in this prompt). Before concluding that a rule's specific number or detail is "not stated" or "not specified in the retrieved excerpts," check ALL of this carrier's other excerpts for a continuation of the same sentence or clause -- a value that looks absent in one excerpt is often completed a sentence or two later in another.
 
@@ -91,6 +93,8 @@ SWIMMING POOL RULES SPECIFICALLY: a pool fence height or gate-mechanism requirem
   - Only cite a specific fence height or gate-mechanism type if that EXACT figure or mechanism is present in THIS carrier's own excerpt. Do not reuse a specific pool number or mechanism you saw for a different carrier earlier in this same response -- each carrier's pool rule (or absence of one) is independent.
 
 BASE ELIGIBILITY vs. OPTIONAL ENDORSEMENT/COVERAGE: some requirements you'll see (a fence height, a specific material, a distance figure) are conditions of an OPTIONAL endorsement or coverage add-on, not of base policy eligibility -- look for language like "this endorsement," "to qualify for this coverage," or "optional." A condition scoped to an optional endorsement does NOT make the carrier ineligible or create a missing_info blocker if that specific coverage isn't otherwise at issue -- note it in notes as a coverage consideration if relevant, but do not let it drive status or missing_info the way a base eligibility requirement would.
+
+ROOFING MATERIAL TERMINOLOGY: "Composition Shingle," "Composite Shingle," "Architectural Shingle," "3-tab shingle," and "asphalt shingle" all refer to the SAME underlying family of asphalt-based shingle roofing, and carriers use these terms inconsistently -- one carrier's document may use only one of these phrases, or bundle several together (e.g. "Composite or Architectural Shingle"), to mean the same roofing category the customer's own Roof Type value falls under. If a carrier's document states a rule using ANY of these terms and never uses the customer's EXACT given Roof Type wording, apply that rule to the customer's roof anyway -- do not treat the rule as inapplicable, and do not invent an undefined separate category or lifespan figure "for" the customer's exact wording. Only treat two of these terms as genuinely different categories with different rules if the SAME document explicitly gives them different numeric thresholds.
 
 Return ONLY a JSON array with no text before or after it.
 Each object must follow this exact structure -- NOTE the field order: work out reasons, citations, missing_info, and notes FIRST, and only decide status and flaw_count LAST, after that analysis is already written. Do not decide the verdict before you've written the reasoning -- the verdict must be the conclusion your own reasons/notes already reached, never a separate judgment made in advance of them.
@@ -215,6 +219,21 @@ def _mentions_pool_rule(content):
     keyword scan sidesteps the ranking lottery."""
     lower = content.lower()
     return "pool" in lower or "swimming" in lower
+
+
+def _mentions_solar(content):
+    """Solar-panel rules had NO retrieval guarantee at all before this was
+    added -- confirmed on a real customer profile with solar panels
+    present: 5 of 30 carriers have a directly relevant solar rule (TWICO
+    and NatGen Premier OneChoice flatly exclude homes with solar panels,
+    Orion/Progressive HO3/HO6 exclude coverage for the panels, HOAIC
+    requires an endorsement), and NONE of it reached the tool's output --
+    each carrier has exactly one chunk mentioning "solar" out of dozens to
+    hundreds of chunks, with only a single shared, non-carrier-filtered
+    global search (k=10 across the whole ~40-carrier database) ever
+    touching the topic. This missed an actual wrong verdict (TWICO
+    returned Eligible despite its own explicit solar exclusion)."""
+    return "solar" in content.lower()
 
 
 def _is_ppc_disambiguation_table(content):
@@ -392,6 +411,28 @@ def check_eligibility(property_details):
                 "fenc" in c.page_content.lower() or "gate" in c.page_content.lower()
             ))
             for chunk in candidates[:MAX_POOL_CHUNKS_PER_CARRIER]:
+                key = (carrier, chunk.page_content)
+                if key not in seen:
+                    seen.add(key)
+                    chunks.append(chunk)
+
+    # CHANGED: guaranteed per-carrier solar panel rule lookup, same pattern
+    # as PPC and pool above (see _mentions_solar docstring for why this was
+    # added -- it missed an actual wrong verdict on TWICO).
+    MAX_SOLAR_CHUNKS_PER_CARRIER = 2
+    if property_details['solar_panels'] == 'Yes':
+        for carrier in relevant_carriers:
+            try:
+                raw = collection.get(where={"carrier": carrier}, include=["documents", "metadatas"])
+            except Exception:
+                continue
+            candidates = [
+                Document(page_content=doc, metadata=meta)
+                for doc, meta in zip(raw["documents"], raw["metadatas"])
+                if _mentions_solar(doc)
+            ]
+            candidates = [c for c in candidates if is_eligibility_content(c)]
+            for chunk in candidates[:MAX_SOLAR_CHUNKS_PER_CARRIER]:
                 key = (carrier, chunk.page_content)
                 if key not in seen:
                     seen.add(key)
