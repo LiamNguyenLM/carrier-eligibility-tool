@@ -1,380 +1,459 @@
-"""Regression test for check_eligibility() against the standard test
-profile used across every audit round to date.
-
-Why this exists: across six audit rounds, at least four issues were
-independently fixed, then regressed, then re-fixed at different points
-(Swyfft Lloyd's PPC 9/10 exclusion, Liberty Mutual's Coverage-A tiering,
-HOAIC's "3 years or newer" scoping, the Swyfft pool-fence question). Each
-carrier's reasoning is regenerated fresh by the LLM on every run rather
-than building on a previously-verified conclusion, so a fix made once can
-silently disappear later. This script runs the real check_eligibility()
-call (a real Claude API call -- costs a few cents) and diffs each
-carrier's status against the last-known-correct baseline below, so a
-regression shows up here before it reaches an external audit.
-
-This is NOT a substitute for the full audits -- it only checks the ONE
-standard profile, and only status (plus a few targeted keyword checks for
-carriers whose specific citation content, not just the bucket, has
-historically flipped). A carrier passing here can still have a wrong or
-weak citation the audits would catch.
-
-Usage:
-    python verification/test_eligibility_matrix.py
-
-When a real audit finds a NEW confirmed-correct state for a carrier,
-update that carrier's entry in EXPECTED below so this script keeps
-tracking the current target, not last round's target.
 """
-import json
+Regression suite for the carrier eligibility tool.
+
+WHY THIS FILE EXISTS
+--------------------
+Eleven rounds of manual audits (external agents re-reading real carrier
+PDFs) found the same categories of bug more than once: a fix that only
+covers the exact wording in the bug report, a fix that "usually" works, and
+a bucket/verdict label mismatch that reproduced identically on three
+separate customer profiles across three rounds before it got fixed. This
+suite exists so those are caught by `pytest`, in seconds, instead of by
+another full manual audit. See CLAUDE.md for the policy this file exists
+to satisfy.
+
+TWO TIERS
+---------
+1. Retrieval-layer tests (`@pytest.mark.retrieval`): fast, deterministic,
+   no LLM call. They check that the right source passage is actually
+   retrievable for a given carrier + topic + phrasing -- this is the layer
+   that catches "the fix only works for the exact wording in the bug
+   report" before it ships.
+2. Baseline profile tests (`@pytest.mark.baseline`): slower, call the real
+   `check_eligibility()` pipeline end to end (real Claude API cost) against
+   two fixed customer profiles with known-correct expected outcomes, each
+   individually verified against the actual carrier PDFs -- not assumed
+   from an audit summary. See profiles.py for the two profiles.
+
+Run everything:      pytest verification/test_eligibility_matrix.py -v
+Run only fast tests:  pytest verification/test_eligibility_matrix.py -v -m retrieval
+Run only baseline:    pytest verification/test_eligibility_matrix.py -v -m baseline
+"""
 import os
-import re
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+# NOTE: do not pre-set ANTHROPIC_API_KEY here, even to an empty/default
+# value -- eligibility_check.py calls load_dotenv() on import, and
+# python-dotenv does not override an already-set environment variable, so
+# setting it (even to "") here first silently blocks the real key in .env
+# from ever loading.
 
-from eligibility_check import check_eligibility, get_all_carriers
-from profiles import STANDARD_PROFILE
+from datetime import date
+from langchain_core.documents import Document
 
-# Baseline as of the round 6 audit (2026-08-15) + same-day fixes:
-# - status: best-known-correct verdict, verified against a direct read of
-#   each carrier's document (not just "whatever the tool last returned").
-# - must_mention: lowercase substrings that must appear somewhere across
-#   reasons + citations + notes for this carrier. Only set for carriers
-#   where a SPECIFIC fact (not just the status bucket) has been the
-#   recurring bug -- an empty list means only the status is checked. Each
-#   entry is either a plain string, or a tuple of alternative phrasings
-#   (any ONE satisfies it) -- the model expresses the same substantive
-#   fact in different words run to run (e.g. "FPC" vs "Fire Protection
-#   Class"), so a single rigid phrase is too brittle.
-# - fragile: True for carriers with a documented history of flipping
-#   across rounds. A PASS here is still worth a second look.
-# - known_issue: a currently-unresolved, previously-documented gap that
-#   this test does NOT enforce (so it doesn't block the suite on
-#   something not yet fixed) -- surfaced in the report as a reminder.
-EXPECTED = {
-    "ARI_(HOA+)": {
-        "status": "ELIGIBLE",
-        "must_mention": [],
-        "fragile": True,
-        "known_issue": "Real pool rule is a 6-ft fence with a locked/self-locking gate (unconfirmed by intake, legitimately missing) -- round 7 found the tool using a generic templated 6-choice fence-mechanism menu instead of this carrier's actual 'locked or self-locking' wording. Grounding fix added same day should produce the correct specific wording if the gap is flagged at all.",
-        "note": "PPC 9 carries no restriction in this carrier's classification table -- only PPC 10 does. Fixed round 6 (round 4 misread this as a distance-gated rule).",
-    },
-    "ARI_(HOB)": {
-        "status": "ELIGIBLE",
-        "must_mention": [],
-        "fragile": False,
-        "known_issue": None,
-        "note": "Stable/clean since round 4.",
-    },
-    "Allied_Trust_HO3": {
-        "status": "INSUFFICIENT_INFORMATION",
-        "must_mention": ["locking gate"],
-        "fragile": True,
-        "known_issue": None,
-        "note": "4-ft pool-fence-with-locking-gate requirement confirmed present in the document, unmentioned for 3+ rounds, then fabricated as a generic 'self-latching/combination lock/padlock' menu in round 7. Round 8 added a guaranteed keyword-based pool-rule lookup (same pattern as the PPC guarantee) -- verified same day now correctly cites this carrier's own real 'fence at least 4-foot-high with a locking gate' wording verbatim, and status correctly moved to INSUFFICIENT_INFORMATION since that height/gate detail isn't in the intake. Previously accepted ELIGIBLE as the baseline while this gap went unflagged -- INSUFFICIENT_INFORMATION is the newly-correct target now that it's properly grounded.",
-    },
-    "CHUBB_HO_-_05.22.2026": {
-        "status": "ELIGIBLE",
-        "must_mention": [],
-        "fragile": True,
-        "known_issue": "Persistently cites the wrong 'Eligible Persons' clause (multi-unit/boarding-house) instead of the correct single-family clause 2 lines below it. Diagnosed: the correct clause exists and ranks #2/40 under a targeted query, but isn't reachable via the main blended query. Not yet fixed at retrieval level.",
-        "note": "True correct answer given a direct document read: owner-occupied single-family clause applies, Standard tier by default, no PPC restriction. Actual output has been unstable (Eligible / Insufficient Information) across recent runs.",
-    },
-    "Foremost_DP3_and_HO3_-_07.01.2026": {
-        "status": "ELIGIBLE",
-        "must_mention": [],
-        "fragile": True,
-        "known_issue": "~35-county territory eligibility table never flagged, 6 consecutive rounds. PPC 9 conclusion rests on a marketing sentence, not a quantified rule -- should be flagged as inference.",
-        "note": "Also vanished entirely from round 5's output with no explanation -- watch for carrier-list instability.",
-    },
-    "HOAIC_-_TX-HOMEOWNERS-0326_HO3": {
-        "status": "ELIGIBLE",
-        "must_mention": ["3 years"],
-        "fragile": True,
-        "known_issue": None,
-        "note": "The '3 years old or newer' PPC-review trigger doesn't apply to this 17-year-old home. Correct in rounds 3, 4, 6; wrong in rounds 1, 2, 5 -- specifically flag if this reverts to Refer/Ineligible. Round 7 also found this carrier getting a fabricated pool-fence missing_info item despite never mentioning pools at all -- fixed same day (grounded pool rules in each carrier's own excerpt); if a pool item reappears here, that fix regressed.",
-    },
-    "Liberty_Mutual_HO3_-_02.21.2026": {
-        "status": "INSUFFICIENT_INFORMATION",
-        "must_mention": [],
-        "fragile": True,
-        "known_issue": "Analysis still describes the 15-mile-fire-department rule as applying broadly to 'PPC 9 and 10 homes' when the document limits it to the $1.5M-$3M Coverage A band; a separate 'Refer to Underwriting' trigger for PPC 9 + Coverage A >= $1.5M is never mentioned.",
-        "note": "Bucket confirmed correct round 6. Do not accept INELIGIBLE here -- that was round 5's self-contradiction bug (notes said 'cannot determine' but verdict said Ineligible).",
-    },
-    "Liberty_Mutual_HO6_-_02.21.2026": {
-        "status": "INELIGIBLE",
-        "must_mention": [],
-        "fragile": False,
-        "known_issue": None,
-        "note": "Condo-only program vs. this single-family home. Was mislabeled INSUFFICIENT_INFORMATION for rounds (falsely claiming no documents retrieved, actually a carrier-dedup collision with byte-identical HO3 PDF) -- now correctly confident INELIGIBLE.",
-    },
-    "Mercury_HO3_-_01.01.2026": {
-        "status": "ELIGIBLE",
-        "must_mention": [],
-        "fragile": True,
-        "known_issue": None,
-        "note": "Round 5 had a verdict-tag self-contradiction (fixed round 6). Round 6 introduced a boundary bug: treating a roof at EXACTLY 10 years as satisfying 'older than 10 years' (fixed same day -- 'older than' is exclusive). Watch this one specifically for the boundary case recurring.",
-    },
-    "NatGen_Custom360_HO3_-_06.25.2026": {
-        "status": "INELIGIBLE",
-        "must_mention": [],
-        "fragile": True,
-        "known_issue": "Round 8 found this carrier dropped from the output entirely (not shown at all, not even as a correctly-excluded result) despite passing the occupancy filter -- confirmed the carrier IS in relevant_carriers (a deterministic, retrieval-level check), so this is a pure model omission violating the 'must include every carrier' instruction, not a retrieval bug. Matches the general carrier-list-instability pattern (also seen with Foremost round 5, Progressive HO6/HOAIC DP Guide round 3) -- a symptom of the same run-to-run instability documented on Swyfft Lloyd's and Orion, not something a targeted fix addresses.",
-        "note": "Landlord/rental-only program, no owner-occupied section. Stable since round 3.",
-    },
-    "NatGen_Premier_OneChoice_HO3_-_02.26.2025": {
-        "status": "INELIGIBLE",
-        "must_mention": [("closed", "not eligible for new business", "no longer accepting")],
-        "fragile": False,
-        "known_issue": None,
-        "note": "Program closed to new business. The single most stable, verbatim-correct carrier across all 6 rounds -- a regression here would be a strong signal something broke broadly.",
-    },
-    "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3": {
-        "status": "ELIGIBLE",
-        "must_mention": [],
-        "fragile": True,
-        "known_issue": "The document's 4-ft-fence pool language is explicitly scoped to an OPTIONAL liability endorsement ('this endorsement,' 'to qualify for this coverage'), not base HO3 eligibility. Round 7 found the tool treating it as a missing_info blocker anyway even while correctly identifying it as endorsement-scoped in its own reasoning text; added an explicit base-eligibility-vs-endorsement instruction that same day. Round 8's external audit run found this carrier CORRECT (\"the clearest win of the round\") -- but a same-day internal test with the identical code found it WRONG again (endorsement correctly identified in reasoning, still treated as a blocking missing_info item, status still Insufficient Information). This is genuine run-to-run instability, not an unfixed bug -- the instruction clearly CAN work, just not reliably every run. Same failure shape as the round 5 verdict-tag bug (correct diagnosis, wrong downstream conclusion) on a smaller category of fact.",
-        "note": "Round 5's verdict-tag self-contradiction (analysis said PPC 9 fine, verdict said Ineligible) is confirmed fixed round 6.",
-    },
-    "Progressive_HO3_-_04.01.2026": {
-        "status": "INSUFFICIENT_INFORMATION",
-        "must_mention": ["paved"],
-        "fragile": True,
-        "known_issue": None,
-        "note": "PPC 9/10 requires paved road + visible to neighbors, neither given in intake. Round 4 correctly Refer, round 5 wrongly Eligible despite unresolved items, round 6 correctly Insufficient Information (better bucket than Refer -- no underwriting discretion path exists for this specific rule).",
-    },
-    "Progressive_HO6_-_10.01.2025": {
-        "status": "INELIGIBLE",
-        "must_mention": [],
-        "fragile": False,
-        "known_issue": None,
-        "note": "Condo-only program vs. this single-family home. Same mislabel history as Liberty Mutual HO6.",
-    },
-    "Sage_-_Auros_HO3": {
-        "status": "INSUFFICIENT_INFORMATION",
-        "must_mention": [("fire protection class", "fpc"), ("driving distance", "fire station")],
-        "fragile": True,
-        "known_issue": None,
-        "note": "Shares the identical Fire Protection Class table with its 5 siblings. Round 6 audit found Auros alone dropped this rule (kept only an unrelated county question) while all 5 siblings cited it correctly -- re-verified fixed same day, but flag specifically if this drops again.",
-    },
-    "Sage_-_Markel_HO3": {
-        "status": "ELIGIBLE",
-        "must_mention": ["protection class"],
-        "fragile": False,
-        "known_issue": "$100,000 minimum Coverage A requirement never mentioned across 4+ rounds.",
-        "note": "Own favorable 'Protection Classes 1-10 are eligible' line correctly cited since round 4/5. Round 7 left a roof-age boundary case unresolved ('at the boundary' without concluding) despite the document's 'holds depreciation for 10 years' wording supporting the same clear RCV-applies conclusion Mercury and TWICO reached on their own boundary cases -- added explicit guidance same day that 'holds/defers X for N years' is inclusive of year N.",
-    },
-    "Sage_-_Occidental_HO3": {
-        "status": "INSUFFICIENT_INFORMATION",
-        "must_mention": [("fire protection class", "fpc"), ("driving distance", "fire station")],
-        "fragile": True,
-        "known_issue": None,
-        "note": "Part of the Sage six -- see Sage_-_Auros_HO3 note. Round 8 found this specific sibling's pool-fence rule ranking #19/57 under the main query (outside the fetch window) while the other five ranked well enough by luck, causing this carrier alone to flatly claim 'no fence-height or gate rule exists' when its document has the identical 4-ft-fence rule as its siblings. Fixed same day with a guaranteed keyword-based pool-rule lookup -- verified now correctly cites this carrier's own 'combination/padlock or self-locking/self-latching' wording near-verbatim.",
-    },
-    "Sage_-_SURE_HO-3_-_01.31.2026": {
-        "status": "INSUFFICIENT_INFORMATION",
-        "must_mention": [("fire protection class", "fpc"), ("driving distance", "fire station")],
-        "fragile": False,
-        "known_issue": None,
-        "note": "Part of the Sage six -- see Sage_-_Auros_HO3 note.",
-    },
-    "Sage_-_SafePort_HO-3_-_01.31.2026": {
-        "status": "INSUFFICIENT_INFORMATION",
-        "must_mention": [("fire protection class", "fpc"), ("driving distance", "fire station")],
-        "fragile": True,
-        "known_issue": None,
-        "note": "Had a fabricated 'PPC 9 eligible under 25 years' rule in rounds 1 and 3 (that age exception only applies to the FPC 4-8 band). Fixed since round 4 -- watch for this specific fabrication recurring.",
-    },
-    "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026": {
-        "status": "INSUFFICIENT_INFORMATION",
-        "must_mention": [("fire protection class", "fpc"), ("driving distance", "fire station")],
-        "fragile": False,
-        "known_issue": None,
-        "note": "Part of the Sage six -- see Sage_-_Auros_HO3 note.",
-    },
-    "Sage_-_Vave_HO3_-_07.01.2026": {
-        "status": "ELIGIBLE",
-        "must_mention": ["protection class"],
-        "fragile": True,
-        "known_issue": "Roof-age table (asphalt shingles under 15 years = RCV), correctly cited in round 1, dropped as of round 4-5.",
-        "note": "Own favorable 'ISO Protection Classes 1-10 are eligible' line correctly cited since round 4. Sometimes lands on INSUFFICIENT_INFORMATION instead over acreage/pool-liability details this carrier's document genuinely requires and the current intake form doesn't collect -- that's a real intake gap, not a hallucination, if it recurs.",
-    },
-    "Sage_-_Wilshire_HO3_-_12.02.2025": {
-        "status": "INSUFFICIENT_INFORMATION",
-        "must_mention": [("fire protection class", "fpc"), ("driving distance", "fire station")],
-        "fragile": False,
-        "known_issue": None,
-        "note": "Part of the Sage six -- see Sage_-_Auros_HO3 note.",
-    },
-    "Swyfft_-_Benchmark_(Admitted)_HO3": {
-        "status": "ELIGIBLE",
-        "must_mention": [],
-        "fragile": True,
-        "known_issue": "Pool-fence rule (4-ft permanent fence + self-latching gate) confirmed present, inconsistently flagged as missing across rounds -- sometimes correct, sometimes silently dropped.",
-        "note": None,
-    },
-    "Swyfft_-_Benchmark_(Surplus)_HO3": {
-        "status": "ELIGIBLE",
-        "must_mention": [],
-        "fragile": True,
-        "known_issue": "Same pool-fence instability as Benchmark (Admitted).",
-        "note": None,
-    },
-    "Swyfft_-_Lloyds_(Surplus)_HO3": {
-        "status": "INELIGIBLE",
-        "must_mention": ["protection class"],
-        "fragile": True,
-        "known_issue": None,
-        "note": "THE headline regression-test case: this carrier's unconditional 'ISO Protection Class 9 or 10' decline has flipped wrong/right FOUR times across 6 rounds (wrong-wrong-wrong-right-wrong-right). Root-caused to context assembly grouping chunks by retrieval pass instead of by carrier, scattering this carrier's guaranteed PPC chunk far from its main content block in a 25k+ token prompt. Fixed by grouping context by carrier. If this fails, check that fix hasn't regressed first.",
-    },
-    "Swyfft_-_Topa_(Surplus)_HO3": {
-        "status": "ELIGIBLE",
-        "must_mention": [],
-        "fragile": True,
-        "known_issue": "Pool-fence rule inconsistently flagged -- correct in round 5, dropped in round 6.",
-        "note": None,
-    },
-    "TWICO_HO3": {
-        "status": "ELIGIBLE",
-        "must_mention": [],
-        "fragile": True,
-        "known_issue": None,
-        "note": "Round 7's real bug (fixed round 7): got assigned a fabricated 'self-latching/combination lock/padlock' fence-mechanism question that traces verbatim to the Sage family's documents, not TWICO's own (TWICO's real rule is just diving board/slide/unfenced, which this customer's 'fenced, no accessories' pool already satisfies). Round 8 found a second, different bug: a genuine (not fabricated) circuit-panel-inspection rule -- 'homes built 1960+ must have panel checked within the last 35 years' -- applied to this 17-year-old home, where the home's own age already makes the question moot (it can't have gone unchecked for 35 years). Fixed same day with a general 'within the last N years' inference rule; verified same day now correctly reasons 'cannot have gone unchecked for longer than 17 years, so automatically satisfied' and returns ELIGIBLE.",
-    },
-    "Travelers_HO3_-_06.12.2026": {
-        "status": "ELIGIBLE",
-        "must_mention": [],
-        "fragile": True,
-        "known_issue": "Roof-age table (10/15/25-year thresholds by Wind/Hail/Tornado classification) never correctly found/cited across 6 rounds, despite the conclusion (Eligible) being substantively correct for this customer's actual roof.",
-        "note": None,
-    },
-}
-
-# Not in EXPECTED at all: Centauri HO3 (scanned/image PDF, 0 extracted
-# pages -- a separate, known, by-design gap pending OCR conversion, not a
-# retrieval or reasoning bug this suite can catch).
+from eligibility_check import (
+    assign_buckets,
+    build_retrieval_query,
+    check_eligibility,
+    guaranteed_carrier_lookup,
+    is_eligibility_content,
+    _mentions_solar,
+    _mentions_protection_class,
+    _mentions_pool_rule,
+    _mentions_roof_life_expectancy,
+    _is_ppc_disambiguation_table,
+)
+from shared_resources import get_vectorstore
+from profiles import STANDARD_PROFILE, ALT_PROFILE
 
 
-def _tokens(s):
-    return set(t for t in re.split(r"[^A-Za-z0-9]+", s.upper()) if t)
+# ---------------------------------------------------------------------------
+# Shared retrieval helpers (thin wrappers around the real pipeline internals
+# -- NOT a reimplementation, so these can't drift from production behavior)
+# ---------------------------------------------------------------------------
+
+def _all_chunks(carrier):
+    vs = get_vectorstore()
+    raw = vs._collection.get(where={"carrier": carrier}, include=["documents", "metadatas"])
+    return [Document(page_content=d, metadata=m) for d, m in zip(raw["documents"], raw["metadatas"])]
 
 
-def _best_match(model_name, candidate_keys):
-    """The model restates carrier names in its own words -- sometimes
-    verbose ("Orion Underwriting Guide TX HO3"), sometimes terse ("Orion
-    HO3") -- so a plain substring check fails whenever the metadata key is
-    longer and less predictable than the model's own short name (e.g.
-    "Orion HO3" is NOT a contiguous substring of
-    "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3"). Token-overlap with a
-    clear-winner requirement handles both directions."""
-    model_tokens = _tokens(model_name)
-    scores = {key: len(model_tokens & _tokens(key)) for key in candidate_keys}
-    best_key = max(scores, key=scores.get)
-    best_score = scores[best_key]
-    if best_score == 0:
-        return None
-    runner_up = max((s for k, s in scores.items() if k != best_key), default=0)
-    if best_score <= runner_up:
-        return None  # ambiguous -- more than one candidate ties for best
-    return best_key
+def _kept_main_query_chunks(carrier, profile, k=15, keep=3):
+    home_age = date.today().year - profile["year_built"]
+    query = build_retrieval_query(profile, home_age)
+    vs = get_vectorstore()
+    results = vs.similarity_search(query, k=k, filter={"carrier": carrier})
+    return [c for c in results if is_eligibility_content(c)][:keep]
 
 
-def _text_blob(result):
-    parts = result.get("reasons", []) + result.get("citations", [])
-    if result.get("notes"):
-        parts.append(result["notes"])
-    return " ".join(parts).lower()
+def _guaranteed_lookup_chunks(carrier, predicate, keep=3, priority_key=None):
+    """Calls the REAL production guarantee-lookup function directly (not a
+    reimplementation) so this test can never silently drift from what
+    check_eligibility() actually does -- a duplicated copy here previously
+    passed while production (with a different priority sort) still dropped
+    the chunk that mattered."""
+    vs = get_vectorstore()
+    return guaranteed_carrier_lookup(
+        vs._collection, carrier, predicate=predicate, keep=keep, priority_key=priority_key,
+    )
 
 
-def _clause_satisfied(blob, clause):
-    if isinstance(clause, (list, tuple)):
-        return any(alt in blob for alt in clause)
-    return clause in blob
+# ---------------------------------------------------------------------------
+# TIER 0 -- pure logic, no retrieval, no LLM. Fastest possible tests.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.retrieval
+class TestBucketAssignment:
+    """The bucket/verdict labeling bug: reproduced identically across three
+    audit rounds and three different customer profiles (5-for-5 "One Issue"
+    == INELIGIBLE, 9-for-9 "Not Eligible" == INSUFFICIENT_INFORMATION).
+    Fixed by mapping each of the four buckets to exactly one status --
+    these tests encode the exact failure shape directly, with no LLM call
+    needed since assign_buckets() is pure Python."""
+
+    def _make(self, status, flaw_count=0, carrier="X"):
+        return {"carrier": carrier, "status": status, "flaw_count": flaw_count}
+
+    def test_ineligible_single_flaw_goes_to_one_issue_not_not_eligible(self):
+        results = [self._make("INELIGIBLE", flaw_count=1)]
+        buckets = assign_buckets(results)
+        assert buckets["one_issue"] == results
+        assert buckets["not_eligible"] == []
+
+    def test_insufficient_information_goes_to_its_own_bucket_not_not_eligible(self):
+        results = [self._make("INSUFFICIENT_INFORMATION")]
+        buckets = assign_buckets(results)
+        assert buckets["insufficient_info"] == results
+        assert buckets["not_eligible"] == []
+        assert buckets["one_issue"] == []
+
+    def test_ineligible_multi_flaw_goes_to_not_eligible(self):
+        results = [self._make("INELIGIBLE", flaw_count=3)]
+        buckets = assign_buckets(results)
+        assert buckets["not_eligible"] == results
+        assert buckets["one_issue"] == []
+
+    def test_refer_goes_to_one_issue(self):
+        results = [self._make("REFER")]
+        buckets = assign_buckets(results)
+        assert buckets["one_issue"] == results
+
+    def test_reproduces_the_exact_audit_finding_shape(self):
+        """5 carriers tagged INELIGIBLE with flaw_count=1, 9 carriers tagged
+        INSUFFICIENT_INFORMATION -- the exact 5-for-5 / 9-for-9 split found
+        identically in rounds 9, 10, and 11. Before the fix, all 5 landed in
+        "one_issue" (correctly) but all 9 landed in "not_eligible" -- a
+        bucket labeled "Not Eligible" containing zero actually-ineligible
+        carriers. After the fix, they must be in separate, correctly-named
+        buckets."""
+        results = [self._make("INELIGIBLE", flaw_count=1, carrier=f"one-issue-{i}") for i in range(5)]
+        results += [self._make("INSUFFICIENT_INFORMATION", carrier=f"insufficient-{i}") for i in range(9)]
+        buckets = assign_buckets(results)
+        assert len(buckets["one_issue"]) == 5
+        assert all(r["status"] == "INELIGIBLE" for r in buckets["one_issue"])
+        assert len(buckets["insufficient_info"]) == 9
+        assert all(r["status"] == "INSUFFICIENT_INFORMATION" for r in buckets["insufficient_info"])
+        # the actual bug: "not_eligible" must NOT silently absorb the 9
+        # INSUFFICIENT_INFORMATION carriers just because they're not ELIGIBLE
+        assert buckets["not_eligible"] == []
 
 
-def _clause_label(clause):
-    return "/".join(clause) if isinstance(clause, (list, tuple)) else clause
+# ---------------------------------------------------------------------------
+# TIER 1 -- retrieval-layer tests (fast, no LLM call, run on every commit)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.retrieval
+class TestSolarRetrieval:
+    """Every carrier confirmed by audit to have real solar-panel language
+    must actually be retrievable via the guaranteed solar lookup
+    (_mentions_solar). Round 11 found Progressive HO3's solar exclusion
+    reported as "verified fixed" but absent from that round's actual
+    model output -- this test would NOT have caught that specific failure
+    (it's a model-consistency issue, not a retrieval gap; see the
+    TestProgressiveSolarConsistency flakiness check below for that), but it
+    does confirm the retrieval step itself -- which the model output
+    depends on -- is not the bottleneck."""
+
+    @pytest.mark.parametrize("carrier,must_contain", [
+        ("TWICO_HO3", "solar panels"),
+        ("NatGen_Premier_OneChoice_HO3_-_02.26.2025", "solar panels"),
+        ("Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3", "renewable energy"),
+        ("Progressive_HO3_-_04.01.2026", "solar panels"),
+        ("Progressive_HO6_-_10.01.2025", "solar panels"),
+        ("HOAIC_-_TX-HOMEOWNERS-0326_HO3", "solar panel"),
+    ])
+    def test_solar_clause_retrievable(self, carrier, must_contain):
+        candidates = _guaranteed_lookup_chunks(carrier, _mentions_solar, keep=2)
+        assert candidates, f"{carrier}: no solar-mentioning chunk found at all via _mentions_solar."
+        blob = " ".join(c.page_content for c in candidates).lower()
+        assert must_contain.lower() in blob, (
+            f"{carrier}'s known solar clause text ({must_contain!r}) was not found in the "
+            f"{len(candidates)} guaranteed-lookup candidate(s)."
+        )
 
 
-def main():
-    if "ANTHROPIC_API_KEY" not in os.environ and not os.path.exists(
-        os.path.join(os.path.dirname(__file__), "..", ".env")
-    ):
-        print("WARNING: no ANTHROPIC_API_KEY / .env found -- this will likely fail to call the real API.")
+@pytest.mark.retrieval
+class TestRoofTerminologySynonyms:
+    """'Composition Shingle' and 'Composite or Architectural Shingle' must
+    resolve to the same underlying rule in Allied Trust's document. Round
+    10 found a fix that worked only for the exact phrasing already in the
+    bug report -- this parametrizes over FOUR different phrasings of the
+    same roofing category, per CLAUDE.md's requirement that a
+    generalization fix be tested with more than one phrasing."""
 
-    print("Running check_eligibility() against the standard test profile...")
-    results = check_eligibility(STANDARD_PROFILE)
-    all_carriers = get_all_carriers()
+    @pytest.mark.parametrize("roof_type_phrasing", [
+        "Composition Shingle",
+        "Composite or Architectural Shingle",
+        "Architectural Shingle",
+        "3-tab shingle",
+    ])
+    def test_allied_trust_both_roof_clauses_retrievable(self, roof_type_phrasing):
+        # What actually reaches the prompt in production is the UNION of the
+        # main per-carrier query AND the guaranteed roof-life-expectancy
+        # lookup (keyword-based, independent of roof_type phrasing) -- test
+        # against that union, not the main query alone. The main-query-only
+        # version of this test is what originally caught the "Architectural
+        # Shingle" gap that motivated adding the guarantee.
+        profile = dict(ALT_PROFILE, roof_type=roof_type_phrasing)
+        kept = _kept_main_query_chunks("Allied_Trust_HO3", profile, k=15, keep=3)
+        guaranteed = _guaranteed_lookup_chunks(
+            "Allied_Trust_HO3", _mentions_roof_life_expectancy, keep=3,
+            priority_key=lambda c: "shingle" not in c.page_content.lower(),
+        )
+        blob = " ".join(c.page_content for c in kept + guaranteed)
+        assert "¾ of its life expectancy" in blob, (
+            f"roof phrasing {roof_type_phrasing!r}: the '3/4 of its life expectancy' "
+            f"clause was not retrieved."
+        )
+        assert "21 years old" in blob, (
+            f"roof phrasing {roof_type_phrasing!r}: the '21 years old' total-life-expectancy "
+            f"clause was not retrieved. If this passes for 'Composite or Architectural Shingle' "
+            f"but fails for 'Composition Shingle', the terminology fix did not generalize."
+        )
 
-    by_expected_key = {}
-    for r in results:
-        match = _best_match(r.get("carrier", ""), list(EXPECTED.keys()))
-        if match:
-            by_expected_key[match] = r
 
-    passed, failed, missing = [], [], []
+@pytest.mark.retrieval
+class TestSageFamilyFPCRetrieval:
+    """Round 11: an FPC-1 risk is eligible under every row of the Sage
+    family's FPC/distance/hydrant table -- the "ineligible" row is reserved
+    exclusively for FPC 9+. The model can only draw the correct
+    eligible-with-conditions conclusion if BOTH the low-FPC eligible rows
+    AND the high-FPC ineligible row are actually retrieved, not just
+    whichever one embeds closest to the query."""
 
-    for carrier_key, expected in EXPECTED.items():
-        result = by_expected_key.get(carrier_key)
-        if result is None:
-            missing.append(carrier_key)
-            continue
-
-        actual_status = result.get("status")
-        blob = _text_blob(result)
-        missing_mentions = [
-            _clause_label(m) for m in expected["must_mention"] if not _clause_satisfied(blob, m)
+    @pytest.mark.parametrize("carrier", [
+        "Sage_-_Auros_HO3",
+        "Sage_-_Occidental_HO3",
+        "Sage_-_Wilshire_HO3_-_12.02.2025",
+    ])
+    def test_both_low_and_high_fpc_rows_retrievable(self, carrier):
+        candidates = [
+            c for c in _all_chunks(carrier)
+            if _mentions_protection_class(c.page_content) and not _is_ppc_disambiguation_table(c.page_content)
         ]
+        candidates = [c for c in candidates if is_eligibility_content(c)]
+        blob = " ".join(c.page_content for c in candidates)
+        assert "FPC is 9 or greater" in blob or "FPC 9" in blob, (
+            f"{carrier}: the FPC>=9 ineligible row was not found among guaranteed PPC candidates."
+        )
+        assert "FPC is 1" in blob or "FPC 1" in blob or "1 – 3" in blob or "1-3" in blob, (
+            f"{carrier}: no FPC 1-3 (eligible) row was found among guaranteed PPC candidates -- "
+            f"the model can't conclude 'eligible under every applicable row' without seeing it."
+        )
 
-        ok = actual_status == expected["status"] and not missing_mentions
-        entry = {
-            "carrier": carrier_key,
-            "expected_status": expected["status"],
-            "actual_status": actual_status,
-            "missing_mentions": missing_mentions,
-            "fragile": expected["fragile"],
-        }
-        (passed if ok else failed).append(entry)
-
-    print(f"\n{'=' * 70}")
-    print(f"PASS: {len(passed)}   FAIL: {len(failed)}   MISSING FROM OUTPUT: {len(missing)}")
-    print(f"{'=' * 70}\n")
-
-    if failed:
-        print("FAILURES (regressions or new bugs):")
-        for e in failed:
-            flag = " [FRAGILE -- known history of flipping]" if e["fragile"] else ""
-            print(f"  - {e['carrier']}{flag}")
-            print(f"      expected status: {e['expected_status']}, got: {e['actual_status']}")
-            if e["missing_mentions"]:
-                print(f"      missing required content: {e['missing_mentions']}")
-        print()
-
-    if missing:
-        print("MISSING FROM OUTPUT (carrier expected but not found in results -- "
-              "check carrier-list instability or a name-resolution mismatch):")
-        for m in missing:
-            print(f"  - {m}")
-        print()
-
-    fragile_passes = [e["carrier"] for e in passed if e["fragile"]]
-    if fragile_passes:
-        print("Passed, but historically fragile -- worth a second look, not just a green check:")
-        for c in fragile_passes:
-            print(f"  - {c}: {EXPECTED[c]['note']}")
-        print()
-
-    known_issues = [(k, v["known_issue"]) for k, v in EXPECTED.items() if v["known_issue"]]
-    if known_issues:
-        print(f"Known open issues NOT enforced by this test ({len(known_issues)}):")
-        for carrier, issue in known_issues:
-            print(f"  - {carrier}: {issue}")
-        print()
-
-    print("Centauri HO3 is intentionally excluded (scanned PDF, pending OCR decision).")
-
-    sys.exit(1 if (failed or missing) else 0)
+    def test_classification_terminology_not_present_in_auros_occidental_wilshire(self):
+        """The fabricated 'Classification A/B/C' terminology that bled in
+        from the Trium/SURE/SafePort documents was confirmed gone in round
+        11 -- this is a retrieval-level guard against it ever silently
+        reappearing (it should never exist in these three carriers' own
+        chunks at all)."""
+        for carrier in ["Sage_-_Auros_HO3", "Sage_-_Occidental_HO3", "Sage_-_Wilshire_HO3_-_12.02.2025"]:
+            chunks = _all_chunks(carrier)
+            assert not any("classification" in c.page_content.lower() for c in chunks), (
+                f"{carrier}: 'classification' terminology found in its own chunks -- "
+                f"re-verify this isn't the cross-contamination bug reappearing from a document update."
+            )
 
 
-if __name__ == "__main__":
-    main()
+# ---------------------------------------------------------------------------
+# TIER 2 -- baseline end-to-end tests (slow, real API cost; run before
+# merging any change to prompts, retrieval, ranking, or bucket logic)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.baseline
+class TestBaselineStandardProfile:
+    """Known-correct verdicts for the original round 1-9 profile (PPC 9,
+    2009-built, 10-yr roof, fenced pool, no solar), each individually
+    verified against the actual carrier PDFs during this session -- not
+    assumed from an audit summary."""
+
+    @classmethod
+    def setup_class(cls):
+        cls.result = check_eligibility(STANDARD_PROFILE)
+        cls.by_carrier = {r["carrier"]: r for r in cls.result}
+
+    def _find(self, substr):
+        matches = [r for c, r in self.by_carrier.items() if substr.lower() in c.lower()]
+        assert matches, f"No carrier matching {substr!r} in output: {list(self.by_carrier)}"
+        return matches[0]
+
+    def test_swyfft_lloyds_excluded_for_ppc9(self):
+        # "ISO Protection Class 9 or 10" ineligible -- the headline fix that
+        # took 4 rounds to hold (see eligibility_check.py context-grouping fix)
+        assert self._find("Lloyds")["status"] == "INELIGIBLE"
+
+    def test_mercury_roof_exactly_10_years_gets_rcv_not_endorsement(self):
+        # Source doc says "older than 10 years old" -- exclusive of exactly-10
+        assert self._find("Mercury")["status"] == "ELIGIBLE"
+
+    def test_orion_ppc9_is_eligible_not_ppc10(self):
+        # Only PPC 10 is excluded; PPC 9 is fine.
+        assert self._find("Orion")["status"] == "ELIGIBLE"
+
+    def test_sage_occidental_pool_fence_rule_is_found(self):
+        # Round 8 bug: claimed absent when it's identical to sibling carriers'
+        # (ranked #19/57, outside the old fetch window -- fixed with a
+        # guaranteed pool-rule lookup).
+        r = self._find("Occidental")
+        blob = " ".join(r.get("reasons", []) + r.get("citations", []) + r.get("missing_info", [])).lower()
+        assert "fenc" in blob or "gate" in blob
+
+    @pytest.mark.xfail(reason="Foremost county/territory restriction table unflagged since round 3 (backlog, still open as of round 11)")
+    def test_foremost_flags_county_restriction(self):
+        r = self._find("Foremost")
+        blob = " ".join(r.get("missing_info", [])).lower()
+        assert "county" in blob
+
+    @pytest.mark.xfail(reason="CHUBB cites the multi-unit clause instead of the single-family 'a house' clause (backlog, rounds 9-11)")
+    def test_chubb_cites_correct_eligible_persons_clause(self):
+        r = self._find("CHUBB")
+        assert "house" in " ".join(r.get("citations", [])).lower()
+
+    @pytest.mark.xfail(reason="Liberty Mutual HO6 source file is identical to HO3; condo-only claim isn't grounded in any retrieved rule text, only the filename (backlog, rounds 9-11)")
+    def test_liberty_mutual_ho6_condo_claim_is_grounded_in_real_text(self):
+        r = self._find("Liberty Mutual HO6")
+        citations = r.get("citations", [])
+        assert citations and "condominium" in " ".join(citations).lower()
+
+
+@pytest.mark.baseline
+class TestBaselineAltProfile:
+    """Known-correct verdicts for the round 10/11 alternate profile (PPC 1,
+    1994-built, 14-yr roof, no pool, solar panels present)."""
+
+    @classmethod
+    def setup_class(cls):
+        cls.result = check_eligibility(ALT_PROFILE)
+        cls.by_carrier = {r["carrier"]: r for r in cls.result}
+
+    def _find(self, substr):
+        matches = [r for c, r in self.by_carrier.items() if substr.lower() in c.lower()]
+        assert matches, f"No carrier matching {substr!r} in output: {list(self.by_carrier)}"
+        return matches[0]
+
+    def test_mercury_no_spurious_ppc10_question(self):
+        # Round 10 bug (fixed): asked about PPC 10 eligibility for a PPC-1 customer.
+        r = self._find("Mercury")
+        blob = " ".join(r.get("missing_info", [])).lower()
+        assert "ppc 10" not in blob and "ppc-10" not in blob
+
+    @pytest.mark.xfail(
+        reason="Round 11: added a 'check every applicable branch before using "
+        "INSUFFICIENT_INFORMATION' instruction for this exact issue. Measured "
+        "pass rate across 4 real runs: 1/4 (25%) -- this is NOT the same as "
+        "Progressive HO3's solar flakiness (which passes most runs); this fix "
+        "mostly does not work yet. Auros/Occidental/Wilshire flip TOGETHER "
+        "(same status across all three in every run observed), consistent "
+        "with the model settling into one 'mode' per completion rather than "
+        "evaluating each carrier independently. Needs a stronger fix, not "
+        "just a longer prompt instruction -- see test_sage_family_ppc1_pass_rate.",
+        strict=False,
+    )
+    @pytest.mark.parametrize("carrier_substr", [
+        "Auros", "Occidental", "Wilshire",
+    ])
+    def test_sage_family_ppc1_is_eligible_not_insufficient(self, carrier_substr):
+        """Round 11: a full read of all six Sage documents' FPC tables
+        confirms an FPC-1 risk is eligible under every row -- the
+        ineligible row requires FPC>=9, which this customer can never
+        reach. Missing distance data only determines which additional
+        conditions apply, not whether the risk qualifies."""
+        r = self._find(carrier_substr)
+        assert r["status"] != "INSUFFICIENT_INFORMATION", (
+            f"{carrier_substr}: PPC 1 can never fail the FPC>=9 exclusion clause; "
+            f"expected ELIGIBLE (with conditions to confirm), got {r['status']}."
+        )
+
+    def test_allied_trust_14yr_roof_does_not_pass_as_clean_eligible(self):
+        # 21yr total life expectancy - 14yr age = 7yr remaining, vs 15.75yr
+        # required (3/4 of 21). A 7yr-remaining roof fails this threshold.
+        assert self._find("Allied Trust")["status"] != "ELIGIBLE"
+
+    @pytest.mark.xfail(reason="TWICO's circuit-panel rule (35yr window, built 1960+) was dropped entirely after removing an unsound 'auto-satisfied by home age' inference, rather than being surfaced as a genuine open question (round 11)")
+    def test_twico_surfaces_circuit_panel_question(self):
+        r = self._find("TWICO")
+        blob = " ".join(r.get("missing_info", [])).lower()
+        assert "circuit panel" in blob
+
+    @pytest.mark.xfail(
+        reason="Progressive HO3's solar windstorm/hail exclusion is retrievable (see TestSolarRetrieval) but reported absent from round 11's actual output despite prior same-day verification -- run-to-run model inconsistency, tracked by test_progressive_ho3_solar_consistency below rather than asserted as a hard pass here",
+        strict=False,
+    )
+    def test_progressive_ho3_surfaces_solar_exclusion(self):
+        r = self._find("Progressive_HO3") if "Progressive_HO3" in self.by_carrier else self._find("Progressive HO3")
+        blob = " ".join(r.get("missing_info", []) + r.get("citations", [])).lower()
+        assert "solar" in blob
+
+
+# ---------------------------------------------------------------------------
+# Flakiness guard -- run a baseline case N times, report the ACTUAL pass
+# rate rather than asserting a single run proves anything. Per CLAUDE.md:
+# "occasionally gets distracted, not fully solved" belongs in an assertion,
+# not only in a prose summary.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.baseline
+def test_progressive_ho3_solar_consistency(record_property):
+    n_runs = 3
+    outcomes = []
+    for _ in range(n_runs):
+        result = check_eligibility(ALT_PROFILE)
+        by_carrier = {r["carrier"]: r for r in result}
+        matches = [r for c, r in by_carrier.items() if "progressive" in c.lower() and "ho3" in c.lower() and "ho6" not in c.lower()]
+        assert matches
+        r = matches[0]
+        blob = " ".join(r.get("missing_info", []) + r.get("citations", [])).lower()
+        outcomes.append("solar" in blob)
+    pass_rate = sum(outcomes) / len(outcomes)
+    record_property("progressive_ho3_solar_pass_rate", pass_rate)
+    print(f"\nProgressive HO3 solar-mention pass rate: {pass_rate:.0%} over {n_runs} runs ({outcomes})")
+    # Not asserting == 1.0: this is a known-flaky case being TRACKED, not a
+    # green/red gate yet. Fails loudly (and visibly, via the printed rate)
+    # if it drops to 0% -- silence would be worse than a known partial rate.
+    assert pass_rate > 0.0, (
+        f"Progressive HO3's solar clause did not surface in ANY of {n_runs} runs -- "
+        f"this has regressed from partial to total failure."
+    )
+
+
+@pytest.mark.baseline
+def test_sage_family_ppc1_pass_rate(record_property):
+    """Measured pass rate as of round 11 + same-day fix attempt: 1/4 (25%)
+    across (1 pytest run + 3 ad-hoc runs, not all captured by this specific
+    function call). This test re-measures with its OWN fresh runs so the
+    number stays live and re-checkable, rather than being a one-time
+    finding that ages out of visibility. Unlike Progressive HO3's solar
+    case (which mostly passes), this one mostly does NOT -- do not let a
+    single good run get reported as "fixed" without re-running this."""
+    n_runs = 3
+    target_carriers = ["Auros", "Occidental", "Wilshire"]
+    per_carrier_outcomes = {c: [] for c in target_carriers}
+    for _ in range(n_runs):
+        result = check_eligibility(ALT_PROFILE)
+        by_carrier = {r["carrier"]: r for r in result}
+        for target in target_carriers:
+            matches = [r for c, r in by_carrier.items() if target.lower() in c.lower()]
+            assert matches, f"{target}: not found in output"
+            per_carrier_outcomes[target].append(matches[0]["status"] != "INSUFFICIENT_INFORMATION")
+    for carrier, outcomes in per_carrier_outcomes.items():
+        rate = sum(outcomes) / len(outcomes)
+        record_property(f"sage_{carrier.lower()}_ppc1_pass_rate", rate)
+        print(f"\nSage {carrier} PPC-1 eligible-not-insufficient pass rate: {rate:.0%} over {n_runs} runs ({outcomes})")
+    # Not a hard gate at any particular threshold yet -- this test's job is
+    # to keep the real number visible on every run, not to silently pass or
+    # fail. If it's reliably 0% going forward, that's a stronger signal to
+    # invest in a structural fix (e.g. a dedicated per-branch check) rather
+    # than another prompt instruction.

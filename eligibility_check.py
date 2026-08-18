@@ -96,6 +96,12 @@ BASE ELIGIBILITY vs. OPTIONAL ENDORSEMENT/COVERAGE: some requirements you'll see
 
 ROOFING MATERIAL TERMINOLOGY: "Composition Shingle," "Composite Shingle," "Architectural Shingle," "3-tab shingle," and "asphalt shingle" all refer to the SAME underlying family of asphalt-based shingle roofing, and carriers use these terms inconsistently -- one carrier's document may use only one of these phrases, or bundle several together (e.g. "Composite or Architectural Shingle"), to mean the same roofing category the customer's own Roof Type value falls under. If a carrier's document states a rule using ANY of these terms and never uses the customer's EXACT given Roof Type wording, apply that rule to the customer's roof anyway -- do not treat the rule as inapplicable, and do not invent an undefined separate category or lifespan figure "for" the customer's exact wording. Only treat two of these terms as genuinely different categories with different rules if the SAME document explicitly gives them different numeric thresholds.
 
+REMAINING-LIFE-EXPECTANCY rules specifically (e.g. "roof should have 3/4 of its life expectancy remaining to qualify for replacement cost coverage"): the TOTAL life expectancy or maximum age figure needed to compute this is very often stated in a DIFFERENT sentence than the fraction itself -- commonly phrased as "should be completely replaced before/by age X" a sentence or two later, for the same or a synonymous roofing category (see ROOFING MATERIAL TERMINOLOGY above). Before concluding a total-life-expectancy figure "is not stated" or "is not fully specified," search ALL of this carrier's other excerpts for such a figure under any synonymous category name. Once found, show the arithmetic explicitly: remaining life = total life expectancy minus Roof Age; required = 3/4 x total life expectancy; state both numbers and whether remaining >= required.
+
+DO NOT DOWNGRADE TO INSUFFICIENT_INFORMATION WHEN EVERY APPLICABLE BRANCH AGREES: some rules are structured as a multi-row table or multi-branch condition (e.g. a Fire-Protection-Class/driving-distance table with several rows). Before concluding a fact is missing and using INSUFFICIENT_INFORMATION, check EVERY row/branch that could possibly apply to the customer's ACTUAL given value (PPC/FPC, roof type, etc.) -- not every row in the whole table, just the ones the given value could land in. If ALL of those applicable rows/branches lead to the SAME eligibility outcome (e.g. every row for this customer's FPC band says "eligible," even if each row attaches DIFFERENT additional conditions like an alarm or road-visibility requirement), that outcome IS the verdict -- do not use INSUFFICIENT_INFORMATION just because the unconfirmed fact would determine WHICH additional conditions apply, when it doesn't change WHETHER the risk is eligible. List the unconfirmed fact in missing_info as something to confirm which conditions apply, and note in notes that eligibility itself doesn't depend on it. Only use INSUFFICIENT_INFORMATION when the applicable rows/branches would produce genuinely DIFFERENT eligibility outcomes (e.g. one applicable row says eligible and another says ineligible) depending on the missing fact.
+
+CITATION ACCURACY: a citation must reproduce the source text's exact wording, not a paraphrase or a more common word substituted for a less common one that happens to fit the customer's situation (e.g. do not write "asphalt shingles" when the source says "asbestos shingles" -- these are different words with different meanings, even though they look and sound similar and even though this customer happens to have an asphalt roof). If you are not fully certain of the exact wording, quote a shorter, unambiguous fragment you ARE certain of rather than a longer one you might be filling in from context.
+
 Return ONLY a JSON array with no text before or after it.
 Each object must follow this exact structure -- NOTE the field order: work out reasons, citations, missing_info, and notes FIRST, and only decide status and flaw_count LAST, after that analysis is already written. Do not decide the verdict before you've written the reasoning -- the verdict must be the conclusion your own reasons/notes already reached, never a separate judgment made in advance of them.
 
@@ -236,6 +242,22 @@ def _mentions_solar(content):
     return "solar" in content.lower()
 
 
+def _mentions_roof_life_expectancy(content):
+    """A roof's TOTAL life expectancy (or maximum age) figure is often
+    stated in a different sentence/chunk than the specific rule that
+    depends on it (e.g. a "3/4 of its life expectancy" requirement one
+    chunk, "completely replaced before it becomes 21 years old" in
+    another). Confirmed on Allied Trust HO3 via a parametrized retrieval
+    test across four phrasings of the same roofing category ("Composition
+    Shingle" / "Composite or Architectural Shingle" / "Architectural
+    Shingle" / "3-tab shingle"): the total-years chunk fell outside the
+    main query's top-3 kept window for at least one common phrasing even
+    though it ranked within the window for others -- the same
+    embedding-rank lottery problem as PPC, pool, and solar."""
+    lower = content.lower()
+    return "life expectancy" in lower or "years old based on national statistics" in lower
+
+
 def _is_ppc_disambiguation_table(content):
     """A Protection Class table whose own text exists to resolve which of
     TWO ISO-assigned classes applies to one location (e.g. a "6/9" split
@@ -312,6 +334,31 @@ PER_CARRIER_FETCH_K = 15
 PER_CARRIER_KEEP = 3
 
 
+def guaranteed_carrier_lookup(collection, carrier, predicate, keep, priority_key=None):
+    """Shared implementation behind every "guaranteed lookup" (PPC, pool,
+    solar, roof life-expectancy): an exact keyword scan across one
+    carrier's FULL raw chunk set, independent of embedding rank, optionally
+    sorted so the most relevant matches (not just the first `keep` in
+    arbitrary DB order) survive the cap. Factored out of check_eligibility()
+    so verification tests call the EXACT same logic production does --
+    this exists because a duplicated, un-synced copy in a test previously
+    passed while the real (differently-sorted) production code still
+    dropped the chunk that mattered."""
+    try:
+        raw = collection.get(where={"carrier": carrier}, include=["documents", "metadatas"])
+    except Exception:
+        return []
+    candidates = [
+        Document(page_content=doc, metadata=meta)
+        for doc, meta in zip(raw["documents"], raw["metadatas"])
+        if predicate(doc)
+    ]
+    candidates = [c for c in candidates if is_eligibility_content(c)]
+    if priority_key is not None:
+        candidates.sort(key=priority_key)
+    return candidates[:keep]
+
+
 def check_eligibility(property_details):
     occupancy = property_details['occupancy_type']
 
@@ -369,19 +416,14 @@ def check_eligibility(property_details):
     if property_details['ppc'] != 'N/A':
         ppc_value = str(property_details['ppc'])
         for carrier in relevant_carriers:
-            try:
-                raw = collection.get(where={"carrier": carrier}, include=["documents", "metadatas"])
-            except Exception:
-                continue
-            candidates = [
-                Document(page_content=doc, metadata=meta)
-                for doc, meta in zip(raw["documents"], raw["metadatas"])
-                if _mentions_protection_class(doc) and not _is_ppc_disambiguation_table(doc)
-            ]
-            candidates = [c for c in candidates if is_eligibility_content(c)]
             # prefer chunks that name this exact PPC value over generic ones
-            candidates.sort(key=lambda c: ppc_value not in c.page_content)
-            for chunk in candidates[:MAX_PPC_CHUNKS_PER_CARRIER]:
+            found = guaranteed_carrier_lookup(
+                collection, carrier,
+                predicate=lambda doc: _mentions_protection_class(doc) and not _is_ppc_disambiguation_table(doc),
+                keep=MAX_PPC_CHUNKS_PER_CARRIER,
+                priority_key=lambda c: ppc_value not in c.page_content,
+            )
+            for chunk in found:
                 key = (carrier, chunk.page_content)
                 if key not in seen:
                     seen.add(key)
@@ -394,23 +436,16 @@ def check_eligibility(property_details):
     MAX_POOL_CHUNKS_PER_CARRIER = 3
     if property_details['swimming_pool'] != 'No Pool':
         for carrier in relevant_carriers:
-            try:
-                raw = collection.get(where={"carrier": carrier}, include=["documents", "metadatas"])
-            except Exception:
-                continue
-            candidates = [
-                Document(page_content=doc, metadata=meta)
-                for doc, meta in zip(raw["documents"], raw["metadatas"])
-                if _mentions_pool_rule(doc)
-            ]
-            candidates = [c for c in candidates if is_eligibility_content(c)]
             # prefer chunks that pair "pool" with fence/gate language over
             # incidental pool mentions (acreage referrals, construction
             # material exclusions, etc. that happen to name "pool" once)
-            candidates.sort(key=lambda c: not (
-                "fenc" in c.page_content.lower() or "gate" in c.page_content.lower()
-            ))
-            for chunk in candidates[:MAX_POOL_CHUNKS_PER_CARRIER]:
+            found = guaranteed_carrier_lookup(
+                collection, carrier,
+                predicate=_mentions_pool_rule,
+                keep=MAX_POOL_CHUNKS_PER_CARRIER,
+                priority_key=lambda c: not ("fenc" in c.page_content.lower() or "gate" in c.page_content.lower()),
+            )
+            for chunk in found:
                 key = (carrier, chunk.page_content)
                 if key not in seen:
                     seen.add(key)
@@ -422,21 +457,36 @@ def check_eligibility(property_details):
     MAX_SOLAR_CHUNKS_PER_CARRIER = 2
     if property_details['solar_panels'] == 'Yes':
         for carrier in relevant_carriers:
-            try:
-                raw = collection.get(where={"carrier": carrier}, include=["documents", "metadatas"])
-            except Exception:
-                continue
-            candidates = [
-                Document(page_content=doc, metadata=meta)
-                for doc, meta in zip(raw["documents"], raw["metadatas"])
-                if _mentions_solar(doc)
-            ]
-            candidates = [c for c in candidates if is_eligibility_content(c)]
-            for chunk in candidates[:MAX_SOLAR_CHUNKS_PER_CARRIER]:
+            found = guaranteed_carrier_lookup(
+                collection, carrier, predicate=_mentions_solar, keep=MAX_SOLAR_CHUNKS_PER_CARRIER,
+            )
+            for chunk in found:
                 key = (carrier, chunk.page_content)
                 if key not in seen:
                     seen.add(key)
                     chunks.append(chunk)
+
+    # CHANGED: guaranteed per-carrier roof life-expectancy lookup, same
+    # pattern as PPC/pool/solar above (see _mentions_roof_life_expectancy
+    # docstring -- confirmed via a parametrized retrieval test that this
+    # embedding-rank lottery affected at least one common roof-type phrasing
+    # on Allied Trust HO3, after two prior prompt-only fix attempts).
+    MAX_ROOF_LIFE_CHUNKS_PER_CARRIER = 3
+    for carrier in relevant_carriers:
+        # prefer chunks that actually name a roofing/shingle category over
+        # incidental "life expectancy is 5 or more years" boilerplate that
+        # appears in this same carrier's plumbing/heating/electrical rules
+        found = guaranteed_carrier_lookup(
+            collection, carrier,
+            predicate=_mentions_roof_life_expectancy,
+            keep=MAX_ROOF_LIFE_CHUNKS_PER_CARRIER,
+            priority_key=lambda c: "shingle" not in c.page_content.lower(),
+        )
+        for chunk in found:
+            key = (carrier, chunk.page_content)
+            if key not in seen:
+                seen.add(key)
+                chunks.append(chunk)
 
     risk_factors = []
 
@@ -651,3 +701,39 @@ CARRIER DOCUMENTS:
             "notes": "",
             "flaw_count": 0
         }]
+
+def assign_buckets(results):
+    """Split check_eligibility() results into the four UI buckets, one per
+    actual status. Extracted out of app.py so it's testable without a
+    Streamlit session -- this exact logic was the source of a labeling bug
+    confirmed identically across three separate audit rounds and three
+    customer profiles: the old 3-bucket version collapsed REFER and
+    single-flaw INELIGIBLE into "One Issue" and everything else into "Not
+    Eligible", which assumed REFER would be common and INSUFFICIENT_INFORMATION
+    rare. Once this tool started deliberately avoiding REFER (a flat rule
+    blocked on one missing fact is INSUFFICIENT_INFORMATION, not a referral --
+    see the status decision rule in SYSTEM_INSTRUCTIONS), REFER nearly stopped
+    firing and INSUFFICIENT_INFORMATION became common, so "One Issue" ended up
+    holding only hard INELIGIBLE declines (backwards -- that label implies
+    something soft) and "Not Eligible" ended up holding only
+    INSUFFICIENT_INFORMATION carriers (also backwards -- those aren't
+    declined, they're unresolved). Each bucket below maps to exactly one
+    status so a relabeling of ANY status can never produce a mixed, mislabeled
+    bucket again."""
+    eligible = [r for r in results if r.get("status") == "ELIGIBLE"]
+    one_issue = [
+        r for r in results
+        if (r.get("status") == "INELIGIBLE" and r.get("flaw_count", 0) == 1)
+        or r.get("status") == "REFER"
+    ]
+    insufficient_info = [r for r in results if r.get("status") == "INSUFFICIENT_INFORMATION"]
+    not_eligible = [
+        r for r in results
+        if r.get("status") == "INELIGIBLE" and r.get("flaw_count", 0) != 1
+    ]
+    return {
+        "eligible": eligible,
+        "one_issue": one_issue,
+        "insufficient_info": insufficient_info,
+        "not_eligible": not_eligible,
+    }

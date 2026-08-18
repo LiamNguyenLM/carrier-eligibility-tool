@@ -10,7 +10,7 @@ try:
 except Exception:
     pass
 
-from eligibility_check import check_eligibility
+from eligibility_check import check_eligibility, assign_buckets
 from upload_carrier import (
     add_carrier_to_database,
     remove_carrier_from_database,
@@ -192,20 +192,11 @@ with tab1:
         st.markdown("---")
         st.subheader("CARRIER ELIGIBILITY ANALYSIS")
 
-        eligible = [r for r in results if r.get("status") == "ELIGIBLE"]
-        one_issue = [
-            r for r in results
-            if (r.get("status") == "INELIGIBLE" and r.get("flaw_count", 0) == 1)
-            or r.get("status") == "REFER"
-        ]
-        not_eligible = [
-            r for r in results
-            if r.get("status") not in ["ELIGIBLE"]
-            and not (
-                (r.get("status") == "INELIGIBLE" and r.get("flaw_count", 0) == 1)
-                or r.get("status") == "REFER"
-            )
-        ]
+        buckets = assign_buckets(results)
+        eligible = buckets["eligible"]
+        one_issue = buckets["one_issue"]
+        insufficient_info = buckets["insufficient_info"]
+        not_eligible = buckets["not_eligible"]
 
         def render_carrier(carrier):
             if carrier.get("reasons"):
@@ -224,7 +215,7 @@ with tab1:
                 for item in carrier["missing_info"]:
                     st.markdown("- " + item)
 
-        col_yes, col_one, col_no = st.columns(3)
+        col_yes, col_one, col_info, col_no = st.columns(4)
 
         with col_yes:
             st.markdown("### Eligible")
@@ -244,6 +235,15 @@ with tab1:
                         render_carrier(carrier)
             else:
                 st.info("No carriers with a single resolvable issue.")
+
+        with col_info:
+            st.markdown("### Insufficient Information")
+            if insufficient_info:
+                for carrier in insufficient_info:
+                    with st.expander(carrier["carrier"]):
+                        render_carrier(carrier)
+            else:
+                st.info("No carriers pending missing information.")
 
         with col_no:
             st.markdown("### Not Eligible")

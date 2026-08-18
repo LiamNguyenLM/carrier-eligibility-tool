@@ -21,6 +21,28 @@ STANDARD_PROFILE = {
     "ppc": "9",
 }
 
+# The alternate profile introduced in round 10 -- a genuinely different
+# customer (different PPC, home age, roof age, no pool, solar panels
+# present) used to check that fixes generalize past the one profile every
+# prior round reused.
+ALT_PROFILE = {
+    "year_built": 1994,
+    "roof_age": 14,
+    "roof_type": "Composition Shingle",
+    "roof_shape": "Gable",
+    "construction_type": "Frame",
+    "plumbing_type": "PVC",
+    "occupancy_type": "Owner Occupied",
+    "ownership_type": "Individual Owner",
+    "coastal_tier": "Not Coastal",
+    "swimming_pool": "No Pool",
+    "pool_accessories": "None",
+    "has_dogs": "No",
+    "aggressive_breed": "No",
+    "solar_panels": "Yes",
+    "ppc": "1",
+}
+
 
 def normalize_carrier_name(s):
     return "".join(ch for ch in s.upper() if ch.isalnum())
