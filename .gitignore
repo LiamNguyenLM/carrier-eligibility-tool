@@ -18,3 +18,6 @@ carrier_docs_db/
 # Python cache
 __pycache__/
 *.pyc
+
+# Ad-hoc experiment run state (resumable scratch state, not source of truth)
+verification/*_results.json

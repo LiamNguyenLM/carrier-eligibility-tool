@@ -22,6 +22,12 @@ except Exception:
     pass
 
 from shared_resources import get_embeddings, get_vectorstore
+from structured_rules import (
+    sage_family_fpc_eligibility,
+    mercury_roof_eligibility,
+    sage_markel_roof_exclusion,
+    swyfft_max_roof_age_30,
+)
 
 
 @st.cache_resource
@@ -160,6 +166,44 @@ def _is_header_only_table(page_content):
     if not header.strip().startswith("|") or not sep.startswith("|"):
         return False
     return all(ch in "|-: " for ch in sep)
+
+
+# Typographic punctuation PDF extraction sometimes produces, normalized
+# before chunk text reaches the prompt (see normalize_chunk_text below).
+_SMART_QUOTE_MAP = {
+    "‘": "'",  # LEFT SINGLE QUOTATION MARK
+    "’": "'",  # RIGHT SINGLE QUOTATION MARK -- e.g. ARI (HOA+)/(HOB)'s
+                     # "6’ high fence" citation, used as a foot-mark.
+}
+
+
+def normalize_chunk_text(text):
+    """Applied to chunk text right before it's embedded in the prompt sent
+    to the model. Fixes a real, recurring JSON-parse failure traced this
+    session: ARI (HOA+) and ARI (HOB)'s pool-fence citation
+    ("Pools secured by a\\n6’ high fence...") contains BOTH a raw
+    mid-sentence newline (a PDF line-wrap artifact, not a real paragraph
+    break) and a curly right-single-quote apostrophe (U+2019). The model is
+    instructed to quote citations verbatim (see the citation-accuracy
+    instruction in SYSTEM_INSTRUCTIONS); when it reproduces this exact text
+    -- including the raw embedded newline -- inside its own generated JSON
+    string without escaping it, that breaks JSON parsing (a raw, unescaped
+    newline inside a JSON string is illegal) -- confirmed via a synthetic
+    reproduction, and measured hitting ~20% (4/20) of a real sampled run
+    against this specific carrier.
+
+    The apostrophe itself (U+2019) does NOT break JSON syntax on its own
+    (it round-trips cleanly through json.dumps/json.loads) -- normalizing
+    it here is a smaller, complementary cleanup, not the fix for the parse
+    errors. The newline collapse below is the part that actually addresses
+    the observed failure.
+
+    Only single line-wrap newlines are collapsed to a space; a genuine
+    paragraph break (\\n\\n) is left alone."""
+    text = re.sub(r"(?<!\n)\n(?!\n)", " ", text)
+    for smart, plain in _SMART_QUOTE_MAP.items():
+        text = text.replace(smart, plain)
+    return text
 
 
 def is_eligibility_content(chunk):
@@ -359,7 +403,123 @@ def guaranteed_carrier_lookup(collection, carrier, predicate, keep, priority_key
     return candidates[:keep]
 
 
-def check_eligibility(property_details):
+# ---------------------------------------------------------------------------
+# Structured (non-LLM) overrides -- deterministic code, run AFTER the
+# model's own analysis, for rules verified to be purely tabular (see
+# structured_rules.py). This exists because measured pass rates for the
+# Sage FPC table were as low as 0-25% even with an explicit prompt
+# instruction telling the model to reason through every branch -- for a
+# genuinely tabular rule, code that evaluates the table directly is much
+# closer to 100% deterministic than any prompt fix can get.
+#
+# TWICO's roof settlement table is deliberately NOT included here: its
+# RCV/ACV/Exclusion bands depend on distinguishing 3-tab from architectural
+# composition shingle, and the current intake form's single "Composition
+# Shingle" field can't make that distinction (see
+# structured_rules.twico_roof_settlement's own docstring).
+# ---------------------------------------------------------------------------
+
+_SAGE_FPC_CARRIERS = {
+    "Sage_-_Auros_HO3",
+    "Sage_-_Occidental_HO3",
+    "Sage_-_Wilshire_HO3_-_12.02.2025",
+    "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026",
+    "Sage_-_SURE_HO-3_-_01.31.2026",
+    "Sage_-_SafePort_HO-3_-_01.31.2026",
+}
+_MERCURY_CARRIERS = {"Mercury_HO3_-_01.01.2026"}
+_SAGE_MARKEL_CARRIERS = {"Sage_-_Markel_HO3"}
+_SWYFFT_MAX30_CARRIERS = {
+    "Swyfft_-_Benchmark_(Admitted)_HO3",
+    "Swyfft_-_Benchmark_(Surplus)_HO3",
+    "Swyfft_-_Topa_(Surplus)_HO3",
+}
+
+
+def _normalize_carrier_name(s):
+    return "".join(ch for ch in s.upper() if ch.isalnum())
+
+
+def _resolve_structured_carrier(reported_name, canonical_names):
+    """The model restates carrier names in its own JSON output rather than
+    echoing the exact DB metadata string -- resolve against the known
+    carrier list the same tolerant way is_combined_program (above) already
+    does for the DP3/HO3 heuristic, rather than requiring an exact match."""
+    norm_reported = _normalize_carrier_name(reported_name)
+    if not norm_reported:
+        return None
+    for canon in canonical_names:
+        norm_canon = _normalize_carrier_name(canon)
+        if norm_canon and (norm_canon in norm_reported or norm_reported in norm_canon):
+            return canon
+    return None
+
+
+def _force_ineligible(result, reason_text):
+    if result.get("status") != "INELIGIBLE":
+        result["status"] = "INELIGIBLE"
+        result["flaw_count"] = 1
+    result.setdefault("reasons", []).append(reason_text)
+    result.setdefault("citations", []).append(reason_text)
+
+
+def _append_note(result, text):
+    existing = result.get("notes", "")
+    result["notes"] = (existing + " " + text).strip() if existing else text
+
+
+def _apply_structured_overrides(results, relevant_carriers, property_details):
+    for r in results:
+        canon = _resolve_structured_carrier(r.get("carrier", ""), relevant_carriers)
+        if canon is None:
+            continue
+
+        if canon in _SAGE_FPC_CARRIERS:
+            s_status, s_reasons = sage_family_fpc_eligibility(
+                property_details['ppc'], carrier=canon,
+            )
+            if s_status == "ELIGIBLE" and r.get("status") == "INSUFFICIENT_INFORMATION":
+                blob = " ".join(r.get("missing_info", []) + r.get("reasons", [])).lower()
+                if any(kw in blob for kw in ("fpc", "fire protection class", "protection class", "ppc")):
+                    r["status"] = "ELIGIBLE"
+                    r["flaw_count"] = 0
+                    _append_note(r, "Structured FPC check: " + s_reasons[0])
+            elif s_status == "INSUFFICIENT_INFORMATION":
+                mi = r.setdefault("missing_info", [])
+                if not any("fire station" in m.lower() for m in mi):
+                    mi.append(
+                        "Driving distance to the responding fire station "
+                        "(needed to determine FPC 9+ eligibility)."
+                    )
+
+        elif canon in _MERCURY_CARRIERS:
+            s_status, s_reasons = mercury_roof_eligibility(
+                property_details['roof_type'], property_details['roof_age'],
+            )
+            if s_status == "INELIGIBLE":
+                _force_ineligible(r, s_reasons[0])
+            elif s_status == "ELIGIBLE_REQUIRES_ENDORSEMENT":
+                _append_note(r, s_reasons[0])
+
+        elif canon in _SAGE_MARKEL_CARRIERS:
+            s_status, s_reasons = sage_markel_roof_exclusion(
+                property_details['roof_type'], property_details['roof_age'],
+            )
+            if s_status == "ROOF_EXCLUDED":
+                _append_note(r, s_reasons[0])
+
+        elif canon in _SWYFFT_MAX30_CARRIERS:
+            s_status, s_reasons = swyfft_max_roof_age_30(property_details['roof_age'])
+            if s_status == "INELIGIBLE":
+                _force_ineligible(r, s_reasons[0])
+
+
+def check_eligibility(property_details, carrier_subset=None):
+    """carrier_subset: optional iterable of carrier names to restrict
+    evaluation to (intersected with the normal occupancy filter). Used to
+    pilot splitting the combined multi-carrier completion into smaller
+    per-group calls without touching the default single-call behavior when
+    omitted."""
     occupancy = property_details['occupancy_type']
 
     # CHANGED: home age computed here instead of leaving the model to infer
@@ -370,6 +530,9 @@ def check_eligibility(property_details):
     query = build_retrieval_query(property_details, home_age)
 
     relevant_carriers = get_carriers_for_occupancy(occupancy)
+    if carrier_subset is not None:
+        subset = set(carrier_subset)
+        relevant_carriers = [c for c in relevant_carriers if c in subset]
     vectorstore = get_vectorstore()
 
     seen = set()
@@ -565,7 +728,7 @@ def check_eligibility(property_details):
     for carrier in relevant_carriers:
         for chunk in chunks_by_carrier.get(carrier, []):
             context += f"\n--- {carrier} (page {chunk.metadata.get('page', '?')}) ---\n"
-            context += chunk.page_content + "\n"
+            context += normalize_chunk_text(chunk.page_content) + "\n"
 
     # CHANGED: carrier safety net. A carrier can pass the occupancy filter
     # but still end up with zero chunks in `chunks` (e.g. retrieval just
@@ -683,6 +846,8 @@ CARRIER DOCUMENTS:
             if occupancy == "Owner Occupied" and is_dp3:
                 continue
             filtered.append(r)
+
+        _apply_structured_overrides(filtered, relevant_carriers, property_details)
 
         return filtered
 
