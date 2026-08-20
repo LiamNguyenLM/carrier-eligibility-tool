@@ -27,6 +27,7 @@ from structured_rules import (
     mercury_roof_eligibility,
     sage_markel_roof_exclusion,
     swyfft_max_roof_age_30,
+    twico_roof_settlement,
 )
 
 
@@ -366,6 +367,70 @@ def build_retrieval_query(property_details, home_age):
     """
 
 
+def build_risk_factors(property_details, occupancy):
+    """The targeted risk-factor retrieval terms appended to the main query
+    (see check_eligibility()). Factored out so it's directly testable
+    without a live LLM call -- round 12 found this list's coastal-tier
+    condition only fired for Tier 1/Tier 2, silently excluding Tier 3
+    ("outer coastal zone" per app.py's own dropdown -- still an explicitly
+    coastal designation, distinct from "Not Coastal") from ANY targeted
+    retrieval for wind-pool-zone/flood-elevation content. Whether Tier 3
+    should trigger a given carrier's SPECIFIC wind-pool-zone rule depends on
+    that carrier's own geographic definition (e.g. TWIA's wind pool
+    boundaries), which this tool doesn't have a ground-truth mapping for --
+    but under-triggering retrieval for an explicitly-coastal tier is worse
+    than over-triggering it: a query that surfaces possibly-inapplicable
+    content still lets the model's own reasoning dismiss it, while a query
+    that never fires means the content was never in the running at all."""
+    risk_factors = []
+
+    if property_details['plumbing_type'] in ['Galvanized', 'Polybutylene']:
+        risk_factors.append("galvanized polybutylene plumbing ineligible requirements")
+
+    if 'Unfenced' in property_details['swimming_pool']:
+        risk_factors.append("swimming pool fence requirement ineligible unfenced")
+
+    if property_details['pool_accessories'] != 'None':
+        risk_factors.append("diving board slide pool liability ineligible")
+
+    if property_details['coastal_tier'] in ['Tier 1', 'Tier 2', 'Tier 3']:
+        risk_factors.append(
+            "coastal tier wind coverage restrictions wind pool zone "
+            "base flood elevation ineligible"
+        )
+
+    if property_details['aggressive_breed'] == 'Yes':
+        risk_factors.append("aggressive dog breed ineligible prohibited liability")
+
+    if property_details.get('ownership_type') == 'LLC':
+        risk_factors.append("LLC business corporation owned property ineligible not eligible")
+
+    if property_details.get('ownership_type') == 'Trust':
+        risk_factors.append("trust owned property eligibility requirements named insured grantor")
+
+    if property_details['ppc'] != 'N/A':
+        risk_factors.append(
+            f"protection class PPC {property_details['ppc']} fire district eligibility requirements"
+        )
+
+    if occupancy not in ['Owner Occupied']:
+        risk_factors.append("tenant occupied rental dwelling occupancy requirements")
+        risk_factors.append("DP3 dwelling policy tenant rental occupancy eligibility")
+        risk_factors.append("HO3 owner occupancy requirement restriction")
+
+    risk_factors.append(
+        f"{property_details['roof_type']} roof {property_details['roof_age']} years old eligibility requirements"
+    )
+    if property_details['swimming_pool'] != 'No Pool':
+        risk_factors.append(
+            f"swimming pool {property_details['swimming_pool']} eligibility requirements"
+        )
+    if property_details['solar_panels'] == 'Yes':
+        risk_factors.append("solar panels roof eligibility requirements")
+
+    return risk_factors
+
+
 # CHANGED: over-fetch past is_eligibility_content filtering. Filtering used
 # to run AFTER a k=3 search, so if the top 3 raw hits for a carrier were all
 # junk (e.g. duplicate page-header banners), the carrier got zero real
@@ -376,6 +441,14 @@ def build_retrieval_query(property_details, home_age):
 # original per-carrier chunk budget while giving filtering room to work.
 PER_CARRIER_FETCH_K = 15
 PER_CARRIER_KEEP = 3
+
+# CHANGED (round 12): a real, untruncated capture of a JSON parse failure
+# confirmed the model was running out of output tokens partway through a
+# verbose ~28-carrier response (missing_info closed, but the carrier object
+# and outer array never did -- only ~20 of ~28 carriers had been written).
+# Raised from 12000. Kept as a named constant, not inline, so a future
+# change can't silently shrink this back down without a test noticing.
+MAX_RESPONSE_TOKENS = 24000
 
 
 def guaranteed_carrier_lookup(collection, carrier, predicate, keep, priority_key=None):
@@ -412,10 +485,14 @@ def guaranteed_carrier_lookup(collection, carrier, predicate, keep, priority_key
 # genuinely tabular rule, code that evaluates the table directly is much
 # closer to 100% deterministic than any prompt fix can get.
 #
-# TWICO's roof settlement table is deliberately NOT included here: its
-# RCV/ACV/Exclusion bands depend on distinguishing 3-tab from architectural
-# composition shingle, and the current intake form's single "Composition
-# Shingle" field can't make that distinction (see
+# TWICO's roof settlement table IS included, for every UNAMBIGUOUS material
+# (Tile, Metal Standing-Seam, Wood/Slate/Metal Shingle, Asbestos, Corrugated
+# Metal). Round 12: gating twico_roof_settlement() out of production
+# entirely (rather than gating only the genuinely ambiguous case) was
+# itself a regression -- it silently dropped roof-age transparency for
+# every material the table resolves cleanly, not just the one it can't
+# (bare "Composition Shingle" with no 3-tab/Architectural qualifier, which
+# still returns INSUFFICIENT_INFORMATION -- see
 # structured_rules.twico_roof_settlement's own docstring).
 # ---------------------------------------------------------------------------
 
@@ -434,6 +511,7 @@ _SWYFFT_MAX30_CARRIERS = {
     "Swyfft_-_Benchmark_(Surplus)_HO3",
     "Swyfft_-_Topa_(Surplus)_HO3",
 }
+_TWICO_CARRIERS = {"TWICO_HO3"}
 
 
 def _normalize_carrier_name(s):
@@ -479,7 +557,20 @@ def _apply_structured_overrides(results, relevant_carriers, property_details):
                 property_details['ppc'], carrier=canon,
             )
             if s_status == "ELIGIBLE" and r.get("status") == "INSUFFICIENT_INFORMATION":
-                blob = " ".join(r.get("missing_info", []) + r.get("reasons", [])).lower()
+                # CHANGED (round 12): a real end-to-end run showed the model
+                # can correctly conclude "FPC 1-8 is eligible regardless of
+                # driving distance" in its narrative while still leaving
+                # status=INSUFFICIENT_INFORMATION -- but that narrative
+                # sometimes lands in `notes` (a free-form summary field),
+                # not `missing_info`/`reasons`. Scanning only the latter two
+                # missed it, so the override silently never fired even
+                # though the wiring was otherwise correct. Scan citations
+                # too for the same reason -- any field the model might use
+                # to state its FPC conclusion.
+                blob = " ".join(
+                    r.get("missing_info", []) + r.get("reasons", []) + r.get("citations", [])
+                    + [r.get("notes", "")]
+                ).lower()
                 if any(kw in blob for kw in ("fpc", "fire protection class", "protection class", "ppc")):
                     r["status"] = "ELIGIBLE"
                     r["flaw_count"] = 0
@@ -500,6 +591,15 @@ def _apply_structured_overrides(results, relevant_carriers, property_details):
                 _force_ineligible(r, s_reasons[0])
             elif s_status == "ELIGIBLE_REQUIRES_ENDORSEMENT":
                 _append_note(r, s_reasons[0])
+            else:
+                # CHANGED (round 12): even the "unremarkable" ELIGIBLE/RCV
+                # outcome is now always noted -- see the TWICO case below
+                # for why silence here is itself a bug, not a no-op.
+                _append_note(
+                    r,
+                    f"Roof age {property_details['roof_age']} is within the standard "
+                    f"replacement-cost threshold for this roof type.",
+                )
 
         elif canon in _SAGE_MARKEL_CARRIERS:
             s_status, s_reasons = sage_markel_roof_exclusion(
@@ -507,11 +607,49 @@ def _apply_structured_overrides(results, relevant_carriers, property_details):
             )
             if s_status == "ROOF_EXCLUDED":
                 _append_note(r, s_reasons[0])
+            else:
+                _append_note(
+                    r,
+                    f"Roof age {property_details['roof_age']} is within the roof-exclusion "
+                    f"form's age threshold for this roof type -- roof coverage applies normally.",
+                )
 
         elif canon in _SWYFFT_MAX30_CARRIERS:
             s_status, s_reasons = swyfft_max_roof_age_30(property_details['roof_age'])
             if s_status == "INELIGIBLE":
                 _force_ineligible(r, s_reasons[0])
+            else:
+                _append_note(r, f"Roof age {property_details['roof_age']} is within the 30-year maximum.")
+
+        elif canon in _TWICO_CARRIERS:
+            s_status, s_reasons = twico_roof_settlement(
+                property_details['roof_type'], property_details['roof_age'],
+            )
+            if s_status == "INELIGIBLE":
+                _force_ineligible(r, s_reasons[0])
+            elif s_status in ("ACV", "EXCLUDED"):
+                _append_note(r, s_reasons[0])
+            elif s_status == "INSUFFICIENT_INFORMATION":
+                mi = r.setdefault("missing_info", [])
+                if not any("3-tab" in m or "architectural" in m.lower() for m in mi):
+                    mi.append(s_reasons[0])
+            else:
+                # CHANGED (round 12): RCV used to get no note at all, on the
+                # assumption the model's own retrieval/narrative would
+                # mention roof/tile anyway. A real run proved that wrong --
+                # TWICO's roof table doesn't match the generic roof-life-
+                # expectancy guaranteed lookup (it never uses the phrase
+                # "life expectancy"), so nothing guarantees this carrier's
+                # roof clause is even retrieved, and the model's response
+                # can go completely silent on roof/tile as a result. Same
+                # lesson as the Sage FPC wiring gap: the structured
+                # conclusion must always reach the output, not depend on
+                # the model rediscovering it on its own.
+                _append_note(
+                    r,
+                    f"Roof age {property_details['roof_age']} ({property_details['roof_type']}) "
+                    f"is within TWICO's replacement-cost-value band -- no ACV or exclusion applies.",
+                )
 
 
 def check_eligibility(property_details, carrier_subset=None):
@@ -651,48 +789,7 @@ def check_eligibility(property_details, carrier_subset=None):
                 seen.add(key)
                 chunks.append(chunk)
 
-    risk_factors = []
-
-    if property_details['plumbing_type'] in ['Galvanized', 'Polybutylene']:
-        risk_factors.append("galvanized polybutylene plumbing ineligible requirements")
-
-    if 'Unfenced' in property_details['swimming_pool']:
-        risk_factors.append("swimming pool fence requirement ineligible unfenced")
-
-    if property_details['pool_accessories'] != 'None':
-        risk_factors.append("diving board slide pool liability ineligible")
-
-    if property_details['coastal_tier'] in ['Tier 1', 'Tier 2']:
-        risk_factors.append("coastal tier wind coverage restrictions ineligible")
-
-    if property_details['aggressive_breed'] == 'Yes':
-        risk_factors.append("aggressive dog breed ineligible prohibited liability")
-
-    if property_details.get('ownership_type') == 'LLC':
-        risk_factors.append("LLC business corporation owned property ineligible not eligible")
-
-    if property_details.get('ownership_type') == 'Trust':
-        risk_factors.append("trust owned property eligibility requirements named insured grantor")
-
-    if property_details['ppc'] != 'N/A':
-        risk_factors.append(
-            f"protection class PPC {property_details['ppc']} fire district eligibility requirements"
-        )
-
-    if occupancy not in ['Owner Occupied']:
-        risk_factors.append("tenant occupied rental dwelling occupancy requirements")
-        risk_factors.append("DP3 dwelling policy tenant rental occupancy eligibility")
-        risk_factors.append("HO3 owner occupancy requirement restriction")
-
-    risk_factors.append(
-        f"{property_details['roof_type']} roof {property_details['roof_age']} years old eligibility requirements"
-    )
-    if property_details['swimming_pool'] != 'No Pool':
-        risk_factors.append(
-            f"swimming pool {property_details['swimming_pool']} eligibility requirements"
-        )
-    if property_details['solar_panels'] == 'Yes':
-        risk_factors.append("solar panels roof eligibility requirements")
+    risk_factors = build_risk_factors(property_details, occupancy)
 
     if risk_factors:
         risk_chunks = retriever.invoke(" ".join(risk_factors))
@@ -774,7 +871,22 @@ CARRIER DOCUMENTS:
 
     response = client.messages.create(
         model="claude-sonnet-4-5",
-        max_tokens=12000,
+        # CHANGED (round 12): raised from 12000. A recurring "JSON PARSE
+        # ERROR" (~20-30% of runs, previously misattributed to a
+        # character-escaping issue in ARI's chunk text -- see
+        # normalize_chunk_text()'s docstring) was confirmed via a full,
+        # untruncated capture of an actual failure to be a plain output-
+        # token budget overrun: the response cut off mid-object after only
+        # ~20 of ~28 carriers, with missing_info's closing "]" but no
+        # closing "}" or outer "]" -- the model simply ran out of its
+        # 12000-token allowance partway through a verbose ~28-carrier JSON
+        # array. The earlier ARI apostrophe/newline fix wasn't wrong to
+        # apply (it's still a real, harmless cleanup) but it was NOT the
+        # cause of the recurring failures -- every previous debug print
+        # only showed raw[:1000], which always happens to contain ARI's
+        # section since it sorts near the start of the carrier list,
+        # regardless of where the actual truncation occurred much later.
+        max_tokens=MAX_RESPONSE_TOKENS,
         temperature=0,
         system=[
             {
@@ -784,6 +896,19 @@ CARRIER DOCUMENTS:
             }
         ],
         messages=[{"role": "user", "content": user_content}],
+        # CHANGED (round 12): the anthropic SDK estimates a non-streaming
+        # call's worst-case duration from max_tokens alone (3600s *
+        # max_tokens / 128000) and REFUSES to make the call at all above a
+        # 10-minute estimate -- raising MAX_RESPONSE_TOKENS to 24000 alone
+        # pushed this past that threshold and made every single call raise
+        # ValueError immediately (a hard, total failure, worse than the
+        # intermittent truncation it was meant to fix). Passing an explicit
+        # timeout here skips that heuristic entirely (the SDK only applies
+        # it when timeout is NOT explicitly given) while still using a
+        # normal non-streaming call -- real calls have taken up to ~180s
+        # observed this session, so 900s leaves large headroom without
+        # needing to implement streaming.
+        timeout=900.0,
     )
 
     # CHANGED: cache visibility. cache_read_input_tokens > 0 means this call
@@ -852,8 +977,17 @@ CARRIER DOCUMENTS:
         return filtered
 
     except json.JSONDecodeError as e:
+        # CHANGED (round 12): print length + the tail, not just the first
+        # 1000 chars -- a real failure was traced to output-token
+        # truncation (see max_tokens comment above), and the head of the
+        # response is USELESS for diagnosing that: it always looks the
+        # same (ARI sorts first alphabetically) regardless of where the
+        # cutoff actually happened, which is near the END of a long
+        # response. stop_reason directly confirms truncation when present.
         print("JSON PARSE ERROR:", str(e))
-        print("RAW RESPONSE:", raw[:1000])
+        print("RAW RESPONSE LENGTH:", len(raw), "stop_reason:", getattr(response, "stop_reason", "n/a"))
+        print("RAW RESPONSE HEAD:", raw[:500])
+        print("RAW RESPONSE TAIL:", raw[-1000:])
         return [{
             "carrier": "Parse Error",
             "status": "INSUFFICIENT_INFORMATION",

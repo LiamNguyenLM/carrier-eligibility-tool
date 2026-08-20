@@ -43,6 +43,29 @@ ALT_PROFILE = {
     "ppc": "1",
 }
 
+# Round 12's audit profile -- a third, again genuinely different customer
+# (mid-range PPC, coastal, tile roof, copper plumbing, no pool/solar) used
+# to check that round 12's fixes (Sage FPC wiring, ARI cross-contamination,
+# Liberty Mutual AND-conditioned generalization, TWICO roof gating) hold
+# outside the two profiles every prior round reused.
+COASTAL_PPC4_PROFILE = {
+    "year_built": 2004,
+    "roof_age": 16,
+    "roof_type": "Tile",
+    "roof_shape": "Gable",
+    "construction_type": "Frame",
+    "plumbing_type": "Copper",
+    "occupancy_type": "Owner Occupied",
+    "ownership_type": "Individual Owner",
+    "coastal_tier": "Tier 3",
+    "swimming_pool": "No Pool",
+    "pool_accessories": "None",
+    "has_dogs": "No",
+    "aggressive_breed": "No",
+    "solar_panels": "No",
+    "ppc": "4",
+}
+
 
 def normalize_carrier_name(s):
     return "".join(ch for ch in s.upper() if ch.isalnum())
