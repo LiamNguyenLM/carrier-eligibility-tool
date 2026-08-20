@@ -1443,13 +1443,20 @@ def test_mercury_exactly_10yr_roof_consistency(record_property):
 @pytest.mark.baseline
 @pytest.mark.xfail(
     reason="BACKLOG (round 12, open -- MEASURED, do not treat as solved): ARI (HOA+) still "
-    "quotes ARI (HOB)'s age-cap rule in 7/8 sweep runs. The P1 attribution validator FIRED "
-    "in 0/8 of those runs because the model labels the borrowed citation with HOA+'s OWN "
-    "name ('ARI_(HOA+): Homes 0-20 years old...') rather than HOB's -- so there is no "
-    "foreign label to detect. The validator targets a real but different variant "
-    "(correctly-labeled-as-foreign, seen in earlier captures). Verdict-level impact looks "
-    "contained (8/8 not wrongly INELIGIBLE), but that is NOT attributable to the validator, "
-    "which never ran. Needs a content-based check, not a label-based one.",
+    "quotes ARI (HOB)'s age-cap rule in 7/8 STANDARD sweep runs. The P1 attribution "
+    "validator FIRED in 0/8 because the model labels the borrowed citation with HOA+'s OWN "
+    "name ('ARI_(HOA+): Homes 0-20 years old...') rather than HOB's -- no foreign label to "
+    "detect. It targets a real but different variant (correctly-labeled-as-foreign, seen in "
+    "earlier captures); a content-based check is what's actually needed. "
+    "IMPORTANT -- HOME AGE DETERMINES WHETHER THIS BUG CAN EVEN MANIFEST: the borrowed rule "
+    "is 'Homes 0-20 years old are eligible', so a home UNDER 20 satisfies it and the "
+    "contamination cannot flip the verdict. STANDARD is age 17 (under) -- its 8/8 "
+    "verdict-correct result measures a case where the bug is structurally unable to appear "
+    "and must NOT be read as evidence of safety. Profiles that actually exercise it: "
+    "COASTAL_PPC4 age 22 (pre-fix: 1/5 wrongly INELIGIBLE) and ALT age 32 (post-fix: 0/12 "
+    "wrong verdicts AND 0/12 any contamination text -- encouraging, and again with the "
+    "validator firing 0/12, so any gain is from the prompt rule, not the validator). "
+    "Next step: re-measure COASTAL_PPC4 post-fix for a clean same-profile before/after.",
     strict=False,
 )
 def test_ari_hoa_plus_does_not_quote_hob_age_cap():
