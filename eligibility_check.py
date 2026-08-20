@@ -83,6 +83,8 @@ A rule requiring MULTIPLE conditions joined by "AND" (e.g. "FPC is 9 or greater,
 
 Do not reuse a specific term, concept, or classification scheme (e.g. a named "Classification A/B/C" system) that you saw in ONE carrier's excerpt when writing about a DIFFERENT carrier, even one from the same underwriting family (e.g. carriers sharing a common program administrator) -- each carrier's rule structure and terminology is independent unless that exact term also appears in that other carrier's own excerpt.
 
+CITATION ATTRIBUTION IS BINDING: every rule you apply to a carrier must come from THAT carrier's own excerpt. Before using any rule to justify a status -- especially INELIGIBLE -- check which carrier's excerpt it actually appeared under (the "--- CarrierName (page N) ---" header above it). If you find yourself writing a citation that names a different carrier than the one you are currently evaluating, that rule does NOT apply to this carrier and must not affect its status, its reasons, or its missing_info -- not even when the two carriers have nearly identical names, are different programs from the same insurer (e.g. an "HOA+" and an "HOB" program from the same company), or plainly cover related products. Two programs from one insurer routinely have DIFFERENT eligibility rules, and one program's age cap, roof rule, or exclusion says nothing about the other's. If a carrier's own excerpt is silent on a topic, that topic is simply unrestricted for that carrier -- never fill the gap with a sibling program's rule.
+
 More generally: when a rule has its own stated conditions (an age threshold, a coverage amount, a home-age-plus-PPC combination) and the given facts place the property OUTSIDE those conditions, the rule simply does not restrict this property -- treat PPC (or whatever the rule covers) as unrestricted here, exactly as if that rule did not exist in the document at all. This means the property PASSES that criterion; it counts toward ELIGIBLE, not toward REFER or missing_info. Do not add anything to missing_info or reasons about "whether the carrier has some other rule" for a combination its own document doesn't address, and do not use REFER for a condition you've just determined doesn't apply. Only flag something as missing when the document's OWN applicable rule (one whose conditions the property actually meets) itself depends on a fact you don't have.
 
 When comparing the property's Home Age, Roof Age (or any given number) against a numeric threshold in a rule (e.g. "eligible up to 20 years", "must be under 15 years"), work out the actual arithmetic comparison explicitly before concluding which side of the threshold the property falls on -- state the comparison itself (e.g. "17 is less than 20, so this condition is met") rather than jumping straight to a conclusion. A carrier's own name (e.g. one containing "Plus" or a product suffix) is NOT evidence about which side of a threshold applies -- only the rule's stated number and the given value decide that.
@@ -102,6 +104,14 @@ SWIMMING POOL RULES SPECIFICALLY: a pool fence height or gate-mechanism requirem
 BASE ELIGIBILITY vs. OPTIONAL ENDORSEMENT/COVERAGE: some requirements you'll see (a fence height, a specific material, a distance figure) are conditions of an OPTIONAL endorsement or coverage add-on, not of base policy eligibility -- look for language like "this endorsement," "to qualify for this coverage," or "optional." A condition scoped to an optional endorsement does NOT make the carrier ineligible or create a missing_info blocker if that specific coverage isn't otherwise at issue -- note it in notes as a coverage consideration if relevant, but do not let it drive status or missing_info the way a base eligibility requirement would.
 
 ROOFING MATERIAL TERMINOLOGY: "Composition Shingle," "Composite Shingle," "Architectural Shingle," "3-tab shingle," and "asphalt shingle" all refer to the SAME underlying family of asphalt-based shingle roofing, and carriers use these terms inconsistently -- one carrier's document may use only one of these phrases, or bundle several together (e.g. "Composite or Architectural Shingle"), to mean the same roofing category the customer's own Roof Type value falls under. If a carrier's document states a rule using ANY of these terms and never uses the customer's EXACT given Roof Type wording, apply that rule to the customer's roof anyway -- do not treat the rule as inapplicable, and do not invent an undefined separate category or lifespan figure "for" the customer's exact wording. Only treat two of these terms as genuinely different categories with different rules if the SAME document explicitly gives them different numeric thresholds.
+
+SOLAR TERMINOLOGY -- INTEGRATED SOLAR ROOFING vs. MOUNTED SOLAR PANELS: these are two different things and carriers exclude only one of them far more often than both. Treat them as separate categories:
+  - INTEGRATED SOLAR ROOFING is a roof COVERING made of solar material -- it IS the roof. Signal phrases: "solar roof system," "solar shingles," "solar panel tiles," "solar roof," "Tesla Solar Roof," "BIPV." These appear in lists of roof COVERING MATERIALS alongside things like slate, tin, corrugated metal, wood shakes, rolled tar paper, or built-up tar and gravel. A rule excluding these applies ONLY to a home whose actual roof covering is solar material.
+  - MOUNTED SOLAR PANELS are conventional photovoltaic panels attached ON TOP of an ordinary roof (composition/composite/architectural shingle, tile, metal, etc.). The roof covering underneath is unchanged and ordinary.
+The customer's "Solar Panels: Yes" in PROPERTY DETAILS means MOUNTED PANELS on the roof covering given as their Roof Type -- it does NOT mean the roof itself is made of solar material. So when a carrier's exclusion list names integrated solar roofing (including when the phrase contains the words "solar panel," as in "solar panel tiles"), that exclusion does NOT apply to this customer, and must not make the carrier INELIGIBLE or generate a missing_info item. Apply a solar rule against this customer only when the carrier's own text addresses panels mounted on or attached to a roof (e.g. rules about panel installation, attachment, wind/hail damage to panels, or who insures them). If a carrier's text plainly covers both, say which part applies and which does not.
+  - A row or line merely stating that solar coverage is AVAILABLE (e.g. "Solar Panel Coverage: Available on endorsement," "optional," "may be added") is a COVERAGE OPTION, not an eligibility restriction and not an open question. It needs no clarification: do not add a solar item to missing_info for it and do not let it hold the carrier at INSUFFICIENT_INFORMATION. Mention it in notes as an available coverage if useful, nothing more.
+
+DO NOT ASSUME AN UNSPECIFIED SUB-CATEGORY: when a carrier's rule keys off a sub-category the customer's given value doesn't specify (e.g. a table with different age brackets for "3-tab" vs. "architectural" composition shingle, when Roof Type is just "Composition Shingle"), do NOT pick one sub-category and state its bracket as the answer -- not even with a hedge like "assuming standard composition." Doing so produces a confidently wrong result. Instead, state each sub-category's outcome explicitly ("if 3-tab: X; if architectural: Y") and put the sub-category itself in missing_info. Never assert one specific bracket, tier, or outcome in reasons or notes while simultaneously listing the fact that determines it as missing -- that is a self-contradiction.
 
 REMAINING-LIFE-EXPECTANCY rules specifically (e.g. "roof should have 3/4 of its life expectancy remaining to qualify for replacement cost coverage"): the TOTAL life expectancy or maximum age figure needed to compute this is very often stated in a DIFFERENT sentence than the fraction itself -- commonly phrased as "should be completely replaced before/by age X" a sentence or two later, for the same or a synonymous roofing category (see ROOFING MATERIAL TERMINOLOGY above). Before concluding a total-life-expectancy figure "is not stated" or "is not fully specified," search ALL of this carrier's other excerpts for such a figure under any synonymous category name. Once found, show the arithmetic explicitly: remaining life = total life expectancy minus Roof Age; required = 3/4 x total life expectancy; state both numbers and whether remaining >= required.
 
@@ -298,9 +308,31 @@ def _mentions_roof_life_expectancy(content):
     Shingle" / "3-tab shingle"): the total-years chunk fell outside the
     main query's top-3 kept window for at least one common phrasing even
     though it ranked within the window for others -- the same
-    embedding-rank lottery problem as PPC, pool, and solar."""
+    embedding-rank lottery problem as PPC, pool, and solar.
+
+    CHANGED (round 12): "life expectancy" alone was far too narrow a
+    signal. Carriers state the same KIND of roof-age rule in wording that
+    never uses that phrase -- Orion's "Roof Material Payment Schedule
+    required for the specified roof ages: 16 years and older for
+    architectural and composite shingles", TWICO's and Swyfft's
+    RCV/ACV/Excluded age-band tables, Mercury's Loss Settlement Payment
+    Schedule. Measured across the whole carrier set, the old predicate
+    matched ZERO chunks for Orion (whose clause appears in 4 separate
+    chunks), TWICO, and all four Swyfft programs -- so their roof-age
+    rules had no retrieval guarantee at all and rode entirely on the
+    embedding-rank lottery. That directly explains two separate findings:
+    Orion's clause appearing in one live run and not the next, and TWICO
+    going completely silent on roof/tile in a real run. Broadened to cover
+    payment-schedule and age-band phrasings of the same underlying rule."""
     lower = content.lower()
-    return "life expectancy" in lower or "years old based on national statistics" in lower
+    return (
+        "life expectancy" in lower
+        or "years old based on national statistics" in lower
+        or "payment schedule" in lower
+        or "years and older" in lower
+        # RCV/ACV/Excluded age-band table (TWICO, Swyfft Lloyds, et al.)
+        or ("roof" in lower and "acv" in lower and "excluded" in lower)
+    )
 
 
 def _is_ppc_disambiguation_table(content):
@@ -546,6 +578,115 @@ def _append_note(result, text):
     result["notes"] = (existing + " " + text).strip() if existing else text
 
 
+def _citation_attributed_carrier(citation, canonical_names):
+    """The carrier a citation labels itself as belonging to, or None if it
+    carries no confidently-identifiable label. Citations are formatted
+    "<carrier name>: '<quote>'" per SYSTEM_INSTRUCTIONS, so only the text
+    before the first colon is treated as a label -- and only when it
+    resolves to a known carrier. Anything else returns None (unknown), so
+    an unlabeled or oddly-formatted citation is never mistaken for a
+    misattributed one."""
+    if ":" not in citation:
+        return None
+    label = citation.split(":", 1)[0]
+    # A real label is short; a long prefix is prose that happens to contain
+    # a colon, not a carrier name.
+    if len(label) > 60:
+        return None
+
+    # Must resolve to EXACTLY ONE carrier. An ambiguous label is treated as
+    # unknown rather than guessed at: a bare "ARI:" prefix matches both
+    # "ARI_(HOA+)" and "ARI_(HOB)", and _resolve_structured_carrier would
+    # silently return whichever sorts first -- which, while evaluating the
+    # other one, would look like foreign attribution and strip a perfectly
+    # legitimate self-citation. Stripping evidence must never rest on a
+    # coin flip.
+    matches = {
+        m for m in (
+            _resolve_structured_carrier(label, [c]) for c in canonical_names
+        ) if m is not None
+    }
+    if len(matches) != 1:
+        return None
+    return matches.pop()
+
+
+def _strip_misattributed_citations(results, relevant_carriers):
+    """Post-generation attribution check: a rule may only support a
+    carrier's verdict if it came from THAT carrier's own document.
+
+    Round 12 measured ARI (HOA+) inheriting ARI (HOB)'s age-cap rule in 40%
+    of runs -- sometimes while correctly labeling the citation "ARI (HOB):"
+    in its own citations list, i.e. the model knew which document the rule
+    came from and applied it to the wrong carrier anyway. Retrieval is
+    clean here (HOA+'s own chunks never contain that text), so this is
+    cross-carrier bleed-through inside one big combined completion, and a
+    prompt instruction alone can't be relied on to stop it. This is the
+    same shape of fix as the Progressive repair layer -- post-generation
+    verification plus targeted repair -- but checking ATTRIBUTION rather
+    than presence.
+
+    Two actions, in increasing order of severity:
+      1. Any citation labeled as a DIFFERENT known carrier is removed, and
+         recorded in notes (never silently dropped).
+      2. If that leaves an ADVERSE verdict (INELIGIBLE/REFER) with no
+         surviving citation from the carrier's own document, the adverse
+         verdict is unsupported -- it rested entirely on another carrier's
+         text -- so it is downgraded to INSUFFICIENT_INFORMATION rather
+         than left standing on evidence that was just removed.
+
+    Deliberately conservative: only citations whose label positively
+    resolves to a different known carrier are touched. Unlabeled or
+    unrecognized citations are left alone, so this can only ever act on
+    misattribution it can actually prove.
+
+    NOTE: this catches misattribution that carries a carrier LABEL. It
+    would NOT have caught the historical Sage "Classification A/B/C" bleed,
+    which was terminology copied into prose (reasons/notes) with no
+    citation label attached -- that remains covered only by the prompt
+    instruction and its retrieval-level guard test."""
+    for r in results:
+        own = _resolve_structured_carrier(r.get("carrier", ""), relevant_carriers)
+        if own is None:
+            continue
+        citations = r.get("citations", [])
+        if not citations:
+            continue
+
+        kept, foreign = [], []
+        saw_own_citation = False
+        for c in citations:
+            attributed = _citation_attributed_carrier(c, relevant_carriers)
+            if attributed is not None and attributed != own:
+                foreign.append((c, attributed))
+            else:
+                if attributed == own:
+                    saw_own_citation = True
+                kept.append(c)
+
+        if not foreign:
+            continue
+
+        r["citations"] = kept
+        foreign_names = sorted({name for _, name in foreign})
+        _append_note(
+            r,
+            "[Attribution check] Removed {n} citation(s) belonging to another carrier "
+            "({names}) -- a rule from a different carrier's document cannot support this "
+            "carrier's determination.".format(n=len(foreign), names=", ".join(foreign_names)),
+        )
+
+        if r.get("status") in ("INELIGIBLE", "REFER") and not saw_own_citation:
+            r["status"] = "INSUFFICIENT_INFORMATION"
+            r["flaw_count"] = 0
+            _append_note(
+                r,
+                "Status downgraded to INSUFFICIENT_INFORMATION: the adverse determination "
+                "rested only on citation(s) from another carrier's document, leaving no "
+                "support from this carrier's own guidelines.",
+            )
+
+
 def _apply_structured_overrides(results, relevant_carriers, property_details):
     for r in results:
         canon = _resolve_structured_carrier(r.get("carrier", ""), relevant_carriers)
@@ -633,6 +774,26 @@ def _apply_structured_overrides(results, relevant_carriers, property_details):
                 mi = r.setdefault("missing_info", [])
                 if not any("3-tab" in m or "architectural" in m.lower() for m in mi):
                     mi.append(s_reasons[0])
+                # CHANGED (round 12, second pass): appending the missing_info
+                # item alone was not enough. A real run produced a
+                # CONFIDENTLY WRONG bracket claim in the model's own prose
+                # ("21 years falls within the 11-20 year range... assuming
+                # standard composition") sitting right next to this correct
+                # caveat -- age 21 is EXCLUDED under 3-tab, not ACV. The
+                # structured table knows both possible outcomes exactly, so
+                # state them explicitly rather than leaving the model's
+                # guess as the only concrete number in the output.
+                age = property_details['roof_age']
+                three_tab, _ = twico_roof_settlement("Composition (3-tab)", age)
+                architectural, _ = twico_roof_settlement("Composition (Architectural)", age)
+                if three_tab != architectural:
+                    _append_note(
+                        r,
+                        f"Roof settlement depends on the unconfirmed shingle sub-type: at "
+                        f"{age} years, 3-tab resolves to {three_tab} and architectural "
+                        f"resolves to {architectural}. Any single bracket stated above "
+                        f"without that confirmation is an assumption, not a determination.",
+                    )
             else:
                 # CHANGED (round 12): RCV used to get no note at all, on the
                 # assumption the model's own retrieval/narrative would
@@ -972,6 +1133,11 @@ CARRIER DOCUMENTS:
                 continue
             filtered.append(r)
 
+        # Attribution check runs BEFORE the structured overrides: it can
+        # downgrade an unsupported adverse verdict, and the structured
+        # overrides should then see (and be able to act on) that corrected
+        # status rather than the pre-correction one.
+        _strip_misattributed_citations(filtered, relevant_carriers)
         _apply_structured_overrides(filtered, relevant_carriers, property_details)
 
         return filtered

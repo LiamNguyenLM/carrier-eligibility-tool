@@ -54,6 +54,8 @@ from eligibility_check import (
     is_eligibility_content,
     normalize_chunk_text,
     _apply_structured_overrides,
+    _strip_misattributed_citations,
+    _citation_attributed_carrier,
     _mentions_solar,
     _mentions_protection_class,
     _mentions_pool_rule,
@@ -313,6 +315,34 @@ class TestTwicoStructuredRoof:
             status, _ = twico_roof_settlement(roof_type, 1)
             assert status == "INELIGIBLE", f"{roof_type} should be ineligible regardless of age"
 
+    # Round 12 priority 4: a live run claimed "21 years falls within the
+    # 11-20 year range for composition shingles (assuming standard
+    # composition)" -- age 21 is EXCLUDED under 3-tab, not ACV. These pin
+    # every crossover point in the source table for BOTH sub-types, so an
+    # off-by-one in either band can never pass silently. (The bracket
+    # function itself was verified correct at all of these -- the live
+    # error came from the model's own prose, see
+    # TestTwicoOverrideWiring::test_ambiguous_subtype_states_both_outcomes.)
+    @pytest.mark.parametrize("roof_type,age,expected", [
+        # Composition (3-tab): RCV 0-10 | ACV 11-20 | Excluded 21+
+        ("Composition (3-tab)", 10, "RCV"),
+        ("Composition (3-tab)", 11, "ACV"),
+        ("Composition (3-tab)", 20, "ACV"),
+        ("Composition (3-tab)", 21, "EXCLUDED"),
+        # Composition (Architectural): RCV 0-15 | ACV 16-25 | Excluded 26+
+        ("Composition (Architectural)", 15, "RCV"),
+        ("Composition (Architectural)", 16, "ACV"),
+        ("Composition (Architectural)", 25, "ACV"),
+        ("Composition (Architectural)", 26, "EXCLUDED"),
+        # The two sub-types must genuinely diverge at the ages where the
+        # live error occurred -- if these ever agree, the bands collapsed.
+        ("Composition (3-tab)", 16, "ACV"),
+        ("Composition (Architectural)", 21, "ACV"),
+    ])
+    def test_both_subtype_bracket_boundaries(self, roof_type, age, expected):
+        status, _ = twico_roof_settlement(roof_type, age)
+        assert status == expected, f"{roof_type} at age {age} should be {expected}, got {status}"
+
 
 @pytest.mark.retrieval
 class TestSageFPCOverrideWiring:
@@ -426,6 +456,27 @@ class TestTwicoOverrideWiring:
         _apply_structured_overrides([result], ["TWICO_HO3"], profile)
         assert any("subtype" in m.lower() for m in result["missing_info"])
 
+    @pytest.mark.parametrize("age,three_tab,architectural", [
+        (21, "EXCLUDED", "ACV"),   # the exact live-run failure case
+        (14, "ACV", "RCV"),
+        (26, "EXCLUDED", "EXCLUDED"),  # both agree -- no contradiction note needed
+    ])
+    def test_ambiguous_subtype_states_both_outcomes(self, age, three_tab, architectural):
+        """Round 12 priority 4: the missing_info caveat alone let a
+        confidently WRONG bracket claim from the model's own prose ship
+        beside it. When the two sub-types diverge, the exact outcome for
+        each must appear in the output so the model's guess isn't the only
+        concrete number a reader sees."""
+        profile = dict(COASTAL_PPC4_PROFILE, roof_type="Composition Shingle", roof_age=age)
+        result = self._make_carrier_result()
+        _apply_structured_overrides([result], ["TWICO_HO3"], profile)
+        if three_tab == architectural:
+            assert "3-tab resolves to" not in result["notes"]
+            return
+        notes = result["notes"]
+        assert f"3-tab resolves to {three_tab}" in notes, notes
+        assert f"architectural resolves to {architectural}" in notes, notes
+
 
 @pytest.mark.retrieval
 class TestOtherRoofOverridesAlwaysLeaveATrace:
@@ -458,6 +509,154 @@ class TestOtherRoofOverridesAlwaysLeaveATrace:
         result = self._make_carrier_result("Swyfft Benchmark Admitted HO3")
         _apply_structured_overrides([result], ["Swyfft_-_Benchmark_(Admitted)_HO3"], profile)
         assert result["notes"]
+
+
+@pytest.mark.retrieval
+class TestCitationAttributionValidator:
+    """Round 12 priority 1: ARI (HOA+) inherited ARI (HOB)'s age-cap rule in
+    40% of measured runs -- sometimes while correctly labeling the citation
+    "ARI (HOB):" in its own citations list. Retrieval is clean (HOA+'s own
+    chunks never contain that text), so this is cross-carrier bleed-through
+    inside one combined completion. Mechanical post-generation attribution
+    check, tested against the REAL production function.
+
+    Parametrized across three unrelated carrier families (ARI, Sage,
+    Swyfft) per CLAUDE.md's 2+-phrasings requirement for a general-rule
+    fix -- this is not an ARI-specific patch."""
+
+    def _result(self, carrier, status, citations, flaw_count=1):
+        return {
+            "carrier": carrier, "status": status, "flaw_count": flaw_count,
+            "reasons": [], "citations": list(citations), "missing_info": [], "notes": "",
+        }
+
+    def test_reproduces_the_exact_ari_finding(self):
+        # The literal citation pair from a captured contaminated run.
+        r = self._result(
+            "ARI (HOA+)", "INELIGIBLE",
+            [
+                "ARI (HOB): 'Homes 0-20 years old are eligible for this program. "
+                "Homes over 20 years old can be considered for coverage under the HOA/HOA Plus.'",
+            ],
+        )
+        _strip_misattributed_citations([r], ["ARI_(HOA+)", "ARI_(HOB)"])
+        assert not r["citations"], "the foreign citation must be removed"
+        assert r["status"] == "INSUFFICIENT_INFORMATION", (
+            "an INELIGIBLE resting only on another carrier's rule is unsupported once "
+            "that rule is removed -- it must not stand as a decline."
+        )
+        assert "attribution check" in r["notes"].lower()
+
+    @pytest.mark.parametrize("own,foreign,carriers", [
+        ("ARI (HOA+)", "ARI (HOB)", ["ARI_(HOA+)", "ARI_(HOB)"]),
+        ("Sage - Auros HO3", "Sage - Wilshire HO3",
+         ["Sage_-_Auros_HO3", "Sage_-_Wilshire_HO3_-_12.02.2025"]),
+        ("Swyfft - Benchmark (Admitted) HO3", "Swyfft - Lloyds (Surplus) HO3",
+         ["Swyfft_-_Benchmark_(Admitted)_HO3", "Swyfft_-_Lloyds_(Surplus)_HO3"]),
+    ])
+    def test_foreign_citation_stripped_across_carrier_families(self, own, foreign, carriers):
+        r = self._result(own, "INELIGIBLE", [f"{foreign}: 'some rule from the wrong document'"])
+        _strip_misattributed_citations([r], carriers)
+        assert not r["citations"]
+        assert r["status"] == "INSUFFICIENT_INFORMATION"
+
+    def test_own_citation_is_preserved_and_verdict_untouched(self):
+        # The critical guard rail: a legitimate self-cited decline must
+        # survive completely untouched.
+        r = self._result(
+            "Swyfft - Lloyds (Surplus) HO3", "INELIGIBLE",
+            ["Swyfft - Lloyds (Surplus) HO3: 'ISO Protection Class 9 or 10.'"],
+        )
+        _strip_misattributed_citations([r], ["Swyfft_-_Lloyds_(Surplus)_HO3", "ARI_(HOB)"])
+        assert len(r["citations"]) == 1
+        assert r["status"] == "INELIGIBLE"
+        assert "attribution check" not in r["notes"].lower()
+
+    def test_adverse_verdict_survives_if_one_own_citation_remains(self):
+        # Mixed case: a foreign citation is stripped, but the carrier's own
+        # rule still supports the decline -- the verdict must stand.
+        r = self._result(
+            "ARI (HOA+)", "INELIGIBLE",
+            [
+                "ARI (HOB): 'Homes 0-20 years old are eligible for this program.'",
+                "ARI (HOA+): 'Roofs that are 15 years or older will be covered on an ACV basis.'",
+            ],
+        )
+        _strip_misattributed_citations([r], ["ARI_(HOA+)", "ARI_(HOB)"])
+        assert len(r["citations"]) == 1
+        assert r["status"] == "INELIGIBLE", (
+            "the carrier's own citation still supports the decline -- it must not be downgraded."
+        )
+
+    def test_unlabeled_citation_is_never_treated_as_misattributed(self):
+        r = self._result("ARI (HOA+)", "INELIGIBLE", ["'Homes 0-20 years old are eligible.'"])
+        _strip_misattributed_citations([r], ["ARI_(HOA+)", "ARI_(HOB)"])
+        assert len(r["citations"]) == 1
+        assert r["status"] == "INELIGIBLE"
+
+    def test_eligible_verdict_is_never_downgraded(self):
+        # Stripping evidence can only ever weaken an ADVERSE finding.
+        r = self._result("ARI (HOA+)", "ELIGIBLE", ["ARI (HOB): 'some other rule'"], flaw_count=0)
+        _strip_misattributed_citations([r], ["ARI_(HOA+)", "ARI_(HOB)"])
+        assert r["status"] == "ELIGIBLE"
+
+    def test_ambiguous_label_is_treated_as_unknown_not_guessed(self):
+        """A bare "ARI:" prefix matches BOTH ARI_(HOA+) and ARI_(HOB).
+        Resolving it by sort order would mean that, while evaluating
+        whichever one loses the tiebreak, a perfectly legitimate
+        self-citation looks foreign and gets stripped -- and could then
+        downgrade a real decline. Stripping evidence must never rest on a
+        coin flip, so an ambiguous label is unknown, not guessed."""
+        assert _citation_attributed_carrier(
+            "ARI: 'some rule'", ["ARI_(HOA+)", "ARI_(HOB)"]
+        ) is None
+
+    def test_ambiguous_label_does_not_strip_or_downgrade(self):
+        r = self._result("ARI (HOB)", "INELIGIBLE", ["ARI: 'Homes 0-20 years old are eligible.'"])
+        _strip_misattributed_citations([r], ["ARI_(HOA+)", "ARI_(HOB)"])
+        assert len(r["citations"]) == 1, "an ambiguous label must not be stripped"
+        assert r["status"] == "INELIGIBLE", "an ambiguous label must not downgrade a verdict"
+
+    def test_DOCUMENTED_LIMITATION_prose_only_bleed_is_not_caught(self):
+        """EXPLICIT SCOPE LIMIT -- do not read the attribution validator as
+        "cross-carrier contamination: solved".
+
+        It acts on citations carrying a carrier LABEL. Cross-carrier bleed
+        that appears only as prose in reasons/notes, with no citation to
+        attribute, passes through completely untouched -- which is exactly
+        the shape of the historical Sage "Classification A/B/C" bleed
+        (terminology from Trium/SURE/SafePort written into Auros/
+        Occidental/Wilshire's prose). That failure mode is covered ONLY by
+        the prompt instruction and the retrieval-level guard
+        (TestSageFamilyFPCRetrieval::
+        test_classification_terminology_not_present_in_auros_occidental_wilshire),
+        both of which are weaker than a mechanical post-generation check.
+
+        This test asserts the CURRENT limitation, so it fails loudly if
+        someone later extends the validator to cover prose -- at which
+        point this should be rewritten as a real regression test rather
+        than silently left behind. See also the xfail end-to-end test
+        test_prose_only_cross_carrier_bleed_is_absent below."""
+        r = self._result(
+            "Sage - Auros HO3", "INSUFFICIENT_INFORMATION",
+            citations=[],  # no citation to attribute -- the whole point
+            flaw_count=0,
+        )
+        # Terminology that exists only in sibling carriers' documents.
+        r["reasons"] = ["This risk is a Classification B location under the FPC table."]
+        _strip_misattributed_citations([r], ["Sage_-_Auros_HO3", "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026"])
+        assert "classification b" in " ".join(r["reasons"]).lower(), (
+            "Prose-only bleed is currently NOT stripped. If the validator was just extended "
+            "to cover prose, rewrite this test as a regression test instead of deleting it."
+        )
+        assert "attribution check" not in r["notes"].lower()
+
+    def test_long_prose_prefix_with_colon_is_not_parsed_as_a_label(self):
+        long_prefix = (
+            "The carrier's guidelines state the following regarding roof age and the "
+            "applicable loss settlement basis for this particular risk: 'ACV applies'"
+        )
+        assert _citation_attributed_carrier(long_prefix, ["ARI_(HOA+)", "ARI_(HOB)"]) is None
 
 
 @pytest.mark.retrieval
@@ -614,6 +813,42 @@ class TestBucketAssignment:
         buckets = assign_buckets(results)
         assert buckets["one_issue"] == results
 
+    def test_every_status_lands_in_exactly_one_bucket(self):
+        """The bucket/label bug took three rounds to catch because a status
+        can silently land in the WRONG bucket. The mirror risk is a status
+        landing in NO bucket -- it would vanish from the UI entirely, with
+        no error anywhere. Covers all four documented statuses (including
+        REFER, which is long-standing and intentional, not new) plus an
+        unrecognized status, which must be caught rather than disappear."""
+        results = [
+            self._make("ELIGIBLE", carrier="e"),
+            self._make("INELIGIBLE", flaw_count=1, carrier="one"),
+            self._make("INELIGIBLE", flaw_count=3, carrier="multi"),
+            self._make("REFER", carrier="refer"),
+            self._make("INSUFFICIENT_INFORMATION", carrier="info"),
+        ]
+        buckets = assign_buckets(results)
+        placed = [r for b in buckets.values() for r in b]
+        placed_names = sorted(r["carrier"] for r in placed)
+        assert placed_names == sorted(r["carrier"] for r in results), (
+            f"every result must land in a bucket; got {placed_names}"
+        )
+        assert len(placed) == len(results), "a result was placed in more than one bucket"
+
+    def test_unrecognized_status_does_not_silently_vanish(self):
+        # Documents current behavior honestly: an unknown status is dropped
+        # from every bucket. Not a bug today (the model is constrained to
+        # the four documented statuses and the prompt enforces it), but if
+        # a fifth status is ever introduced, this test fails loudly at that
+        # moment instead of silently hiding carriers from the UI.
+        results = [self._make("SOME_NEW_STATUS", carrier="x")]
+        buckets = assign_buckets(results)
+        placed = [r for b in buckets.values() for r in b]
+        assert not placed, (
+            "assign_buckets currently drops unrecognized statuses. If a new status was "
+            "just added, give it a bucket -- otherwise those carriers disappear from the UI."
+        )
+
     def test_reproduces_the_exact_audit_finding_shape(self):
         """5 carriers tagged INELIGIBLE with flaw_count=1, 9 carriers tagged
         INSUFFICIENT_INFORMATION -- the exact 5-for-5 / 9-for-9 split found
@@ -665,6 +900,112 @@ class TestSolarRetrieval:
         assert must_contain.lower() in blob, (
             f"{carrier}'s known solar clause text ({must_contain!r}) was not found in the "
             f"{len(candidates)} guaranteed-lookup candidate(s)."
+        )
+
+
+@pytest.mark.retrieval
+class TestIntegratedSolarRoofingVsMountedPanels:
+    """Round 12 priority 5: Allied Trust HO3 was declined INELIGIBLE because
+    "solar panels are listed among ineligible roof types" -- but its actual
+    exclusion list names "solar roof system" and "solar panel tiles",
+    integrated solar ROOFING (the roof covering itself), listed alongside
+    slate, tin, corrugated metal and built-up tar and gravel. A customer
+    with ordinary PV panels mounted on a composition shingle roof does not
+    have a solar roof covering, so that exclusion cannot apply.
+
+    Correcting a premise in the audit: this is NOT a generalization of
+    logic that already worked elsewhere. Foremost ("Solar shingles") and
+    Swyfft ("Tesla Solar Roofs") get it right only because their own source
+    wording is unambiguous -- grep confirmed there was no solar
+    disambiguation rule anywhere in the prompt. Allied Trust's wording is
+    the hard case precisely because "solar panel tiles" literally contains
+    the words "solar panel". So a genuinely new general rule was added; the
+    tests below pin the source-text distinction it depends on across three
+    carriers phrasing it three different ways."""
+
+    @pytest.mark.parametrize("carrier,integrated_phrase", [
+        ("Allied_Trust_HO3", "solar roof system"),
+        ("Allied_Trust_HO3", "solar panel tiles"),
+        ("Foremost_DP3_and_HO3_-_07.01.2026", "solar shingles"),
+        ("Swyfft_-_Lloyds_(Surplus)_HO3", "tesla solar roof"),
+    ])
+    def test_integrated_roofing_phrase_is_retrievable(self, carrier, integrated_phrase):
+        found = _guaranteed_lookup_chunks(carrier, _mentions_solar, keep=2)
+        assert found, f"{carrier}: no solar chunk retrieved at all."
+        blob = " ".join(c.page_content for c in found).lower()
+        assert integrated_phrase in blob, (
+            f"{carrier}: {integrated_phrase!r} not retrieved -- the model cannot make the "
+            f"integrated-roofing vs. mounted-panel distinction without this text."
+        )
+
+    def test_allied_trust_solar_text_is_only_about_roof_coverings(self):
+        """The substantive point: every solar mention in Allied Trust's
+        document is a roof COVERING material, with no rule about panels
+        mounted on an ordinary roof. So there is nothing in this carrier's
+        text that a mounted-panel customer can fail."""
+        found = _guaranteed_lookup_chunks("Allied_Trust_HO3", _mentions_solar, keep=2)
+        blob = " ".join(c.page_content for c in found).lower()
+        assert "solar roof system" in blob or "solar panel tiles" in blob
+        # Wording that would indicate a genuine mounted-panel rule.
+        for mounted_rule in ("mounted", "attached to the roof", "panel installation", "installed on"):
+            assert mounted_rule not in blob, (
+                f"Allied Trust's solar text now contains {mounted_rule!r} -- it may have gained a "
+                f"real mounted-panel rule, so the 'exclusion cannot apply' reasoning needs re-checking."
+            )
+
+    def test_solar_retrieval_is_deterministic(self):
+        """Allied Trust produced two different live behaviors on the same
+        input (declined-over-solar in one run, no solar mention in the
+        next). This confirms retrieval is NOT the variable -- identical
+        context both times -- so that divergence is synthesis-layer
+        variance, which is why the end-to-end check below is a tracked
+        pass-rate test rather than a hard assert."""
+        runs = [
+            tuple(c.page_content for c in _guaranteed_lookup_chunks("Allied_Trust_HO3", _mentions_solar, keep=2))
+            for _ in range(5)
+        ]
+        assert all(r == runs[0] for r in runs)
+
+
+@pytest.mark.retrieval
+class TestRoofAgeRuleRetrieval:
+    """Round 12 priority 6: Orion's "Roof Material Payment Schedule
+    required for the specified roof ages: 16 years and older for
+    architectural and composite shingles" appeared in one live run and was
+    completely absent from the next. Root-caused by measurement, not
+    assumption: the clause lives in FOUR separate chunks, and the roof
+    guaranteed-lookup predicate matched NONE of them -- it only recognized
+    the phrase "life expectancy", which Orion never uses. So the rule had
+    no retrieval guarantee at all and rode entirely on the embedding-rank
+    lottery, exactly like PPC/pool/solar did before their guarantees.
+
+    The same measurement showed TWICO and all four Swyfft programs had
+    zero coverage too -- which independently explains TWICO going silent
+    on roof/tile in a real run earlier this round. Parametrized across
+    carriers that phrase the same underlying roof-age rule three different
+    ways (payment schedule / RCV-ACV-Excluded age bands / max age), per
+    CLAUDE.md's 2+-phrasings requirement."""
+
+    @pytest.mark.parametrize("carrier,must_contain", [
+        # "payment schedule" + "years and older" phrasing
+        ("Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3", "16 years and older"),
+        # RCV / ACV / Excluded age-band table phrasing
+        ("TWICO_HO3", "acv"),
+        ("Swyfft_-_Lloyds_(Surplus)_HO3", "acv"),
+        # the original "life expectancy" phrasing must still work
+        ("Allied_Trust_HO3", "life expectancy"),
+    ])
+    def test_roof_age_rule_is_guaranteed_retrievable(self, carrier, must_contain):
+        found = _guaranteed_lookup_chunks(
+            carrier, _mentions_roof_life_expectancy, keep=3,
+            priority_key=lambda c: "shingle" not in c.page_content.lower(),
+        )
+        assert found, f"{carrier}: roof-age rule has NO guaranteed-lookup coverage at all."
+        blob = " ".join(c.page_content for c in found).lower()
+        assert must_contain.lower() in blob, (
+            f"{carrier}: expected roof-age rule text ({must_contain!r}) not among the "
+            f"{len(found)} guaranteed-lookup chunk(s) -- this rule is back to riding the "
+            f"embedding-rank lottery."
         )
 
 
@@ -1005,6 +1346,69 @@ def test_ari_hoa_plus_no_age_cap_contamination_consistency(record_property):
     assert pass_rate > 0.0, (
         f"ARI (HOA+) borrowed ARI (HOB)'s age-cap citation in EVERY run -- "
         f"this has regressed from partial (60% measured over 5 runs) to total failure."
+    )
+
+
+@pytest.mark.baseline
+@pytest.mark.xfail(
+    reason="BACKLOG (round 12, open): the citation-attribution validator only catches "
+    "cross-carrier bleed that carries a carrier LABEL. Prose-only bleed -- another "
+    "carrier's terminology written into reasons/notes with no citation to attribute -- "
+    "is NOT covered, and is exactly the shape of the historical Sage 'Classification "
+    "A/B/C' issue. Covered today only by a prompt instruction and a retrieval-level "
+    "guard, both weaker than a mechanical check. Logged so 'cross-carrier contamination' "
+    "is never treated as fully solved by the P1 validator alone.",
+    strict=False,
+)
+def test_prose_only_cross_carrier_bleed_is_absent():
+    """End-to-end counterpart to
+    TestCitationAttributionValidator::test_DOCUMENTED_LIMITATION_prose_only_bleed_is_not_caught.
+    Asserts no Sage-family carrier's prose borrows a sibling's
+    'Classification A/B/C' terminology (which exists only in
+    Trium/SURE/SafePort's own documents)."""
+    result = check_eligibility(ALT_PROFILE)
+    by_carrier = {r["carrier"]: r for r in result}
+    for target in ["Auros", "Occidental", "Wilshire"]:
+        matches = [r for c, r in by_carrier.items() if target.lower() in c.lower()]
+        assert matches, f"{target}: not found in output"
+        r = matches[0]
+        prose = " ".join(r.get("reasons", []) + [r.get("notes", "")]).lower()
+        assert "classification" not in prose, (
+            f"{target}: borrowed 'Classification' terminology from a sibling carrier's "
+            f"document in prose (no citation label, so the attribution validator cannot see it)."
+        )
+
+
+@pytest.mark.baseline
+def test_allied_trust_mounted_solar_not_declined_consistency(record_property):
+    """Round 12 priority 5, end to end: ALT_PROFILE is exactly the failing
+    scenario (mounted PV panels on a Composition Shingle roof). Allied
+    Trust must not be declined over its integrated-solar-roofing exclusion
+    ("solar roof system" / "solar panel tiles"), which cannot apply to a
+    conventional roof covering. Tracked as a pass rate rather than a hard
+    assert because the same input produced two different live behaviors --
+    and retrieval was proven deterministic across those runs (see
+    TestIntegratedSolarRoofingVsMountedPanels), so the variance is purely
+    synthesis-layer."""
+    n_runs = 3
+    outcomes = []
+    for _ in range(n_runs):
+        result = check_eligibility(ALT_PROFILE)
+        by_carrier = {r["carrier"]: r for r in result}
+        matches = [r for c, r in by_carrier.items() if "allied trust" in c.lower()]
+        assert matches, "Allied Trust: not found in output"
+        r = matches[0]
+        declined_over_solar = (
+            r.get("status") == "INELIGIBLE"
+            and "solar" in " ".join(r.get("reasons", []) + r.get("citations", [])).lower()
+        )
+        outcomes.append(not declined_over_solar)
+    pass_rate = sum(outcomes) / len(outcomes)
+    record_property("allied_trust_mounted_solar_not_declined_pass_rate", pass_rate)
+    print(f"\nAllied Trust mounted-solar-not-declined pass rate: {pass_rate:.0%} over {n_runs} runs ({outcomes})")
+    assert pass_rate > 0.0, (
+        "Allied Trust was declined over its integrated-solar-roofing exclusion in EVERY run -- "
+        "the mounted-panel vs. solar-roofing distinction is not being applied at all."
     )
 
 
