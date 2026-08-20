@@ -968,6 +968,53 @@ class TestIntegratedSolarRoofingVsMountedPanels:
 
 
 @pytest.mark.retrieval
+class TestOptionalCoverageIsNotARestriction:
+    """Round 12 priority 7: HOAIC HO3 was bucketed INSUFFICIENT_INFORMATION
+    partly because "solar panel treatment needs clarification" -- but its
+    ONLY solar text is a coverage-availability row ("Solar Panel Coverage |
+    Available on endorsement"). An available optional coverage is not an
+    eligibility restriction and raises no question to clarify.
+
+    Pins the source-text fact the prompt rule depends on: HOAIC's solar
+    text is availability wording with no restrictive language anywhere.
+    Covers two carriers with availability-style wording so this isn't a
+    single-carrier patch."""
+
+    @pytest.mark.parametrize("carrier", [
+        "HOAIC_-_TX-HOMEOWNERS-0326_HO3",
+        "HOAIC_-_DP_Guide_DP3",
+    ])
+    def test_hoaic_solar_text_is_availability_not_restriction(self, carrier):
+        found = _guaranteed_lookup_chunks(carrier, _mentions_solar, keep=2)
+        if not found:
+            pytest.skip(f"{carrier} has no solar text at all -- nothing to over-trigger on")
+        # Scope to the SOLAR lines only. Scanning the whole chunk gives false
+        # positives: HOAIC's solar row sits in a large coverage table whose
+        # unrelated rows contain words like "excluded" (e.g. "Scheduled
+        # Personal Property ... Intentional acts are excluded"), which says
+        # nothing about solar.
+        solar_lines = [
+            line.lower()
+            for c in found for line in c.page_content.split("\n")
+            if "solar" in line.lower()
+        ]
+        assert solar_lines, f"{carrier}: solar chunk retrieved but no line mentions solar."
+        blob = " ".join(solar_lines)
+        assert "available" in blob or "endorsement" in blob, (
+            f"{carrier}: expected availability wording ('available'/'endorsement'); got {blob!r}"
+        )
+        # If any of these ever appear ON A SOLAR LINE, the carrier gained a
+        # real solar restriction and the "nothing to clarify" reasoning must
+        # be re-examined.
+        for restrictive in ("ineligible", "not eligible", "prohibited", "excluded", "unacceptable"):
+            assert restrictive not in blob, (
+                f"{carrier}: a solar line now contains {restrictive!r} -- it may have gained a "
+                f"genuine solar restriction, so treating it as optional-coverage-only is no "
+                f"longer safe. Line(s): {blob!r}"
+            )
+
+
+@pytest.mark.retrieval
 class TestRoofAgeRuleRetrieval:
     """Round 12 priority 6: Orion's "Roof Material Payment Schedule
     required for the specified roof ages: 16 years and older for
@@ -1159,18 +1206,6 @@ class TestBaselineAltProfile:
         blob = " ".join(r.get("missing_info", [])).lower()
         assert "ppc 10" not in blob and "ppc-10" not in blob
 
-    @pytest.mark.xfail(
-        reason="Round 11: added a 'check every applicable branch before using "
-        "INSUFFICIENT_INFORMATION' instruction for this exact issue. Measured "
-        "pass rate across 4 real runs: 1/4 (25%) -- this is NOT the same as "
-        "Progressive HO3's solar flakiness (which passes most runs); this fix "
-        "mostly does not work yet. Auros/Occidental/Wilshire flip TOGETHER "
-        "(same status across all three in every run observed), consistent "
-        "with the model settling into one 'mode' per completion rather than "
-        "evaluating each carrier independently. Needs a stronger fix, not "
-        "just a longer prompt instruction -- see test_sage_family_ppc1_pass_rate.",
-        strict=False,
-    )
     @pytest.mark.parametrize("carrier_substr", [
         "Auros", "Occidental", "Wilshire",
     ])
@@ -1179,7 +1214,20 @@ class TestBaselineAltProfile:
         confirms an FPC-1 risk is eligible under every row -- the
         ineligible row requires FPC>=9, which this customer can never
         reach. Missing distance data only determines which additional
-        conditions apply, not whether the risk qualifies."""
+        conditions apply, not whether the risk qualifies.
+
+        xfail REMOVED (round 12): this was marked xfail(strict=False) at a
+        measured 1/4 (25%) pass rate, when the fix in place was a prompt
+        instruction. The real fix turned out to be structural -- routing
+        the deterministic sage_family_fpc_eligibility() result into the
+        verdict field (the _apply_structured_overrides wiring gap, where
+        the model's own correct FPC conclusion was landing in `notes` and
+        going unread). A full 16-run sweep after that fix measured 16/16
+        (100%) for all three carriers, so the backlog item this marker
+        guarded is resolved and the marker was hiding a real pass. Kept as
+        a hard assert deliberately: at 16/16 it is not in the
+        "flaky, track the rate" category that Swyfft/Orion/Allied Trust/
+        Mercury are in."""
         r = self._find(carrier_substr)
         assert r["status"] != "INSUFFICIENT_INFORMATION", (
             f"{carrier_substr}: PPC 1 can never fail the FPC>=9 exclusion clause; "
@@ -1199,11 +1247,13 @@ class TestBaselineAltProfile:
         blob = " ".join(r.get("missing_info", [])).lower()
         assert "response time" in blob or "fire department" in blob
 
-    @pytest.mark.xfail(
-        reason="Progressive HO3's solar windstorm/hail exclusion is retrievable (see TestSolarRetrieval) but reported absent from round 11's actual output despite prior same-day verification -- run-to-run model inconsistency, tracked by test_progressive_ho3_solar_consistency below rather than asserted as a hard pass here",
-        strict=False,
-    )
     def test_progressive_ho3_surfaces_solar_exclusion(self):
+        """xfail REMOVED (round 12): marked xfail(strict=False) back when
+        this measured 85% (17/20). A full 16-run sweep now measures 16/16
+        (100%), so the marker was hiding a real pass. The rate is still
+        tracked continuously by test_progressive_ho3_solar_consistency
+        below, which is the right place for the running number -- this
+        assert just stops a silent regression from being invisible."""
         r = self._find("Progressive_HO3") if "Progressive_HO3" in self.by_carrier else self._find("Progressive HO3")
         blob = " ".join(r.get("missing_info", []) + r.get("citations", [])).lower()
         assert "solar" in blob
