@@ -185,6 +185,36 @@ _TWICO_ROOF_BANDS = {
 }
 _TWICO_UNCONDITIONALLY_INELIGIBLE_KEYWORDS = ("corrugated", "asbestos", "wood", "slate")
 
+# CHANGED (round 13): the asphalt-shingle family names, all of which refer
+# to the SAME roofing category per the ROOFING MATERIAL TERMINOLOGY rule in
+# eligibility_check.SYSTEM_INSTRUCTIONS. Previously only the literal word
+# "composition" was recognized, so "Composite Shingle" and "asphalt
+# shingle" fell through to the generic "not found in this table" branch --
+# TWICO's table plainly covers them, and the sub-type ambiguity that makes
+# this carrier's outcome undecidable applies to them identically. Exactly
+# the failure mode CLAUDE.md calls out: a fix that only works for the one
+# phrasing that happened to appear in the bug report.
+_TWICO_ASPHALT_FAMILY_KEYWORDS = ("composition", "composite", "asphalt")
+
+# Sub-type qualifiers that DO resolve the ambiguity, so a roof type naming
+# one of these is decidable and must not be treated as ambiguous.
+_TWICO_SUBTYPE_QUALIFIERS = ("architectural", "3-tab", "3 tab")
+
+
+def twico_roof_subtype_is_ambiguous(roof_type):
+    """True when roof_type names the asphalt-shingle family without saying
+    WHICH sub-type -- the one case TWICO's table genuinely cannot resolve.
+
+    Single source of truth, deliberately: eligibility_check.py's structured
+    override needs the exact same test to decide whether to hold a verdict
+    for confirmation, and an independent copy of "is this composition
+    shingle?" in the two files is precisely how the two would drift.
+    """
+    rt = roof_type.strip().lower()
+    if any(q in rt for q in _TWICO_SUBTYPE_QUALIFIERS):
+        return False
+    return any(k in rt for k in _TWICO_ASPHALT_FAMILY_KEYWORDS)
+
 
 def twico_roof_settlement(roof_type, roof_age):
     """TWICO HO3, page 2 roof settlement table:
@@ -217,7 +247,7 @@ def twico_roof_settlement(roof_type, roof_age):
 
     bands = next((v for k, v in _TWICO_ROOF_BANDS.items() if k in rt), None)
     if bands is None:
-        if "composition" in rt:
+        if twico_roof_subtype_is_ambiguous(roof_type):
             return "INSUFFICIENT_INFORMATION", [
                 "TWICO distinguishes 3-tab composition shingle (RCV<=10yr/ACV 11-20yr/"
                 "Excluded 21+yr) from architectural composition shingle (RCV<=15yr/ACV "

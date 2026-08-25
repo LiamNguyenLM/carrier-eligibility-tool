@@ -28,6 +28,7 @@ from structured_rules import (
     sage_markel_roof_exclusion,
     swyfft_max_roof_age_30,
     twico_roof_settlement,
+    twico_roof_subtype_is_ambiguous,
 )
 
 
@@ -578,6 +579,484 @@ def _append_note(result, text):
     result["notes"] = (existing + " " + text).strip() if existing else text
 
 
+# Keywords used ONLY to decide whether a carrier's own adverse verdict is
+# ABOUT a given topic. They never decide a verdict themselves -- the
+# structured check in structured_rules.py does that.
+_AMBIGUITY_TOPIC_KEYWORDS = {
+    "roof": (
+        "roof", "shingle", "composition", "3-tab", "architectural",
+        "acv", "actual cash value", "replacement cost", "rcv",
+    ),
+    "fpc": (
+        "fpc", "fire protection class", "protection class", "ppc",
+        "fire station", "hydrant",
+    ),
+}
+
+
+# ---------------------------------------------------------------------------
+# Pool enclosure specifics (round 13, P3).
+#
+# A carrier whose OWN document states a specific pool fence height or gate
+# mechanism cannot have that requirement satisfied by the intake's generic
+# "In Ground - Fenced", which carries no height and no gate type. A live
+# run had ARI (HOA+) -- whose rule is "a 6' high fence with locked or self
+# locking gates" -- state in its Analysis that the property "meets the
+# requirement", from an input that says nothing of the kind.
+#
+# This is NOT ARI-specific. A scan of every owner-occupied carrier found
+# TWENTY with a specific fence height and/or gate mechanism -- 18 state a
+# height, 18 state a gate mechanism. Only TWO distinct heights exist in the
+# corpus: ARI (HOA+) and ARI (HOB) at 6', and the other sixteen
+# height-stating carriers all at 4'. So any per-carrier patch would have
+# been wrong by construction, and so would any rule that assumed one shared
+# number.
+#
+# Every one of those figures has been checked against the source clause it
+# came from, not against this extractor's own output -- see
+# _extract_pool_spec, whose first version reported Foremost at 5' and Sage
+# Markel at 4' AND 5', both wrong, and whose "16/16 verified" claim was
+# worthless because it compared the extractor to itself. It is also the same underlying gap the suite has been
+# tracking as flaky rather than fixed: Sage Occidental's pool-fence rule
+# was measured surfacing in only 55% (11/20) of runs, with a
+# "post-generation verify + repair" fix explicitly queued for it. This is
+# that fix, applied to the whole class at once.
+# ---------------------------------------------------------------------------
+
+# A height figure only counts when it sits in a POOL-ENCLOSURE context, and
+# only when it is describing the enclosure rather than the water.
+#
+# CHANGED (round 13, second pass): the first version of this was wrong for
+# Foremost, in two independent ways, and the "16/16 verified" claim it
+# produced was worthless because it checked the extractor against its own
+# output instead of against source text.
+#
+# Foremost's actual rule, stated five times in its document, is:
+#     "Properties with pools (over 2.5 feet deep) must have a fence
+#      minimum four feet high (fully enclosing the pool) AND a
+#      self-locking gate"
+#
+#   1. Sentences were split on `[^.]*\.`, which splits on EVERY period --
+#      including the decimal point in "2.5". The fragment
+#      "5 feet deep) must have a fence minimum four feet high..." was then
+#      treated as one sentence, and "5 feet" was harvested from it. That
+#      figure is the tail of a pool DEPTH threshold, not a fence height:
+#      wrong number and wrong attribute at once. Foremost was reported as
+#      the only 5' carrier in the corpus; it is a 4' carrier.
+#   2. The real height is SPELLED OUT ("four feet high") and the pattern
+#      only matched digits, so the correct figure was never captured at all.
+#
+# Splitting into sentences is what made (1) possible, and PDF-extracted text
+# in this corpus has mangled punctuation everywhere, so this no longer
+# splits at all. Each candidate figure is judged by the words immediately
+# around it instead.
+_MAX_PLAUSIBLE_FENCE_FEET = 12
+
+_SPELLED_NUMBERS = {
+    "one": "1", "two": "2", "three": "3", "four": "4", "five": "5", "six": "6",
+    "seven": "7", "eight": "8", "nine": "9", "ten": "10", "eleven": "11", "twelve": "12",
+}
+
+# A length in feet: digits (possibly decimal, so "2.5" is matched WHOLE and
+# can be rejected, rather than being torn in half) or a spelled-out number.
+_FEET_RE = re.compile(
+    r"\b(?P<num>\d+(?:\.\d+)?|" + "|".join(_SPELLED_NUMBERS) + r")\s*"
+    r"(?:'|\u2019|-|\s)?\s*(?:foot|feet|ft)\b|"
+    r"\b(?P<num2>\d+(?:\.\d+)?)\s*(?:'|\u2019)",
+    re.I,
+)
+
+# Words that mean the figure describes the WATER, not the enclosure.
+_DEPTH_WORDS = ("deep", "depth")
+
+# The figure must sit next to an actual ENCLOSURE NOUN. A bare height word
+# is not enough: Sage Markel's pool rule contains
+#     "pool slide where the top of the slide is no higher than five feet
+#      above the pool deck"
+# and an earlier version accepted "five feet" from it because "higher"
+# counted as height evidence -- reporting Markel as a 4' AND 5' carrier when
+# its fence rule is "Approved fence (at least four feet high)". Same class of
+# error as the Foremost depth figure: a number that is genuinely in the pool
+# rule, but describing something other than the fence.
+_ENCLOSURE_NOUNS = ("fenc", "wall", "enclos", "barrier", "cage")
+# Other pool structures whose dimensions must never be read as a fence height.
+_COMPETING_STRUCTURES = ("slide", "diving", "board", "ladder", "deck", "depth", "deep")
+
+_POOL_GATE_MECHANISM_RE = re.compile(
+    r"\b(self[-\s]?(?:latch|clos|lock)\w*|latching|locking|locked|padlock|combination lock)\b",
+    re.I,
+)
+_POOL_ENCLOSURE_WORDS = ("fenc", "gate", "enclos", "barrier")
+
+# How far around a candidate to look for context. Wide enough to span the
+# parenthetical asides these documents are full of ("a fence minimum four
+# feet high (fully enclosing the pool) and a self-locking gate").
+_POOL_CONTEXT_WINDOW = 160
+
+
+def _pool_context(lower, start, end):
+    return lower[max(0, start - _POOL_CONTEXT_WINDOW): end + _POOL_CONTEXT_WINDOW]
+
+
+def _nearest_word_distance(window, words, position):
+    """Character distance from `position` to the closest occurrence of any of
+    `words` in `window`, or None if none appear. Used to decide which noun a
+    dimension actually belongs to when several are in play."""
+    best = None
+    for word in words:
+        start = 0
+        while True:
+            found = window.find(word, start)
+            if found == -1:
+                break
+            distance = abs(found - position)
+            if best is None or distance < best:
+                best = distance
+            start = found + 1
+    return best
+
+
+def _extract_pool_spec(text):
+    """The specific fence height(s) and gate mechanism(s) a carrier's own
+    pool rule states. Returns {"heights": set[str], "gates": set[str]}.
+
+    Every candidate is judged by its surrounding window, which must mention
+    a pool AND an enclosure. A height is additionally required to be
+    describing the enclosure ("four feet high", "6' fence") and rejected
+    outright when it is describing the water ("over 2.5 feet deep") -- see
+    the block comment above for the Foremost case that motivated both rules.
+    """
+    heights, gates = set(), set()
+    lower = text.lower()
+
+    for match in _FEET_RE.finditer(lower):
+        raw = match.group("num") or match.group("num2")
+        if raw is None:
+            continue
+        value = _SPELLED_NUMBERS.get(raw, raw)
+        if "." in value:
+            # A fence height is never fractional in these documents; a
+            # fractional figure here is a depth threshold.
+            continue
+        if not value.isdigit() or not 0 < int(value) <= _MAX_PLAUSIBLE_FENCE_FEET:
+            continue
+
+        window = _pool_context(lower, match.start(), match.end())
+        if not ("pool" in window or "swimming" in window):
+            continue
+        if not any(w in window for w in _POOL_ENCLOSURE_WORDS):
+            continue
+
+        # Reject a depth figure: "(over 2.5 feet deep)", "4 feet or deeper".
+        trailing = lower[match.end(): match.end() + 24]
+        if any(w in trailing for w in _DEPTH_WORDS):
+            continue
+        # Require positive evidence that this figure describes the ENCLOSURE:
+        # an enclosure noun must be nearby, and must be closer to the figure
+        # than any competing pool structure whose own dimensions could
+        # otherwise be mistaken for it.
+        near_start = max(0, match.start() - 60)
+        near = lower[near_start: match.end() + 40]
+        figure_at = match.start() - near_start
+
+        enclosure_gap = _nearest_word_distance(near, _ENCLOSURE_NOUNS, figure_at)
+        if enclosure_gap is None:
+            continue
+        competing_gap = _nearest_word_distance(near, _COMPETING_STRUCTURES, figure_at)
+        if competing_gap is not None and competing_gap < enclosure_gap:
+            continue
+
+        heights.add(value)
+
+    for match in _POOL_GATE_MECHANISM_RE.finditer(lower):
+        window = _pool_context(lower, match.start(), match.end())
+        if not ("pool" in window or "swimming" in window):
+            continue
+        if not any(w in window for w in _POOL_ENCLOSURE_WORDS):
+            continue
+        gates.add(match.group(1).strip().lower())
+
+    return {"heights": heights, "gates": gates}
+
+
+def _intake_states_pool_specifics(pool_value):
+    """True when the intake's own pool value already states a height or a
+    gate mechanism, in which case there is nothing to flag as unconfirmed.
+    The current form only ever emits generic values ("In Ground - Fenced"),
+    but this keeps the check honest if the form ever gains those fields --
+    the rule is "don't assert what the input doesn't support," not "always
+    add a pool caveat."
+    """
+    # The intake value is a fragment, not prose, so give the extractor the
+    # pool/fence context its window check needs before asking it.
+    spec = _extract_pool_spec("pool fence: " + pool_value.lower())
+    if spec["heights"] or spec["gates"]:
+        return True
+    # Fall back to a bare figure/mechanism anywhere in the value, so a future
+    # intake field that states one in an unanticipated shape still counts.
+    return bool(_FEET_RE.search(pool_value)) or bool(
+        _POOL_GATE_MECHANISM_RE.search(pool_value)
+    )
+
+
+def _describe_unconfirmed_pool_spec(spec):
+    wants = []
+    if spec["heights"]:
+        heights = " or ".join(f"{h}'" for h in sorted(spec["heights"], key=int))
+        wants.append(f"fence height (this carrier's rule specifies {heights})")
+    if spec["gates"]:
+        gates = ", ".join(sorted(spec["gates"]))
+        wants.append(f"gate mechanism (this carrier's rule specifies {gates})")
+    return " and ".join(wants)
+
+
+def _enforce_pool_spec_support(results, relevant_carriers, property_details, pool_specs):
+    """Guarantee that a carrier stating specific pool-enclosure
+    requirements records them as UNCONFIRMED rather than assumed met.
+
+    Deliberately does NOT change status. The false claim reported in the
+    audit was in the Analysis text ("meets the requirement"), and the
+    finding was not flagged verdict-changing; flipping sixteen carriers
+    from ELIGIBLE to INSUFFICIENT_INFORMATION off the back of it would be a
+    far larger behavioral change than the evidence supports. What it does
+    guarantee is that the specific unconfirmed attribute is always present
+    in missing_info, naming THIS carrier's own figure -- so the agent sees
+    "6' fence height not confirmed" instead of a bare assertion of
+    compliance.
+    """
+    pool_value = property_details.get("swimming_pool", "No Pool")
+    if pool_value == "No Pool":
+        return
+    if _intake_states_pool_specifics(pool_value):
+        return
+
+    for r in results:
+        canon = _resolve_structured_carrier(r.get("carrier", ""), relevant_carriers)
+        if canon is None:
+            continue
+        spec = pool_specs.get(canon)
+        if not spec or not (spec["heights"] or spec["gates"]):
+            continue
+
+        described = _describe_unconfirmed_pool_spec(spec)
+        item = (
+            f"Pool enclosure specifics are not confirmed by the intake value "
+            f"\"{pool_value}\": {described}."
+        )
+        mi = r.setdefault("missing_info", [])
+        if not any("pool enclosure specifics" in m.lower() for m in mi):
+            mi.append(item)
+
+        _append_note(
+            r,
+            f"[Pool spec check] The intake value \"{pool_value}\" states neither a fence "
+            f"height nor a gate mechanism, so this carrier's specific pool requirement "
+            f"cannot be treated as met -- it is unconfirmed, not satisfied.",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Solar: integrated roofing vs. mounted panels (round 13, P4).
+#
+# The audit asked whether Allied Trust's silence on a mounted-panel property
+# meant its solar chunk wasn't retrieved. Measured: it IS retrieved, 2 of 2
+# chunks, identically across 5 repeated calls -- the guaranteed lookup is an
+# exact keyword scan, so it has no run-to-run variance to lose. Both of its
+# solar references are roof COVERING materials ("solar roof system", "Solar
+# panel tiles"), which per SYSTEM_INSTRUCTIONS' SOLAR TERMINOLOGY rule
+# correctly do NOT apply to panels mounted on an ordinary shingle roof. So
+# the model's judgment was right.
+#
+# But it only SAID so in 1 of 3 measured runs, and total silence is exactly
+# what the auditor could not interpret: it looks identical to a retrieval
+# miss from outside. This codebase has already settled that question once --
+# see the Mercury and TWICO roof branches, whose comments say a silent
+# "unremarkable" outcome "is itself a bug, not a no-op". Same reasoning, same
+# remedy: state the deterministic conclusion instead of hoping the model
+# repeats it.
+# ---------------------------------------------------------------------------
+
+# Phrases that name solar material used AS the roof covering. Order matters:
+# these are matched and consumed FIRST, because "solar panel tiles" contains
+# the substring "solar panel" and would otherwise look like a mounted-panel
+# rule -- the exact confusion the SOLAR TERMINOLOGY rule exists to prevent.
+_INTEGRATED_SOLAR_ROOFING_PHRASES = (
+    "solar roof system", "solar roofing", "solar roof",
+    "solar shingle", "solar shingles",
+    "solar panel tile", "solar panel tiles",
+    "solar tile", "solar tiles",
+    "bipv",
+)
+
+# Signals that a rule is about conventional panels mounted on top of an
+# ordinary roof -- i.e. it genuinely DOES address this customer.
+_MOUNTED_SOLAR_PANEL_SIGNALS = (
+    "mounted", "mounting", "roof-mounted", "attached to the roof",
+    "photovoltaic", "pv system", "panel installation", "installed on the roof",
+    "who insures", "wind or hail damage to the panels",
+)
+
+
+def classify_solar_text(text):
+    """Is this carrier's solar language about INTEGRATED solar roofing, or
+    about MOUNTED panels?
+
+    Returns one of "roofing_only", "addresses_panels", or "none".
+
+    Every integrated-roofing phrase is removed before looking for
+    mounted-panel signals, so a document that only ever says "solar panel
+    tiles" cannot be read as having a mounted-panel rule.
+    """
+    lower = text.lower()
+
+    stripped = lower
+    for phrase in _INTEGRATED_SOLAR_ROOFING_PHRASES:
+        stripped = stripped.replace(phrase, " ")
+
+    # Checked BEFORE the "no solar at all" exit: a carrier can state a
+    # mounted-panel rule using only the word "photovoltaic".
+    if any(sig in stripped for sig in _MOUNTED_SOLAR_PANEL_SIGNALS):
+        return "addresses_panels"
+    if "solar" not in lower:
+        return "none"
+    if "solar" not in stripped:
+        # EVERY mention was consumed as an integrated-roofing phrase. This
+        # has to be all of them, not merely one of them: Foremost's document
+        # lists "Solar shingles" among ineligible roof coverings AND, in a
+        # different chunk, covers "wind or hail that results in marring of
+        # ... solar panels" -- a real mounted-panel rule. An earlier version
+        # returned roofing_only as soon as ANY integrated phrase appeared,
+        # which would have had the note below tell an agent that Foremost
+        # states no mounted-panel rule. It does.
+        return "roofing_only"
+    # Something says "solar" that is NOT an integrated-roofing phrase. Do not
+    # assert the absence of a mounted-panel rule on that basis.
+    return "addresses_panels"
+
+
+def classify_carrier_solar_text(collection, carrier):
+    """Classify a carrier's solar language across its ENTIRE document, not
+    just the chunks the guaranteed lookup keeps.
+
+    This distinction is not academic. The lookup keeps at most
+    MAX_SOLAR_CHUNKS_PER_CARRIER (2) chunks, and Foremost has 4 that mention
+    solar: the two that rank first are both about "Solar shingles" in a list
+    of ineligible roof COVERINGS, while the fourth -- outside the keep
+    window -- covers "wind or hail that results in marring of ... solar
+    panels", which is a genuine MOUNTED-panel rule. Classifying only the
+    kept chunks would have had _note_solar_roofing_does_not_apply() tell an
+    agent that Foremost "states no rule about roof-mounted panels", which is
+    false. A note that asserts the absence of a rule has to be checked
+    against the whole document.
+    """
+    try:
+        raw = collection.get(where={"carrier": carrier}, include=["documents"])
+    except Exception:
+        return "none"
+    solar_docs = [d for d in raw.get("documents", []) if _mentions_solar(d)]
+    if not solar_docs:
+        return "none"
+    return classify_solar_text(" ".join(normalize_chunk_text(d) for d in solar_docs))
+
+
+def _note_solar_roofing_does_not_apply(results, relevant_carriers, property_details, solar_classes):
+    """For a property with MOUNTED panels, make every carrier whose solar
+    language is integrated-roofing-only say so explicitly.
+
+    Note-only: it never touches status, reasons, citations or missing_info.
+    Its whole job is to remove the ambiguity between "correctly judged not
+    applicable" and "never retrieved", which is not something an auditor can
+    resolve from the outside.
+    """
+    if property_details.get("solar_panels") != "Yes":
+        return
+    roof_type = property_details.get("roof_type", "the stated roof covering")
+    for r in results:
+        canon = _resolve_structured_carrier(r.get("carrier", ""), relevant_carriers)
+        if canon is None:
+            continue
+        if solar_classes.get(canon) != "roofing_only":
+            continue
+        if "[solar check]" in r.get("notes", "").lower():
+            continue
+        _append_note(
+            r,
+            f"[Solar check] This carrier's only solar language describes solar material used "
+            f"AS the roof covering (a solar roof system / solar shingles or tiles). The "
+            f"property has conventional panels mounted on a {roof_type} roof, so that "
+            f"exclusion does not apply to it. This carrier's document states no rule about "
+            f"roof-mounted panels.",
+        )
+
+
+def _hold_for_unresolved_topic(result, topic, explanation, model_text):
+    """A structured check has reported that this topic's outcome genuinely
+    DIVERGES depending on a fact the intake never collects. That conclusion
+    has to reach the STATUS field -- not just the prose.
+
+    Round 13 (P2): TWICO_HO3 came back INELIGIBLE on a 21-year
+    "Composition Shingle" roof while its own notes field -- written a few
+    lines below by this very override -- correctly said "at 21 years, 3-tab
+    resolves to EXCLUDED and architectural resolves to ACV. Any single
+    bracket stated above without that confirmation is an assumption, not a
+    determination." The override computed exactly the right thing and then
+    never wired it to the one field an agent actually acts on. This is the
+    same shape of bug as round 12's Sage FPC wiring gap (a correct
+    conclusion landing only in a free-form field), which is why the fix is
+    a SHARED helper rather than another per-carrier patch: every structured
+    check that can report genuine ambiguity now routes through it.
+
+    Deliberately conservative -- it only holds a verdict it can actually
+    show rests on the unresolved topic:
+
+      * Only ADVERSE determinations (INELIGIBLE / REFER) are downgraded. A
+        confident ELIGIBLE that carries the caveat in notes + missing_info
+        hides nothing from the agent; an adverse one actively tells them
+        not to bother quoting the carrier, on the strength of a coin flip.
+        Same asymmetry _strip_misattributed_citations already uses.
+      * The topic must actually appear in THIS carrier's own
+        reasons/citations/notes. If the model never raised it, the adverse
+        verdict is about something else -- leave it alone. `model_text` is
+        a snapshot taken BEFORE any override touched this result, and that
+        matters: an earlier revision of this helper re-read `notes` live,
+        by which point the TWICO branch had already appended its own
+        "3-tab vs architectural" caveat there. The topic check then matched
+        text the override itself had just written, and fired on a TWICO
+        verdict whose sole actual ground was the solar exclusion. A
+        relevance check must read what the MODEL said, not what this
+        function is in the middle of saying.
+      * flaw_count > 1 means the model found other, independent grounds, so
+        the verdict does not rest solely on the unresolved fact. The status
+        stands; the caveat is still recorded.
+
+    Returns True if the status was actually downgraded.
+    """
+    if result.get("status") not in ("INELIGIBLE", "REFER"):
+        return False
+
+    keywords = _AMBIGUITY_TOPIC_KEYWORDS[topic]
+    if not any(k in model_text for k in keywords):
+        return False
+
+    if result.get("flaw_count", 0) > 1:
+        _append_note(
+            result,
+            "[Unresolved-fact check] " + explanation + " This carrier's determination "
+            "also rests on other, independent grounds, so its status is unchanged.",
+        )
+        return False
+
+    result["status"] = "INSUFFICIENT_INFORMATION"
+    result["flaw_count"] = 0
+    _append_note(
+        result,
+        "Status downgraded to INSUFFICIENT_INFORMATION: " + explanation + " A determination "
+        "either way would be an assumption about a fact the intake never collected, not a "
+        "finding from this carrier's document.",
+    )
+    return True
+
+
 def _citation_attributed_carrier(citation, canonical_names):
     """The carrier a citation labels itself as belonging to, or None if it
     carries no confidently-identifiable label. Citations are formatted
@@ -693,6 +1172,14 @@ def _apply_structured_overrides(results, relevant_carriers, property_details):
         if canon is None:
             continue
 
+        # Snapshot of what the MODEL itself wrote, taken before any override
+        # below appends to reasons/citations/notes. Used only for topic
+        # relevance -- see _hold_for_unresolved_topic's docstring for the
+        # bug that made reading these fields live actively wrong.
+        model_text = " ".join(
+            r.get("reasons", []) + r.get("citations", []) + [r.get("notes", "")]
+        ).lower()
+
         if canon in _SAGE_FPC_CARRIERS:
             s_status, s_reasons = sage_family_fpc_eligibility(
                 property_details['ppc'], carrier=canon,
@@ -723,6 +1210,21 @@ def _apply_structured_overrides(results, relevant_carriers, property_details):
                         "Driving distance to the responding fire station "
                         "(needed to determine FPC 9+ eligibility)."
                     )
+                # CHANGED (round 13, P2): the identical wiring gap the TWICO
+                # branch below had. FPC 9+ is ELIGIBLE within 5 driving miles
+                # of the station and INELIGIBLE beyond it -- a genuine
+                # divergence on a fact the intake never collects -- yet a
+                # model verdict of INELIGIBLE here used to stand untouched,
+                # with the caveat visible only as a missing_info line.
+                _hold_for_unresolved_topic(
+                    r, "fpc",
+                    s_reasons[0] if s_reasons else (
+                        "This carrier's FPC table resolves to different eligibility outcomes "
+                        "depending on driving distance to the fire station, which the intake "
+                        "does not collect."
+                    ),
+                    model_text,
+                )
 
         elif canon in _MERCURY_CARRIERS:
             s_status, s_reasons = mercury_roof_eligibility(
@@ -784,15 +1286,42 @@ def _apply_structured_overrides(results, relevant_carriers, property_details):
                 # state them explicitly rather than leaving the model's
                 # guess as the only concrete number in the output.
                 age = property_details['roof_age']
-                three_tab, _ = twico_roof_settlement("Composition (3-tab)", age)
-                architectural, _ = twico_roof_settlement("Composition (Architectural)", age)
-                if three_tab != architectural:
+                # CHANGED (round 13): gated on the roof type actually being
+                # composition. twico_roof_settlement() also returns
+                # INSUFFICIENT_INFORMATION for a material simply absent from
+                # TWICO's table (e.g. "Foam"), and the sub-type comparison
+                # below would have attached a confident, entirely fictional
+                # "3-tab vs architectural" caveat to such a roof.
+                if twico_roof_subtype_is_ambiguous(property_details['roof_type']):
+                    three_tab, _ = twico_roof_settlement("Composition (3-tab)", age)
+                    architectural, _ = twico_roof_settlement("Composition (Architectural)", age)
+                    if three_tab != architectural:
+                        _append_note(
+                            r,
+                            f"Roof settlement depends on the unconfirmed shingle sub-type: at "
+                            f"{age} years, 3-tab resolves to {three_tab} and architectural "
+                            f"resolves to {architectural}. Any single bracket stated above "
+                            f"without that confirmation is an assumption, not a determination.",
+                        )
+                        # CHANGED (round 13, P2): and that same conclusion now
+                        # reaches STATUS. Writing the caveat into notes while
+                        # leaving status at a confident INELIGIBLE was the
+                        # entire bug -- the note said "assumption, not a
+                        # determination" and the status said otherwise.
+                        _hold_for_unresolved_topic(
+                            r, "roof",
+                            f"TWICO's roof settlement outcome at {age} years diverges by "
+                            f"composition shingle sub-type (3-tab resolves to {three_tab}, "
+                            f"architectural resolves to {architectural}), and the intake does "
+                            f"not collect that sub-type.",
+                            model_text,
+                        )
+                else:
                     _append_note(
                         r,
-                        f"Roof settlement depends on the unconfirmed shingle sub-type: at "
-                        f"{age} years, 3-tab resolves to {three_tab} and architectural "
-                        f"resolves to {architectural}. Any single bracket stated above "
-                        f"without that confirmation is an assumption, not a determination.",
+                        f"Roof type {property_details['roof_type']!r} does not appear in "
+                        f"TWICO's roof settlement table -- its settlement basis cannot be "
+                        f"determined from this carrier's document.",
                     )
             else:
                 # CHANGED (round 12): RCV used to get no note at all, on the
@@ -811,6 +1340,113 @@ def _apply_structured_overrides(results, relevant_carriers, property_details):
                     f"Roof age {property_details['roof_age']} ({property_details['roof_type']}) "
                     f"is within TWICO's replacement-cost-value band -- no ACV or exclusion applies.",
                 )
+
+
+# ---------------------------------------------------------------------------
+# JSON repair: unescaped double quotes inside generated string values.
+# (round 13, found while running the round 13 baseline tier.)
+#
+# This is the THIRD distinct cause behind "JSON PARSE ERROR" in this
+# project, and the first two were both diagnosed from partial output and
+# then partly misattributed:
+#   round 11/12  blamed on ARI's curly apostrophes + embedded newlines
+#                (a real cleanup, but not what was failing most runs)
+#   round 12     found to be output-token TRUNCATION -- fixed by raising
+#                max_tokens to 24000
+#   round 13     THIS: a complete, untruncated response (stop_reason
+#                "end_turn", 50k chars) whose Mercury citation reads
+#                    "The "Roof Surfacing" Loss Settlement Payment Schedule"
+#                with RAW, unescaped inner double quotes, which is not legal
+#                JSON. Mercury's extracted chunk text has U+FFFD where the
+#                source PDF's curly quotes were, and the model helpfully
+#                "restores" them as real double quotes inside its own JSON
+#                string.
+#
+# Sanitizing the source text is not a safe fix here: U+FFFD is also what
+# extraction produced for Mercury's BULLET characters in the very same
+# sentence, so mapping it to a quote would corrupt every bullet list in the
+# corpus. 17 of 28 carriers have double-quote characters in their text, so
+# this is a broad exposure, not a Mercury quirk.
+#
+# Repairing the JSON is the general fix: it addresses any unescaped inner
+# quote from any carrier, and a failure here is expensive -- the whole
+# response, all 28 carriers, is discarded and the agent sees "Parse Error".
+# ---------------------------------------------------------------------------
+
+_JSON_CLOSING_THEN_END = re.compile(r"\s*[:\]\}]")
+# After a genuine closing quote and a comma, valid JSON must begin the next
+# value or key. Bare prose does not.
+_JSON_VALID_AFTER_COMMA = re.compile(r'\s*,\s*(?:"|\{|\[|-|\d|true\b|false\b|null\b)')
+
+
+def _is_json_closing_quote(json_str, i):
+    rest = json_str[i + 1:]
+    if rest.strip() == "":
+        return True
+    if _JSON_CLOSING_THEN_END.match(rest):
+        return True
+    # A following comma alone is NOT sufficient. In
+    #     "The rule says "X", which means Y"
+    # the inner quote is also followed by a comma; only checking for one
+    # would end the string there and turn the rest into garbage.
+    return bool(_JSON_VALID_AFTER_COMMA.match(rest))
+
+
+def repair_unescaped_quotes(json_str):
+    """Escape double quotes that appear INSIDE a JSON string value.
+
+    Returns (repaired_text, number_of_quotes_escaped). Verified against the
+    real captured failure (Mercury's "Roof Surfacing" citation): 2 quotes
+    escaped, all 28 carriers recovered from a response that was otherwise
+    thrown away entirely.
+    """
+    out = []
+    in_string = False
+    escaped = False
+    repairs = 0
+    for i, ch in enumerate(json_str):
+        if not in_string:
+            out.append(ch)
+            if ch == '"':
+                in_string = True
+            continue
+        if escaped:
+            out.append(ch)
+            escaped = False
+            continue
+        if ch == "\\":
+            out.append(ch)
+            escaped = True
+            continue
+        if ch == '"':
+            if _is_json_closing_quote(json_str, i):
+                out.append(ch)
+                in_string = False
+            else:
+                out.append('\\"')
+                repairs += 1
+            continue
+        out.append(ch)
+    return "".join(out), repairs
+
+
+def parse_carrier_json(json_str):
+    """json.loads, with one repair attempt for unescaped inner quotes.
+
+    Raises the ORIGINAL JSONDecodeError if the repair does not help, so the
+    diagnostics downstream describe the real problem rather than the
+    repaired text.
+    """
+    try:
+        return json.loads(json_str), 0
+    except json.JSONDecodeError as original:
+        repaired, n = repair_unescaped_quotes(json_str)
+        if n:
+            try:
+                return json.loads(repaired), n
+            except json.JSONDecodeError:
+                pass
+        raise original
 
 
 def check_eligibility(property_details, carrier_subset=None):
@@ -896,6 +1532,12 @@ def check_eligibility(property_details, carrier_subset=None):
     # Occidental HO3 (see _mentions_pool_rule docstring), where the
     # carrier's own pool-fence rule ranked #19/57 under the main query.
     MAX_POOL_CHUNKS_PER_CARRIER = 3
+    # CHANGED (round 13, P3): the same chunks that go into the prompt are
+    # also scanned here for each carrier's OWN stated fence height / gate
+    # mechanism, so _enforce_pool_spec_support() below can check the
+    # model's answer against the carrier's actual requirement rather than
+    # trusting it to have read the number correctly.
+    pool_specs = {}
     if property_details['swimming_pool'] != 'No Pool':
         for carrier in relevant_carriers:
             # prefer chunks that pair "pool" with fence/gate language over
@@ -907,21 +1549,37 @@ def check_eligibility(property_details, carrier_subset=None):
                 keep=MAX_POOL_CHUNKS_PER_CARRIER,
                 priority_key=lambda c: not ("fenc" in c.page_content.lower() or "gate" in c.page_content.lower()),
             )
+            spec = {"heights": set(), "gates": set()}
             for chunk in found:
+                found_spec = _extract_pool_spec(normalize_chunk_text(chunk.page_content))
+                spec["heights"] |= found_spec["heights"]
+                spec["gates"] |= found_spec["gates"]
                 key = (carrier, chunk.page_content)
                 if key not in seen:
                     seen.add(key)
                     chunks.append(chunk)
+            if spec["heights"] or spec["gates"]:
+                pool_specs[carrier] = spec
 
     # CHANGED: guaranteed per-carrier solar panel rule lookup, same pattern
     # as PPC and pool above (see _mentions_solar docstring for why this was
     # added -- it missed an actual wrong verdict on TWICO).
     MAX_SOLAR_CHUNKS_PER_CARRIER = 2
+    # CHANGED (round 13, P4): each carrier's solar language is also
+    # classified as integrated solar ROOFING vs. MOUNTED panels, so a
+    # carrier whose rule cannot apply to this property says so explicitly
+    # instead of going silent. The classification reads the carrier's WHOLE
+    # document, not the chunks kept below -- see classify_carrier_solar_text.
+    solar_classes = {}
     if property_details['solar_panels'] == 'Yes':
         for carrier in relevant_carriers:
             found = guaranteed_carrier_lookup(
                 collection, carrier, predicate=_mentions_solar, keep=MAX_SOLAR_CHUNKS_PER_CARRIER,
             )
+            # Classified over the carrier's WHOLE document, deliberately --
+            # see classify_carrier_solar_text()'s docstring for the Foremost
+            # case that makes the kept-chunks-only version actively wrong.
+            solar_classes[carrier] = classify_carrier_solar_text(collection, carrier)
             for chunk in found:
                 key = (carrier, chunk.page_content)
                 if key not in seen:
@@ -1100,7 +1758,13 @@ CARRIER DOCUMENTS:
         json_str = raw
 
     try:
-        parsed = json.loads(json_str)
+        parsed, quote_repairs = parse_carrier_json(json_str)
+        if quote_repairs:
+            print(
+                f"JSON repair: escaped {quote_repairs} unescaped inner double quote(s) "
+                f"in the model's response -- recovered {len(parsed)} carrier record(s) "
+                f"that would otherwise have been discarded."
+            )
 
         # CHANGED: the model's own restated carrier name can drop a token
         # from an ambiguous combined-program name (e.g. return "Foremost"
@@ -1139,6 +1803,15 @@ CARRIER DOCUMENTS:
         # status rather than the pre-correction one.
         _strip_misattributed_citations(filtered, relevant_carriers)
         _apply_structured_overrides(filtered, relevant_carriers, property_details)
+        # Runs last: it only ever ADDS a missing_info item and a note, so it
+        # cannot be undone by an override, and it must see the final set of
+        # carriers rather than a pre-override one.
+        _enforce_pool_spec_support(
+            filtered, relevant_carriers, property_details, pool_specs
+        )
+        _note_solar_roofing_does_not_apply(
+            filtered, relevant_carriers, property_details, solar_classes
+        )
 
         return filtered
 
@@ -1154,6 +1827,27 @@ CARRIER DOCUMENTS:
         print("RAW RESPONSE LENGTH:", len(raw), "stop_reason:", getattr(response, "stop_reason", "n/a"))
         print("RAW RESPONSE HEAD:", raw[:500])
         print("RAW RESPONSE TAIL:", raw[-1000:])
+        # CHANGED (round 13): also dump the WHOLE response next to the error,
+        # and the neighbourhood of the reported offset. Round 12 spent a
+        # round misattributing this failure to ARI's apostrophes because only
+        # raw[:1000] was ever visible; round 12's own fix then widened that
+        # to head+tail, which is right for truncation but still blind to a
+        # malformed delimiter in the MIDDLE -- exactly what round 13 hit
+        # (stop_reason "end_turn", 43859 chars, error at char 10650, i.e. a
+        # complete response with bad syntax partway in, not a cut-off one).
+        # Two rounds of guessing from partial output is enough.
+        try:
+            dump_dir = os.environ.get("ELIGIBILITY_PARSE_DUMP_DIR", ".")
+            dump_path = os.path.join(dump_dir, "last_json_parse_failure.txt")
+            with open(dump_path, "w", encoding="utf-8") as fh:
+                fh.write(raw)
+            print("RAW RESPONSE DUMPED TO:", dump_path)
+        except Exception as dump_error:
+            print("(could not dump raw response:", dump_error, ")")
+        offset = getattr(e, "pos", None)
+        if isinstance(offset, int):
+            window = json_str[max(0, offset - 300): offset + 300]
+            print("RAW RESPONSE AROUND OFFSET", offset, ":", repr(window))
         return [{
             "carrier": "Parse Error",
             "status": "INSUFFICIENT_INFORMATION",

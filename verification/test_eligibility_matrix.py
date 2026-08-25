@@ -61,9 +61,20 @@ from eligibility_check import (
     _mentions_pool_rule,
     _mentions_roof_life_expectancy,
     _is_ppc_disambiguation_table,
+    _enforce_pool_spec_support,
+    _extract_pool_spec,
+    _intake_states_pool_specifics,
+    _note_solar_roofing_does_not_apply,
+    _INTEGRATED_SOLAR_ROOFING_PHRASES,
+    classify_solar_text,
+    classify_carrier_solar_text,
+    get_carriers_for_occupancy,
+    parse_carrier_json,
+    repair_unescaped_quotes,
 )
 from shared_resources import get_vectorstore
-from profiles import STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE
+from profiles import (STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE,
+                      AUDIT_R13_PROFILE, normalize_carrier_name)
 from structured_rules import (
     sage_family_fpc_eligibility,
     mercury_roof_eligibility,
@@ -71,6 +82,7 @@ from structured_rules import (
     sage_markel_roof_exclusion,
     swyfft_max_roof_age_30,
     twico_roof_settlement,
+    twico_roof_subtype_is_ambiguous,
 )
 
 
@@ -91,6 +103,29 @@ def _kept_main_query_chunks(carrier, profile, k=15, keep=3):
     vs = get_vectorstore()
     results = vs.similarity_search(query, k=k, filter={"carrier": carrier})
     return [c for c in results if is_eligibility_content(c)][:keep]
+
+
+def _carrier_matches(needle, carrier_name):
+    """Carrier-name matching that ignores separators.
+
+    Round 13: five baseline tests failed with "not found in output" while the
+    carrier was plainly THERE -- the model had echoed "Allied_Trust_HO3"
+    that run instead of "Allied Trust HO3", and every match site did a naive
+    `"allied trust" in name.lower()`, which an underscore defeats. The model
+    restates carrier names freely and its separator choice varies run to
+    run, so tests must not depend on it. profiles.normalize_carrier_name()
+    already existed for exactly this; it just was not being used here.
+    """
+    return normalize_carrier_name(needle) in normalize_carrier_name(carrier_name)
+
+
+def _find_carrier(by_carrier, *needles, exclude=()):
+    """All results whose carrier name matches every needle and no exclusion."""
+    return [
+        r for name, r in by_carrier.items()
+        if all(_carrier_matches(n, name) for n in needles)
+        and not any(_carrier_matches(x, name) for x in exclude)
+    ]
 
 
 def _guaranteed_lookup_chunks(carrier, predicate, keep=3, priority_key=None):
@@ -1157,7 +1192,7 @@ class TestBaselineStandardProfile:
         cls.by_carrier = {r["carrier"]: r for r in cls.result}
 
     def _find(self, substr):
-        matches = [r for c, r in self.by_carrier.items() if substr.lower() in c.lower()]
+        matches = _find_carrier(self.by_carrier, substr)
         assert matches, f"No carrier matching {substr!r} in output: {list(self.by_carrier)}"
         return matches[0]
 
@@ -1196,7 +1231,7 @@ class TestBaselineAltProfile:
         cls.by_carrier = {r["carrier"]: r for r in cls.result}
 
     def _find(self, substr):
-        matches = [r for c, r in self.by_carrier.items() if substr.lower() in c.lower()]
+        matches = _find_carrier(self.by_carrier, substr)
         assert matches, f"No carrier matching {substr!r} in output: {list(self.by_carrier)}"
         return matches[0]
 
@@ -1254,7 +1289,7 @@ class TestBaselineAltProfile:
         tracked continuously by test_progressive_ho3_solar_consistency
         below, which is the right place for the running number -- this
         assert just stops a silent regression from being invisible."""
-        r = self._find("Progressive_HO3") if "Progressive_HO3" in self.by_carrier else self._find("Progressive HO3")
+        r = self._find("Progressive HO3")
         blob = " ".join(r.get("missing_info", []) + r.get("citations", [])).lower()
         assert "solar" in blob
 
@@ -1273,7 +1308,7 @@ def test_progressive_ho3_solar_consistency(record_property):
     for _ in range(n_runs):
         result = check_eligibility(ALT_PROFILE)
         by_carrier = {r["carrier"]: r for r in result}
-        matches = [r for c, r in by_carrier.items() if "progressive" in c.lower() and "ho3" in c.lower() and "ho6" not in c.lower()]
+        matches = _find_carrier(by_carrier, "progressive", "ho3", exclude=("ho6",))
         assert matches
         r = matches[0]
         blob = " ".join(r.get("missing_info", []) + r.get("citations", [])).lower()
@@ -1315,7 +1350,7 @@ def test_sage_occidental_pool_fence_consistency(record_property):
     for _ in range(n_runs):
         result = check_eligibility(STANDARD_PROFILE)
         by_carrier = {r["carrier"]: r for r in result}
-        matches = [r for c, r in by_carrier.items() if "occidental" in c.lower()]
+        matches = _find_carrier(by_carrier, "occidental")
         assert matches, "Occidental: not found in output"
         r = matches[0]
         blob = " ".join(r.get("reasons", []) + r.get("citations", []) + r.get("missing_info", [])).lower()
@@ -1341,15 +1376,37 @@ def test_swyfft_lloyds_and_orion_ppc9_consistency(record_property):
     getting lucky on every previous single-run pytest execution. Same
     lesson as Sage Occidental's pool-fence conversion above: a hard assert
     on a genuinely flaky case fails "randomly" in CI in a way that looks
-    like a regression but isn't one -- tracked here instead."""
+    like a regression but isn't one -- tracked here instead.
+
+    ROUND 13 MEASUREMENT -- the two carriers in this test are NOT in the
+    same situation, and an earlier write-up wrongly reported them together
+    as "two genuine failures":
+
+      Swyfft Lloyds  0/3 (recorded 80%)  P(<=0 of 3 | p=.80) =  0.8%  DRIFT
+      Orion          1/3 (recorded 40%)  P(<=1 of 3 | p=.40) = 64.8%  normal
+
+    Orion's result is what a 40% rate looks like most of the time -- it is
+    ordinary flakiness at its known rate and must not be cited as evidence
+    of a regression. Swyfft's is not: 0/3 against 80% is a 1-in-125 result,
+    so that one is real drift and is the only reason this test is red.
+
+    Neither is caused by round 13's changes: those are all post-generation,
+    SYSTEM_INSTRUCTIONS is byte-identical to the previous commit, and no
+    prompt-building line was touched -- verified by diff, not assumed.
+
+    Deliberately left as a HARD assert: it is failing loudly, which is what
+    should happen while Swyfft is drifting. Converting it to a tracked rate
+    would hide a live regression behind the same "it's just flaky" reasoning
+    this docstring exists to warn about. The right follow-up is a larger
+    Swyfft-only sample, not a softer assertion."""
     n_runs = 3
     swyfft_outcomes = []
     orion_outcomes = []
     for _ in range(n_runs):
         result = check_eligibility(STANDARD_PROFILE)
         by_carrier = {r["carrier"]: r for r in result}
-        swyfft = next((r["status"] for c, r in by_carrier.items() if "lloyds" in c.lower()), None)
-        orion = next((r["status"] for c, r in by_carrier.items() if "orion" in c.lower()), None)
+        swyfft = next((r["status"] for r in _find_carrier(by_carrier, "lloyds")), None)
+        orion = next((r["status"] for r in _find_carrier(by_carrier, "orion")), None)
         assert swyfft is not None, "Swyfft Lloyds: not found in output"
         assert orion is not None, "Orion: not found in output"
         swyfft_outcomes.append(swyfft == "INELIGIBLE")
@@ -1378,13 +1435,32 @@ def test_ari_hoa_plus_no_age_cap_contamination_consistency(record_property):
     documented failure shape as the Sage family's "Classification A/B/C"
     contamination), not a retrieval bug: ARI (HOA+)'s own chunks never
     contain this text (see TestAriCrossContaminationRetrieval). Tracked
-    here rather than asserted as resolved from one clean run."""
+    here rather than asserted as resolved from one clean run.
+
+    ROUND 13 MEASUREMENT -- OPEN, AND PROFILE-DEPENDENT. 0% on STANDARD,
+    in two independent full-suite runs the same evening, against the 60%
+    recorded here previously. The pooled sample is what makes this a real
+    finding rather than a bad night:
+
+        one run   0/3   P(<=0 of 3 | p=.60) = 6.4%   NOT significant alone
+        pooled    0/6   P(<=0 of 6 | p=.60) = 0.4%   drift
+
+    A single 0/3 would not have cleared the bar and should not have been
+    reported as if it had. But the round 13 COASTAL A/B measured the SAME carrier at
+    0/20 misattributed citations post-fix (20 runs, see
+    verification/analyze_coastal_ab.py) -- so the contamination is strongly
+    profile-dependent, and a rate measured on one profile says very little
+    about another. Worth noting WHY these differ: STANDARD's home is 17
+    years old, so HOB's "Homes 0-20 years old are eligible" clause reads as
+    SUPPORTING eligibility and the model reaches for it as corroboration;
+    COASTAL's home is 22, where the same clause would be adverse. Same
+    borrowed text, opposite rhetorical use. Left as a hard assert."""
     n_runs = 3
     outcomes = []
     for _ in range(n_runs):
         result = check_eligibility(STANDARD_PROFILE)
         by_carrier = {r["carrier"]: r for r in result}
-        matches = [r for c, r in by_carrier.items() if "hoa+" in c.lower()]
+        matches = _find_carrier(by_carrier, "hoa+")
         assert matches, "ARI (HOA+): not found in output"
         r = matches[0]
         blob = " ".join(
@@ -1421,7 +1497,7 @@ def test_prose_only_cross_carrier_bleed_is_absent():
     result = check_eligibility(ALT_PROFILE)
     by_carrier = {r["carrier"]: r for r in result}
     for target in ["Auros", "Occidental", "Wilshire"]:
-        matches = [r for c, r in by_carrier.items() if target.lower() in c.lower()]
+        matches = _find_carrier(by_carrier, target)
         assert matches, f"{target}: not found in output"
         r = matches[0]
         prose = " ".join(r.get("reasons", []) + [r.get("notes", "")]).lower()
@@ -1447,7 +1523,7 @@ def test_allied_trust_mounted_solar_not_declined_consistency(record_property):
     for _ in range(n_runs):
         result = check_eligibility(ALT_PROFILE)
         by_carrier = {r["carrier"]: r for r in result}
-        matches = [r for c, r in by_carrier.items() if "allied trust" in c.lower()]
+        matches = _find_carrier(by_carrier, "allied trust")
         assert matches, "Allied Trust: not found in output"
         r = matches[0]
         declined_over_solar = (
@@ -1478,7 +1554,7 @@ def test_mercury_exactly_10yr_roof_consistency(record_property):
     for _ in range(n_runs):
         result = check_eligibility(STANDARD_PROFILE)
         by_carrier = {r["carrier"]: r for r in result}
-        matches = [r for c, r in by_carrier.items() if "mercury" in c.lower()]
+        matches = _find_carrier(by_carrier, "mercury")
         assert matches, "Mercury: not found in output"
         outcomes.append(matches[0]["status"] == "ELIGIBLE")
     pass_rate = sum(outcomes) / len(outcomes)
@@ -1512,7 +1588,7 @@ def test_mercury_exactly_10yr_roof_consistency(record_property):
 def test_ari_hoa_plus_does_not_quote_hob_age_cap():
     result = check_eligibility(STANDARD_PROFILE)
     by_carrier = {r["carrier"]: r for r in result}
-    matches = [r for c, r in by_carrier.items() if "hoa+" in c.lower()]
+    matches = _find_carrier(by_carrier, "hoa+")
     assert matches, "ARI (HOA+): not found in output"
     text = " ".join(
         matches[0].get("reasons", []) + matches[0].get("citations", [])
@@ -1537,7 +1613,7 @@ def test_allied_trust_14yr_roof_consistency(record_property):
     for _ in range(n_runs):
         result = check_eligibility(ALT_PROFILE)
         by_carrier = {r["carrier"]: r for r in result}
-        matches = [r for c, r in by_carrier.items() if "allied trust" in c.lower()]
+        matches = _find_carrier(by_carrier, "allied trust")
         assert matches, "Allied Trust: not found in output"
         outcomes.append(matches[0]["status"] != "ELIGIBLE")
     pass_rate = sum(outcomes) / len(outcomes)
@@ -1565,7 +1641,7 @@ def test_sage_family_ppc1_pass_rate(record_property):
         result = check_eligibility(ALT_PROFILE)
         by_carrier = {r["carrier"]: r for r in result}
         for target in target_carriers:
-            matches = [r for c, r in by_carrier.items() if target.lower() in c.lower()]
+            matches = _find_carrier(by_carrier, target)
             assert matches, f"{target}: not found in output"
             per_carrier_outcomes[target].append(matches[0]["status"] != "INSUFFICIENT_INFORMATION")
     for carrier, outcomes in per_carrier_outcomes.items():
@@ -1593,18 +1669,54 @@ class TestBaselineCoastalPPC4Profile:
         cls.by_carrier = {r["carrier"]: r for r in cls.result}
 
     def _find(self, substr):
-        matches = [r for c, r in self.by_carrier.items() if substr.lower() in c.lower()]
+        matches = _find_carrier(self.by_carrier, substr)
         assert matches, f"No carrier matching {substr!r} in output: {list(self.by_carrier)}"
         return matches[0]
 
     def test_liberty_mutual_ho3_ppc4_no_spurious_fire_department_distance_question(self):
+        """PPC 4 never reaches Liberty Mutual's Protection-Class-9/10-conditioned
+        fire-department-distance rule, so it must not become an open QUESTION
+        or an adverse ground for this profile.
+
+        CHANGED (round 13): this used to forbid the phrase "15 miles"
+        anywhere in reasons at all, and failed on a run whose reasons said
+
+            "the carrier's guidelines for PPC 9 and 10 state specific
+             requirements (dwelling within 15 miles of fire department...),
+             but these conditions do not apply to PPC 4"
+
+        which is the model explaining, correctly, why the rule is
+        inapplicable. That is the SAME behavior round 13's P4 work went out
+        of its way to ADD for solar -- an explicit dismissal is more useful
+        to an agent than silence, and silence is what an auditor cannot tell
+        apart from a retrieval miss. The assertion now targets the actual
+        defect: the rule appearing as a missing_info question, or driving an
+        adverse verdict.
+        """
         r = self._find("Liberty Mutual HO3")
-        blob = " ".join(r.get("missing_info", []) + r.get("reasons", [])).lower()
-        assert "15 miles" not in blob and "fire department" not in blob, (
-            "PPC 4 never reaches Liberty Mutual's Protection-Class-9/10-conditioned "
-            "fire-department-distance rule -- it must not be surfaced as a question or "
-            "reason for this profile."
+
+        missing = " ".join(r.get("missing_info", [])).lower()
+        assert "15 miles" not in missing and "fire department" not in missing, (
+            f"PPC 4 cannot reach the PPC-9/10 fire-department-distance rule, so it must "
+            f"not be raised as something still to confirm. missing_info={r.get('missing_info')}"
         )
+
+        reasons = " ".join(r.get("reasons", [])).lower()
+        mentions_rule = "15 miles" in reasons or "fire department" in reasons
+        if mentions_rule:
+            # Mentioning it is fine ONLY as a dismissal.
+            dismissed = any(
+                k in reasons for k in
+                ("do not apply", "does not apply", "not applicable", "only applies",
+                 "apply to ppc 9", "n/a", "is eligible")
+            )
+            assert dismissed, (
+                f"Liberty Mutual raised the PPC-9/10 fire-department-distance rule without "
+                f"stating that it does not apply to PPC 4. reasons={r.get('reasons')}"
+            )
+            assert r.get("status") != "INELIGIBLE", (
+                "the PPC-9/10 distance rule cannot make a PPC 4 property ineligible"
+            )
 
     def test_allied_trust_ppc4_no_spurious_ppc10_age_exception_question(self):
         r = self._find("Allied Trust")
@@ -1645,8 +1757,747 @@ class TestBaselineCoastalPPC4Profile:
         strict=False,
     )
     def test_progressive_ho3_surfaces_wind_pool_or_flood_elevation_for_tier_3(self):
-        r = self._find("Progressive_HO3") if "Progressive_HO3" in self.by_carrier else self._find("Progressive HO3")
+        r = self._find("Progressive HO3")
         blob = " ".join(
             r.get("reasons", []) + r.get("citations", []) + r.get("missing_info", []) + [r.get("notes", "")]
         ).lower()
         assert "wind pool" in blob or "flood elevation" in blob or "base flood" in blob
+
+
+# ---------------------------------------------------------------------------
+# ROUND 13 -- P2: a structured check that reports genuine AMBIGUITY must
+# reach the STATUS field, not just the prose.
+#
+# Audit finding: TWICO_HO3's notes said, correctly, "at 21 years, 3-tab
+# resolves to EXCLUDED and architectural resolves to ACV. Any single bracket
+# stated above without that confirmation is an assumption, not a
+# determination" -- while its status was a flat INELIGIBLE. Same shape as
+# round 12's Sage FPC wiring gap: the override computed the right answer and
+# then never wired it to the field an agent acts on.
+# ---------------------------------------------------------------------------
+
+def _twico_result(status="INELIGIBLE", reasons=None, flaw_count=1, notes=""):
+    return {
+        "carrier": "TWICO_HO3",
+        "status": status,
+        "reasons": reasons if reasons is not None else [
+            "Roof age 21 years exceeds TWICO's 20-year composition shingle band -- "
+            "roof coverage is excluded."
+        ],
+        "citations": [],
+        "missing_info": [],
+        "notes": notes,
+        "flaw_count": flaw_count,
+    }
+
+
+@pytest.mark.retrieval
+class TestRound13AmbiguityReachesStatus:
+    """Pure logic -- no retrieval, no LLM."""
+
+    def test_twico_21yr_composition_shingle_is_not_confident_ineligible(self):
+        """The EXACT scenario from the round 13 audit, not a simplified
+        version: composition shingle, sub-type unspecified, age 21 -- the
+        age where TWICO's two sub-type bands genuinely disagree (3-tab is
+        EXCLUDED, architectural is ACV)."""
+        profile = dict(AUDIT_R13_PROFILE)
+        assert profile["roof_age"] == 21 and profile["roof_type"] == "Composition Shingle"
+        # Sanity-check the premise itself rather than trusting the audit note.
+        assert twico_roof_settlement("Composition (3-tab)", 21)[0] == "EXCLUDED"
+        assert twico_roof_settlement("Composition (Architectural)", 21)[0] == "ACV"
+
+        result = _twico_result()
+        _apply_structured_overrides([result], ["TWICO_HO3"], profile)
+
+        assert result["status"] != "INELIGIBLE", (
+            "TWICO committed to the pessimistic branch of an ambiguity its own notes "
+            "field had just described as 'an assumption, not a determination'."
+        )
+        assert result["status"] == "INSUFFICIENT_INFORMATION"
+        assert result["flaw_count"] == 0
+
+    @pytest.mark.parametrize("roof_type", [
+        "Composition Shingle",
+        "Composite Shingle",
+        "asphalt shingle",
+    ])
+    def test_ambiguity_hold_generalizes_across_roofing_terminology(self, roof_type):
+        """CLAUDE.md rule 2: a general rule needs more than the one phrasing
+        that happened to appear in the bug report. These three name the SAME
+        roofing family per SYSTEM_INSTRUCTIONS' ROOFING MATERIAL TERMINOLOGY
+        rule. Before round 13 only the literal word "composition" was
+        recognized -- "Composite Shingle" and "asphalt shingle" fell through
+        to twico_roof_settlement()'s generic "not found in this table"
+        branch, so the P2 hold would not have fired for them at all."""
+        profile = dict(AUDIT_R13_PROFILE, roof_type=roof_type)
+        result = _twico_result(reasons=[f"Roof age 21 exceeds TWICO's band for {roof_type}."])
+        _apply_structured_overrides([result], ["TWICO_HO3"], profile)
+        assert result["status"] == "INSUFFICIENT_INFORMATION", (
+            f"{roof_type!r} is the same roofing family as 'Composition Shingle' and must "
+            f"be held for sub-type confirmation identically."
+        )
+
+    def test_ambiguity_hold_at_a_second_divergent_age(self):
+        """A different age band with a different pair of divergent outcomes
+        (at 12 years: 3-tab -> ACV, architectural -> RCV), so this can't pass
+        by hard-coding anything about age 21 or about EXCLUDED specifically."""
+        assert twico_roof_settlement("Composition (3-tab)", 12)[0] == "ACV"
+        assert twico_roof_settlement("Composition (Architectural)", 12)[0] == "RCV"
+        profile = dict(AUDIT_R13_PROFILE, roof_age=12)
+        result = _twico_result(reasons=["Roof age 12 puts settlement on an ACV basis."])
+        _apply_structured_overrides([result], ["TWICO_HO3"], profile)
+        assert result["status"] == "INSUFFICIENT_INFORMATION"
+
+    @pytest.mark.parametrize("roof_type,age", [
+        ("Architectural Shingle", 21),   # sub-type stated -> decidable (ACV)
+        ("3-tab shingle", 21),           # sub-type stated -> decidable (EXCLUDED)
+        ("Tile", 21),                    # unambiguous material -> decidable (RCV)
+    ])
+    def test_subtype_qualified_roof_stays_decidable(self, roof_type, age):
+        """The hold must fire ONLY on genuine ambiguity. A roof type that
+        names its sub-type resolves cleanly, and its verdict must stand --
+        otherwise this "fix" would just suppress every TWICO determination."""
+        profile = dict(AUDIT_R13_PROFILE, roof_type=roof_type, roof_age=age)
+        result = _twico_result(reasons=[f"Roof age {age} for {roof_type}."])
+        _apply_structured_overrides([result], ["TWICO_HO3"], profile)
+        assert result["status"] == "INELIGIBLE"
+
+    @pytest.mark.parametrize("age", [8, 30])
+    def test_agreeing_subtypes_do_not_trigger_a_hold(self, age):
+        """At 8 years BOTH sub-types resolve to RCV; at 30 BOTH resolve to
+        EXCLUDED. The fact is still unconfirmed, but it changes nothing, so
+        there is nothing to hold for -- the same principle as
+        SYSTEM_INSTRUCTIONS' "do not downgrade when every applicable branch
+        agrees" rule."""
+        three_tab = twico_roof_settlement("Composition (3-tab)", age)[0]
+        architectural = twico_roof_settlement("Composition (Architectural)", age)[0]
+        assert three_tab == architectural, "premise: the two sub-types agree at this age"
+        profile = dict(AUDIT_R13_PROFILE, roof_age=age)
+        result = _twico_result(reasons=[f"Roof age {age}."])
+        _apply_structured_overrides([result], ["TWICO_HO3"], profile)
+        assert result["status"] == "INELIGIBLE"
+
+    def test_ineligible_on_an_independent_ground_is_not_downgraded(self):
+        """TWICO also flatly excludes homes with solar panels. An INELIGIBLE
+        resting on THAT must survive untouched -- the roof sub-type being
+        unconfirmed says nothing about it.
+
+        This case caught a real defect in the first draft of the fix: the
+        relevance check read `notes` live, by which point the override had
+        already written its own "3-tab vs architectural" caveat there, so
+        the check matched text it had just written itself and downgraded a
+        verdict whose only ground was solar."""
+        profile = dict(AUDIT_R13_PROFILE)
+        result = _twico_result(reasons=["TWICO excludes homes with solar panels."])
+        _apply_structured_overrides([result], ["TWICO_HO3"], profile)
+        assert result["status"] == "INELIGIBLE", (
+            "an adverse verdict the model grounded in solar, not roof, was downgraded by "
+            "the roof-ambiguity hold"
+        )
+
+    def test_multi_flaw_ineligible_stands_but_records_the_caveat(self):
+        """flaw_count > 1 means other independent grounds exist, so the
+        verdict does not rest solely on the unresolved fact."""
+        profile = dict(AUDIT_R13_PROFILE)
+        result = _twico_result(
+            reasons=["Roof age 21 exceeds the composition band.", "TWICO excludes solar panels."],
+            flaw_count=2,
+        )
+        _apply_structured_overrides([result], ["TWICO_HO3"], profile)
+        assert result["status"] == "INELIGIBLE"
+        assert "independent grounds" in result["notes"].lower(), (
+            "the caveat must still be recorded even when the status stands"
+        )
+
+    def test_material_absent_from_the_table_gets_no_fictional_subtype_caveat(self):
+        """twico_roof_settlement() also returns INSUFFICIENT_INFORMATION for
+        a material simply not in TWICO's table. Before round 13 the sub-type
+        comparison ran unconditionally, so such a roof got a confident and
+        entirely invented "at 21 years, 3-tab resolves to EXCLUDED and
+        architectural resolves to ACV" note attached to it."""
+        profile = dict(AUDIT_R13_PROFILE, roof_type="Foam")
+        result = _twico_result(status="INSUFFICIENT_INFORMATION", flaw_count=0,
+                               reasons=["Roof material not addressed by this carrier."])
+        _apply_structured_overrides([result], ["TWICO_HO3"], profile)
+        assert "3-tab" not in result["notes"], result["notes"]
+        assert "does not appear in" in result["notes"]
+
+    # -- same helper, a different carrier and a different topic ------------
+
+    def test_sage_fpc9_unresolved_distance_is_not_confident_ineligible(self):
+        """The identical wiring gap on the Sage FPC branch: FPC 9+ is
+        ELIGIBLE within 5 driving miles of the fire station and INELIGIBLE
+        beyond it, and the intake collects no distance. A second carrier and
+        a second topic going through the same shared helper -- this is what
+        makes the round 13 fix a general rule rather than a TWICO patch."""
+        assert sage_family_fpc_eligibility("9")[0] == "INSUFFICIENT_INFORMATION"
+        profile = dict(STANDARD_PROFILE, ppc="9")
+        result = {
+            "carrier": "Sage - Auros HO3", "status": "INELIGIBLE",
+            "reasons": ["FPC 9 is ineligible under this carrier's fire protection class table."],
+            "citations": [], "missing_info": [], "notes": "", "flaw_count": 1,
+        }
+        _apply_structured_overrides([result], ["Sage_-_Auros_HO3"], profile)
+        assert result["status"] == "INSUFFICIENT_INFORMATION"
+        assert result["flaw_count"] == 0
+
+    def test_sage_fpc9_ineligible_on_an_independent_ground_stands(self):
+        profile = dict(STANDARD_PROFILE, ppc="9")
+        result = {
+            "carrier": "Sage - Auros HO3", "status": "INELIGIBLE",
+            "reasons": ["The dwelling exceeds this carrier's maximum acreage."],
+            "citations": [], "missing_info": [], "notes": "", "flaw_count": 1,
+        }
+        _apply_structured_overrides([result], ["Sage_-_Auros_HO3"], profile)
+        assert result["status"] == "INELIGIBLE"
+
+    def test_sage_fpc_that_resolves_is_untouched(self):
+        """PPC 4 resolves to ELIGIBLE for every applicable row, so there is
+        no ambiguity to hold for."""
+        assert sage_family_fpc_eligibility("4")[0] == "ELIGIBLE"
+        profile = dict(STANDARD_PROFILE, ppc="4")
+        result = {
+            "carrier": "Sage - Auros HO3", "status": "ELIGIBLE",
+            "reasons": ["FPC 4 is acceptable."], "citations": [],
+            "missing_info": [], "notes": "", "flaw_count": 0,
+        }
+        _apply_structured_overrides([result], ["Sage_-_Auros_HO3"], profile)
+        assert result["status"] == "ELIGIBLE"
+
+
+# ---------------------------------------------------------------------------
+# ROUND 13 -- P3: a carrier may not assert that a SPECIFIC pool requirement
+# is met when the intake only says "In Ground - Fenced".
+#
+# Audit finding: ARI (HOA+)'s rule is "a 6' high fence with locked or self
+# locking gates"; its Analysis said the property "meets the requirement".
+# Nothing in the intake confirms a height or a gate type.
+#
+# Not ARI-specific: twenty owner-occupied carriers state a specific fence
+# height and/or gate mechanism (18 a height, 18 a gate). The corpus holds
+# exactly TWO heights: ARI (HOA+) and ARI (HOB) at 6', every other
+# height-stating carrier at 4'.
+# ---------------------------------------------------------------------------
+
+def _real_pool_spec(carrier):
+    """Build the spec the way production does -- same guaranteed lookup, same
+    extractor -- rather than hand-feeding the test a string."""
+    vs = get_vectorstore()
+    found = guaranteed_carrier_lookup(
+        vs._collection, carrier, predicate=_mentions_pool_rule, keep=3,
+        priority_key=lambda c: not (
+            "fenc" in c.page_content.lower() or "gate" in c.page_content.lower()
+        ),
+    )
+    spec = {"heights": set(), "gates": set()}
+    for chunk in found:
+        got = _extract_pool_spec(normalize_chunk_text(chunk.page_content))
+        spec["heights"] |= got["heights"]
+        spec["gates"] |= got["gates"]
+    return spec
+
+
+@pytest.mark.retrieval
+class TestRound13PoolSpecNotAssumedMet:
+
+    def test_ari_hoa_plus_does_not_assume_its_6ft_rule_is_satisfied(self):
+        """The exact audit scenario."""
+        carrier = "ARI_(HOA+)"
+        spec = _real_pool_spec(carrier)
+        assert "6" in spec["heights"], (
+            f"premise: ARI (HOA+)'s own document states a 6' pool fence. Got {spec}"
+        )
+        result = {
+            "carrier": "ARI (HOA+)", "status": "ELIGIBLE",
+            "reasons": ["The in-ground pool is fenced, which meets the requirement."],
+            "citations": ["ARI (HOA+): 'a 6' high fence with locked or self locking gates'"],
+            "missing_info": [], "notes": "", "flaw_count": 0,
+        }
+        _enforce_pool_spec_support([result], [carrier], AUDIT_R13_PROFILE, {carrier: spec})
+
+        blob = " ".join(result["missing_info"]).lower()
+        assert "pool enclosure specifics" in blob
+        assert "fence height" in blob and "6'" in " ".join(result["missing_info"])
+        assert "gate mechanism" in blob
+        assert "unconfirmed, not satisfied" in result["notes"]
+
+    # Every expected value here was read off the carrier's own source clause
+    # (printed and checked by eye), NOT taken from _extract_pool_spec's
+    # output -- that circularity is exactly what let a wrong Foremost figure
+    # be reported as "verified 16/16".
+    @pytest.mark.parametrize("carrier,expected_height,source_phrase", [
+        ("ARI_(HOA+)", "6", "6' high fence"),
+        ("ARI_(HOB)", "6", "6' high fence"),
+        ("Sage_-_Occidental_HO3", "4", "minimum height of 4 feet"),
+        ("Foremost_DP3_and_HO3_-_07.01.2026", "4", "fence minimum four feet high"),
+        ("Sage_-_Markel_HO3", "4", "approved fence (at least four feet high)"),
+        ("Allied_Trust_HO3", "4", "fence at least 4-foot-high"),
+        ("Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3", "4", "at least a four-foot fence"),
+        ("Swyfft_-_Lloyds_(Surplus)_HO3", "4", "4' permanent fence"),
+    ])
+    def test_pool_spec_matches_each_carriers_own_source_clause(
+        self, carrier, expected_height, source_phrase
+    ):
+        """CLAUDE.md rule 2, and a guard against the cross-carrier number
+        borrowing SYSTEM_INSTRUCTIONS already warns about. Also anchors each
+        expectation to the literal phrase in the carrier's document, so a
+        future extractor change that produces a plausible-but-wrong number
+        fails here instead of being confirmed by its own output."""
+        text = " ".join(
+            normalize_chunk_text(c.page_content).lower()
+            for c in _all_chunks(carrier)
+        )
+        assert source_phrase.lower() in text, (
+            f"{carrier}: the source phrase this expectation is anchored to is no longer in "
+            f"the document -- re-read the source before changing the expected height."
+        )
+
+        spec = _real_pool_spec(carrier)
+        assert spec["heights"] == {expected_height}, (
+            f"{carrier}: source says {source_phrase!r} -> {expected_height}', "
+            f"extractor produced {sorted(spec['heights'])}"
+        )
+
+        result = {
+            "carrier": carrier, "status": "ELIGIBLE", "reasons": [], "citations": [],
+            "missing_info": [], "notes": "", "flaw_count": 0,
+        }
+        _enforce_pool_spec_support([result], [carrier], AUDIT_R13_PROFILE, {carrier: spec})
+        item = " ".join(result["missing_info"])
+        assert f"{expected_height}'" in item, item
+        for other in {"4", "5", "6"} - {expected_height}:
+            assert f"{other}'" not in item, (
+                f"{carrier} surfaced another carrier's fence height {other}': {item}"
+            )
+
+    def test_no_carrier_in_the_corpus_states_a_5ft_pool_fence(self):
+        """Round 13 reported Foremost as the corpus's only 5' carrier. It is
+        not: its rule is "a fence minimum four feet high", stated five times.
+        The 5 came from "(over 2.5 feet deep)" -- a pool DEPTH threshold that
+        a sentence splitter cut at the decimal point, leaving "5 feet deep)"
+        to be harvested as a height. Nothing in this corpus is 5'."""
+        collection = get_vectorstore()._collection
+        offenders = {}
+        for carrier in get_carriers_for_occupancy("Owner Occupied"):
+            spec = _real_pool_spec(carrier)
+            if "5" in spec["heights"]:
+                offenders[carrier] = sorted(spec["heights"])
+        assert not offenders, (
+            f"a 5' pool fence height was extracted for {offenders} -- no carrier in this "
+            f"corpus states one; check for a depth figure or another structure's dimension."
+        )
+
+    @pytest.mark.parametrize("text,expected,why", [
+        ("Properties with pools (over 2.5 feet deep) must have a fence minimum "
+         "four feet high (fully enclosing the pool) AND a self-locking gate.",
+         {"4"}, "Foremost: decimal depth must not be split into a height"),
+        ("Approved fence (at least four feet high). Lockable gate. Pool slide where "
+         "the top of the slide is no higher than five feet above the pool deck.",
+         {"4"}, "Markel: a slide's height is not the fence's height"),
+        ("No swimming pools unless they are adequately fenced. A height of at least "
+         "four feet and locking gates are required.",
+         {"4"}, "NatGen Premier: the figure sits in the sentence AFTER the pool mention"),
+        ("Pool water over 4 feet deep requires a diving board endorsement.",
+         set(), "a depth figure alone is not a fence height"),
+        ("The dwelling must be within 100 feet of a fire hydrant.",
+         set(), "an unrelated distance is not a fence height"),
+    ])
+    def test_height_extraction_rejects_figures_that_are_not_fence_heights(
+        self, text, expected, why
+    ):
+        """Three real corpus sentences that the first version of
+        _extract_pool_spec got wrong, plus two negatives. Every failure mode
+        here is the same shape: a number that IS in the pool rule, but
+        describes the water, a slide, or something else entirely."""
+        assert _extract_pool_spec(text)["heights"] == expected, why
+
+    def test_generic_fence_language_creates_no_pool_question(self):
+        """A carrier whose rule only says "fenced", with no height or gate
+        menu, is already satisfied by "In Ground - Fenced" -- manufacturing
+        a specificity question the document never asks is the opposite bug,
+        and SYSTEM_INSTRUCTIONS explicitly forbids it."""
+        spec = _extract_pool_spec("Swimming pools must be fenced or otherwise secured.")
+        assert not spec["heights"] and not spec["gates"]
+        result = {
+            "carrier": "Generic HO3", "status": "ELIGIBLE", "reasons": [], "citations": [],
+            "missing_info": [], "notes": "", "flaw_count": 0,
+        }
+        _enforce_pool_spec_support([result], ["Generic HO3"], AUDIT_R13_PROFILE,
+                                   {"Generic HO3": spec})
+        assert result["missing_info"] == []
+        assert result["notes"] == ""
+
+    def test_no_pool_profile_adds_nothing(self):
+        carrier = "ARI_(HOA+)"
+        result = {
+            "carrier": carrier, "status": "ELIGIBLE", "reasons": [], "citations": [],
+            "missing_info": [], "notes": "", "flaw_count": 0,
+        }
+        _enforce_pool_spec_support(
+            [result], [carrier], dict(AUDIT_R13_PROFILE, swimming_pool="No Pool"),
+            {carrier: _real_pool_spec(carrier)},
+        )
+        assert result["missing_info"] == [] and result["notes"] == ""
+
+    def test_intake_that_states_the_specifics_adds_nothing(self):
+        """The rule is "don't assert what the input doesn't support", not
+        "always add a pool caveat" -- if the form ever collects height and
+        gate type, the question disappears."""
+        carrier = "ARI_(HOA+)"
+        profile = dict(AUDIT_R13_PROFILE, swimming_pool="In Ground - 6' fence, self-latching gate")
+        assert _intake_states_pool_specifics(profile["swimming_pool"])
+        result = {
+            "carrier": carrier, "status": "ELIGIBLE", "reasons": [], "citations": [],
+            "missing_info": [], "notes": "", "flaw_count": 0,
+        }
+        _enforce_pool_spec_support([result], [carrier], profile,
+                                   {carrier: _real_pool_spec(carrier)})
+        assert result["missing_info"] == []
+
+    @pytest.mark.parametrize("text,heights,gates", [
+        ("Swimming pools must have a 6' high fence with locked or self locking gates.", {"6"}, True),
+        ("Pool must be enclosed by a 4 foot fence with a self-latching gate.", {"4"}, True),
+        ("Swimming pool requires a 5 ft fence and self-locking gate.", {"5"}, True),
+        # must NOT pick up figures from sentences that aren't about a pool fence
+        ("The dwelling must be within 100 feet of a fire hydrant.", set(), False),
+        ("Trampolines must be enclosed by a 6 foot fence.", set(), False),
+    ])
+    def test_pool_spec_extractor_is_scoped_to_pool_enclosure_sentences(self, text, heights, gates):
+        spec = _extract_pool_spec(text)
+        assert spec["heights"] == heights, spec
+        assert bool(spec["gates"]) is gates, spec
+
+    @pytest.mark.xfail(
+        reason="Round 13 P3 deferred: the carrier still reports ELIGIBLE while carrying a "
+        "missing_info item saying its own specific pool requirement is unconfirmed. Strictly, "
+        "SYSTEM_INSTRUCTIONS' status rule 3 (INSUFFICIENT_INFORMATION when a fact required to "
+        "reach ELIGIBLE is not known) says that should be INSUFFICIENT_INFORMATION. Not changed "
+        "this round because the audit finding was about the Analysis text asserting compliance, "
+        "was not flagged verdict-changing, and flipping all sixteen affected carriers is a much "
+        "larger behavioral change than the evidence so far supports. Tracked here so it stays "
+        "visible instead of living only in a code comment.",
+        strict=False,
+    )
+    def test_unconfirmed_specific_pool_requirement_should_block_eligible(self):
+        carrier = "ARI_(HOA+)"
+        result = {
+            "carrier": carrier, "status": "ELIGIBLE", "reasons": [], "citations": [],
+            "missing_info": [], "notes": "", "flaw_count": 0,
+        }
+        _enforce_pool_spec_support([result], [carrier], AUDIT_R13_PROFILE,
+                                   {carrier: _real_pool_spec(carrier)})
+        assert result["status"] == "INSUFFICIENT_INFORMATION"
+
+
+# ---------------------------------------------------------------------------
+# ROUND 13 -- P4: is Allied Trust's solar retrieval firing?
+#
+# Answer: yes, deterministically. This is the same check run on Orion /
+# TWICO / Swyfft for the roof topic in round 12's P6. The guaranteed lookup
+# is an exact keyword scan over the carrier's full chunk set, so unlike an
+# embedding-rank lookup it has no run-to-run variance to measure -- but the
+# round 12 lesson was that a "guarantee" can still return nothing if the
+# eligibility-content filter drops the chunk, so assert the count, not just
+# the mechanism.
+# ---------------------------------------------------------------------------
+
+_CARRIERS_WITH_SOLAR_TEXT = [
+    "ARI_(HOA+)",
+    "ARI_(HOB)",
+    "Allied_Trust_HO3",
+    "Foremost_DP3_and_HO3_-_07.01.2026",
+    "HOAIC_-_TX-HOMEOWNERS-0326_HO3",
+    "NatGen_Premier_OneChoice_HO3_-_02.26.2025",
+    "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3",
+    "Progressive_HO3_-_04.01.2026",
+    "Progressive_HO6_-_10.01.2025",
+    "Swyfft_-_Benchmark_(Admitted)_HO3",
+    "Swyfft_-_Benchmark_(Surplus)_HO3",
+    "Swyfft_-_Lloyds_(Surplus)_HO3",
+    "Swyfft_-_Topa_(Surplus)_HO3",
+    "TWICO_HO3",
+    "Travelers_HO3_-_06.12.2026",
+]
+
+
+@pytest.mark.retrieval
+class TestRound13SolarRetrievalGuarantee:
+
+    def test_allied_trust_solar_retrieval_is_deterministic(self):
+        """Round 13 P4 asked whether Allied Trust's solar retrieval fires
+        "consistently". Repeat it and assert the SAME non-empty result every
+        time, rather than reporting a single sample as if it settled the
+        question."""
+        counts = {len(_guaranteed_lookup_chunks("Allied_Trust_HO3", _mentions_solar, keep=2))
+                  for _ in range(5)}
+        assert counts == {2}, (
+            f"Allied Trust solar retrieval was not stable across 5 calls: saw counts {counts}"
+        )
+
+    @pytest.mark.parametrize("carrier", _CARRIERS_WITH_SOLAR_TEXT)
+    def test_every_carrier_with_solar_text_actually_retrieves_it(self, carrier):
+        """Generalizes P4 past the one carrier in the bug report: every
+        carrier whose document mentions solar at all must have that text
+        reach the prompt."""
+        raw = [c for c in _all_chunks(carrier) if _mentions_solar(c.page_content)]
+        assert raw, f"premise: {carrier} has solar text in its document"
+        kept = _guaranteed_lookup_chunks(carrier, _mentions_solar, keep=2)
+        assert kept, (
+            f"{carrier} has {len(raw)} chunk(s) mentioning solar but the guaranteed lookup "
+            f"returned none -- the eligibility-content filter is dropping them."
+        )
+
+    def test_allied_trust_solar_text_is_roofing_material_not_mounted_panels(self):
+        """Documents WHY Allied Trust's silence on a mounted-panel property
+        is defensible rather than a retrieval miss: both of its solar
+        references are roof COVERING materials ("solar roof system", "Solar
+        panel tiles"), which per SYSTEM_INSTRUCTIONS' SOLAR TERMINOLOGY rule
+        do not apply to panels mounted on an ordinary shingle roof. If this
+        ever fails, Allied Trust has gained a genuine mounted-panel rule and
+        its silence WOULD then be a real defect."""
+        blob = " ".join(
+            c.page_content.lower()
+            for c in _guaranteed_lookup_chunks("Allied_Trust_HO3", _mentions_solar, keep=3)
+        )
+        assert "solar roof system" in blob or "solar panel tiles" in blob
+        for mounted_panel_signal in ("mounted", "attached to the roof", "photovoltaic"):
+            assert mounted_panel_signal not in blob, (
+                f"Allied Trust's solar text now contains {mounted_panel_signal!r} -- it may "
+                f"have gained a mounted-panel rule, so silence is no longer defensible."
+            )
+
+
+@pytest.mark.baseline
+def test_allied_trust_explicitly_addresses_solar_for_a_solar_property():
+    """Round 13 P4. Retrieval was never the problem -- it fires 2/2 chunks,
+    stable across 5 calls (TestRound13SolarRetrievalGuarantee). The problem
+    was that Allied Trust's solar text is integrated solar ROOFING, which
+    correctly does NOT apply to mounted panels, and the model therefore said
+    nothing at all -- measured at 1 of 3 runs mentioning solar. From outside,
+    that silence is indistinguishable from a retrieval miss. The
+    deterministic [Solar check] note now makes the dismissal explicit on
+    every run, so this is a hard assert rather than a tracked rate."""
+    result = check_eligibility(AUDIT_R13_PROFILE)
+    matches = _find_carrier({r.get("carrier", ""): r for r in result}, "allied")
+    assert matches, "Allied Trust missing from the response entirely"
+    r = matches[0]
+    blob = " ".join(
+        r.get("reasons", []) + r.get("citations", []) + r.get("missing_info", [])
+        + [r.get("notes", "")]
+    ).lower()
+    assert "solar" in blob
+
+
+# ---------------------------------------------------------------------------
+# ROUND 13 -- MINOR: bucket label sanity check.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.retrieval
+def test_insufficient_information_bucket_label_is_not_truncated():
+    """The round 13 audit narrative rendered this bucket as just
+    "Information". The app's own label is the full string -- the four
+    headers sit in st.columns(4), so a narrow column wraps the label onto
+    two lines and copying it can pick up only the second. Asserted here so
+    that stays a rendering artifact rather than something anyone has to
+    re-check by eye."""
+    app_src = open(
+        os.path.join(os.path.dirname(__file__), "..", "app.py"), encoding="utf-8"
+    ).read()
+    assert 'st.markdown("### Insufficient Information")' in app_src
+    for label in ("### Eligible", "### One Issue", "### Not Eligible"):
+        assert f'st.markdown("{label}")' in app_src, f"bucket header {label!r} missing"
+    assert set(assign_buckets([]).keys()) == {
+        "eligible", "one_issue", "insufficient_info", "not_eligible"
+    }
+
+
+# ---------------------------------------------------------------------------
+# ROUND 13 -- P4 (continued): integrated solar ROOFING vs. MOUNTED panels.
+#
+# Retrieval was confirmed firing (see TestRound13SolarRetrievalGuarantee).
+# The remaining gap was that a carrier whose solar rule correctly does not
+# apply said nothing at all, which from outside is indistinguishable from a
+# retrieval miss -- measured at 1 of 3 runs mentioning solar for Allied
+# Trust. The Mercury and TWICO roof branches already settled that a silent
+# "unremarkable" outcome is itself a bug; this applies the same remedy.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.retrieval
+class TestRound13SolarRoofingVsMountedPanels:
+
+    @pytest.mark.parametrize("text,expected", [
+        # integrated solar ROOFING -- the roof covering IS solar material
+        ("solar roof system and roofs with any type of wood shingles", "roofing_only"),
+        ("Solar panel tiles, slate, unique/uncommon roof material", "roofing_only"),
+        ("j. Solar shingles k. Woodruf and T-Lock shingles", "roofing_only"),
+        ("no tesla solar roofs, seasonal or secondary homes", "roofing_only"),
+        # MOUNTED panels -- conventional PV on an ordinary roof
+        ("Coverage for roof-mounted solar panels requires an endorsement", "addresses_panels"),
+        ("Homes with photovoltaic systems are ineligible", "addresses_panels"),
+        ("wind or hail that results in marring of ... solar panels", "addresses_panels"),
+        ("no mention of the topic at all", "none"),
+    ])
+    def test_solar_text_classification(self, text, expected):
+        """'Solar panel tiles' contains the substring 'solar panel' -- the
+        exact confusion SYSTEM_INSTRUCTIONS' SOLAR TERMINOLOGY rule exists to
+        prevent -- so integrated phrases must be consumed before any
+        mounted-panel signal is looked for."""
+        assert classify_solar_text(text) == expected
+
+    def test_photovoltaic_only_text_is_not_missed(self):
+        """The mounted-panel check runs before the "no solar at all" exit, so
+        a rule written purely as "photovoltaic" still classifies. (No carrier
+        currently in the database does this -- checked -- but the classifier
+        must not depend on that staying true.)"""
+        assert classify_solar_text("Homes with photovoltaic arrays require approval") == "addresses_panels"
+
+    def test_foremost_is_classified_over_its_whole_document(self):
+        """Regression for a bug in this round's own first draft. The
+        guaranteed lookup keeps at most 2 chunks; Foremost has 4 mentioning
+        solar. The two that rank first are both "Solar shingles" in a list of
+        ineligible roof COVERINGS, but a later chunk covers "wind or hail
+        that results in marring of ... solar panels" -- a real mounted-panel
+        rule. Classifying only the kept chunks returned roofing_only and
+        would have had the note assert Foremost states no mounted-panel rule."""
+        collection = get_vectorstore()._collection
+        carrier = "Foremost_DP3_and_HO3_-_07.01.2026"
+        all_solar = [c for c in _all_chunks(carrier) if _mentions_solar(c.page_content)]
+        kept = _guaranteed_lookup_chunks(carrier, _mentions_solar, keep=2)
+        assert len(all_solar) > len(kept), "premise: Foremost has more solar chunks than are kept"
+        assert classify_carrier_solar_text(collection, carrier) == "addresses_panels"
+
+    def test_roofing_only_carriers_really_have_no_bare_solar_mention(self):
+        """The note asserts the ABSENCE of a mounted-panel rule, so verify
+        that claim against every carrier it will be attached to: after every
+        integrated-roofing phrase is removed, no "solar" mention may remain
+        anywhere in that carrier's document."""
+        collection = get_vectorstore()._collection
+        checked = 0
+        for carrier in get_carriers_for_occupancy("Owner Occupied"):
+            if classify_carrier_solar_text(collection, carrier) != "roofing_only":
+                continue
+            checked += 1
+            blob = " ".join(
+                normalize_chunk_text(c.page_content) for c in _all_chunks(carrier)
+                if _mentions_solar(c.page_content)
+            ).lower()
+            for phrase in _INTEGRATED_SOLAR_ROOFING_PHRASES:
+                blob = blob.replace(phrase, " ")
+            assert "solar" not in blob, (
+                f"{carrier} is classified roofing_only but still mentions solar outside an "
+                f"integrated-roofing phrase -- the dismissal note would be asserting something "
+                f"this document does not support."
+            )
+        assert checked, "expected at least one roofing_only carrier to check"
+
+    def test_note_is_added_for_a_mounted_panel_property(self):
+        carrier = "Allied_Trust_HO3"
+        collection = get_vectorstore()._collection
+        assert classify_carrier_solar_text(collection, carrier) == "roofing_only"
+        result = {"carrier": carrier, "status": "ELIGIBLE", "reasons": [], "citations": [],
+                  "missing_info": [], "notes": "", "flaw_count": 0}
+        _note_solar_roofing_does_not_apply(
+            [result], [carrier], AUDIT_R13_PROFILE, {carrier: "roofing_only"}
+        )
+        assert "[Solar check]" in result["notes"]
+        assert "does not apply" in result["notes"].lower()
+        # note-only: it must never move a verdict
+        assert result["status"] == "ELIGIBLE"
+        assert result["missing_info"] == [] and result["reasons"] == []
+
+    def test_no_note_when_the_carrier_addresses_mounted_panels(self):
+        """TWICO genuinely excludes homes with solar panels -- it must be
+        left to say so itself, not handed a dismissal."""
+        carrier = "TWICO_HO3"
+        result = {"carrier": carrier, "status": "INELIGIBLE", "reasons": [], "citations": [],
+                  "missing_info": [], "notes": "", "flaw_count": 1}
+        _note_solar_roofing_does_not_apply(
+            [result], [carrier], AUDIT_R13_PROFILE, {carrier: "addresses_panels"}
+        )
+        assert result["notes"] == ""
+
+    def test_no_note_when_the_property_has_no_solar_panels(self):
+        carrier = "Allied_Trust_HO3"
+        result = {"carrier": carrier, "status": "ELIGIBLE", "reasons": [], "citations": [],
+                  "missing_info": [], "notes": "", "flaw_count": 0}
+        _note_solar_roofing_does_not_apply(
+            [result], [carrier], dict(AUDIT_R13_PROFILE, solar_panels="No"),
+            {carrier: "roofing_only"},
+        )
+        assert result["notes"] == ""
+
+
+# ---------------------------------------------------------------------------
+# ROUND 13 -- JSON parse failures: unescaped inner double quotes.
+#
+# Found while running this round's baseline tier, which lost three separate
+# multi-run STANDARD_PROFILE tests to a single malformed response. This is
+# the THIRD distinct cause behind "JSON PARSE ERROR" in this project:
+#   * round 11/12 blamed ARI's curly apostrophes and embedded newlines
+#     (a real cleanup, but not what was failing most runs)
+#   * round 12 found output-token TRUNCATION and raised max_tokens
+#   * round 13 (this) -- a COMPLETE response (stop_reason "end_turn",
+#     ~50k chars) whose Mercury citation contains raw inner double quotes:
+#         "The "Roof Surfacing" Loss Settlement Payment Schedule"
+#
+# Every prior round diagnosed this class from partial output, so these tests
+# work from the actual captured bytes rather than a paraphrase.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.retrieval
+class TestRound13JsonQuoteRepair:
+
+    @pytest.mark.parametrize("payload,expected_repairs", [
+        (r'[{"a": "the \"x\" thing"}]', 0),        # correctly escaped -> untouched
+        ('[{"a": "the "x" thing"}]', 2),           # the Mercury shape
+        ('[{"a": "plain"}]', 0),
+        ('[{"a": "x", "b": ["y", "z"]}]', 0),      # commas/arrays not misread
+        ('[{"a": "He said "hi", then left"}]', 2), # inner quote FOLLOWED BY A COMMA
+    ])
+    def test_repair_escapes_only_inner_quotes(self, payload, expected_repairs):
+        """The comma case is the subtle one. A closing quote is usually
+        followed by a comma -- so is the inner quote in
+        'says "X", which means Y', a shape this domain's citations produce
+        constantly. Treating any quote-then-comma as a close ends the string
+        early and turns the rest of the sentence into garbage, so the
+        lookahead also requires what follows the comma to actually begin a
+        JSON value or key."""
+        repaired, n = repair_unescaped_quotes(payload)
+        assert n == expected_repairs
+        json.loads(repaired)  # must be valid JSON afterwards
+
+    def test_repair_preserves_the_original_string_content(self):
+        payload = '[{"a": "the "x" thing"}]'
+        parsed, n = parse_carrier_json(payload)
+        assert n == 2
+        assert parsed[0]["a"] == 'the "x" thing'
+
+    def test_unrepairable_json_still_raises_the_original_error(self):
+        """A genuinely truncated response must NOT be silently swallowed by
+        the repair -- round 12's truncation bug has to stay diagnosable."""
+        with pytest.raises(json.JSONDecodeError):
+            parse_carrier_json('[{"carrier": "X", "reasons": ["a"')
+
+    def test_repairs_the_real_captured_failure(self):
+        """The actual bytes from the failing run, kept as a fixture. A
+        synthetic reproduction is what let round 11 'fix' this class twice
+        without fixing it."""
+        path = os.path.join(os.path.dirname(__file__), "fixtures",
+                            "json_parse_failure_unescaped_quotes.txt")
+        raw = open(path, encoding="utf-8").read()
+        payload = raw[raw.find("["):raw.rfind("]") + 1]
+
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(payload)  # premise: this really is malformed
+
+        parsed, n = parse_carrier_json(payload)
+        assert n == 2
+        assert len(parsed) == 28, (
+            f"the whole response -- all 28 carriers -- used to be discarded; "
+            f"recovered {len(parsed)}"
+        )
+        mercury = [p for p in parsed if "Mercury" in p.get("carrier", "")]
+        assert mercury, "Mercury (the carrier whose citation broke the parse) must survive"
+        assert any(
+            "Roof Surfacing" in r for r in mercury[0].get("reasons", [])
+        ), "the repaired citation must keep its text"

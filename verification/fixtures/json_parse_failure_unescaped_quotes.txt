@@ -1,0 +1,550 @@
+[
+  {
+    "carrier": "ARI_(HOA+)",
+    "reasons": [
+      "Home age is 17 years, which is within the 0-20 year eligibility range for this program.",
+      "Roof age is 10 years. The carrier requires roofs to have 5 years or more remaining useful life, and roofs 15 years or older are covered on ACV basis. At 10 years, this roof is less than 15 years old, so it qualifies for replacement cost coverage.",
+      "Swimming pool is in-ground and fenced. The carrier requires pools to be secured by a 6-foot high fence with locked or self-locking gates. The property details state the pool is fenced, but do not specify the fence height or gate mechanism.",
+      "PPC is 9. The carrier's guidelines do not state any flat exclusion or restriction based on PPC 9 alone."
+    ],
+    "citations": [
+      "ARI_(HOA+): 'Homes 0-20 years old are eligible for this program.'",
+      "ARI_(HOA+): 'Must have 5 years or more remaining useful life. Roofs that are 15 years or older will be covered on an Actual Cash Value (ACV) basis.'",
+      "ARI_(HOA+): 'Homes with swimming pools, spas or hot tubs that are not properly secured. Pools secured by a 6' high fence with locked or self locking gates are acceptable.'"
+    ],
+    "missing_info": [
+      "Swimming pool fence height (carrier requires 6-foot fence)",
+      "Swimming pool gate mechanism (carrier requires locked or self-locking gates)"
+    ],
+    "notes": "Roof coverage is replacement cost at 10 years old. Diving boards and slides are not eligible, but none are present. Maximum $100,000 personal liability is provided for approved pools.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "ARI_(HOB)",
+    "reasons": [
+      "Home age is 17 years, which is within the 0-20 year eligibility range for this program.",
+      "Roof age is 10 years. The carrier requires roofs to have 5 years or more remaining useful life, and roofs 15 years or older are covered on ACV basis. At 10 years, this roof is less than 15 years old, so it qualifies for replacement cost coverage.",
+      "Swimming pool is in-ground and fenced. The carrier requires pools to be secured by a 6-foot high fence with locked or self-locking gates. The property details state the pool is fenced, but do not specify the fence height or gate mechanism.",
+      "PPC is 9. The carrier's guidelines do not state any flat exclusion or restriction based on PPC 9 alone."
+    ],
+    "citations": [
+      "ARI_(HOB): 'Homes 0-20 years old are eligible for this program.'",
+      "ARI_(HOB): 'Must have 5 years or more remaining useful life. Roofs that are 15 years or older will be covered on an Actual Cash Value (ACV) basis.'",
+      "ARI_(HOB): 'Pools secured by a 6' high fence with locked or self locking gates are acceptable. Diving boards and slides are not eligible.'"
+    ],
+    "missing_info": [
+      "Swimming pool fence height (carrier requires 6-foot fence)",
+      "Swimming pool gate mechanism (carrier requires locked or self-locking gates)"
+    ],
+    "notes": "Roof coverage is replacement cost at 10 years old. Maximum $300,000 personal liability is provided for approved pools.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "Allied_Trust_HO3",
+    "reasons": [
+      "PPC is 9. The carrier accepts Protection Class 1-9, so PPC 9 is eligible.",
+      "Roof age is 10 years. Composite or Architectural Shingle roofs should have 3/4 of life expectancy remaining at new business to qualify for replacement cost coverage. The carrier states these roofs should be completely replaced before becoming 21 years old. Total life expectancy is 21 years; 3/4 of 21 is 15.75 years. Remaining life is 21 - 10 = 11 years. Since 11 years is less than 15.75 years required, the roof does not meet the 3/4 remaining life requirement for replacement cost coverage.",
+      "Swimming pool is in-ground and fenced. The carrier requires pools to be protected by a fence at least 4-foot-high with a locking gate. The property details state the pool is fenced, but do not specify the fence height or gate mechanism."
+    ],
+    "citations": [
+      "Allied_Trust_HO3: 'Protection Class 1 - 9'",
+      "Allied_Trust_HO3: 'Composite or Architectural Shingle Roofs should have ¾ of its life expectancy at the time of new business to qualify for replacement cost coverage.'",
+      "Allied_Trust_HO3: 'All Composite or Architectural Shingle roofs should be completely replaced before the roof becomes 21 years old'",
+      "Allied_Trust_HO3: 'Swimming pools and ponds must be protected by a fence at least 4-foot-high with a locking gate or an underwriting approved alternate enclosure'"
+    ],
+    "missing_info": [
+      "Swimming pool fence height (carrier requires at least 4 feet)",
+      "Swimming pool gate locking mechanism"
+    ],
+    "notes": "Roof does not qualify for replacement cost coverage due to insufficient remaining life expectancy. The roof would likely be subject to the Limited Loss Settlement for Windstorm or Hail Losses to Roof Surfacing endorsement.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "CHUBB_HO",
+    "reasons": [
+      "The carrier's excerpts do not mention swimming pools at all, so no pool-related restriction applies.",
+      "The carrier's excerpts do not mention any PPC-based restrictions.",
+      "The carrier's excerpts do not mention any roof age restrictions or requirements.",
+      "The carrier's excerpts do not mention any home age restrictions."
+    ],
+    "citations": [],
+    "missing_info": [],
+    "notes": "The retrieved excerpts for this carrier are very limited and do not provide sufficient detail to determine eligibility for this property.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "Foremost_DP3_and_HO3",
+    "reasons": [
+      "Occupancy Type is Owner Occupied. This is an HO3 program, which is appropriate for owner-occupied properties.",
+      "Swimming pool is in-ground and fenced. The carrier requires properties with pools over 2.5 feet deep to have a fence minimum four feet high fully enclosing the pool AND a self-locking gate. The property details state the pool is fenced, but do not specify the fence height or gate mechanism.",
+      "The carrier's excerpts do not mention any PPC-based restrictions for owner-occupied properties.",
+      "The carrier's excerpts do not mention any roof age restrictions or requirements for composition shingle roofs."
+    ],
+    "citations": [
+      "Foremost_DP3_and_HO3: 'Properties with pools (over 2.5 feet deep) must have a fence minimum four feet high (fully enclosing the pool) AND a self-locking gate.'"
+    ],
+    "missing_info": [
+      "Swimming pool fence height (carrier requires minimum 4 feet)",
+      "Swimming pool gate mechanism (carrier requires self-locking gate)"
+    ],
+    "notes": "The carrier offers both DP3 and HO3 programs. Since this is owner-occupied, only the HO3 program applies.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "HOAIC_HO3",
+    "reasons": [
+      "Home age is 17 years, which is within the 'Up to 100 years old' eligibility range.",
+      "PPC is 9. The carrier states 'Properties 3 years old or newer with a PPC of 8-10 (10W) may be eligible. Underwriting review and approval is required prior to bind.' This property is 17 years old, not 3 years old or newer, so this PPC-related rule does not apply to it.",
+      "The carrier's excerpts mention a Roof Systems Payment Schedule that is optional for roof ages 7 or newer for one program and mandatory for roofs 1 year or older for another program. The roof is 10 years old, so it would fall under these provisions.",
+      "The carrier's excerpts do not mention any swimming pool requirements."
+    ],
+    "citations": [
+      "HOAIC_HO3: 'Up to 100 years old. (Risks older than 50 years will require additional application questions)'",
+      "HOAIC_HO3: 'Properties 3 years old or newer with a PPC of 8-10 (10W) may be eligible. Underwriting review and approval is required prior to bind.'"
+    ],
+    "missing_info": [],
+    "notes": "The PPC 8-10 rule only applies to properties 3 years old or newer, which this property is not. The Roof Systems Payment Schedule provisions vary by program (HOB vs HO2).",
+    "status": "ELIGIBLE",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "Liberty_Mutual_HO3",
+    "reasons": [
+      "PPC is 9. The carrier states 'Protection Class 9 with Coverage A between $1.5 Million and $3 Million and all Protection Class 10 homes, the following must be present: The dwelling is located within 15 miles of a responding fire department; The dwelling does not use a wood or coal burning stove as their primary heat source.' This rule applies only to PPC 9 homes with Coverage A between $1.5M and $3M. The property details do not specify Coverage A, so we cannot determine if this rule applies.",
+      "The carrier states 'Homes with Coverage A exceeding $3 Million in a Protection Class 9' are ineligible. Without knowing Coverage A, we cannot determine if this applies.",
+      "The carrier's excerpts do not mention any swimming pool requirements.",
+      "The carrier's excerpts do not mention any roof age restrictions."
+    ],
+    "citations": [
+      "Liberty_Mutual_HO3: 'Protection Class 9 with Coverage A between $1.5 Million and $3 Million and all Protection Class 10 homes, the following must be present: The dwelling is located within 15 miles of a responding fire department'",
+      "Liberty_Mutual_HO3: 'Homes with Coverage A exceeding $3 Million in a Protection Class 9'"
+    ],
+    "missing_info": [
+      "Coverage A limit (needed to determine if PPC 9 restrictions apply)",
+      "Distance to responding fire department (if Coverage A is between $1.5M and $3M)"
+    ],
+    "notes": "The PPC 9 restrictions are conditional on Coverage A amount. Without knowing Coverage A, we cannot fully determine eligibility.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "Liberty_Mutual_HO6",
+    "reasons": [
+      "This is an HO6 (Condominium Unit-Owners) program. The property is described as a single-family dwelling, not a condominium unit, so this program does not apply."
+    ],
+    "citations": [],
+    "missing_info": [],
+    "notes": "HO6 is specifically for condominium unit owners. This property is not a condominium.",
+    "status": "INELIGIBLE",
+    "flaw_count": 1
+  },
+  {
+    "carrier": "Mercury_HO3",
+    "reasons": [
+      "PPC is 9. The carrier states 'Homes with an ISO protection class of 10 or 10W' are ineligible. PPC 9 is not 10 or 10W, so this exclusion does not apply.",
+      "Roof age is 10 years. The carrier requires 'The "Roof Surfacing" Loss Settlement Payment Schedule - Windstorm or Hail Losses (H0499 TX) endorsement is required for slate, tile, and metal roofs more than 20 years. It will also be required all other roof types older than 10 years old.' The roof is exactly 10 years old. The rule states 'older than 10 years old,' which is exclusive of 10. Since the roof is exactly 10 years old, it is NOT older than 10 years, so this endorsement is not required.",
+      "Swimming pool is in-ground and fenced. The carrier's excerpts do not mention any swimming pool requirements.",
+      "Plumbing Type is PVC, which is acceptable per the carrier's requirement of '100% copper, PVC, and/or PEX.'"
+    ],
+    "citations": [
+      "Mercury_HO3: 'Homes with an ISO protection class of 10 or 10W.'",
+      "Mercury_HO3: 'The \"Roof Surfacing\" Loss Settlement Payment Schedule - Windstorm or Hail Losses (H0499 TX) endorsement is required for slate, tile, and metal roofs more than 20 years. It will also be required all other roof types older than 10 years old.'",
+      "Mercury_HO3: 'Plumbing must be 100% copper, PVC, and/or PEX.'"
+    ],
+    "missing_info": [],
+    "notes": "The roof is exactly 10 years old, which does not meet the 'older than 10 years old' threshold for the payment schedule endorsement. Replacement Cost Coverage is included on the policy.",
+    "status": "ELIGIBLE",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "NatGen_Custom360_HO3",
+    "reasons": [
+      "This is a Landlord program. The property's Occupancy Type is Owner Occupied, not a rental property, so this program does not apply."
+    ],
+    "citations": [
+      "NatGen_Custom360_HO3: 'Texas Landlord — Custom360'"
+    ],
+    "missing_info": [],
+    "notes": "This is a landlord/rental program, not appropriate for owner-occupied properties.",
+    "status": "INELIGIBLE",
+    "flaw_count": 1
+  },
+  {
+    "carrier": "NatGen_Premier_OneChoice_HO3",
+    "reasons": [
+      "The carrier states 'Homeowners policies are not eligible for new business effective 11/30/2023.' This is a flat exclusion for all new business.",
+      "Swimming pool is in-ground and fenced. The carrier requires 'Risks with swimming pools unless they are adequately fenced. A height of at least four feet and locking gates are required.' The property details state the pool is fenced, but do not specify the fence height or gate mechanism."
+    ],
+    "citations": [
+      "NatGen_Premier_OneChoice_HO3: 'Homeowners policies are not eligible for new business effective 11/30/2023.'",
+      "NatGen_Premier_OneChoice_HO3: 'Risks with swimming pools unless they are adequately fenced. A height of at least four feet and locking gates are required.'"
+    ],
+    "missing_info": [],
+    "notes": "This carrier is not accepting new business for homeowners policies as of 11/30/2023.",
+    "status": "INELIGIBLE",
+    "flaw_count": 1
+  },
+  {
+    "carrier": "Orion_HO3",
+    "reasons": [
+      "PPC is 9. The carrier states 'Dwellings in a Public Protection Class 10' are ineligible. PPC 9 is not PPC 10, so this exclusion does not apply.",
+      "Roof age is 10 years. The carrier requires 'Roof Material Payment Schedule required for the specified roof ages: 16 years and older for architectural and composite shingles.' At 10 years, the roof is less than 16 years old, so the payment schedule is not required and the roof qualifies for replacement cost coverage.",
+      "Swimming pool is in-ground and fenced. The carrier states 'To qualify for this coverage, the property must have at least a four-foot fence or an approved alternative enclosure surrounding the pool area.' This is a condition for the optional Swimming Pool and Hot Tub Liability Coverage endorsement, not a base eligibility requirement. The property details state the pool is fenced, but do not specify the fence height."
+    ],
+    "citations": [
+      "Orion_HO3: 'Dwellings in a Public Protection Class 10.'",
+      "Orion_HO3: 'Roof Material Payment Schedule required for the specified roof ages. 16 years and older for architectural and composite shingles.'",
+      "Orion_HO3: 'To qualify for this coverage, the property must have at least a four-foot fence or an approved alternative enclosure surrounding the pool area.'"
+    ],
+    "missing_info": [
+      "Swimming pool fence height (if optional pool liability coverage is desired, carrier requires at least 4 feet)"
+    ],
+    "notes": "The pool fence requirement is for optional liability coverage, not base eligibility. A Swimming Pool and Hot Tub Liability Exclusion is automatically applied, with optional coverage available if the pool meets requirements.",
+    "status": "ELIGIBLE",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "Progressive_HO3",
+    "reasons": [
+      "PPC is 9. The carrier states 'Properties located in a Protection Class 9 or 10 must meet the following eligibility requirements: Must be located on a paved road; and Must be visible to neighbors.' The property details do not specify whether the property is on a paved road or visible to neighbors.",
+      "Roof age is 10 years. The carrier states 'The Roofing Material Payment Schedule is mandatory for: all policies in Hidalgo and Webb counties; and new and renewal policies with roofs eight years or older in all other counties.' The roof is 10 years old, which is 8 years or older. The property details do not specify the county, so we cannot determine if this is Hidalgo/Webb or another county.",
+      "Swimming pool is in-ground and fenced. The carrier requires 'Swimming pools, hot tubs, and spas must be maintained and in working condition. Must be protected by a locking fence at least four-feet high, or alternate approved enclosure.' The property details state the pool is fenced, but do not specify the fence height or locking mechanism."
+    ],
+    "citations": [
+      "Progressive_HO3: 'Properties located in a Protection Class 9 or 10 must meet the following eligibility requirements: o Must be located on a paved road; and o Must be visible to neighbors'",
+      "Progressive_HO3: 'The Roofing Material Payment Schedule is mandatory for: all policies in Hidalgo and Webb counties; and new and renewal policies with roofs eight years or older in all other counties.'",
+      "Progressive_HO3: 'Must be protected by a locking fence at least four-feet high, or alternate approved enclosure.'"
+    ],
+    "missing_info": [
+      "Whether property is located on a paved road (required for PPC 9)",
+      "Whether property is visible to neighbors (required for PPC 9)",
+      "County location (to determine if Roofing Material Payment Schedule applies)",
+      "Swimming pool fence height (carrier requires at least 4 feet)",
+      "Swimming pool fence locking mechanism"
+    ],
+    "notes": "The Roofing Material Payment Schedule would apply if the property is not in Hidalgo or Webb counties, since the roof is 8 years or older.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "Progressive_HO6",
+    "reasons": [
+      "This is an HO6 (Condominium Unit-Owners) program. The property is described as a single-family dwelling, not a condominium unit, so this program does not apply."
+    ],
+    "citations": [
+      "Progressive_HO6: 'Texas Condominium Unit-Owners Program'"
+    ],
+    "missing_info": [],
+    "notes": "HO6 is specifically for condominium unit owners. This property is not a condominium.",
+    "status": "INELIGIBLE",
+    "flaw_count": 1
+  },
+  {
+    "carrier": "Sage_-_Auros_HO3",
+    "reasons": [
+      "The carrier states 'Property must be located in: South Texas (meaning a county located entirely south of 31 degrees North) except Nueces county, or One of the following counties in East Texas: Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, and Polk.' The property details do not specify the county or location within Texas.",
+      "PPC is 9. The carrier's Fire Protection Class table shows that for FPC 9 or greater with driving distance to fire station greater than 5 miles, the risk is ineligible. However, for FPC 9 or greater with driving distance to fire station 5 miles or less and hydrant greater than 1,000 feet / no hydrant, the risk is eligible only if specific criteria are met (visible from main road, central station fire alarm, accessible by fire-fighting equipment year-round). The property details do not specify driving distance to fire station or hydrant distance.",
+      "Roof age is 10 years. The carrier requires a roofer's statement for roofs over 15 years old for 3-tab asphalt shingles or other non-permanent materials (except Architectural shingles), or over 25 years old for Architectural shingles. At 10 years, the roof does not require a roofer's statement.",
+      "Swimming pool is in-ground and fenced. The carrier requires pools to be fenced/walled with a combination or padlocked gate or self-locking or self-latching mechanism, with a minimum height of 4 feet. The property details state the pool is fenced, but do not specify the fence height or gate mechanism."
+    ],
+    "citations": [
+      "Sage_-_Auros_HO3: 'Property must be located in: South Texas (meaning a county located entirely south of 31 degrees North) except Nueces county, or One of the following counties in East Texas: Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, and Polk.'",
+      "Sage_-_Auros_HO3: 'FPC is 9 or greater, and Driving distance to fire station is greater than 5 miles, and Regardless of the presence or distance to fire hydrant. Risk is ineligible.'",
+      "Sage_-_Auros_HO3: 'Unfenced or unwalled in ground pools, or fenced/walled without a combination or padlocked gate or self-locking or self-latching mechanism. The fence, wall or natural barrier must completely surround the pool and provide a reasonably comprehensive barrier to entry. Fence or wall must be a permanent installation with a minimum height of 4 feet.'"
+    ],
+    "missing_info": [
+      "County or location within Texas (to determine if property is in eligible area)",
+      "Driving distance to fire station (to determine if PPC 9 property is eligible)",
+      "Hydrant distance (to determine which PPC 9 eligibility criteria apply)",
+      "Swimming pool fence height (carrier requires minimum 4 feet)",
+      "Swimming pool gate mechanism (carrier requires combination/padlock or self-locking/self-latching)"
+    ],
+    "notes": "Eligibility depends on location within Texas and fire protection details for PPC 9 properties.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "Sage_-_Markel_HO3",
+    "reasons": [
+      "The carrier's excerpts do not mention any specific PPC-based restrictions, only that 'Protection Classes 1-10 are eligible (No limitations based on Protection Class, but response time plays a factor in the rating).'",
+      "Roof age is 10 years. The carrier's Roof Coverage table shows that the Roof Surface Settlement Schedule II 'holds depreciation for 10 years (thereby RCV loss settlement applies), then ACV roof settlement begins.' At exactly 10 years, the roof is still within the held/deferred period, so RCV coverage applies.",
+      "Swimming pool is in-ground and fenced. The carrier requires 'Approved fence (at least four feet high). Lockable gate.' The property details state the pool is fenced, but do not specify the fence height or gate locking mechanism."
+    ],
+    "citations": [
+      "Sage_-_Markel_HO3: 'Protection Classes 1-10 are eligible (No limitations based on Protection Class, but response time plays a factor in the rating).'",
+      "Sage_-_Markel_HO3: 'Form holds depreciation for 10 years (thereby RCV loss settlement applies), then ACV roof settlement begins.'",
+      "Sage_-_Markel_HO3: 'Approved fence (at least four feet high). Lockable gate.'"
+    ],
+    "missing_info": [
+      "Swimming pool fence height (carrier requires at least 4 feet)",
+      "Swimming pool gate locking mechanism (carrier requires lockable gate)"
+    ],
+    "notes": "The roof is exactly 10 years old, which is still within the RCV period under the Roof Surface Settlement Schedule II. A Swimming Pool Exclusion automatically applies unless all conditions are met.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "Sage_-_Occidental_HO3",
+    "reasons": [
+      "The carrier states 'Property must be located in: South Texas (meaning a county located entirely south of 31 degrees North) except Nueces county, or One of the following counties in East Texas: Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, and Polk.' The property details do not specify the county or location within Texas.",
+      "PPC is 9. The carrier's Fire Protection Class table shows that for FPC 9 or greater with driving distance to fire station greater than 5 miles, the risk is ineligible. However, for FPC 9 with driving distance to fire station 5 miles or less and hydrant greater than 1,000 feet / no hydrant, the risk is eligible only if specific criteria are met. The property details do not specify driving distance to fire station or hydrant distance.",
+      "Roof age is 10 years. The carrier requires a roofer's statement for roofs over 25 years of age for Architectural shingles or over 15 years of age for 3-tab asphalt shingles or other non-permanent materials. At 10 years, the roof does not require a roofer's statement.",
+      "Swimming pool is in-ground and fenced. The carrier requires pools to be fenced/walled with a combination or padlocked gate or self-locking or self-latching mechanism, with a minimum height of 4 feet. The property details state the pool is fenced, but do not specify the fence height or gate mechanism. Additionally, the carrier states that pools with slides or diving boards are ineligible for Swimming Pool Liability coverage, but none are present."
+    ],
+    "citations": [
+      "Sage_-_Occidental_HO3: 'Property must be located in: South Texas (meaning a county located entirely south of 31 degrees North) except Nueces county, or One of the following counties in East Texas: Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, and Polk.'",
+      "Sage_-_Occidental_HO3: 'FPC is 9 or greater, and Driving distance to fire station is greater than 5 miles, and Regardless of the presence or distance to fire hydrant. Risk is ineligible.'",
+      "Sage_-_Occidental_HO3: 'Unfenced or unwalled in ground pools, or fenced/walled without a combination or padlocked gate or self-locking or self-latching mechanism. The fence, wall or natural barrier must completely surround the pool and provide a reasonably comprehensive barrier to entry. Fence or wall must be a permanent installation with a minimum height of 4 feet.'"
+    ],
+    "missing_info": [
+      "County or location within Texas (to determine if property is in eligible area)",
+      "Driving distance to fire station (to determine if PPC 9 property is eligible)",
+      "Hydrant distance (to determine which PPC 9 eligibility criteria apply)",
+      "Swimming pool fence height (carrier requires minimum 4 feet)",
+      "Swimming pool gate mechanism (carrier requires combination/padlock or self-locking/self-latching)"
+    ],
+    "notes": "Eligibility depends on location within Texas and fire protection details for PPC 9 properties.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "Sage_-_SURE_HO-3",
+    "reasons": [
+      "The carrier states 'Property must be located in: South Texas (meaning a county located entirely south of 31 degrees North) except Nueces county, or One of the following counties in East Texas: Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, and Polk.' The property details do not specify the county or location within Texas.",
+      "PPC is 9. The carrier's Fire Protection Class table shows that for FPC 9 or greater with driving distance to fire station greater than 5 miles (classified as 'C'), the risk is ineligible. However, for FPC 9 with driving distance to fire station 5 miles or less and hydrant greater than 1,000 feet / no hydrant (classified as 'B'), the risk is eligible only if specific criteria are met. The property details do not specify driving distance to fire station or hydrant distance.",
+      "Roof age is 10 years. The carrier requires a roofer's statement for roofs over 15 years old for 3-tab asphalt shingles or other non-permanent materials (except Architectural shingles), or over 25 years old for Architectural shingles. At 10 years, the roof does not require a roofer's statement.",
+      "Swimming pool is in-ground and fenced. The carrier requires pools to be fenced/walled with a combination or padlocked gate or self-locking or self-latching mechanism, with a minimum height of 4 feet. The property details state the pool is fenced, but do not specify the fence height or gate mechanism."
+    ],
+    "citations": [
+      "Sage_-_SURE_HO-3: 'Property must be located in: South Texas (meaning a county located entirely south of 31 degrees North) except Nueces county, or One of the following counties in East Texas: Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, and Polk.'",
+      "Sage_-_SURE_HO-3: 'FPC is 9 or greater, and Driving distance to fire station is greater than 5 miles, and Regardless of the presence or distance to fire hydrant. Risk is ineligible.'",
+      "Sage_-_SURE_HO-3: 'Unfenced or unwalled in ground pools, or fenced/walled without a combination or padlocked gate or self-locking or self-latching mechanism. The fence, wall or natural barrier must completely surround the pool and provide a reasonably comprehensive barrier to entry. Fence or wall must be a permanent installation with a minimum height of 4 feet.'"
+    ],
+    "missing_info": [
+      "County or location within Texas (to determine if property is in eligible area)",
+      "Driving distance to fire station (to determine if PPC 9 property is eligible)",
+      "Hydrant distance (to determine which PPC 9 eligibility criteria apply)",
+      "Swimming pool fence height (carrier requires minimum 4 feet)",
+      "Swimming pool gate mechanism (carrier requires combination/padlock or self-locking/self-latching)"
+    ],
+    "notes": "Eligibility depends on location within Texas and fire protection details for PPC 9 properties. Maximum Coverage A is $2,000,000 or $3,999,999 TIV for FPC 'B' or 'C' classified risks.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "Sage_-_SafePort_HO-3",
+    "reasons": [
+      "The carrier states 'Property must be located in: South Texas (meaning a county located entirely south of 31 degrees North) except Nueces county, or One of the following counties in East Texas: Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, and Polk.' The property details do not specify the county or location within Texas.",
+      "PPC is 9. The carrier's Fire Protection Class table shows that for FPC 9 or greater with driving distance to fire station greater than 5 miles (classified as 'C'), the risk is ineligible. However, for FPC 9 with driving distance to fire station 5 miles or less and hydrant greater than 1,000 feet / no hydrant (classified as 'B'), the risk is eligible only if specific criteria are met. The property details do not specify driving distance to fire station or hydrant distance.",
+      "Roof age is 10 years. The carrier requires a roofer's statement for roofs over 15 years old for 3-tab asphalt shingles or other non-permanent materials (except Architectural shingles), or over 25 years old for Architectural shingles. At 10 years, the roof does not require a roofer's statement.",
+      "Swimming pool is in-ground and fenced. The carrier requires pools to be fenced/walled with a combination or padlocked gate or self-locking or self-latching mechanism, with a minimum height of 4 feet. The property details state the pool is fenced, but do not specify the fence height or gate mechanism."
+    ],
+    "citations": [
+      "Sage_-_SafePort_HO-3: 'Property must be located in: South Texas (meaning a county located entirely south of 31 degrees North) except Nueces county, or One of the following counties in East Texas: Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, and Polk.'",
+      "Sage_-_SafePort_HO-3: 'FPC is 9 or greater, and Driving distance to fire station is greater than 5 miles, and Regardless of the presence or distance to fire hydrant. Risk is ineligible.'",
+      "Sage_-_SafePort_HO-3: 'Unfenced or unwalled in ground pools, or fenced/walled without a combination or padlocked gate or self-locking or self-latching mechanism. The fence, wall or natural barrier must completely surround the pool and provide a reasonably comprehensive barrier to entry. Fence or wall must be a permanent installation with a minimum height of 4 feet.'"
+    ],
+    "missing_info": [
+      "County or location within Texas (to determine if property is in eligible area)",
+      "Driving distance to fire station (to determine if PPC 9 property is eligible)",
+      "Hydrant distance (to determine which PPC 9 eligibility criteria apply)",
+      "Swimming pool fence height (carrier requires minimum 4 feet)",
+      "Swimming pool gate mechanism (carrier requires combination/padlock or self-locking/self-latching)"
+    ],
+    "notes": "Eligibility depends on location within Texas and fire protection details for PPC 9 properties. Maximum Coverage A is $2,000,000 or $3,999,999 TIV for FPC 'B' or 'C' classified risks.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5",
+    "reasons": [
+      "The carrier states 'Property must be located in: South Texas (meaning a county located entirely south of 31 degrees North), or One of the following counties in East Texas: Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, and Polk.' The property details do not specify the county or location within Texas.",
+      "PPC is 9. The carrier's Fire Protection Class table shows that for FPC 9 or greater with driving distance to fire station greater than 5 miles (classified as 'C'), the risk is ineligible. However, for FPC 9 with driving distance to fire station 5 miles or less and hydrant greater than 1,000 feet / no hydrant (classified as 'B'), the risk is eligible only if specific criteria are met. The property details do not specify driving distance to fire station or hydrant distance.",
+      "Roof age is 10 years. The carrier requires a roofer's statement for roofs over 15 years old for 3-tab asphalt shingles or other non-permanent materials (except Architectural shingles), or over 25 years old for Architectural shingles. At 10 years, the roof does not require a roofer's statement.",
+      "Swimming pool is in-ground and fenced. The carrier requires pools to be fenced/walled with a combination or padlocked gate or self-locking or self-latching mechanism, with a minimum height of 4 feet. The property details state the pool is fenced, but do not specify the fence height or gate mechanism."
+    ],
+    "citations": [
+      "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5: 'Property must be located in: South Texas (meaning a county located entirely south of 31 degrees North), or One of the following counties in East Texas: Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, and Polk.'",
+      "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5: 'FPC is 9 or greater, and Driving distance to fire station is greater than 5 miles, and Regardless of the presence or distance to fire hydrant. Risk is ineligible.'",
+      "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5: 'Unfenced or unwalled in ground pools, or fenced/walled without a combination or padlocked gate or self-locking or self-latching mechanism. The fence, wall or natural barrier must completely surround the pool and provide a reasonably comprehensive barrier to entry. Fence or wall must be a permanent installation with a minimum height of 4 feet.'"
+    ],
+    "missing_info": [
+      "County or location within Texas (to determine if property is in eligible area)",
+      "Driving distance to fire station (to determine if PPC 9 property is eligible)",
+      "Hydrant distance (to determine which PPC 9 eligibility criteria apply)",
+      "Swimming pool fence height (carrier requires minimum 4 feet)",
+      "Swimming pool gate mechanism (carrier requires combination/padlock or self-locking/self-latching)"
+    ],
+    "notes": "Eligibility depends on location within Texas and fire protection details for PPC 9 properties.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "Sage_-_Vave_HO3",
+    "reasons": [
+      "The carrier states 'The property must be in the state of Texas.' This property is in Texas, so it meets this requirement.",
+      "The carrier states 'ISO Protection Classes 1 through 10 are eligible.' PPC 9 is within this range, so it is eligible.",
+      "Roof age is 10 years. The carrier's roof coverage table shows that depending on roof type and age, coverage can be RCV, ACV, or excluded. The property details state Roof Type is Composition Shingle, but the carrier's table does not specify coverage for this roof type at 10 years old.",
+      "Swimming pool is in-ground and fenced. The carrier states 'There is no liability coverage for elevated pool structures (such as diving boards or slides). A swimming pool exclusion applies: To all pools that are unfenced/unenclosed and/or not built to code.' The property details state the pool is fenced, but do not specify if it is built to code."
+    ],
+    "citations": [
+      "Sage_-_Vave_HO3: 'The property must be in the state of Texas.'",
+      "Sage_-_Vave_HO3: 'ISO Protection Classes 1 through 10 are eligible.'",
+      "Sage_-_Vave_HO3: 'A swimming pool exclusion applies: To all pools that are unfenced/unenclosed and/or not built to code.'"
+    ],
+    "missing_info": [
+      "Roof coverage details for Composition Shingle at 10 years old (carrier's table does not specify)",
+      "Whether swimming pool is built to code"
+    ],
+    "notes": "The carrier's roof coverage table does not provide specific details for Composition Shingle roofs at 10 years old. A $300,000 sublimit applies for swimming pool liability coverage.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "Sage_-_Wilshire_HO3",
+    "reasons": [
+      "The carrier states 'Property must be located in: South Texas (meaning a county located entirely south of 31 degrees North) except Nueces county, or One of the following counties in East Texas: Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, and Polk.' The property details do not specify the county or location within Texas.",
+      "PPC is 9. The carrier's Fire Protection Class table shows that for FPC 9 or greater with driving distance to fire station greater than 5 miles, the risk is ineligible. However, for FPC 9 with driving distance to fire station 5 miles or less and hydrant greater than 1,000 feet / no hydrant, the risk is eligible only if specific criteria are met. The property details do not specify driving distance to fire station or hydrant distance.",
+      "Roof age is 10 years. The carrier requires a roofer's statement for roofs over 15 years old for 3-tab asphalt shingles or other non-permanent materials (except Architectural shingles), or over 25 years old for Architectural shingles. At 10 years, the roof does not require a roofer's statement.",
+      "Swimming pool is in-ground and fenced. The carrier states 'Properties with swimming pools are eligible as all swimming pools are excluded via Swimming Pool Liability Exclusion Endorsement HC0821305. For an additional premium, the exclusion will be removed for any eligible pool that has been properly installed and maintained.' To have the exclusion removed, the pool must meet specific requirements including a fence with a minimum height of 4 feet and a combination or padlocked gate or self-locking or self-latching mechanism. The property details state the pool is fenced, but do not specify the fence height or gate mechanism."
+    ],
+    "citations": [
+      "Sage_-_Wilshire_HO3: 'Property must be located in: South Texas (meaning a county located entirely south of 31 degrees North) except Nueces county, or One of the following counties in East Texas: Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, and Polk.'",
+      "Sage_-_Wilshire_HO3: 'FPC is 9 or greater, and Driving distance to fire station is greater than 5 miles, and Regardless of the presence or distance to fire hydrant. Risk is ineligible.'",
+      "Sage_-_Wilshire_HO3: 'Unfenced or unwalled in ground pools, or fenced/walled without a combination or padlocked gate or self-locking or self-latching mechanism. The fence, wall or natural barrier must completely surround the pool and provide a reasonably comprehensive barrier to entry. Fence or wall must be a permanent installation with a minimum height of 4 feet.'"
+    ],
+    "missing_info": [
+      "County or location within Texas (to determine if property is in eligible area)",
+      "Driving distance to fire station (to determine if PPC 9 property is eligible)",
+      "Hydrant distance (to determine which PPC 9 eligibility criteria apply)",
+      "Swimming pool fence height (if optional pool liability coverage is desired, carrier requires minimum 4 feet)",
+      "Swimming pool gate mechanism (if optional pool liability coverage is desired, carrier requires combination/padlock or self-locking/self-latching)"
+    ],
+    "notes": "Eligibility depends on location within Texas and fire protection details for PPC 9 properties. A Swimming Pool Liability Exclusion is automatically applied, with optional coverage available if the pool meets requirements.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "Swyfft_-_Benchmark_(Admitted)_HO3",
+    "reasons": [
+      "Roof age is 10 years. The carrier states 'Max roof age is 30 years. Other age restrictions depend on roof type and property location.' At 10 years, the roof is well under the 30-year maximum.",
+      "Swimming pool is in-ground and fenced. The carrier requires 'Pools - Must have pool cage or 4' permanent fence completely around pool or property with self-latching gate.' The property details state the pool is fenced, but do not specify the fence height or gate mechanism.",
+      "The carrier's excerpts do not mention any PPC-based restrictions.",
+      "The carrier states 'Inground pools without protective fencing' are ineligible. The property has a fenced pool, so this exclusion does not apply."
+    ],
+    "citations": [
+      "Swyfft_-_Benchmark_(Admitted)_HO3: 'Max roof age is 30 years. Other age restrictions depend on roof type and property location.'",
+      "Swyfft_-_Benchmark_(Admitted)_HO3: 'Pools - Must have pool cage or 4' permanent fence completely around pool or property with self-latching gate.'",
+      "Swyfft_-_Benchmark_(Admitted)_HO3: 'Inground pools without protective fencing'"
+    ],
+    "missing_info": [
+      "Swimming pool fence height (carrier requires 4 feet)",
+      "Swimming pool gate mechanism (carrier requires self-latching gate)"
+    ],
+    "notes": "The Roofing Materials Payment Schedule (RMPS) is optional for all policies.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "Swyfft_-_Benchmark_(Surplus)_HO3",
+    "reasons": [
+      "Roof age is 10 years. The carrier states 'Max age is 30 years. Restrictions depend on roof type and property location.' At 10 years, the roof is well under the 30-year maximum.",
+      "Swimming pool is in-ground and fenced. The carrier requires 'Pools - Must have pool cage or 4' permanent fence completely around pool or property with self-latching gate.' The property details state the pool is fenced, but do not specify the fence height or gate mechanism.",
+      "The carrier's excerpts do not mention any PPC-based restrictions.",
+      "The carrier states 'Inground pools without protective fencing' are ineligible. The property has a fenced pool, so this exclusion does not apply."
+    ],
+    "citations": [
+      "Swyfft_-_Benchmark_(Surplus)_HO3: 'Max age is 30 years. Restrictions depend on roof type and property location.'",
+      "Swyfft_-_Benchmark_(Surplus)_HO3: 'Pools - Must have pool cage or 4' permanent fence completely around pool or property with self-latching gate.'",
+      "Swyfft_-_Benchmark_(Surplus)_HO3: 'Inground pools without protective fencing'"
+    ],
+    "missing_info": [
+      "Swimming pool fence height (carrier requires 4 feet)",
+      "Swimming pool gate mechanism (carrier requires self-latching gate)"
+    ],
+    "notes": "The Roofing Materials Payment Schedule (RMPS) is optional for all policies. Diving Boards / Slides / Trampolines are eligible.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "Swyfft_-_Lloyds_(Surplus)_HO3",
+    "reasons": [
+      "Roof age is 10 years. The carrier's roof coverage table shows that for Asphalt Shingles, roofs less than 15 years old receive RCV coverage, roofs 15-25 years old receive ACV coverage, and roofs over 25 years old are excluded. At 10 years, the roof qualifies for RCV coverage.",
+      "Swimming pool is in-ground and fenced. The carrier requires 'Pools - Must have pool cage or 4' permanent fence completely around pool or property with self-latching gate and meet all local codes.' The property details state the pool is fenced, but do not specify the fence height, gate mechanism, or whether it meets local codes.",
+      "The carrier states 'ISO Protection Class 9 or 10' are ineligible. PPC 9 is explicitly listed as ineligible."
+    ],
+    "citations": [
+      "Swyfft_-_Lloyds_(Surplus)_HO3: 'Asphalt Singles <15 years RCV'",
+      "Swyfft_-_Lloyds_(Surplus)_HO3: 'Pools - Must have pool cage or 4' permanent fence completely around pool or property with self-latching gate and meet all local codes.'",
+      "Swyfft_-_Lloyds_(Surplus)_HO3: 'ISO Protection Class 9 or 10.'"
+    ],
+    "missing_info": [],
+    "notes": "PPC 9 is explicitly ineligible for this carrier.",
+    "status": "INELIGIBLE",
+    "flaw_count": 1
+  },
+  {
+    "carrier": "Swyfft_-_Topa_(Surplus)_HO3",
+    "reasons": [
+      "Roof age is 10 years. The carrier states 'Max age is 30 years. Restrictions depend on roof type and property location.' At 10 years, the roof is well under the 30-year maximum.",
+      "Swimming pool is in-ground and fenced. The carrier requires 'Pools - Must have pool cage or 4' permanent fence completely around pool or property with self-latching gate.' The property details state the pool is fenced, but do not specify the fence height or gate mechanism.",
+      "The carrier's excerpts do not mention any PPC-based restrictions.",
+      "The carrier states 'Inground pools without protective fencing' are ineligible. The property has a fenced pool, so this exclusion does not apply."
+    ],
+    "citations": [
+      "Swyfft_-_Topa_(Surplus)_HO3: 'Max age is 30 years. Restrictions depend on roof type and property location.'",
+      "Swyfft_-_Topa_(Surplus)_HO3: 'Pools - Must have pool cage or 4' permanent fence completely around pool or property with self-latching gate.'",
+      "Swyfft_-_Topa_(Surplus)_HO3: 'Inground pools without protective fencing'"
+    ],
+    "missing_info": [
+      "Swimming pool fence height (carrier requires 4 feet)",
+      "Swimming pool gate mechanism (carrier requires self-latching gate)"
+    ],
+    "notes": "The Roofing Materials Payment Schedule (RMPS) is optional for all policies. Diving Boards / Slides / Trampolines are eligible.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "TWICO_HO3",
+    "reasons": [
+      "Home age is 17 years. The carrier states 'Homes built prior to 1970 will require an interior inspection.' This home was built in 2009, which is after 1970, so no interior inspection is required for age.",
+      "Roof age is 10 years. The carrier's roof material table shows that for Composition Shingle roofs, ages 0-10 receive Replacement Cost coverage, ages 11-20 receive ACV coverage. At exactly 10 years old, the roof is at the boundary. The rule states 'Age 0-10' which is inclusive of 10, so the roof qualifies for Replacement Cost coverage.",
+      "Swimming pool is in-ground and fenced. The carrier states 'Homes having swimming pools with diving boards, slides or is unfenced' are ineligible. The property has no diving boards or slides, and the pool is fenced, so this exclusion does not apply.",
+      "The carrier's excerpts do not mention any PPC-based restrictions."
+    ],
+    "citations": [
+      "TWICO_HO3: 'Homes built prior to 1970 will require an interior inspection.'",
+      "TWICO_HO3: 'Roof Material: Composition Shingle - Replacement Cost Age 0-10, ACV* Age 11-20'",
+      "TWICO_HO3: 'Homes having swimming pools with diving boards, slides or is unfenced.'"
+    ],
+    "missing_info": [],
+    "notes": "The roof is exactly 10 years old, which is at the upper boundary of the Replacement Cost age range (0-10 years). Since the range is inclusive of 10, Replacement Cost coverage applies.",
+    "status": "ELIGIBLE",
+    "flaw_count": 0
+  },
+  {
+    "carrier": "Travelers_HO3",
+    "reasons": [
+      "Home age is 17 years. The carrier states 'If the dwelling is more than 25 years old, the Renovations Section of the ACORD Homeowners application must be completed.' At 17 years, this requirement does not apply.",
+      "Roof age is 10 years. The carrier states 'Roofs older than the timeframes specified above are eligible if the following documentation is provided: A signed Roof Condition Questionnaire from a licensed roofer certifying the roof is in good condition and has a remaining life expectancy of at least 5 years; and Photos of all areas of the roof.' The carrier's excerpts do not specify the timeframes for Composition Shingle roofs, so we cannot determine if documentation is required.",
+      "Swimming pool is in-ground and fenced. The carrier states risks with 'swimming pools that are not fenced or secured (e.g. electric retractable safety cover or retractable locking ladder)' are ineligible. The property details state the pool is fenced, so this exclusion does not apply.",
+      "The carrier's excerpts do not mention any PPC-based restrictions for standard underwriting."
+    ],
+    "citations": [
+      "Travelers_HO3: 'If the dwelling is more than 25 years old, the Renovations Section of the ACORD Homeowners application must be completed.'",
+      "Travelers_HO3: 'Roofs older than the timeframes specified above are eligible if the following documentation is provided: A signed Roof Condition Questionnaire from a licensed roofer certifying the roof is in good condition and has a remaining life expectancy of at least 5 years; and Photos of all areas of the roof.'",
+      "Travelers_HO3: 'swimming pools that are not fenced or secured (e.g. electric retractable safety cover or retractable locking ladder)'"
+    ],
+    "missing_info": [
+      "Roof age timeframes for Composition Shingle roofs (to determine if documentation is required)"
+    ],
+    "notes": "The carrier's excerpts do not specify the roof age timeframes for Composition Shingle roofs, so we cannot determine if the 10-year-old roof requires additional documentation.",
+    "status": "INSUFFICIENT_INFORMATION",
+    "flaw_count": 0
+  }
+]
