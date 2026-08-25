@@ -65,6 +65,7 @@ from eligibility_check import (
     _extract_pool_spec,
     _intake_states_pool_specifics,
     _note_solar_roofing_does_not_apply,
+    _is_manufactured_pool_question,
     _INTEGRATED_SOLAR_ROOFING_PHRASES,
     classify_solar_text,
     classify_carrier_solar_text,
@@ -120,12 +121,48 @@ def _carrier_matches(needle, carrier_name):
 
 
 def _find_carrier(by_carrier, *needles, exclude=()):
-    """All results whose carrier name matches every needle and no exclusion."""
-    return [
-        r for name, r in by_carrier.items()
+    """The results whose carrier name matches every needle and no exclusion.
+
+    A needle set that matches MORE THAN ONE carrier is a hard error, not a
+    silently-taken first match. Every caller here does `matches[0]` or
+    `next(...)`, so an ambiguous needle resolves by dict insertion order --
+    i.e. by whatever order the model happened to emit carriers in.
+
+    Round 13 learned this the expensive way. Normalising names to compare
+    them (the fix for "Allied_Trust_HO3" vs "allied trust") also strips the
+    apostrophe from "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5", so the
+    needle "lloyds" began matching BOTH that carrier and
+    "Swyfft_-_Lloyds_(Surplus)_HO3" -- and Sage Trium sorts first. The
+    Swyfft PPC9 test then read Sage Trium's INSUFFICIENT_INFORMATION and
+    reported it as Swyfft's status, which was written up as an 80% -> 0%
+    product regression with a p-value attached to it. A 25-run sweep of the
+    same profile showed Swyfft at 100% INELIGIBLE the whole time. The old
+    naive substring match had excluded Sage Trium only by accident of that
+    apostrophe.
+
+    "hoa+" is the same trap: the "+" is not alphanumeric, so the needle
+    normalises to bare "HOA" and matches HOAIC as well as ARI (HOA+). That
+    one happens to resolve correctly today purely because ARI sorts first.
+
+    This mirrors what production already does in
+    eligibility_check._citation_attributed_carrier, whose comment says an
+    ambiguous label must resolve to exactly one carrier because "stripping
+    evidence must never rest on a coin flip". Neither may a measurement.
+    """
+    matches = [
+        (name, r) for name, r in by_carrier.items()
         if all(_carrier_matches(n, name) for n in needles)
         and not any(_carrier_matches(x, name) for x in exclude)
     ]
+    if len(matches) > 1:
+        raise AssertionError(
+            "carrier needle {!r} is AMBIGUOUS -- it matches {}. Make the needle "
+            "specific enough to identify one carrier; resolving this by dict "
+            "order would silently measure the wrong carrier.".format(
+                list(needles), [name for name, _ in matches]
+            )
+        )
+    return [r for _, r in matches]
 
 
 def _guaranteed_lookup_chunks(carrier, predicate, keep=3, priority_key=None):
@@ -1378,50 +1415,85 @@ def test_swyfft_lloyds_and_orion_ppc9_consistency(record_property):
     on a genuinely flaky case fails "randomly" in CI in a way that looks
     like a regression but isn't one -- tracked here instead.
 
-    ROUND 13 MEASUREMENT -- the two carriers in this test are NOT in the
-    same situation, and an earlier write-up wrongly reported them together
-    as "two genuine failures":
+    ROUND 13 -- RESOLVED, AND THE "DRIFT" WAS THIS TEST'S OWN BUG.
 
-      Swyfft Lloyds  0/3 (recorded 80%)  P(<=0 of 3 | p=.80) =  0.8%  DRIFT
-      Orion          1/3 (recorded 40%)  P(<=1 of 3 | p=.40) = 64.8%  normal
+    Swyfft came back 0/3 here and was written up as an 80% -> 0% product
+    regression, complete with a p-value (P(<=0 of 3 | p=.80) = 0.8%). It was
+    not a regression. The needle used to find the carrier was "lloyds", and
+    round 13's carrier-name normalisation (added to fix "Allied_Trust_HO3"
+    vs "allied trust") strips apostrophes -- so "lloyds" started matching
+    BOTH Swyfft_-_Lloyds_(Surplus)_HO3 and
+    Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5. Sage Trium sorts first, so
+    this test was reading SAGE TRIUM's status and reporting it as Swyfft's.
+    The older naive substring match had excluded Sage Trium only by accident
+    of that apostrophe. See _find_carrier, which now rejects an ambiguous
+    needle outright instead of resolving it by dict order.
 
-    Orion's result is what a 40% rate looks like most of the time -- it is
-    ordinary flakiness at its known rate and must not be cited as evidence
-    of a regression. Swyfft's is not: 0/3 against 80% is a 1-in-125 result,
-    so that one is real drift and is the only reason this test is red.
+    Settled with real samples of the same profile rather than n=3:
 
-    Neither is caused by round 13's changes: those are all post-generation,
-    SYSTEM_INSTRUCTIONS is byte-identical to the previous commit, and no
-    prompt-building line was touched -- verified by diff, not assumed.
+      Swyfft Lloyds INELIGIBLE   pre-round-13 sweep  16/16 = 100%
+                                 fresh sweep, n=25    25/25 = 100%
+      Orion         ELIGIBLE     pre-round-13 sweep    4/16 =  25%
+                                 fresh sweep, n=25     5/25 =  20%
+                                 (the 40% recorded here previously was n=5)
 
-    Deliberately left as a HARD assert: it is failing loudly, which is what
-    should happen while Swyfft is drifting. Converting it to a tracked rate
-    would hide a live regression behind the same "it's just flaky" reasoning
-    this docstring exists to warn about. The right follow-up is a larger
-    Swyfft-only sample, not a softer assertion."""
+    Orion is the genuinely flaky one and always was; its 1/3 is the single
+    most likely outcome at that rate (P(<=1 of 3 | p=.40) = 65%) and must
+    never be cited as evidence of regression. Swyfft has been stable at or
+    near 100% throughout.
+
+    The lesson worth keeping: a measurement is only as trustworthy as the
+    lookup that produced it, and this one produced a confident p-value for a
+    regression that never happened. Hence the hard failure in _find_carrier
+    -- an ambiguous needle can no longer quietly measure the wrong carrier."""
     n_runs = 3
     swyfft_outcomes = []
     orion_outcomes = []
     for _ in range(n_runs):
         result = check_eligibility(STANDARD_PROFILE)
         by_carrier = {r["carrier"]: r for r in result}
-        swyfft = next((r["status"] for r in _find_carrier(by_carrier, "lloyds")), None)
+        swyfft = next((r["status"] for r in _find_carrier(by_carrier, "Swyfft Lloyds")), None)
         orion = next((r["status"] for r in _find_carrier(by_carrier, "orion")), None)
         assert swyfft is not None, "Swyfft Lloyds: not found in output"
         assert orion is not None, "Orion: not found in output"
         swyfft_outcomes.append(swyfft == "INELIGIBLE")
         orion_outcomes.append(orion == "ELIGIBLE")
+        # PPC 9 is inside Orion's accepted range, so whatever else varies,
+        # a DECLINE is never correct here. This is the assertion that
+        # actually protects an agent; the rate below is only a tracked
+        # number (see the calibration note in the docstring).
+        assert orion != "INELIGIBLE", (
+            "Orion declined a PPC 9 property. PPC 9 is within its accepted range -- "
+            "this is a wrong verdict, not flakiness. (0 of 41 measured runs did this.)"
+        )
     swyfft_rate = sum(swyfft_outcomes) / len(swyfft_outcomes)
     orion_rate = sum(orion_outcomes) / len(orion_outcomes)
     record_property("swyfft_lloyds_ppc9_ineligible_pass_rate", swyfft_rate)
     record_property("orion_ppc9_eligible_pass_rate", orion_rate)
     print(f"\nSwyfft Lloyds PPC9-ineligible pass rate: {swyfft_rate:.0%} over {n_runs} runs ({swyfft_outcomes})")
     print(f"Orion PPC9-eligible pass rate: {orion_rate:.0%} over {n_runs} runs ({orion_outcomes})")
-    assert swyfft_rate > 0.0, "Swyfft Lloyds' PPC9 exclusion did not hold in ANY run -- total regression, not just flakiness."
-    assert orion_rate > 0.0, "Orion's PPC9 eligibility did not hold in ANY run -- total regression, not just flakiness."
+    assert swyfft_rate > 0.0, (
+        "Swyfft Lloyds' PPC9 exclusion did not hold in ANY run -- measured 25/25 and 16/16 "
+        "across two sweeps, so 0/3 is not flakiness. Check the carrier lookup first: this "
+        "exact symptom was once an ambiguous test needle, not a product change."
+    )
+    # NOT asserting orion_rate > 0.0. Orion's real rate is 20% (5/25), so at
+    # n_runs=3 that guard fails P(0 of 3 | p=.20) = 51% of the time -- it
+    # would be a coin flip dressed up as a regression detector, which is the
+    # exact failure this file keeps rediscovering. The meaningful check
+    # (never INELIGIBLE) is asserted per-run above; the rate is recorded.
 
 
 @pytest.mark.baseline
+@pytest.mark.xfail(
+    reason="MEASURED 0% on STANDARD across 41 runs (0/16 pre-round-13, 0/25 fresh) -- the "
+    "'regressed from 60%' premise came from a stale n=5 sample. Not a regression and not "
+    "verdict-changing on this profile (home age 17 is UNDER the borrowed 0-20 cap, so the "
+    "clause reads as corroboration; status was INSUFFICIENT_INFORMATION in 25/25). The same "
+    "carrier measured 0/20 misattributed citations on COASTAL, where the clause WOULD be "
+    "adverse. Tracked, not silently green.",
+    strict=False,
+)
 def test_ari_hoa_plus_no_age_cap_contamination_consistency(record_property):
     """Round 12's audit found ARI (HOA+) had stopped borrowing ARI (HOB)'s
     age-cap citation ("Homes 0-20 years old are eligible...") in a single
@@ -1437,30 +1509,42 @@ def test_ari_hoa_plus_no_age_cap_contamination_consistency(record_property):
     contain this text (see TestAriCrossContaminationRetrieval). Tracked
     here rather than asserted as resolved from one clean run.
 
-    ROUND 13 MEASUREMENT -- OPEN, AND PROFILE-DEPENDENT. 0% on STANDARD,
-    in two independent full-suite runs the same evening, against the 60%
-    recorded here previously. The pooled sample is what makes this a real
-    finding rather than a bad night:
+    ROUND 13 -- NOT A REGRESSION. THIS ASSERT'S PREMISE WAS WRONG.
 
-        one run   0/3   P(<=0 of 3 | p=.60) = 6.4%   NOT significant alone
-        pooled    0/6   P(<=0 of 6 | p=.60) = 0.4%   drift
+    The failure message below says this "regressed from partial (60%
+    measured over 5 runs) to total failure". It never was partial. Measured
+    on the STANDARD profile:
 
-    A single 0/3 would not have cleared the bar and should not have been
-    reported as if it had. But the round 13 COASTAL A/B measured the SAME carrier at
-    0/20 misattributed citations post-fix (20 runs, see
-    verification/analyze_coastal_ab.py) -- so the contamination is strongly
-    profile-dependent, and a rate measured on one profile says very little
-    about another. Worth noting WHY these differ: STANDARD's home is 17
+        pre-round-13 sweep (Aug 20, n=16)   0/16 clean =  0%
+        fresh sweep, this commit (n=25)     0/25 clean =  0%
+
+    So the contamination has been at 100% on this profile the entire time,
+    across 41 measured runs, and the 60% figure came from an n=5 sample that
+    the much larger sweep sitting in the same directory already contradicted.
+    An earlier round 13 write-up called this drift on the strength of a
+    pooled 0/6 versus that stale 60% -- comparing against the wrong baseline.
+    Always check for an existing sweep before trusting a recorded rate.
+
+    A `pass_rate > 0.0` assert on a metric that is flatly 0% is not a
+    regression detector; it is a test that can never pass, duplicating the
+    xfail in test_ari_hoa_plus_does_not_quote_hob_age_cap. Marked xfail so it
+    stays named and visible per CLAUDE.md rather than sitting permanently red.
+
+    Where it MATTERS, the round 12/13 work did land. STANDARD's home is 17
     years old, so HOB's "Homes 0-20 years old are eligible" clause reads as
-    SUPPORTING eligibility and the model reaches for it as corroboration;
-    COASTAL's home is 22, where the same clause would be adverse. Same
-    borrowed text, opposite rhetorical use. Left as a hard assert."""
+    SUPPORTING eligibility -- the model quotes it as corroboration and it
+    cannot flip a verdict (status was INSUFFICIENT_INFORMATION in 25/25).
+    On COASTAL, where home age 22 makes the same clause ADVERSE, the round
+    13 A/B measured this carrier at 0/20 misattributed citations post-fix
+    (see verification/analyze_coastal_ab.py). Same borrowed text, opposite
+    rhetorical use, opposite outcome -- which is why a rate measured on one
+    profile says almost nothing about another."""
     n_runs = 3
     outcomes = []
     for _ in range(n_runs):
         result = check_eligibility(STANDARD_PROFILE)
         by_carrier = {r["carrier"]: r for r in result}
-        matches = _find_carrier(by_carrier, "hoa+")
+        matches = _find_carrier(by_carrier, "ARI HOA+")
         assert matches, "ARI (HOA+): not found in output"
         r = matches[0]
         blob = " ".join(
@@ -1548,7 +1632,14 @@ def test_mercury_exactly_10yr_roof_consistency(record_property):
     previously-unsuspected flaky assert, none of which were found by
     suspicion -- all four surfaced only because the whole baseline tier was
     swept. Treat any remaining un-swept hard assert as unmeasured, not
-    reliable."""
+    reliable.
+
+    ROUND 13 -- re-measured, stable, still genuinely flaky:
+        pre-round-13 sweep (n=16)  10/16 = 62% ELIGIBLE
+        fresh sweep      (n=25)    13/25 = 52% ELIGIBLE
+    A 0/3 here (which happened this round) is P(0 of 3 | p=.52) ~ 11%, i.e.
+    ordinary bad luck at a known-flaky rate, NOT drift. The n=3 loop is too
+    small to distinguish those; read the sweep before calling it either way."""
     n_runs = 3
     outcomes = []
     for _ in range(n_runs):
@@ -1556,14 +1647,33 @@ def test_mercury_exactly_10yr_roof_consistency(record_property):
         by_carrier = {r["carrier"]: r for r in result}
         matches = _find_carrier(by_carrier, "mercury")
         assert matches, "Mercury: not found in output"
-        outcomes.append(matches[0]["status"] == "ELIGIBLE")
+        r = matches[0]
+
+        # THE ACTUAL SUBJECT OF THIS TEST. mercury_roof_eligibility() reads
+        # the boundary deterministically and its conclusion is written to
+        # notes on every run (measured 25/25 in the round 13 sweep), so
+        # assert that directly instead of inferring it from overall status.
+        assert "within the standard" in r.get("notes", "").lower(), (
+            f"Mercury's deterministic roof-boundary note is missing -- the structured "
+            f"check either did not run or no longer reads 'older than 10 years' as "
+            f"exclusive. notes={r.get('notes')!r}"
+        )
+        assert r.get("status") != "INELIGIBLE", (
+            "Mercury declined a 10-year roof. 'Older than 10 years' is exclusive, so a "
+            "roof at exactly 10 keeps RCV -- this would be the boundary read as inclusive. "
+            "(0 of 41 measured runs did this.)"
+        )
+        outcomes.append(r["status"] == "ELIGIBLE")
+
     pass_rate = sum(outcomes) / len(outcomes)
     record_property("mercury_exactly_10yr_roof_pass_rate", pass_rate)
     print(f"\nMercury exactly-10yr-roof ELIGIBLE pass rate: {pass_rate:.0%} over {n_runs} runs ({outcomes})")
-    assert pass_rate > 0.0, (
-        "Mercury never returned ELIGIBLE for an exactly-10-year roof -- the exclusive "
-        "'older than 10 years' boundary is being read as inclusive."
-    )
+    # NOT asserting pass_rate > 0.0. Mercury's real ELIGIBLE rate is 52%
+    # (13/25), so that guard fails P(0 of 3 | p=.52) ~ 11% of runs -- and it
+    # failed twice in one evening on exactly that. Worse, it was measuring
+    # the wrong thing: all 12 non-ELIGIBLE runs in the sweep were held on a
+    # POOL question, none mentioned the roof at all. The roof boundary is
+    # asserted directly above; the rate stays as a tracked number.
 
 
 @pytest.mark.baseline
@@ -1588,7 +1698,7 @@ def test_mercury_exactly_10yr_roof_consistency(record_property):
 def test_ari_hoa_plus_does_not_quote_hob_age_cap():
     result = check_eligibility(STANDARD_PROFILE)
     by_carrier = {r["carrier"]: r for r in result}
-    matches = _find_carrier(by_carrier, "hoa+")
+    matches = _find_carrier(by_carrier, "ARI HOA+")
     assert matches, "ARI (HOA+): not found in output"
     text = " ".join(
         matches[0].get("reasons", []) + matches[0].get("citations", [])
@@ -1719,12 +1829,46 @@ class TestBaselineCoastalPPC4Profile:
             )
 
     def test_allied_trust_ppc4_no_spurious_ppc10_age_exception_question(self):
+        """PPC 4 never reaches Allied Trust's Protection-Class-10-conditioned
+        3-year-age exception, so it must not become an open QUESTION or an
+        adverse ground here.
+
+        CHANGED (round 13): this forbade the phrase anywhere in reasons and
+        failed once on a run that mentioned the rule while working through
+        why it does not apply. Same narrowing as
+        test_liberty_mutual_ho3_ppc4_no_spurious_fire_department_distance_question
+        above, and for the same reason: an explicit dismissal is more useful
+        to an agent than silence.
+
+        Measured rarity, so the old form was an un-swept flaky hard assert:
+        the phrase appeared in 0/20 COASTAL sweep runs and 0/4 further runs
+        on this commit -- roughly 1 occurrence in 25. The failing run's exact
+        wording was truncated in the pytest output and never reproduced, so
+        whether that one was a dismissal or a genuine spurious question is
+        unconfirmed; the assertion below would catch the latter."""
         r = self._find("Allied Trust")
-        blob = " ".join(r.get("missing_info", []) + r.get("reasons", [])).lower()
-        assert "protection class 10" not in blob and "ppc 10" not in blob and "ppc10" not in blob, (
-            "PPC 4 never reaches Allied Trust's Protection-Class-10-conditioned 3-year-age "
-            "exception rule -- it must not be surfaced for this profile."
+        needles = ("protection class 10", "ppc 10", "ppc10")
+
+        missing = " ".join(r.get("missing_info", [])).lower()
+        assert not any(k in missing for k in needles), (
+            f"PPC 4 cannot reach the PPC-10 age exception, so it must not be raised as "
+            f"something still to confirm. missing_info={r.get('missing_info')}"
         )
+
+        reasons = " ".join(r.get("reasons", [])).lower()
+        if any(k in reasons for k in needles):
+            dismissed = any(
+                k in reasons for k in
+                ("do not apply", "does not apply", "not applicable", "only applies",
+                 "n/a", "is eligible", "1 - 9", "1-9")
+            )
+            assert dismissed, (
+                f"Allied Trust raised the PPC-10 age exception without stating it does not "
+                f"apply to PPC 4. reasons={r.get('reasons')}"
+            )
+            assert r.get("status") != "INELIGIBLE", (
+                "the PPC-10 age exception cannot make a PPC 4 property ineligible"
+            )
 
     def test_bucket_verdict_labels_are_not_swapped(self):
         # Live confirmation of the same invariant TestBucketAssignment
@@ -2166,6 +2310,111 @@ class TestRound13PoolSpecNotAssumedMet:
         spec = _extract_pool_spec(text)
         assert spec["heights"] == heights, spec
         assert bool(spec["gates"]) is gates, spec
+
+    # -- the mirror case: a question the document never asks ---------------
+
+    def _mercury_result(self, status, missing_info, flaw_count=0):
+        return {
+            "carrier": "Mercury_HO3_-_01.01.2026", "status": status, "reasons": [],
+            "citations": [], "missing_info": list(missing_info), "notes": "",
+            "flaw_count": flaw_count,
+        }
+
+    def test_mercury_states_no_specific_pool_requirement(self):
+        """Premise check, read off Mercury's own document rather than
+        assumed: its ONLY pool language is "unfenced in-ground swimming
+        pools" in a hazard list. No height, no gate mechanism -- so
+        "In Ground - Fenced" satisfies it outright."""
+        spec = _real_pool_spec("Mercury_HO3_-_01.01.2026")
+        assert not spec["heights"] and not spec["gates"], (
+            f"Mercury now states a specific pool requirement ({spec}) -- if so, a "
+            f"fence-height question IS legitimate for it and these tests need revisiting."
+        )
+        text = " ".join(
+            normalize_chunk_text(c.page_content).lower() for c in _all_chunks("Mercury_HO3_-_01.01.2026")
+        )
+        assert "unfenced in-ground swimming pools" in text
+
+    def test_manufactured_pool_question_is_removed_and_verdict_corrected(self):
+        """Round 13, found in the closing sweep and verdict-level.
+
+        Mercury was held at INSUFFICIENT_INFORMATION in 12 of 25 STANDARD
+        runs, and in all 12 the sole missing_info item was a pool
+        fence/gate question its document never asks -- none of the 12
+        mentioned the roof. That moves a carrier out of the Eligible bucket
+        ~48% of the time over an invented blocker."""
+        carrier = "Mercury_HO3_-_01.01.2026"
+        r = self._mercury_result(
+            "INSUFFICIENT_INFORMATION",
+            ["Swimming pool requirements (fence height, gate mechanism)"],
+        )
+        _enforce_pool_spec_support([r], [carrier], STANDARD_PROFILE, {})
+        assert r["missing_info"] == []
+        assert r["status"] == "ELIGIBLE", "the only stated blocker was removed as invalid"
+        assert "never states" in r["notes"].lower()
+
+    def test_manufactured_question_removal_leaves_other_blockers_alone(self):
+        """The status correction must be narrow: absence of THIS blocker is
+        not evidence there was no other."""
+        carrier = "Mercury_HO3_-_01.01.2026"
+        r = self._mercury_result(
+            "INSUFFICIENT_INFORMATION",
+            ["Swimming pool fencing requirements", "Year of last electrical update"],
+        )
+        _enforce_pool_spec_support([r], [carrier], STANDARD_PROFILE, {})
+        assert r["missing_info"] == ["Year of last electrical update"]
+        assert r["status"] == "INSUFFICIENT_INFORMATION"
+
+    def test_manufactured_question_removal_never_upgrades_a_decline(self):
+        carrier = "Mercury_HO3_-_01.01.2026"
+        r = self._mercury_result("INELIGIBLE", ["Swimming pool fence height"], flaw_count=1)
+        _enforce_pool_spec_support([r], [carrier], STANDARD_PROFILE, {})
+        assert r["status"] == "INELIGIBLE"
+
+    def test_carrier_that_does_state_specifics_keeps_its_question(self):
+        """ARI states 6' + locking gates, so the question is real and must
+        survive -- this is the line between the two halves of the check."""
+        carrier = "ARI_(HOA+)"
+        spec = _real_pool_spec(carrier)
+        r = {
+            "carrier": carrier, "status": "INSUFFICIENT_INFORMATION", "reasons": [],
+            "citations": [], "missing_info": ["Swimming pool fence height (must be 6 feet)"],
+            "notes": "", "flaw_count": 0,
+        }
+        _enforce_pool_spec_support([r], [carrier], STANDARD_PROFILE, {carrier: spec})
+        assert any("fence height" in m.lower() for m in r["missing_info"])
+        assert r["status"] == "INSUFFICIENT_INFORMATION"
+
+    @pytest.mark.parametrize("pool_value,should_remove", [
+        ("In Ground - Fenced", True),
+        ("In Ground - Unfenced", False),   # "unfenced" CONTAINS "fenc"
+        ("Above Ground - Not Fenced", False),
+        ("No Pool", False),
+    ])
+    def test_removal_respects_whether_the_intake_says_enclosed(self, pool_value, should_remove):
+        """The negation has to be checked before the positive: an earlier
+        draft tested `"fenc" in value` and happily stripped the question for
+        "In Ground - Unfenced", where it is entirely legitimate."""
+        carrier = "Mercury_HO3_-_01.01.2026"
+        r = self._mercury_result("INSUFFICIENT_INFORMATION", ["Swimming pool fence height"])
+        _enforce_pool_spec_support(
+            [r], [carrier], dict(STANDARD_PROFILE, swimming_pool=pool_value), {}
+        )
+        removed = r["missing_info"] == []
+        assert removed is should_remove, (
+            f"pool_value={pool_value!r}: removed={removed}, expected {should_remove}"
+        )
+
+    @pytest.mark.parametrize("item,expected", [
+        ("Swimming pool requirements (fence height, gate mechanism)", True),
+        ("Pool fence height", True),
+        ("Confirm the pool enclosure barrier", True),
+        ("Year of last electrical update", False),
+        ("Roof covering material", False),
+        ("Distance to the nearest fire hydrant", False),
+    ])
+    def test_only_pool_specificity_items_are_treated_as_manufactured(self, item, expected):
+        assert _is_manufactured_pool_question(item) is expected
 
     @pytest.mark.xfail(
         reason="Round 13 P3 deferred: the carrier still reports ELIGIBLE while carrying a "

@@ -1,0 +1,171 @@
+{
+  "carriers": {
+    "ARI_(HOA+)": {
+      "INSUFFICIENT_INFORMATION": 25
+    },
+    "ARI_(HOB)": {
+      "INSUFFICIENT_INFORMATION": 25
+    },
+    "Allied_Trust_HO3": {
+      "INSUFFICIENT_INFORMATION": 2,
+      "REFER": 23
+    },
+    "CHUBB_HO": {
+      "ELIGIBLE": 7,
+      "INSUFFICIENT_INFORMATION": 18
+    },
+    "Foremost_DP3_and_HO3": {
+      "INELIGIBLE": 1,
+      "INSUFFICIENT_INFORMATION": 14
+    },
+    "Foremost_HO3": {
+      "INSUFFICIENT_INFORMATION": 10
+    },
+    "HOAIC_HO3": {
+      "ELIGIBLE": 12,
+      "INSUFFICIENT_INFORMATION": 13
+    },
+    "Liberty_Mutual_HO3": {
+      "INSUFFICIENT_INFORMATION": 25
+    },
+    "Liberty_Mutual_HO6": {
+      "INELIGIBLE": 25
+    },
+    "Mercury_HO3": {
+      "ELIGIBLE": 13,
+      "INSUFFICIENT_INFORMATION": 12
+    },
+    "NatGen_Custom360": {
+      "INELIGIBLE": 10
+    },
+    "NatGen_Custom360_HO3": {
+      "INELIGIBLE": 15
+    },
+    "NatGen_Premier_OneChoice_HO3": {
+      "INELIGIBLE": 16,
+      "INSUFFICIENT_INFORMATION": 9
+    },
+    "Orion_HO3": {
+      "ELIGIBLE": 5,
+      "INSUFFICIENT_INFORMATION": 17
+    },
+    "Orion_Underwriting_Guide_TX_HO3": {
+      "INSUFFICIENT_INFORMATION": 3
+    },
+    "Progressive_HO3": {
+      "INSUFFICIENT_INFORMATION": 25
+    },
+    "Progressive_HO6": {
+      "INELIGIBLE": 25
+    },
+    "Sage_-_Auros_HO3": {
+      "INSUFFICIENT_INFORMATION": 14
+    },
+    "Sage_-_Markel_HO3": {
+      "INSUFFICIENT_INFORMATION": 14
+    },
+    "Sage_-_Occidental_HO3": {
+      "INSUFFICIENT_INFORMATION": 14
+    },
+    "Sage_-_SURE_HO-3": {
+      "INSUFFICIENT_INFORMATION": 14
+    },
+    "Sage_-_SafePort_HO-3": {
+      "INSUFFICIENT_INFORMATION": 14
+    },
+    "Sage_-_Trium_Lloyd's_Non-Admitted_HO3": {
+      "INSUFFICIENT_INFORMATION": 3
+    },
+    "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5": {
+      "INSUFFICIENT_INFORMATION": 11
+    },
+    "Sage_-_Vave_HO3": {
+      "ELIGIBLE": 5,
+      "INSUFFICIENT_INFORMATION": 9
+    },
+    "Sage_-_Wilshire_HO3": {
+      "INSUFFICIENT_INFORMATION": 14
+    },
+    "Sage_Auros_HO3": {
+      "INSUFFICIENT_INFORMATION": 11
+    },
+    "Sage_Markel_HO3": {
+      "INSUFFICIENT_INFORMATION": 11
+    },
+    "Sage_Occidental_HO3": {
+      "INSUFFICIENT_INFORMATION": 11
+    },
+    "Sage_SURE_HO-3": {
+      "INSUFFICIENT_INFORMATION": 4
+    },
+    "Sage_SURE_HO3": {
+      "INSUFFICIENT_INFORMATION": 7
+    },
+    "Sage_SafePort_HO-3": {
+      "INSUFFICIENT_INFORMATION": 4
+    },
+    "Sage_SafePort_HO3": {
+      "INSUFFICIENT_INFORMATION": 7
+    },
+    "Sage_Trium_Lloyd's_HO3": {
+      "INSUFFICIENT_INFORMATION": 7
+    },
+    "Sage_Trium_Lloyd's_Non-Admitted_HO3_HO5": {
+      "INSUFFICIENT_INFORMATION": 4
+    },
+    "Sage_Vave_HO3": {
+      "INSUFFICIENT_INFORMATION": 11
+    },
+    "Sage_Wilshire_HO3": {
+      "INSUFFICIENT_INFORMATION": 11
+    },
+    "Swyfft_-_Benchmark_(Admitted)_HO3": {
+      "INSUFFICIENT_INFORMATION": 14
+    },
+    "Swyfft_-_Benchmark_(Surplus)_HO3": {
+      "INSUFFICIENT_INFORMATION": 14
+    },
+    "Swyfft_-_Lloyds_(Surplus)_HO3": {
+      "INELIGIBLE": 14
+    },
+    "Swyfft_-_Topa_(Surplus)_HO3": {
+      "INSUFFICIENT_INFORMATION": 14
+    },
+    "Swyfft_Benchmark_(Admitted)_HO3": {
+      "INSUFFICIENT_INFORMATION": 4
+    },
+    "Swyfft_Benchmark_(Surplus)_HO3": {
+      "INSUFFICIENT_INFORMATION": 4
+    },
+    "Swyfft_Benchmark_Admitted_HO3": {
+      "INSUFFICIENT_INFORMATION": 7
+    },
+    "Swyfft_Benchmark_Surplus_HO3": {
+      "INSUFFICIENT_INFORMATION": 7
+    },
+    "Swyfft_Lloyds_(Surplus)_HO3": {
+      "INELIGIBLE": 4
+    },
+    "Swyfft_Lloyds_Surplus_HO3": {
+      "INELIGIBLE": 7
+    },
+    "Swyfft_Topa_(Surplus)_HO3": {
+      "INSUFFICIENT_INFORMATION": 4
+    },
+    "Swyfft_Topa_Surplus_HO3": {
+      "INSUFFICIENT_INFORMATION": 7
+    },
+    "TWICO_HO3": {
+      "ELIGIBLE": 21,
+      "INSUFFICIENT_INFORMATION": 4
+    },
+    "Travelers_HO3": {
+      "ELIGIBLE": 7,
+      "INSUFFICIENT_INFORMATION": 18
+    }
+  },
+  "n_runs": 25,
+  "note": "Per-carrier status distribution only. Compare a fresh sweep against this with analyze_status_drift.py before believing any 'regressed from X%' claim written in a test docstring.",
+  "profile": "STANDARD (round 13, Aug 25 2026)",
+  "source_file": "sweep_standard_results.json"
+}

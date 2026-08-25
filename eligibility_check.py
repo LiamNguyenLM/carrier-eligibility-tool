@@ -854,6 +854,99 @@ def _enforce_pool_spec_support(results, relevant_carriers, property_details, poo
             f"cannot be treated as met -- it is unconfirmed, not satisfied.",
         )
 
+    _drop_manufactured_pool_questions(results, relevant_carriers, property_details, pool_specs)
+
+
+# Words that make a missing_info item a POOL-SPECIFICITY question.
+_POOL_SPECIFICITY_WORDS = ("fenc", "gate", "height", "enclos", "barrier", "latch", "lock")
+
+
+def _is_manufactured_pool_question(item):
+    low = item.lower()
+    if not ("pool" in low or "swimming" in low):
+        return False
+    return any(w in low for w in _POOL_SPECIFICITY_WORDS)
+
+
+def _drop_manufactured_pool_questions(results, relevant_carriers, property_details, pool_specs):
+    """The mirror of the check above, and the more consequential half.
+
+    A carrier whose own document states NO specific fence height or gate
+    mechanism cannot be blocked on one. SYSTEM_INSTRUCTIONS already says so
+    outright -- "if this carrier's excerpt only states a GENERAL pool
+    condition ('fenced', 'secured', 'walled') ... do not manufacture a more
+    specific height/mechanism question the document itself never asks" --
+    but a prompt rule is not a guarantee, and this one is measurably not
+    holding.
+
+    Measured on Mercury HO3 over the round 13 STANDARD sweep (n=25): its
+    ONLY pool language is "unfenced in-ground swimming pools" in a list of
+    hazards, which the intake value "In Ground - Fenced" plainly satisfies.
+    Yet 12 of 25 runs came back INSUFFICIENT_INFORMATION, and in all 12 the
+    sole missing_info item was a manufactured pool-fence/gate question --
+    none of the 12 mentioned the roof at all. That is a verdict-level
+    effect: it moves a carrier out of the Eligible bucket in ~48% of runs
+    over a question its own document never asks.
+
+    pool_specs is the deterministic answer to "does this carrier state a
+    specific requirement?", built by scanning the same chunks the model was
+    shown. A carrier absent from it has no such requirement, so the question
+    is removed and the removal recorded.
+
+    The status correction is deliberately narrow, mirroring
+    _strip_misattributed_citations: only INSUFFICIENT_INFORMATION, only when
+    EVERY removed item was a manufactured pool question, and only when
+    nothing else remains in missing_info -- i.e. the hold rested entirely on
+    a question that should never have been asked. Anything else is left
+    alone, because absence of this one blocker is not evidence there was no
+    other.
+    """
+    pool_value = property_details.get("swimming_pool", "No Pool")
+    if pool_value == "No Pool":
+        return
+    # Only when the intake actually says the pool IS enclosed. "In Ground -
+    # Unfenced" makes such a question entirely legitimate -- and note the
+    # negation has to be checked FIRST, because "unfenced" contains "fenc".
+    low_value = pool_value.lower()
+    if any(neg in low_value for neg in ("unfenc", "un-fenc", "not fenc", "no fenc", "unenclos")):
+        return
+    if "fenc" not in low_value and "enclos" not in low_value:
+        return
+
+    for r in results:
+        canon = _resolve_structured_carrier(r.get("carrier", ""), relevant_carriers)
+        if canon is None:
+            continue
+        spec = pool_specs.get(canon)
+        if spec and (spec["heights"] or spec["gates"]):
+            continue  # this carrier DOES state specifics -- the question is real
+
+        mi = r.get("missing_info", [])
+        if not mi:
+            continue
+        dropped = [m for m in mi if _is_manufactured_pool_question(m)]
+        if not dropped:
+            continue
+        kept = [m for m in mi if not _is_manufactured_pool_question(m)]
+        r["missing_info"] = kept
+
+        _append_note(
+            r,
+            "[Pool spec check] Removed {n} pool-specificity question(s) -- this carrier's "
+            "own document states no fence height or gate mechanism, and the intake value "
+            "\"{v}\" already satisfies the general condition it does state. Removed: {items}"
+            .format(n=len(dropped), v=pool_value, items="; ".join(d[:120] for d in dropped)),
+        )
+
+        if r.get("status") == "INSUFFICIENT_INFORMATION" and not kept:
+            r["status"] = "ELIGIBLE"
+            r["flaw_count"] = 0
+            _append_note(
+                r,
+                "Status corrected to ELIGIBLE: the only fact this carrier was held on was a "
+                "pool requirement its own document never states.",
+            )
+
 
 # ---------------------------------------------------------------------------
 # Solar: integrated roofing vs. mounted panels (round 13, P4).

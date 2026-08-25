@@ -24,3 +24,7 @@ verification/*_results.json
 
 # Raw model response dumped on a JSON parse failure (runtime diagnostic)
 last_json_parse_failure.txt
+
+# Raw sweep run data (large scratch state). Condensed, committable
+# per-carrier baselines live in verification/baselines/ instead.
+verification/sweep_*.json

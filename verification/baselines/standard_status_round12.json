@@ -1,0 +1,157 @@
+{
+  "carriers": {
+    "ARI_(HOA+)": {
+      "INSUFFICIENT_INFORMATION": 16
+    },
+    "ARI_(HOB)": {
+      "INSUFFICIENT_INFORMATION": 16
+    },
+    "Allied_Trust_HO3": {
+      "INSUFFICIENT_INFORMATION": 5,
+      "REFER": 11
+    },
+    "CHUBB_HO": {
+      "ELIGIBLE": 3,
+      "INSUFFICIENT_INFORMATION": 13
+    },
+    "Foremost_DP3_and_HO3": {
+      "INSUFFICIENT_INFORMATION": 6
+    },
+    "Foremost_HO3": {
+      "INSUFFICIENT_INFORMATION": 10
+    },
+    "HOAIC_HO3": {
+      "ELIGIBLE": 3,
+      "INELIGIBLE": 1,
+      "INSUFFICIENT_INFORMATION": 12
+    },
+    "Liberty_Mutual_HO3": {
+      "INSUFFICIENT_INFORMATION": 16
+    },
+    "Liberty_Mutual_HO6": {
+      "INELIGIBLE": 16
+    },
+    "Mercury_HO3": {
+      "ELIGIBLE": 10,
+      "INSUFFICIENT_INFORMATION": 6
+    },
+    "NatGen_Custom360": {
+      "INELIGIBLE": 9
+    },
+    "NatGen_Custom360_HO3": {
+      "INELIGIBLE": 3,
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "NatGen_Premier_OneChoice_HO3": {
+      "INELIGIBLE": 16
+    },
+    "Orion_HO3": {
+      "ELIGIBLE": 4,
+      "INSUFFICIENT_INFORMATION": 12
+    },
+    "Progressive_HO3": {
+      "INSUFFICIENT_INFORMATION": 16
+    },
+    "Progressive_HO6": {
+      "INELIGIBLE": 16
+    },
+    "Sage_-_Auros_HO3": {
+      "INSUFFICIENT_INFORMATION": 9
+    },
+    "Sage_-_Markel_HO3": {
+      "INSUFFICIENT_INFORMATION": 9
+    },
+    "Sage_-_Occidental_HO3": {
+      "INSUFFICIENT_INFORMATION": 9
+    },
+    "Sage_-_SURE_HO-3": {
+      "INSUFFICIENT_INFORMATION": 9
+    },
+    "Sage_-_SafePort_HO-3": {
+      "INSUFFICIENT_INFORMATION": 9
+    },
+    "Sage_-_Trium_Lloyd's_Non-Admitted_HO3": {
+      "INSUFFICIENT_INFORMATION": 5
+    },
+    "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5": {
+      "INSUFFICIENT_INFORMATION": 4
+    },
+    "Sage_-_Vave_HO3": {
+      "ELIGIBLE": 2,
+      "INSUFFICIENT_INFORMATION": 7
+    },
+    "Sage_-_Wilshire_HO3": {
+      "INSUFFICIENT_INFORMATION": 9
+    },
+    "Sage_Auros_HO3": {
+      "INSUFFICIENT_INFORMATION": 7
+    },
+    "Sage_Markel_HO3": {
+      "INSUFFICIENT_INFORMATION": 7
+    },
+    "Sage_Occidental_HO3": {
+      "INSUFFICIENT_INFORMATION": 7
+    },
+    "Sage_SURE_HO-3": {
+      "INSUFFICIENT_INFORMATION": 1
+    },
+    "Sage_SURE_HO3": {
+      "INSUFFICIENT_INFORMATION": 6
+    },
+    "Sage_SafePort_HO-3": {
+      "INSUFFICIENT_INFORMATION": 1
+    },
+    "Sage_SafePort_HO3": {
+      "INSUFFICIENT_INFORMATION": 6
+    },
+    "Sage_Trium_Lloyd's_HO3": {
+      "INSUFFICIENT_INFORMATION": 6
+    },
+    "Sage_Trium_Lloyd's_HO3_HO5": {
+      "INSUFFICIENT_INFORMATION": 1
+    },
+    "Sage_Vave_HO3": {
+      "ELIGIBLE": 2,
+      "INSUFFICIENT_INFORMATION": 5
+    },
+    "Sage_Wilshire_HO3": {
+      "INSUFFICIENT_INFORMATION": 7
+    },
+    "Swyfft_-_Benchmark_(Admitted)_HO3": {
+      "INSUFFICIENT_INFORMATION": 9
+    },
+    "Swyfft_-_Benchmark_(Surplus)_HO3": {
+      "INSUFFICIENT_INFORMATION": 9
+    },
+    "Swyfft_-_Lloyds_(Surplus)_HO3": {
+      "INELIGIBLE": 9
+    },
+    "Swyfft_-_Topa_(Surplus)_HO3": {
+      "INSUFFICIENT_INFORMATION": 9
+    },
+    "Swyfft_Benchmark_Admitted_HO3": {
+      "INSUFFICIENT_INFORMATION": 7
+    },
+    "Swyfft_Benchmark_Surplus_HO3": {
+      "INSUFFICIENT_INFORMATION": 7
+    },
+    "Swyfft_Lloyds_Surplus_HO3": {
+      "INELIGIBLE": 7
+    },
+    "Swyfft_Topa_Surplus_HO3": {
+      "INSUFFICIENT_INFORMATION": 7
+    },
+    "TWICO_HO3": {
+      "ELIGIBLE": 13,
+      "INSUFFICIENT_INFORMATION": 3
+    },
+    "Travelers_HO3": {
+      "ELIGIBLE": 6,
+      "INSUFFICIENT_INFORMATION": 10
+    }
+  },
+  "n_runs": 16,
+  "note": "Per-carrier status distribution only. Compare a fresh sweep against this with analyze_status_drift.py before believing any 'regressed from X%' claim written in a test docstring.",
+  "profile": "STANDARD (pre-round-13, Aug 20 2026)",
+  "source_file": "sweep_standard_results_round12_aug20.json"
+}
