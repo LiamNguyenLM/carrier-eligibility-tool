@@ -74,3 +74,29 @@ def normalize_carrier_name(s):
 def resolve_carrier(query_substring, all_carriers):
     target = normalize_carrier_name(query_substring)
     return sorted(c for c in all_carriers if target in normalize_carrier_name(c))
+
+
+# Round 13's live-app audit profile -- the property from the manual audit
+# run that produced round 13's P2/P3/P4 findings. Deliberately stacks the
+# three features that round's findings turned on, none of which any earlier
+# profile combined: a roof age where TWICO's two composition sub-type bands
+# genuinely DIVERGE (21yr = EXCLUDED under 3-tab, ACV under architectural --
+# see twico_roof_settlement), a pool whose intake value is the bare generic
+# "In Ground - Fenced" with no height/gate detail, and mounted solar panels.
+AUDIT_R13_PROFILE = {
+    "year_built": 2004,
+    "roof_age": 21,
+    "roof_type": "Composition Shingle",
+    "roof_shape": "Gable",
+    "construction_type": "Frame",
+    "plumbing_type": "Copper",
+    "occupancy_type": "Owner Occupied",
+    "ownership_type": "Individual Owner",
+    "coastal_tier": "Tier 3",
+    "swimming_pool": "In Ground - Fenced",
+    "pool_accessories": "None",
+    "has_dogs": "Yes",
+    "aggressive_breed": "No",
+    "solar_panels": "Yes",
+    "ppc": "4",
+}

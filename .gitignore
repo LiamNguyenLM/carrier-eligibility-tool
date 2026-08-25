@@ -21,3 +21,6 @@ __pycache__/
 
 # Ad-hoc experiment run state (resumable scratch state, not source of truth)
 verification/*_results.json
+
+# Raw model response dumped on a JSON parse failure (runtime diagnostic)
+last_json_parse_failure.txt
