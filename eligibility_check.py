@@ -38,7 +38,20 @@ def load_retriever():
 
 
 retriever = load_retriever()
-client = anthropic.Anthropic()
+# CHANGED (round 13): the SDK's default is max_retries=2, which is not
+# enough for the transient DNS/connection drops this machine actually sees.
+# Evidence, all from this round: the first COASTAL A/B lost 19 of 32 run
+# slots to one "APIConnectionError: Connection error." outage, and each of
+# the two multi-hour full-suite runs lost exactly one test to
+# "[Errno 11001] getaddrinfo failed" -- a DNS failure, not a model or API
+# problem. Two retries with the SDK's backoff covers a blip of a few
+# seconds; these outlast that.
+#
+# This is the app-level counterpart to the retry added to
+# verification/experiment_flakiness_sweep.py. It is the SDK's own bounded,
+# exponentially-backed-off retry -- it does NOT swallow errors, and a
+# genuine failure still raises after the budget is spent.
+client = anthropic.Anthropic(max_retries=6)
 
 
 # CHANGED: split out into a module-level constant so the exact same bytes
