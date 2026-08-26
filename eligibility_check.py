@@ -29,6 +29,8 @@ from structured_rules import (
     swyfft_max_roof_age_30,
     twico_roof_settlement,
     twico_roof_subtype_is_ambiguous,
+    sage_roofer_statement_required,
+    centauri_dp3_flat_roof,
 )
 
 
@@ -111,18 +113,22 @@ When a carrier's rule requires a SPECIFIC attribute (an exact fence height, a pa
 
 SWIMMING POOL RULES SPECIFICALLY: a pool fence height or gate-mechanism requirement (e.g. "4-foot fence," "self-latching gate," "combination lock or padlock") is a DIFFERENT rule from one carrier's document to the next -- some carriers state a specific number and mechanism, some only say "fenced" or "secured" in general terms, and some don't mention pools at all. Before adding ANY pool-related item to missing_info, or citing a specific height or gate-mechanism type, check THIS carrier's own retrieved excerpt for it specifically:
   - If this carrier's excerpt does not mention swimming pools at all, do not add a pool-related missing_info item for it -- there is nothing to be missing.
-  - If this carrier's excerpt only states a GENERAL pool condition ("fenced," "secured," "walled") with no specific height or gate-mechanism menu, the customer's given Swimming Pool value ("In Ground - Fenced") already satisfies it -- do not manufacture a more specific height/mechanism question the document itself never asks.
+  - If this carrier's excerpt only states a GENERAL pool condition ("fenced," "secured," "walled") with no specific height or gate-mechanism menu, and the customer's given Swimming Pool value already describes an enclosed pool (e.g. a value containing "Fenced"), that value already satisfies the condition -- do not manufacture a more specific height/mechanism question the document itself never asks.
   - If this carrier's excerpt lists specific ineligible pool features (e.g. diving board, slide, unfenced) rather than a fence-height/gate requirement, check those specific features against Pool Accessories and Swimming Pool as given, and resolve the rule accordingly -- do not substitute a different carrier's fence-height/gate-mechanism question for it.
   - Only cite a specific fence height or gate-mechanism type if that EXACT figure or mechanism is present in THIS carrier's own excerpt. Do not reuse a specific pool number or mechanism you saw for a different carrier earlier in this same response -- each carrier's pool rule (or absence of one) is independent.
 
 BASE ELIGIBILITY vs. OPTIONAL ENDORSEMENT/COVERAGE: some requirements you'll see (a fence height, a specific material, a distance figure) are conditions of an OPTIONAL endorsement or coverage add-on, not of base policy eligibility -- look for language like "this endorsement," "to qualify for this coverage," or "optional." A condition scoped to an optional endorsement does NOT make the carrier ineligible or create a missing_info blocker if that specific coverage isn't otherwise at issue -- note it in notes as a coverage consideration if relevant, but do not let it drive status or missing_info the way a base eligibility requirement would.
+
+PROPERTY DETAILS IS THE ONLY SOURCE OF FACTS ABOUT THIS CUSTOMER. Every characteristic of the property -- whether it has solar panels, a pool, dogs, its roof type, its construction, its PPC -- comes from the PROPERTY DETAILS block in this message and from nowhere else. Do not carry a property fact in from a carrier's document, from an example used in these instructions, or from what a typical property might have. In particular, a field whose value is "No"/"None"/"No Pool" is a POSITIVE STATEMENT THAT THE FEATURE IS ABSENT -- it is not a gap to be filled and not an unknown. Before writing any sentence that asserts something about this property, check that PROPERTY DETAILS actually says it. Asserting a feature the intake says the property does not have is a hard error, and an adverse verdict resting on such a feature is the worst kind: it tells an agent a real applicant does not qualify for a carrier they do qualify for.
 
 ROOFING MATERIAL TERMINOLOGY: "Composition Shingle," "Composite Shingle," "Architectural Shingle," "3-tab shingle," and "asphalt shingle" all refer to the SAME underlying family of asphalt-based shingle roofing, and carriers use these terms inconsistently -- one carrier's document may use only one of these phrases, or bundle several together (e.g. "Composite or Architectural Shingle"), to mean the same roofing category the customer's own Roof Type value falls under. If a carrier's document states a rule using ANY of these terms and never uses the customer's EXACT given Roof Type wording, apply that rule to the customer's roof anyway -- do not treat the rule as inapplicable, and do not invent an undefined separate category or lifespan figure "for" the customer's exact wording. Only treat two of these terms as genuinely different categories with different rules if the SAME document explicitly gives them different numeric thresholds.
 
 SOLAR TERMINOLOGY -- INTEGRATED SOLAR ROOFING vs. MOUNTED SOLAR PANELS: these are two different things and carriers exclude only one of them far more often than both. Treat them as separate categories:
   - INTEGRATED SOLAR ROOFING is a roof COVERING made of solar material -- it IS the roof. Signal phrases: "solar roof system," "solar shingles," "solar panel tiles," "solar roof," "Tesla Solar Roof," "BIPV." These appear in lists of roof COVERING MATERIALS alongside things like slate, tin, corrugated metal, wood shakes, rolled tar paper, or built-up tar and gravel. A rule excluding these applies ONLY to a home whose actual roof covering is solar material.
   - MOUNTED SOLAR PANELS are conventional photovoltaic panels attached ON TOP of an ordinary roof (composition/composite/architectural shingle, tile, metal, etc.). The roof covering underneath is unchanged and ordinary.
-The customer's "Solar Panels: Yes" in PROPERTY DETAILS means MOUNTED PANELS on the roof covering given as their Roof Type -- it does NOT mean the roof itself is made of solar material. So when a carrier's exclusion list names integrated solar roofing (including when the phrase contains the words "solar panel," as in "solar panel tiles"), that exclusion does NOT apply to this customer, and must not make the carrier INELIGIBLE or generate a missing_info item. Apply a solar rule against this customer only when the carrier's own text addresses panels mounted on or attached to a roof (e.g. rules about panel installation, attachment, wind/hail damage to panels, or who insures them). If a carrier's text plainly covers both, say which part applies and which does not.
+READ THE CUSTOMER'S ACTUAL "Solar Panels" VALUE BEFORE APPLYING ANY OF THIS. The two cases are:
+  - Solar Panels: No -- THIS PROPERTY HAS NO SOLAR OF ANY KIND. Every rule in this section is then irrelevant: no solar exclusion can apply, no solar rule can make a carrier INELIGIBLE, nothing solar-related belongs in missing_info, and you must never write that panels are present, "assumed," or "may be" present. The correct amount to say about solar is nothing at all.
+  - Solar Panels: Yes -- the property has MOUNTED PANELS on the roof covering given as its Roof Type; it does NOT mean the roof itself is made of solar material. When a carrier's exclusion list names integrated solar roofing (including when the phrase contains the words "solar panel," as in "solar panel tiles"), that exclusion does NOT apply to such a property, and must not make the carrier INELIGIBLE or generate a missing_info item. Apply a solar rule against it only when the carrier's own text addresses panels mounted on or attached to a roof (e.g. rules about panel installation, attachment, wind/hail damage to panels, or who insures them). If a carrier's text plainly covers both, say which part applies and which does not.
   - A row or line merely stating that solar coverage is AVAILABLE (e.g. "Solar Panel Coverage: Available on endorsement," "optional," "may be added") is a COVERAGE OPTION, not an eligibility restriction and not an open question. It needs no clarification: do not add a solar item to missing_info for it and do not let it hold the carrier at INSUFFICIENT_INFORMATION. Mention it in notes as an available coverage if useful, nothing more.
 
 DO NOT ASSUME AN UNSPECIFIED SUB-CATEGORY: when a carrier's rule keys off a sub-category the customer's given value doesn't specify (e.g. a table with different age brackets for "3-tab" vs. "architectural" composition shingle, when Roof Type is just "Composition Shingle"), do NOT pick one sub-category and state its bracket as the answer -- not even with a hedge like "assuming standard composition." Doing so produces a confidently wrong result. Instead, state each sub-category's outcome explicitly ("if 3-tab: X; if architectural: Y") and put the sub-category itself in missing_info. Never assert one specific bracket, tier, or outcome in reasons or notes while simultaneously listing the fact that determines it as missing -- that is a self-contradiction.
@@ -349,6 +355,46 @@ def _mentions_roof_life_expectancy(content):
     )
 
 
+# Roof SHAPE restrictions, keyed to the shapes the intake can actually emit
+# (see app.py's Roof Shape selectbox). Only shapes carriers actually restrict
+# need a guarantee -- Gable and Hip are the unremarkable defaults and appear
+# in almost no ineligibility list.
+_RESTRICTED_ROOF_SHAPES = {
+    "flat": ("flat",),
+    "gambrel": ("gambrel",),
+    "mansard": ("mansard",),
+}
+
+
+def _mentions_roof_shape_rule(content, shape_keywords):
+    """A rule about the customer's ROOF SHAPE, as opposed to its material or
+    its age.
+
+    Round 14: roof shape was the one major intake field with no guaranteed
+    lookup at all -- PPC, pool, solar and roof AGE each got one, but shape
+    rode entirely on embedding rank. Measured on the round 14 DP3 profile
+    (Roof Shape: Flat): 14 of 18 carriers state a flat-roof rule and 5 of
+    them never reached the prompt, including Centauri DP3, whose text reads
+    "ROOFS/SIDING - Ineligible: ... g. Flat (unless poured concrete)". The
+    live run consequently said Centauri's "excerpt does not explicitly
+    exclude flat roofs", which is exactly backwards. On this profile the
+    verdict happened to land ineligible for another reason; on a profile
+    with a newer roof it would have returned ELIGIBLE for a carrier that
+    flatly excludes the risk.
+
+    Requires the shape word to sit near roof/roofing/dwelling language so a
+    stray "flat" (e.g. "flat fee", "flat deductible") is not mistaken for a
+    roof-shape rule.
+    """
+    lower = content.lower()
+    for word in shape_keywords:
+        for match in re.finditer(re.escape(word), lower):
+            window = lower[max(0, match.start() - 160): match.end() + 160]
+            if any(k in window for k in ("roof", "dwelling", "structure", "siding")):
+                return True
+    return False
+
+
 def _is_ppc_disambiguation_table(content):
     """A Protection Class table whose own text exists to resolve which of
     TWO ISO-assigned classes applies to one location (e.g. a "6/9" split
@@ -558,6 +604,27 @@ _SWYFFT_MAX30_CARRIERS = {
     "Swyfft_-_Topa_(Surplus)_HO3",
 }
 _TWICO_CARRIERS = {"TWICO_HO3"}
+
+# The nine Sage documents that actually carry the roofer's-statement rule,
+# confirmed by reading each one's extracted text rather than assuming it
+# tracks the FPC family. Markel and Vave are deliberately ABSENT: Markel uses
+# its own Roof Exclusion form and Vave states a hurricane-rating rule
+# instead, so neither has these thresholds. Note this set spans BOTH HO3 and
+# DP3 variants -- round 14's audit surfaced it on DP3, and three of the nine
+# had never been exercised by any test before that.
+_CENTAURI_DP3_CARRIERS = {"Centauri_-_DP3_-_11.16.2022"}
+
+_SAGE_ROOFER_STATEMENT_CARRIERS = {
+    "Sage_-_Auros_HO3",
+    "Sage_-_Occidental_HO3",
+    "Sage_-_Occidental_DP3",
+    "Sage_-_SURE_HO-3_-_01.31.2026",
+    "Sage_-_SURE_DP-3_-_01.31.2026",
+    "Sage_-_SafePort_HO-3_-_01.31.2026",
+    "Sage_-_SafePort_DP-3_-_01.31.2026",
+    "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026",
+    "Sage_-_Wilshire_HO3_-_12.02.2025",
+}
 
 
 def _normalize_carrier_name(s):
@@ -1196,6 +1263,210 @@ def _citation_attributed_carrier(citation, canonical_names):
     return matches.pop()
 
 
+# ---------------------------------------------------------------------------
+# Contradicted-property-fact check (round 14, P1).
+#
+# The worst failure this tool can produce is not misreading a carrier's
+# document -- it is asserting something about the CUSTOMER that their own
+# intake contradicts. Round 14's DP3 audit found 7 of 12 carriers in one run
+# reasoning from "solar panels are present" on a profile whose intake says
+# "Solar Panels: No", and NatGen Premier OneChoice DP3 was marked INELIGIBLE
+# solely on that fabricated fact: "The carrier's flat exclusion of solar
+# panels makes this property ineligible regardless of other factors." A real
+# applicant with no solar panels would have been told they do not qualify for
+# a carrier they do qualify for.
+#
+# The prompt now states the rule (PROPERTY DETAILS IS THE ONLY SOURCE OF
+# FACTS ABOUT THIS CUSTOMER, plus the solar section is conditional on the
+# actual value rather than asserting "Solar Panels: Yes"). This is the
+# deterministic half. CLAUDE.md's whole premise is that a prompt instruction
+# is not a guarantee -- measured pass rates for prompt-only fixes in this
+# project have been as low as 0-25% -- and unlike most rules in here, this
+# one can be checked mechanically: the intake value is known, so a claim
+# that contradicts it is decidable without any judgment call.
+#
+# Deliberately narrow: it only fires on fields whose value POSITIVELY states
+# absence ("No", "No Pool"), never on an unknown, and it only rewrites a
+# verdict when that fabricated feature was the sole stated ground for it.
+# ---------------------------------------------------------------------------
+
+_CONTRADICTION_CHECKS = (
+    {
+        "field": "solar_panels",
+        "absent_values": ("no", "none", "n/a"),
+        "label": "solar panels",
+        # Claims the feature EXISTS on this property.
+        "asserts_present": re.compile(
+            r"(solar panels?\s*(are|is)\s*(present|installed)|"
+            r"(property|home|dwelling|risk)\s+(has|have|with)\s+solar|"
+            r"has\s+solar\s+panels?|with\s+solar\s+panels?|"
+            r"presence of solar|solar panels?\s*:\s*yes|"
+            r"the\s+solar\s+panels?\s+on\b|solar panels? installed)",
+            re.I,
+        ),
+        # Correctly noting ABSENCE must never be treated as a violation.
+        "asserts_absent": re.compile(
+            r"(no solar|without solar|does not have solar|do not have solar|"
+            r"not have solar|absence of solar|solar panels?\s*:\s*no|"
+            r"no\s+solar\s+panels?|lacks solar)",
+            re.I,
+        ),
+        "topic": re.compile(r"solar", re.I),
+    },
+    {
+        "field": "swimming_pool",
+        "absent_values": ("no pool", "none", "no"),
+        "label": "a swimming pool",
+        "asserts_present": re.compile(
+            r"((property|home|dwelling|risk)\s+(has|have|with)\s+(a\s+)?(swimming\s+)?pool|"
+            r"the\s+(swimming\s+)?pool\s+(is|must|has)|"
+            r"(swimming\s+)?pool\s*(is|are)\s*present|presence of a (swimming )?pool)",
+            re.I,
+        ),
+        "asserts_absent": re.compile(
+            r"(no pool|no swimming pool|without a pool|does not have a pool|"
+            r"there is no pool|absence of a pool)", re.I,
+        ),
+        "topic": re.compile(r"\bpool\b", re.I),
+    },
+    {
+        "field": "aggressive_breed",
+        "absent_values": ("no", "none"),
+        "label": "an aggressive-breed dog",
+        "asserts_present": re.compile(
+            r"(aggressive\s+breed\s*(dog)?s?\s*(are|is)\s*present|"
+            r"(property|home|risk)\s+(has|have|with)\s+(an?\s+)?aggressive\s+breed|"
+            r"aggressive breed dogs? on)", re.I,
+        ),
+        "asserts_absent": re.compile(
+            r"(no aggressive|not an aggressive|aggressive breed[^.]{0,20}:\s*no|"
+            r"non-aggressive|without aggressive)", re.I,
+        ),
+        "topic": re.compile(r"aggressive breed", re.I),
+    },
+)
+
+
+# An item that APPLIES a rule against the property, as opposed to merely
+# mentioning the topic.
+_ADVERSE_APPLICATION_RE = re.compile(
+    r"(exclu|ineligib|not eligible|disqualif|declin|prohibit|unacceptable|"
+    r"does not qualify|cannot be written|will not write)", re.I
+)
+# An item that correctly says the rule does NOT bite. These must survive --
+# an explicit dismissal is exactly what round 13's P4 work went out of its
+# way to encourage.
+_INAPPLICABLE_RE = re.compile(
+    r"(does not apply|do not apply|doesn'?t apply|not applicable|no effect|"
+    r"is not triggered|does not affect|not relevant)", re.I
+)
+
+
+def _states_absence(value, absent_values):
+    return str(value).strip().lower() in absent_values
+
+
+def _strip_contradicted_property_claims(results, property_details):
+    """Remove claims that a feature exists when the intake says it does not,
+    and undo any adverse verdict that rested solely on such a claim.
+
+    Returns the number of results corrected (for logging/tests).
+    """
+    corrected = 0
+    for check in _CONTRADICTION_CHECKS:
+        value = property_details.get(check["field"])
+        if value is None or not _states_absence(value, check["absent_values"]):
+            continue  # feature may be present, or unknown -- nothing decidable
+
+        for r in results:
+            adverse_status = r.get("status") in ("INELIGIBLE", "REFER")
+            offending = {"reasons": [], "citations": [], "missing_info": []}
+            removed_adverse_ground = False
+            for field in offending:
+                for item in list(r.get(field, [])):
+                    if check["asserts_absent"].search(item) or _INAPPLICABLE_RE.search(item):
+                        continue  # correctly notes absence / inapplicability
+
+                    # ARM 1: explicitly claims the feature exists.
+                    invalid = bool(check["asserts_present"].search(item))
+
+                    # ARM 2: applies the feature's rule AGAINST the property.
+                    # This is the form that actually changed a verdict in the
+                    # round 14 audit -- "The carrier's flat exclusion of solar
+                    # panels makes this property ineligible regardless of other
+                    # factors" never says panels are present, it just applies
+                    # the exclusion. No rule about a feature the property does
+                    # not have can support an adverse verdict, so this is
+                    # invalid whether or not presence was asserted outright.
+                    if (
+                        adverse_status
+                        and check["topic"].search(item)
+                        and _ADVERSE_APPLICATION_RE.search(item)
+                    ):
+                        invalid = True
+                        removed_adverse_ground = True
+
+                    if invalid:
+                        offending[field].append(item)
+
+            note_text = r.get("notes", "")
+            note_bad = bool(
+                check["asserts_present"].search(note_text)
+                and not check["asserts_absent"].search(note_text)
+            )
+            total = sum(len(v) for v in offending.values()) + (1 if note_bad else 0)
+            if not total:
+                continue
+
+            corrected += 1
+            for field, items in offending.items():
+                if items:
+                    r[field] = [x for x in r.get(field, []) if x not in items]
+            if note_bad:
+                r["notes"] = ""
+
+            removed_preview = "; ".join(
+                x[:110] for items in offending.values() for x in items
+            )[:400]
+            _append_note(
+                r,
+                "[Intake contradiction] Removed {n} statement(s) asserting {label} on a "
+                "property whose intake says \"{field}: {value}\". PROPERTY DETAILS is the "
+                "only source of facts about the customer, and it positively states this "
+                "feature is absent. Removed: {preview}".format(
+                    n=total, label=check["label"], field=check["field"],
+                    value=value, preview=removed_preview or "(notes)",
+                ),
+            )
+
+            # An adverse verdict resting on a feature that does not exist is
+            # not a verdict at all. Corrected only when that fabricated
+            # feature was the SOLE stated ground -- otherwise the other
+            # grounds stand and only the false statement is removed.
+            if adverse_status:
+                # flaw_count is the model's own count of distinct
+                # ineligibility factors. At most one, and we just removed a
+                # ground built on a feature that does not exist, means there
+                # is nothing left holding the adverse verdict up. Same
+                # conservatism as _hold_for_unresolved_topic: more than one
+                # flaw and the others stand on their own.
+                sole_ground = (
+                    (removed_adverse_ground or bool(offending["reasons"]))
+                    and r.get("flaw_count", 0) <= 1
+                )
+                if sole_ground and not r.get("missing_info"):
+                    r["status"] = "ELIGIBLE"
+                    r["flaw_count"] = 0
+                    _append_note(
+                        r,
+                        "Status corrected to ELIGIBLE: the only ground for the adverse "
+                        "determination was {label}, which this property does not have.".format(
+                            label=check["label"]
+                        ),
+                    )
+    return corrected
+
+
 def _strip_misattributed_citations(results, relevant_carriers):
     """Post-generation attribution check: a rule may only support a
     carrier's verdict if it came from THAT carrier's own document.
@@ -1447,6 +1718,77 @@ def _apply_structured_overrides(results, relevant_carriers, property_details):
                     f"is within TWICO's replacement-cost-value band -- no ACV or exclusion applies.",
                 )
 
+        # NOT part of the elif chain above, deliberately: six of these nine
+        # carriers also match _SAGE_FPC_CARRIERS, so an elif would silently
+        # skip the roof rule for exactly the carriers the round 14 audit
+        # flagged. This is the same wiring mistake round 12 made with the
+        # Sage FPC check itself -- a correct conclusion that never reaches
+        # the output because an earlier branch consumed the carrier.
+        if canon in _SAGE_ROOFER_STATEMENT_CARRIERS:
+            s_status, s_reasons = sage_roofer_statement_required(
+                property_details['roof_type'], property_details['roof_age'],
+            )
+            if s_status == "INSUFFICIENT_INFORMATION":
+                # Both sides get stated. Round 14's audit found Occidental,
+                # SURE and SafePort all reasoning correctly that an
+                # ARCHITECTURAL roof at 25 is not "over 25" -- and none of
+                # them mentioning that a 3-tab reading is ten years past ITS
+                # threshold. Picking the favourable sub-type silently is the
+                # same defect TWICO had, in a different carrier's rule.
+                _append_note(r, s_reasons[0])
+                mi = r.setdefault("missing_info", [])
+                if not any("sub-type" in m.lower() or "subtype" in m.lower() for m in mi):
+                    mi.append(
+                        "Roof shingle sub-type (3-tab vs. Architectural) -- it decides whether "
+                        "this carrier requires a roofer's statement at this roof age."
+                    )
+                # A roofer's statement is a DOCUMENTATION condition, not an
+                # eligibility bar, so this must never create a decline. It
+                # only undoes one that was already asserted on this ground.
+                _hold_for_unresolved_topic(
+                    r, "roof",
+                    f"Sage's roofer's-statement requirement at "
+                    f"{property_details['roof_age']} years depends on the shingle sub-type, "
+                    f"which the intake does not collect.",
+                    model_text,
+                )
+            elif s_status == "REQUIRED":
+                _append_note(r, "Roofer's statement required: " + s_reasons[0])
+                mi = r.setdefault("missing_info", [])
+                if not any("roofer" in m.lower() for m in mi):
+                    mi.append(
+                        "Roofer's statement attesting the roof is in good condition and does "
+                        "not require replacement (on the Roof Condition Form or the roofer's "
+                        "own letterhead)."
+                    )
+            else:
+                _append_note(r, "No roofer's statement required: " + s_reasons[0])
+
+        # Also an independent `if`. Centauri's flat-roof clause is flatly
+        # conditional -- ineligible unless poured concrete -- and Roof Type
+        # already settles which side the property falls on, so this is a
+        # lookup, not a judgment call. Round 14 added the roof-shape
+        # retrieval guarantee that puts the clause in front of the model;
+        # measured on 12 runs, surfacing it alone dropped Centauri from
+        # 12/12 INELIGIBLE to 5/12, with 7 runs treating "is it poured
+        # concrete?" as unknown when the intake already answers it.
+        if canon in _CENTAURI_DP3_CARRIERS:
+            s_status, s_reasons = centauri_dp3_flat_roof(
+                property_details.get('roof_shape'), property_details.get('roof_type'),
+            )
+            if s_status == "INELIGIBLE":
+                _force_ineligible(r, s_reasons[0])
+            elif s_status == "INSUFFICIENT_INFORMATION":
+                _append_note(r, s_reasons[0])
+                mi = r.setdefault("missing_info", [])
+                if not any("poured concrete" in m.lower() for m in mi):
+                    mi.append(
+                        "Whether this flat roof is a poured concrete deck -- Centauri "
+                        "excludes flat roofs unless they are."
+                    )
+            elif s_status == "ELIGIBLE":
+                _append_note(r, s_reasons[0])
+
 
 # ---------------------------------------------------------------------------
 # JSON repair: unescaped double quotes inside generated string values.
@@ -1692,6 +2034,33 @@ def check_eligibility(property_details, carrier_subset=None):
                     seen.add(key)
                     chunks.append(chunk)
 
+    # CHANGED (round 14): guaranteed per-carrier ROOF SHAPE lookup. Same
+    # pattern and same rationale as PPC/pool/solar/roof-age above -- see
+    # _mentions_roof_shape_rule's docstring for the Centauri DP3 case where
+    # a flat-roof INELIGIBILITY never reached the prompt and the model
+    # therefore reported the opposite.
+    MAX_ROOF_SHAPE_CHUNKS_PER_CARRIER = 2
+    shape_keywords = _RESTRICTED_ROOF_SHAPES.get(
+        str(property_details.get("roof_shape", "")).strip().lower()
+    )
+    if shape_keywords:
+        for carrier in relevant_carriers:
+            found = guaranteed_carrier_lookup(
+                collection, carrier,
+                predicate=lambda doc: _mentions_roof_shape_rule(doc, shape_keywords),
+                keep=MAX_ROOF_SHAPE_CHUNKS_PER_CARRIER,
+                # prefer chunks that pair the shape with ineligibility language
+                priority_key=lambda c: not any(
+                    k in c.page_content.lower()
+                    for k in ("ineligib", "not eligible", "exclu", "unacceptable", "prohibited")
+                ),
+            )
+            for chunk in found:
+                key = (carrier, chunk.page_content)
+                if key not in seen:
+                    seen.add(key)
+                    chunks.append(chunk)
+
     # CHANGED: guaranteed per-carrier roof life-expectancy lookup, same
     # pattern as PPC/pool/solar above (see _mentions_roof_life_expectancy
     # docstring -- confirmed via a parametrized retrieval test that this
@@ -1907,6 +2276,10 @@ CARRIER DOCUMENTS:
         # downgrade an unsupported adverse verdict, and the structured
         # overrides should then see (and be able to act on) that corrected
         # status rather than the pre-correction one.
+        # Runs before everything else: a claim contradicting the intake is
+        # the most fundamental error there is, and the checks below should
+        # act on a corrected status rather than a fabricated one.
+        _strip_contradicted_property_claims(filtered, property_details)
         _strip_misattributed_citations(filtered, relevant_carriers)
         _apply_structured_overrides(filtered, relevant_carriers, property_details)
         # Runs last: it only ever ADDS a missing_info item and a note, so it

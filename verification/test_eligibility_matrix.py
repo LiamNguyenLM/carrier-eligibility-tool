@@ -31,6 +31,7 @@ Run only baseline:    pytest verification/test_eligibility_matrix.py -v -m basel
 """
 import json
 import os
+import re
 import sys
 
 import pytest
@@ -72,10 +73,16 @@ from eligibility_check import (
     get_carriers_for_occupancy,
     parse_carrier_json,
     repair_unescaped_quotes,
+    _strip_contradicted_property_claims,
+    _mentions_roof_shape_rule,
+    _RESTRICTED_ROOF_SHAPES,
+    _SAGE_ROOFER_STATEMENT_CARRIERS,
+    _SAGE_FPC_CARRIERS,
+    _TWICO_CARRIERS,
 )
 from shared_resources import get_vectorstore
 from profiles import (STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE,
-                      AUDIT_R13_PROFILE, normalize_carrier_name)
+                      AUDIT_R13_PROFILE, AUDIT_R14_DP3_PROFILE, normalize_carrier_name)
 from structured_rules import (
     sage_family_fpc_eligibility,
     mercury_roof_eligibility,
@@ -84,6 +91,9 @@ from structured_rules import (
     swyfft_max_roof_age_30,
     twico_roof_settlement,
     twico_roof_subtype_is_ambiguous,
+    shingle_subtype_is_ambiguous,
+    sage_roofer_statement_required,
+    centauri_dp3_flat_roof,
 )
 
 
@@ -2750,3 +2760,411 @@ class TestRound13JsonQuoteRepair:
         assert any(
             "Roof Surfacing" in r for r in mercury[0].get("reasons", [])
         ), "the repaired citation must keep its text"
+
+
+# ---------------------------------------------------------------------------
+# ROUND 14 -- P1: the tool must never assert a property feature the intake
+# says is absent.
+#
+# Audit: on a DP3 profile whose intake reads "Solar Panels: No", 7 of 12
+# carriers reasoned from solar being present, and NatGen Premier OneChoice
+# DP3 was marked INELIGIBLE solely on it -- "The carrier's flat exclusion of
+# solar panels makes this property ineligible regardless of other factors."
+#
+# Root cause found in SYSTEM_INSTRUCTIONS, which is CACHED and sent
+# identically on every call: it contained the sentence
+#     The customer's "Solar Panels: Yes" in PROPERTY DETAILS means ...
+# stating a customer fact as though it were true of every run, and the whole
+# surrounding section was written on the premise that panels are present
+# ("does NOT apply to this customer"). That is now a two-branch conditional
+# keyed on the actual value, plus a general authoritative-input rule.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.retrieval
+class TestRound14SystemPromptStatesNoCustomerFacts:
+
+    def _system_instructions(self):
+        import eligibility_check
+        return eligibility_check.SYSTEM_INSTRUCTIONS
+
+    def test_prompt_never_asserts_the_customers_solar_value(self):
+        """The exact sentence that caused it. Guarded by substring rather
+        than by intent, because the failure mode is a literal value being
+        stated as fact."""
+        sysinst = self._system_instructions()
+        assert 'The customer\'s "Solar Panels: Yes"' not in sysinst, (
+            "the cached system prompt again asserts the customer's solar value; it must "
+            "describe both branches conditionally instead"
+        )
+
+    def test_prompt_covers_the_solar_no_branch_explicitly(self):
+        sysinst = self._system_instructions()
+        assert "Solar Panels: No" in sysinst, (
+            "the solar section must tell the model what to do when the value is No -- "
+            "previously it only ever described the Yes case"
+        )
+
+    def test_prompt_carries_the_authoritative_input_rule(self):
+        sysinst = self._system_instructions()
+        assert "PROPERTY DETAILS IS THE ONLY SOURCE OF FACTS" in sysinst
+
+    @pytest.mark.parametrize("field_value_phrase", [
+        'Swimming Pool is "In Ground - Fenced"',   # marked e.g., acceptable
+    ])
+    def test_remaining_literal_examples_are_marked_as_examples(self, field_value_phrase):
+        """A literal intake value in the prompt is only safe when it reads as
+        an example. This one is introduced by "e.g."; the solar one was not,
+        which is precisely why it was taken as fact."""
+        sysinst = self._system_instructions()
+        idx = sysinst.find(field_value_phrase)
+        assert idx != -1
+        preceding = sysinst[max(0, idx - 90):idx]
+        assert "e.g." in preceding, (
+            f"{field_value_phrase!r} is stated without an 'e.g.' marker, so it reads as a "
+            f"fact about the current customer"
+        )
+
+
+def _contradiction_result(carrier, status, reasons, flaw_count=0, missing_info=None, notes=""):
+    return {
+        "carrier": carrier, "status": status, "reasons": list(reasons), "citations": [],
+        "missing_info": list(missing_info or []), "notes": notes, "flaw_count": flaw_count,
+    }
+
+
+@pytest.mark.retrieval
+class TestRound14ContradictedPropertyFacts:
+    """Deterministic half of P1. CLAUDE.md's premise is that a prompt rule is
+    not a guarantee; unlike most rules here this one is mechanically
+    decidable, because the intake value is known."""
+
+    def test_the_exact_audit_sentence_undoes_the_verdict(self):
+        r = _contradiction_result(
+            "NatGen_Premier_OneChoice_DP3_-_02.26.2025", "INELIGIBLE",
+            ["The carrier's flat exclusion of solar panels makes this property ineligible "
+             "regardless of other factors."],
+            flaw_count=1,
+        )
+        _strip_contradicted_property_claims([r], AUDIT_R14_DP3_PROFILE)
+        assert r["status"] == "ELIGIBLE", (
+            "an adverse verdict resting on a feature the intake says is absent is not a verdict"
+        )
+        assert r["reasons"] == []
+        assert "intake contradiction" in r["notes"].lower()
+
+    @pytest.mark.parametrize("phrasing", [
+        "Solar panels are present, which this carrier excludes.",
+        "The property has solar panels, making it ineligible under the carrier's exclusion.",
+        "Solar Panels: Yes -- the carrier does not write risks with solar, so it is ineligible.",
+        "The carrier's flat exclusion of solar panels makes this property ineligible.",
+    ])
+    def test_multiple_phrasings_of_the_same_fabrication(self, phrasing):
+        """CLAUDE.md rule 2. The audit reported two distinct shapes ('solar
+        panels are present' and 'Solar Panels: Yes'), and the one that
+        actually moved a verdict asserted nothing at all -- it just applied
+        the exclusion. All must be caught."""
+        r = _contradiction_result("X", "INELIGIBLE", [phrasing], flaw_count=1)
+        _strip_contradicted_property_claims([r], AUDIT_R14_DP3_PROFILE)
+        assert r["status"] == "ELIGIBLE", f"not caught: {phrasing!r}"
+
+    def test_an_independent_ground_keeps_the_verdict(self):
+        r = _contradiction_result(
+            "X", "INELIGIBLE",
+            ["Solar panels are present, which the carrier excludes.",
+             "Roof age 25 exceeds the carrier's 20-year maximum."],
+            flaw_count=2,
+        )
+        _strip_contradicted_property_claims([r], AUDIT_R14_DP3_PROFILE)
+        assert r["status"] == "INELIGIBLE"
+        assert any("Roof age" in x for x in r["reasons"])
+        assert not any("solar" in x.lower() for x in r["reasons"])
+
+    @pytest.mark.parametrize("safe_reason", [
+        "No solar panels are present, so the exclusion does not apply.",
+        "The carrier's solar exclusion does not apply to this property.",
+        "Solar panel coverage is available by endorsement.",
+    ])
+    def test_correct_or_neutral_solar_statements_survive(self, safe_reason):
+        """Round 13 spent effort making carriers explicitly DISMISS
+        inapplicable rules. This check must not delete those."""
+        r = _contradiction_result("X", "ELIGIBLE", [safe_reason])
+        _strip_contradicted_property_claims([r], AUDIT_R14_DP3_PROFILE)
+        assert r["reasons"] == [safe_reason]
+        assert r["status"] == "ELIGIBLE"
+
+    def test_does_not_fire_when_the_feature_is_actually_present(self):
+        r = _contradiction_result(
+            "X", "INELIGIBLE", ["Solar panels are present, which the carrier excludes."],
+            flaw_count=1,
+        )
+        _strip_contradicted_property_claims([r], ALT_PROFILE)  # ALT has solar=Yes
+        assert r["status"] == "INELIGIBLE"
+        assert r["reasons"]
+
+    def test_generalises_to_other_absent_features(self):
+        """Not a solar patch. The same check covers any field whose value
+        positively states absence."""
+        r = _contradiction_result(
+            "X", "INELIGIBLE",
+            ["The property has a swimming pool that is unfenced and therefore ineligible."],
+            flaw_count=1,
+        )
+        _strip_contradicted_property_claims([r], AUDIT_R14_DP3_PROFILE)  # No Pool
+        assert r["status"] == "ELIGIBLE"
+
+    def test_remaining_missing_info_blocks_the_upgrade(self):
+        r = _contradiction_result(
+            "X", "INELIGIBLE", ["Solar panels are present, which the carrier excludes."],
+            flaw_count=1, missing_info=["Year of last roof replacement"],
+        )
+        _strip_contradicted_property_claims([r], AUDIT_R14_DP3_PROFILE)
+        assert r["status"] == "INELIGIBLE", "something is still genuinely unresolved"
+
+
+# ---------------------------------------------------------------------------
+# ROUND 14 -- P2: Sage's own shingle-subtype ambiguity.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.retrieval
+class TestRound14SageRooferStatementSubtype:
+
+    def test_source_text_really_has_two_thresholds(self):
+        """Anchored to the carriers' own words, not to the rule module."""
+        text = " ".join(
+            normalize_chunk_text(c.page_content).lower()
+            for c in _all_chunks("Sage_-_Occidental_DP3")
+        )
+        assert "roofer's statement" in text
+        assert "over 25 years of age" in text and "architectural" in text
+        assert "over 15 years of age" in text and "3-tab" in text
+
+    @pytest.mark.parametrize("roof_type", [
+        "Composition Shingle", "Composite Shingle", "asphalt shingle",
+    ])
+    def test_generic_shingle_at_25_is_ambiguous_across_phrasings(self, roof_type):
+        """CLAUDE.md rule 2 -- the same family named three ways."""
+        status, reasons = sage_roofer_statement_required(roof_type, 25)
+        assert status == "INSUFFICIENT_INFORMATION"
+        assert "15" in reasons[0] and "25" in reasons[0]
+
+    @pytest.mark.parametrize("roof_type,age,expected", [
+        ("Architectural Shingle", 25, "NOT_REQUIRED"),   # 25 is not "over 25"
+        ("Architectural Shingle", 26, "REQUIRED"),
+        ("3-tab shingle", 25, "REQUIRED"),               # 10 years past ITS threshold
+        ("3-tab shingle", 15, "NOT_REQUIRED"),           # 15 is not "over 15"
+        ("Tile", 25, "NOT_REQUIRED"),
+    ])
+    def test_stated_subtypes_resolve_cleanly(self, roof_type, age, expected):
+        assert sage_roofer_statement_required(roof_type, age)[0] == expected
+
+    @pytest.mark.parametrize("age", [10, 30])
+    def test_ages_where_both_readings_agree_are_not_ambiguous(self, age):
+        """The sub-type is still unknown, but it changes nothing -- the same
+        principle as SYSTEM_INSTRUCTIONS' 'do not downgrade when every
+        applicable branch agrees'."""
+        assert sage_roofer_statement_required("Composition Shingle", age)[0] != \
+            "INSUFFICIENT_INFORMATION"
+
+    def test_all_nine_siblings_disclose_both_readings(self):
+        """The audit saw three siblings silently pick the favourable
+        sub-type. All nine carrying the rule must disclose both."""
+        assert len(_SAGE_ROOFER_STATEMENT_CARRIERS) == 9
+        carriers = sorted(_SAGE_ROOFER_STATEMENT_CARRIERS)
+        for carrier in carriers:
+            r = {
+                "carrier": carrier, "status": "ELIGIBLE",
+                "reasons": ["Architectural shingles at 25 are not over 25, so no statement."],
+                "citations": [], "missing_info": [], "notes": "", "flaw_count": 0,
+            }
+            _apply_structured_overrides([r], carriers, AUDIT_R14_DP3_PROFILE)
+            assert "3-tab" in r["notes"], f"{carrier}: 3-tab reading not disclosed"
+            assert "Architectural" in r["notes"], f"{carrier}: architectural reading not disclosed"
+            assert any("sub-type" in m.lower() for m in r["missing_info"]), carrier
+
+    def test_rule_still_applies_to_carriers_that_also_match_the_fpc_branch(self):
+        """Six of the nine are also in _SAGE_FPC_CARRIERS. The roof check is
+        deliberately NOT part of that elif chain -- an elif would skip it for
+        exactly the carriers the audit flagged, which is the same wiring
+        mistake round 12 made with the FPC check itself."""
+        overlap = _SAGE_ROOFER_STATEMENT_CARRIERS & _SAGE_FPC_CARRIERS
+        assert overlap, "premise: these sets overlap"
+        for carrier in sorted(overlap):
+            r = {
+                "carrier": carrier, "status": "ELIGIBLE", "reasons": [], "citations": [],
+                "missing_info": [], "notes": "", "flaw_count": 0,
+            }
+            _apply_structured_overrides([r], sorted(_SAGE_ROOFER_STATEMENT_CARRIERS),
+                                        AUDIT_R14_DP3_PROFILE)
+            assert "3-tab" in r["notes"], (
+                f"{carrier} matched an earlier branch and never reached the roof rule"
+            )
+
+    def test_a_documentation_requirement_never_becomes_a_decline(self):
+        """A roofer's statement is a condition to satisfy, not an exclusion."""
+        carriers = sorted(_SAGE_ROOFER_STATEMENT_CARRIERS)
+        r = {
+            "carrier": carriers[0], "status": "ELIGIBLE", "reasons": [], "citations": [],
+            "missing_info": [], "notes": "", "flaw_count": 0,
+        }
+        _apply_structured_overrides([r], carriers, dict(AUDIT_R14_DP3_PROFILE, roof_age=30))
+        assert sage_roofer_statement_required("Composition Shingle", 30)[0] == "REQUIRED"
+        assert r["status"] != "INELIGIBLE"
+
+
+# ---------------------------------------------------------------------------
+# ROUND 14 -- P3: roof SHAPE had no retrieval guarantee at all.
+# ---------------------------------------------------------------------------
+
+_FLAT_ROOF_RE = re.compile(r"(?i)flat\s+roof|roof.{0,25}\bflat\b|\bflat\b\s*\(unless")
+
+
+@pytest.mark.retrieval
+class TestRound14RoofShapeRetrievalGuarantee:
+
+    def test_centauri_dp3_really_does_exclude_flat_roofs(self):
+        """The audit run said Centauri's DP3 excerpt 'does not explicitly
+        exclude flat roofs'. Its document says the opposite, under a heading
+        that reads ROOFS/SIDING - Ineligible."""
+        text = " ".join(
+            normalize_chunk_text(c.page_content)
+            for c in _all_chunks("Centauri_-_DP3_-_11.16.2022")
+        )
+        assert "Flat (unless poured concrete)" in text
+        assert "Ineligible" in text
+
+    def test_flat_roof_rules_reach_the_prompt_for_every_carrier_that_has_one(self):
+        """Before the guarantee, 5 of 14 never did -- Centauri, CHUBB,
+        NatGen Premier OneChoice DP3, Progressive DP3 and Steadily."""
+        collection = get_vectorstore()._collection
+        shape_keywords = _RESTRICTED_ROOF_SHAPES["flat"]
+        checked = 0
+        for carrier in get_carriers_for_occupancy("Tenant Occupied"):
+            raw = _all_chunks(carrier)
+            has_rule = [c for c in raw if _FLAT_ROOF_RE.search(normalize_chunk_text(c.page_content))]
+            if not has_rule:
+                continue
+            checked += 1
+            kept = guaranteed_carrier_lookup(
+                collection, carrier,
+                predicate=lambda doc: _mentions_roof_shape_rule(doc, shape_keywords),
+                keep=2,
+            )
+            assert kept, (
+                f"{carrier} states a flat-roof rule but the roof-shape guarantee returned "
+                f"nothing for it"
+            )
+        assert checked >= 10, f"expected many carriers with flat-roof rules, saw {checked}"
+
+    @pytest.mark.parametrize("text,expected", [
+        ("ROOFS/SIDING - Ineligible: g. Flat (unless poured concrete)", True),
+        ("Flat roofs are ineligible for coverage.", True),
+        ("Dwellings with flat roof sections require inspection.", True),
+        ("A flat fee of $250 applies to each endorsement.", False),
+        ("Premium is calculated on a flat basis for this program.", False),
+    ])
+    def test_shape_word_must_sit_near_roof_language(self, text, expected):
+        """A bare 'flat' is common in insurance prose ('flat fee', 'flat
+        deductible'); only a roof-adjacent one counts."""
+        assert _mentions_roof_shape_rule(text, ("flat",)) is expected
+
+    def test_unrestricted_shapes_do_not_trigger_the_lookup(self):
+        """Gable and Hip appear in almost no ineligibility list, so they get
+        no guarantee and cost no prompt tokens."""
+        assert "gable" not in _RESTRICTED_ROOF_SHAPES
+        assert "hip" not in _RESTRICTED_ROOF_SHAPES
+        assert set(_RESTRICTED_ROOF_SHAPES) == {"flat", "gambrel", "mansard"}
+
+    def test_centauri_dp3_shingle_brackets_are_NOT_ambiguous(self):
+        """Round 14 P3.2, and the answer is 'no change needed'. Centauri's
+        HO3 document groups "Architectural or Composition Shingle" as one
+        bracket, which would make plain "Composition Shingle" ambiguous. Its
+        DP3 document does NOT: it gives composition and architectural
+        SEPARATE thresholds (16 and 25), so "Composition Shingle" maps to
+        the composition bracket unambiguously and must not get the
+        Sage/TWICO ambiguity treatment.
+
+        Per SYSTEM_INSTRUCTIONS' own terminology rule, two of these terms are
+        genuinely different categories exactly when the SAME document gives
+        them different numeric thresholds -- which this one does."""
+        text = " ".join(
+            normalize_chunk_text(c.page_content).lower()
+            for c in _all_chunks("Centauri_-_DP3_-_11.16.2022")
+        )
+        assert "composition shingles age 16 and greater" in text
+        assert "architectural shingles age 25 and greater" in text
+        # and it is not wired into either ambiguity path
+        assert "Centauri_-_DP3_-_11.16.2022" not in _SAGE_ROOFER_STATEMENT_CARRIERS
+        assert "Centauri_-_DP3_-_11.16.2022" not in _TWICO_CARRIERS
+
+
+@pytest.mark.retrieval
+@pytest.mark.xfail(
+    reason="DEFERRED (round 14, found while investigating P1): get_carriers_for_occupancy "
+    "detects homeowners programs with `\"HO3\" in name`, which does not match the hyphenated "
+    "\"HO-3\", so Sage_-_SURE_HO-3 and Sage_-_SafePort_HO-3 are retrieved for Tenant Occupied "
+    "runs. Measured as NOT verdict-affecting: across 7 DP3 sweep runs neither appeared in the "
+    "output once, so the cost is wasted prompt tokens (two documents' chunks) rather than a "
+    "homeowners program being quoted for a tenant risk. Left unfixed this round because the "
+    "same normalisation question applies to ARI_(HOA+)/ARI_(HOB)/CHUBB_HO, which have no "
+    "product token in their names at all -- that wants one deliberate pass over the whole "
+    "occupancy filter, not a hyphen patch.",
+    strict=False,
+)
+def test_hyphenated_ho3_documents_are_excluded_from_tenant_runs():
+    selected = get_carriers_for_occupancy("Tenant Occupied")
+    leaked = [
+        c for c in selected
+        if re.search(r"HO-?3|HO-?6|HOMEOWNERS", c.upper()) and not re.search(r"DP-?3", c.upper())
+    ]
+    assert not leaked, f"homeowners programs selected for a tenant-occupied run: {leaked}"
+
+
+@pytest.mark.retrieval
+class TestRound14CentauriFlatRoof:
+    """Round 14 P3.1. Surfacing the clause was necessary but not sufficient:
+    measured over 12 DP3 runs, adding the retrieval guarantee alone moved
+    Centauri from 12/12 INELIGIBLE to 5/12, because the model began treating
+    "is it poured concrete?" as an open question. Roof Type already answers
+    it, so the rule is a lookup and belongs in code."""
+
+    CARRIER = "Centauri_-_DP3_-_11.16.2022"
+
+    @pytest.mark.parametrize("roof_type", [
+        "Composition Shingle", "Architectural Shingle", "Metal",
+        "Tile", "Slate", "Wood Shake", "Flat/Built-Up",
+    ])
+    def test_every_intake_roof_type_on_a_flat_roof_is_ineligible(self, roof_type):
+        """None of the intake's Roof Type options is a poured concrete deck
+        -- "Built-Up" is tar and gravel -- so a flat roof is ineligible for
+        all of them."""
+        assert centauri_dp3_flat_roof("Flat", roof_type)[0] == "INELIGIBLE"
+
+    def test_unknown_material_is_not_forced_either_way(self):
+        """"Other" genuinely could be a poured deck; claiming ineligible
+        would be asserting a fact the intake does not supply."""
+        assert centauri_dp3_flat_roof("Flat", "Other")[0] == "INSUFFICIENT_INFORMATION"
+
+    @pytest.mark.parametrize("roof_type", ["Poured Concrete", "Concrete"])
+    def test_the_documented_exception_is_honoured(self, roof_type):
+        assert centauri_dp3_flat_roof("Flat", roof_type)[0] == "ELIGIBLE"
+
+    def test_concrete_tile_is_not_a_poured_deck(self):
+        """A discrete covering that happens to be made of concrete is not
+        the poured deck the exception describes."""
+        assert centauri_dp3_flat_roof("Flat", "Concrete Tile")[0] == "INELIGIBLE"
+
+    @pytest.mark.parametrize("shape", ["Gable", "Hip", "Gambrel", "Mansard"])
+    def test_non_flat_shapes_are_untouched(self, shape):
+        assert centauri_dp3_flat_roof(shape, "Composition Shingle")[0] == "NOT_APPLICABLE"
+
+    def test_override_forces_the_verdict_regardless_of_what_the_model_said(self):
+        for model_status in ("ELIGIBLE", "INSUFFICIENT_INFORMATION", "REFER"):
+            r = {
+                "carrier": self.CARRIER, "status": model_status, "reasons": [],
+                "citations": [], "missing_info": [], "notes": "", "flaw_count": 0,
+            }
+            _apply_structured_overrides([r], [self.CARRIER], AUDIT_R14_DP3_PROFILE)
+            assert r["status"] == "INELIGIBLE", (
+                f"model said {model_status}; the flat-roof exclusion is not optional"
+            )
+            assert any("poured concrete" in x.lower() for x in r["reasons"])

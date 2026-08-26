@@ -201,19 +201,101 @@ _TWICO_ASPHALT_FAMILY_KEYWORDS = ("composition", "composite", "asphalt")
 _TWICO_SUBTYPE_QUALIFIERS = ("architectural", "3-tab", "3 tab")
 
 
-def twico_roof_subtype_is_ambiguous(roof_type):
+def shingle_subtype_is_ambiguous(roof_type):
     """True when roof_type names the asphalt-shingle family without saying
-    WHICH sub-type -- the one case TWICO's table genuinely cannot resolve.
+    WHICH sub-type (3-tab vs architectural).
 
-    Single source of truth, deliberately: eligibility_check.py's structured
-    override needs the exact same test to decide whether to hold a verdict
-    for confirmation, and an independent copy of "is this composition
-    shingle?" in the two files is precisely how the two would drift.
+    Carrier-neutral on purpose. This started as a TWICO-only helper, but the
+    same intake ambiguity drives at least two unrelated carrier rules --
+    TWICO's RCV/ACV/Excluded settlement table and the Sage family's
+    roofer's-statement thresholds -- and round 14's audit found the Sage
+    side silently picking the favourable sub-type. Any future carrier whose
+    rule splits on 3-tab vs architectural should call this rather than
+    growing a third copy of "is this composition shingle?".
     """
     rt = roof_type.strip().lower()
     if any(q in rt for q in _TWICO_SUBTYPE_QUALIFIERS):
         return False
     return any(k in rt for k in _TWICO_ASPHALT_FAMILY_KEYWORDS)
+
+
+def twico_roof_subtype_is_ambiguous(roof_type):
+    """TWICO-named alias kept so existing callers and tests keep working.
+    Delegates -- there is exactly one implementation."""
+    return shingle_subtype_is_ambiguous(roof_type)
+
+
+# The Sage family's roofer's-statement thresholds, verified against each
+# carrier's own extracted text (9 of the 13 Sage documents carry it, in both
+# HO3 and DP3 variants; Markel and Vave do not -- Markel uses its own Roof
+# Exclusion form and Vave states a hurricane-rating rule instead):
+#
+#   "The following non-permanent roofing materials require a roofer's
+#    statement attesting that the roof is in good condition and does not
+#    require replacement:
+#      over 15 years old - for 3 tab asphalt shingles or other
+#                          non-permanent materials (except Architectural)
+#      over 25 years old - for Architectural shingles"
+#
+# Both thresholds are EXCLUSIVE ("over"), so a roof at exactly 25 is over
+# the 3-tab threshold but not over the architectural one.
+SAGE_ROOFER_STATEMENT_3TAB_OVER = 15
+SAGE_ROOFER_STATEMENT_ARCHITECTURAL_OVER = 25
+
+
+def sage_roofer_statement_required(roof_type, roof_age):
+    """Does the Sage family's roofer's-statement requirement bite?
+
+    Returns (status, reasons) where status is "REQUIRED", "NOT_REQUIRED", or
+    "INSUFFICIENT_INFORMATION" -- the last when the roof is an asphalt-family
+    shingle with no sub-type given AND the two thresholds disagree at this
+    age, which is the case the round 14 audit found being silently resolved
+    in the customer's favour.
+
+    Note this is a DOCUMENTATION requirement, not an eligibility bar: a
+    required roofer's statement does not make the carrier ineligible, it
+    adds a condition to satisfy. The caller must not turn it into a decline.
+    """
+    rt = roof_type.strip().lower()
+
+    if "architectural" in rt:
+        required = roof_age > SAGE_ROOFER_STATEMENT_ARCHITECTURAL_OVER
+        return ("REQUIRED" if required else "NOT_REQUIRED"), [
+            f"Architectural shingles require a roofer's statement only when over "
+            f"{SAGE_ROOFER_STATEMENT_ARCHITECTURAL_OVER} years old; this roof is {roof_age}."
+        ]
+
+    if "3-tab" in rt or "3 tab" in rt:
+        required = roof_age > SAGE_ROOFER_STATEMENT_3TAB_OVER
+        return ("REQUIRED" if required else "NOT_REQUIRED"), [
+            f"3-tab asphalt shingles require a roofer's statement when over "
+            f"{SAGE_ROOFER_STATEMENT_3TAB_OVER} years old; this roof is {roof_age}."
+        ]
+
+    if shingle_subtype_is_ambiguous(roof_type):
+        as_3tab = roof_age > SAGE_ROOFER_STATEMENT_3TAB_OVER
+        as_arch = roof_age > SAGE_ROOFER_STATEMENT_ARCHITECTURAL_OVER
+        if as_3tab != as_arch:
+            return "INSUFFICIENT_INFORMATION", [
+                f"Sage sets two different roofer's-statement thresholds -- over "
+                f"{SAGE_ROOFER_STATEMENT_3TAB_OVER} years for 3-tab asphalt shingles or other "
+                f"non-permanent materials, and over {SAGE_ROOFER_STATEMENT_ARCHITECTURAL_OVER} "
+                f"years for Architectural shingles. At {roof_age} years a 3-tab reading "
+                f"{'DOES' if as_3tab else 'does not'} require the statement and an architectural "
+                f"reading {'DOES' if as_arch else 'does not'}, and the roof sub-type was not "
+                f"provided."
+            ]
+        # Both readings agree -- the missing sub-type changes nothing.
+        return ("REQUIRED" if as_3tab else "NOT_REQUIRED"), [
+            f"At {roof_age} years both the 3-tab and Architectural thresholds give the same "
+            f"answer, so the unstated sub-type does not affect this requirement."
+        ]
+
+    return "NOT_REQUIRED", [
+        f"Roof type {roof_type!r} is not one of the non-permanent shingle materials this "
+        f"requirement covers."
+    ]
+
 
 
 def twico_roof_settlement(roof_type, roof_age):
@@ -343,3 +425,57 @@ def swyfft_max_roof_age_30(roof_age):
     if roof_age > 30:
         return "INELIGIBLE", [f"Roof age {roof_age} exceeds the 30-year maximum."]
     return "ELIGIBLE", []
+
+
+def centauri_dp3_flat_roof(roof_shape, roof_type):
+    """Centauri DP3, section C ELIGIBILITY -- "ROOFS/SIDING - Ineligible:
+    ... g. Flat (unless poured concrete)".
+
+    Round 14 added a roof-SHAPE retrieval guarantee so this clause actually
+    reaches the prompt (it previously did not, and a live run consequently
+    reported that Centauri's excerpt "does not explicitly exclude flat roofs"
+    -- the exact opposite of what it says). Surfacing it was necessary but
+    made things worse on its own: Centauri went from 12/12 INELIGIBLE to
+    5/12, with 7 runs dropping to INSUFFICIENT_INFORMATION because the model
+    treated "is it poured concrete?" as an open question.
+
+    It is not open. Roof Type already answers it -- a composition-shingle
+    roof is not poured concrete -- so the exception resolves on facts the
+    intake supplies, and the outcome is decidable. This is the same lesson as
+    the Sage FPC table: for a rule this flatly conditional, code beats asking
+    the model to re-derive it every call.
+
+    Returns (status, reasons) with status "INELIGIBLE", "ELIGIBLE", or
+    "NOT_APPLICABLE" when the roof is not flat.
+    """
+    shape = (roof_shape or "").strip().lower()
+    material = (roof_type or "").strip().lower()
+
+    if shape != "flat":
+        return "NOT_APPLICABLE", []
+
+    # The document's only escape hatch is POURED concrete. Note the intake's
+    # Roof Type list (see app.py) offers no such option at all -- Composition
+    # Shingle, Architectural Shingle, Metal, Tile, Slate, Wood Shake,
+    # Flat/Built-Up, Other -- so in practice the exception is reachable only
+    # if someone types it in. "Built-Up" is tar-and-gravel, not concrete.
+    if any(m in material for m in ("tile", "shingle", "shake", "slate", "metal", "built-up", "built up")):
+        pass  # a discrete covering, definitively not a poured deck
+    elif "poured" in material or material == "concrete":
+        return "ELIGIBLE", [
+            f"Flat roofs are ineligible unless poured concrete; roof type {roof_type!r} "
+            f"satisfies that exception."
+        ]
+    elif material in ("", "other", "unknown"):
+        return "INSUFFICIENT_INFORMATION", [
+            f"Centauri excludes flat roofs unless they are poured concrete. Roof Type is "
+            f"{roof_type!r}, which does not say whether this flat roof is a poured concrete "
+            f"deck -- that one fact decides eligibility."
+        ]
+
+    return "INELIGIBLE", [
+        f"Centauri lists flat roofs as ineligible unless they are poured concrete "
+        f"(\"ROOFS/SIDING - Ineligible: ... Flat (unless poured concrete)\"). This roof is "
+        f"flat and its material is {roof_type!r}, which is not poured concrete, so the "
+        f"exception does not apply."
+    ]

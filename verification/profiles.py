@@ -100,3 +100,28 @@ AUDIT_R13_PROFILE = {
     "solar_panels": "Yes",
     "ppc": "4",
 }
+
+
+# Round 14's audit profile -- the FIRST DP3 / Tenant Occupied profile this
+# suite has ever exercised. Every prior profile was Owner Occupied, so the
+# entire DP3 carrier set (Centauri, Steadily, HOAIC DP Guide, the DP3
+# variants of Foremost/NatGen/Progressive/Sage) had never been through a
+# single test. Note ppc "8A": a split/alpha protection class, which none of
+# the numeric-PPC code paths had seen either.
+AUDIT_R14_DP3_PROFILE = {
+    "year_built": 1982,
+    "roof_age": 25,
+    "roof_type": "Composition Shingle",
+    "roof_shape": "Flat",
+    "construction_type": "Masonry Veneer",
+    "plumbing_type": "Copper",
+    "occupancy_type": "Tenant Occupied",
+    "ownership_type": "Individual Owner",
+    "coastal_tier": "Tier 2",
+    "swimming_pool": "No Pool",
+    "pool_accessories": "None",
+    "has_dogs": "No",
+    "aggressive_breed": "No",
+    "solar_panels": "No",
+    "ppc": "8A",
+}

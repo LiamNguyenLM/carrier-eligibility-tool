@@ -43,12 +43,14 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from eligibility_check import check_eligibility
-from profiles import STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE
+from profiles import (STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE,
+                      AUDIT_R14_DP3_PROFILE)
 
 PROFILES = {
     "STANDARD": STANDARD_PROFILE,
     "ALT": ALT_PROFILE,
     "COASTAL": COASTAL_PPC4_PROFILE,
+    "DP3": AUDIT_R14_DP3_PROFILE,
 }
 
 # Retry policy for a single attempt. Transient network faults in the
