@@ -1419,6 +1419,21 @@ def _strip_contradicted_property_claims(results, property_details):
                 continue
 
             corrected += 1
+            # Loud server-side, deliberately. OQ-1 (the round 14 DP3 solar
+            # contamination) cannot be closed by sampling: the combined-mode
+            # rate is bounded at <=8.9% over 0/32 executions, so confirming
+            # it would take ~150-300 runs and a null result still would not
+            # prove absence. What CAN close it is catching the next real
+            # occurrence -- and this guard fires exactly when one happens.
+            # Printing here puts it in the Railway logs, so a recurrence is
+            # detectable without waiting for a human to notice a note in the
+            # UI. If this line ever appears in production logs, capture the
+            # full response: that is the evidence OQ-1 is waiting for.
+            print(
+                "INTAKE CONTRADICTION [OQ-1]: carrier=%r field=%r intake_value=%r "
+                "removed=%d status_was=%r"
+                % (r.get("carrier"), check["field"], value, total, r.get("status"))
+            )
             for field, items in offending.items():
                 if items:
                     r[field] = [x for x in r.get(field, []) if x not in items]

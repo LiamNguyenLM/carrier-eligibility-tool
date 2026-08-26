@@ -1502,12 +1502,16 @@ def test_swyfft_lloyds_and_orion_ppc9_consistency(record_property):
     "clause reads as corroboration; status was INSUFFICIENT_INFORMATION in 25/25). The same "
     "carrier measured 0/20 misattributed citations on COASTAL, where the clause WOULD be "
     "adverse. Tracked, not silently green. "
-    "ROUND 14 UPDATE -- this XPASSED for the first time since it was measured at 0/41. "
-    "Under the old rate that is a <=20% event, so it is suggestive, not settled. A candidate "
-    "cause exists: round 14 added an authoritative-input rule to SYSTEM_INSTRUCTIONS that "
-    "explicitly forbids carrying a property fact in from a carrier's document, which is "
-    "exactly the shape of this bleed. Worth a real sweep before anyone converts this to a "
-    "hard assert -- n=3 is not a measurement.",
+    "ROUND 15 MEASUREMENT (n=20, the sweep the round 14 XPASS asked for): 5/20 = 25% CLEAN, "
+    "up from 0/41 pooled before round 14. That improvement is real -- P(>=5 clean in 20 | the "
+    "old rate's 95% upper bound of 7%) = 1.1e-02 -- and the likely cause is round 14's "
+    "authoritative-input rule, which forbids carrying a property fact in from another "
+    "carrier's document. But 25% clean is NOT clean, so this STAYS xfail: the round 14 3/3 "
+    "XPASS was luck sitting on top of a genuine partial improvement, which is exactly the "
+    "trap this file keeps rediscovering. The contamination also CHANGED SHAPE: it was 25/25 "
+    "citation-level before, and is now 5 citation / 10 prose / 5 clean -- so the citation "
+    "form dropped sharply while a prose form took its place. Do not convert to a hard assert "
+    "until a sweep shows it actually clean.",
     strict=False,
 )
 def test_ari_hoa_plus_no_age_cap_contamination_consistency(record_property):

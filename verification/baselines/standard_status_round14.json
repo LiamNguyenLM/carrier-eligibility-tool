@@ -1,0 +1,228 @@
+{
+  "carriers": {
+    "ARI_(HOA+)": {
+      "INSUFFICIENT_INFORMATION": 20
+    },
+    "ARI_(HOB)": {
+      "INSUFFICIENT_INFORMATION": 20
+    },
+    "Allied_Trust_HO3": {
+      "INSUFFICIENT_INFORMATION": 14,
+      "REFER": 6
+    },
+    "CHUBB_HO": {
+      "ELIGIBLE": 1,
+      "INSUFFICIENT_INFORMATION": 17
+    },
+    "CHUBB_HO_-_05.22.2026": {
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "Foremost_DP3_and_HO3": {
+      "INSUFFICIENT_INFORMATION": 15
+    },
+    "Foremost_DP3_and_HO3_-_07.01.2026": {
+      "ELIGIBLE": 1,
+      "INSUFFICIENT_INFORMATION": 1
+    },
+    "Foremost_HO3": {
+      "INSUFFICIENT_INFORMATION": 3
+    },
+    "HOAIC_-_TX-HOMEOWNERS-0326_HO3": {
+      "ELIGIBLE": 1,
+      "INSUFFICIENT_INFORMATION": 1
+    },
+    "HOAIC_HO3": {
+      "ELIGIBLE": 1,
+      "INSUFFICIENT_INFORMATION": 17
+    },
+    "Liberty_Mutual_HO3": {
+      "INSUFFICIENT_INFORMATION": 18
+    },
+    "Liberty_Mutual_HO3_-_02.21.2026": {
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "Liberty_Mutual_HO6": {
+      "INELIGIBLE": 14,
+      "INSUFFICIENT_INFORMATION": 4
+    },
+    "Liberty_Mutual_HO6_-_02.21.2026": {
+      "INELIGIBLE": 2
+    },
+    "Mercury_HO3": {
+      "ELIGIBLE": 16,
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "Mercury_HO3_-_01.01.2026": {
+      "ELIGIBLE": 1,
+      "INSUFFICIENT_INFORMATION": 1
+    },
+    "NatGen_Custom360": {
+      "INELIGIBLE": 4
+    },
+    "NatGen_Custom360_HO3": {
+      "INELIGIBLE": 12,
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "NatGen_Custom360_HO3_-_06.25.2026": {
+      "INELIGIBLE": 2
+    },
+    "NatGen_Premier_OneChoice_HO3": {
+      "INELIGIBLE": 16,
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "NatGen_Premier_OneChoice_HO3_-_02.26.2025": {
+      "INELIGIBLE": 2
+    },
+    "Orion_HO3": {
+      "ELIGIBLE": 2,
+      "INSUFFICIENT_INFORMATION": 15
+    },
+    "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3": {
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "Orion_Underwriting_Guide_TX_HO3": {
+      "INSUFFICIENT_INFORMATION": 1
+    },
+    "Progressive_HO3": {
+      "INSUFFICIENT_INFORMATION": 18
+    },
+    "Progressive_HO3_-_04.01.2026": {
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "Progressive_HO6": {
+      "INELIGIBLE": 14,
+      "INSUFFICIENT_INFORMATION": 4
+    },
+    "Progressive_HO6_-_10.01.2025": {
+      "INELIGIBLE": 2
+    },
+    "Sage_-_Auros_HO3": {
+      "INSUFFICIENT_INFORMATION": 17
+    },
+    "Sage_-_Markel_HO3": {
+      "INSUFFICIENT_INFORMATION": 17
+    },
+    "Sage_-_Occidental_HO3": {
+      "INSUFFICIENT_INFORMATION": 17
+    },
+    "Sage_-_SURE_HO-3": {
+      "INSUFFICIENT_INFORMATION": 15
+    },
+    "Sage_-_SURE_HO-3_-_01.31.2026": {
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "Sage_-_SafePort_HO-3": {
+      "INSUFFICIENT_INFORMATION": 15
+    },
+    "Sage_-_SafePort_HO-3_-_01.31.2026": {
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "Sage_-_Trium_Lloyd's_Non-Admitted_HO3": {
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5": {
+      "INSUFFICIENT_INFORMATION": 13
+    },
+    "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026": {
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "Sage_-_Vave_HO3": {
+      "ELIGIBLE": 2,
+      "INSUFFICIENT_INFORMATION": 13
+    },
+    "Sage_-_Vave_HO3_-_07.01.2026": {
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "Sage_-_Wilshire_HO3": {
+      "INSUFFICIENT_INFORMATION": 15
+    },
+    "Sage_-_Wilshire_HO3_-_12.02.2025": {
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "Sage_Auros_HO3": {
+      "INSUFFICIENT_INFORMATION": 3
+    },
+    "Sage_Markel_HO3": {
+      "INSUFFICIENT_INFORMATION": 3
+    },
+    "Sage_Occidental_HO3": {
+      "INSUFFICIENT_INFORMATION": 3
+    },
+    "Sage_SURE_HO-3": {
+      "INSUFFICIENT_INFORMATION": 1
+    },
+    "Sage_SURE_HO3": {
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "Sage_SafePort_HO-3": {
+      "INSUFFICIENT_INFORMATION": 1
+    },
+    "Sage_SafePort_HO3": {
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "Sage_Trium_Lloyd's_HO3": {
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "Sage_Trium_Lloyd's_Non-Admitted_HO3_HO5": {
+      "INSUFFICIENT_INFORMATION": 1
+    },
+    "Sage_Vave_HO3": {
+      "INSUFFICIENT_INFORMATION": 3
+    },
+    "Sage_Wilshire_HO3": {
+      "INSUFFICIENT_INFORMATION": 3
+    },
+    "Swyfft_-_Benchmark_(Admitted)_HO3": {
+      "INSUFFICIENT_INFORMATION": 17
+    },
+    "Swyfft_-_Benchmark_(Surplus)_HO3": {
+      "INSUFFICIENT_INFORMATION": 17
+    },
+    "Swyfft_-_Lloyds_(Surplus)_HO3": {
+      "INELIGIBLE": 17
+    },
+    "Swyfft_-_Topa_(Surplus)_HO3": {
+      "INSUFFICIENT_INFORMATION": 17
+    },
+    "Swyfft_Benchmark_(Admitted)_HO3": {
+      "INSUFFICIENT_INFORMATION": 1
+    },
+    "Swyfft_Benchmark_(Surplus)_HO3": {
+      "INSUFFICIENT_INFORMATION": 1
+    },
+    "Swyfft_Benchmark_Admitted_HO3": {
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "Swyfft_Benchmark_Surplus_HO3": {
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "Swyfft_Lloyds_(Surplus)_HO3": {
+      "INELIGIBLE": 1
+    },
+    "Swyfft_Lloyds_Surplus_HO3": {
+      "INELIGIBLE": 2
+    },
+    "Swyfft_Topa_(Surplus)_HO3": {
+      "INSUFFICIENT_INFORMATION": 1
+    },
+    "Swyfft_Topa_Surplus_HO3": {
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "TWICO_HO3": {
+      "ELIGIBLE": 18,
+      "INSUFFICIENT_INFORMATION": 2
+    },
+    "Travelers_HO3": {
+      "ELIGIBLE": 3,
+      "INSUFFICIENT_INFORMATION": 15
+    },
+    "Travelers_HO3_-_06.12.2026": {
+      "ELIGIBLE": 1,
+      "INSUFFICIENT_INFORMATION": 1
+    }
+  },
+  "n_runs": 20,
+  "note": "Per-carrier status distribution only. Compare a fresh sweep against this with analyze_status_drift.py before believing any 'regressed from X%' claim written in a test docstring.",
+  "profile": "STANDARD (round 14/15, Aug 26 2026)",
+  "source_file": "sweep_standard_results.json"
+}

@@ -121,17 +121,75 @@ in PROPERTY DETAILS ...` on every call regardless of intake. It is now a
 two-branch conditional. **It is not established to be the cause** — do not
 let a later reader assume it was.
 
+### Round 15: the isolation experiment ran, and was UNDERPOWERED
+
+Both arms, identical code, same profile, same 18-carrier detection surface:
+
+```
+COMBINED (shared context)   :  0/20 executions contaminated
+ISOLATED (one call/carrier) :  0/20 executions contaminated   (360 isolated calls)
+```
+
+**This does not support the bleed hypothesis, and must not be read as
+though it does.** The arm that is *supposed* to be susceptible produced
+nothing either, so 0/20 vs 0/20 cannot distinguish anything. A clean
+isolated arm is exactly what a clean combined arm would also produce.
+
+Pooling every combined-mode execution on round 14+ code (20 here + the
+12-run post-fix DP3 sweep) gives **0/32**, which bounds the per-execution
+rate at **q <= 8.9%** (95%). What it would take to see even one contaminated
+combined execution with 95% probability:
+
+```
+  q = 8.9%  ->  ~32 executions      (already done, saw none -- so q is likely well below)
+  q = 5.0%  ->  ~58 executions
+  q = 2.0%  ->  ~148 executions
+  q = 1.0%  ->  ~298 executions
+```
+
+At ~2 min per combined execution that is 5-10 hours of API time for a
+result that, if null, still would not prove absence. **Reproduction by
+sampling is not a viable route to closing OQ-1.** Stop spending on it.
+
+Also worth recording: across all of these runs the model said *nothing at
+all* about solar on this profile -- not even neutral mentions. So there is
+no graded signal to measure either; an ablation design (compare runs with
+and without the solar-rich carrier present, and watch whether zero-solar
+carriers drift) has nothing to work with on this profile. That route is
+closed too.
+
+### The route that IS open: instrument the guard
+
+`_strip_contradicted_property_claims()` fires *exactly* when this failure
+occurs, and round 15 made it print to stdout:
+
+```
+INTAKE CONTRADICTION [OQ-1]: carrier=... field='solar_panels' intake_value='No' removed=1 status_was='INELIGIBLE'
+```
+
+That lands in the Railway logs, so a recurrence is now detectable without
+anyone noticing a note in the UI. **If that line ever appears in
+production, capture the full raw response** -- the affected carrier list and
+whether it forms a forward-contiguous block is the bleed signature, and one
+real occurrence is worth more than another 300 sampled runs.
+
 ### What would settle it
 
 - **If it recurs**: capture the FULL raw response, not a summary, and note
   whether the affected carriers again form a forward-contiguous block and
   again include carriers with no solar text of their own. That is the
   bleed signature.
-- **Cheap decisive test**: `check_eligibility()` already accepts
-  `carrier_subset=` specifically to "pilot splitting the combined
-  multi-carrier completion into smaller per-group calls". Running the DP3
-  profile split into one-call-per-carrier removes the shared context
-  entirely. If contamination can still occur that way, bleed is wrong.
-- A large sweep (100+ executions) would tighten the per-execution rate, but
-  at ~2 min/run that is ~3.5 hours of API time for a bound we already know
-  is under ~22%.
+- ~~Split the completion with `carrier_subset=`~~ -- **done in round 15,
+  underpowered, see above.** Still the right test if a way is found to make
+  contamination occur on demand; it just cannot be run against a <=8.9%
+  spontaneous rate at feasible n.
+- ~~A large sweep~~ -- **not viable**, see the power table above.
+- **The live guard log is now the primary detector.** One instrumented
+  recurrence beats any amount of further sampling.
+
+### One recurrence kills the theory
+
+If contamination is ever observed in ISOLATED mode, the bleed hypothesis is
+wrong or incomplete and OQ-1 goes back to fully unexplained -- regardless of
+how many clean isolated runs preceded it. Round 15's 0/20 isolated buys no
+credit against that.
