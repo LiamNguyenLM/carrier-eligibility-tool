@@ -3178,3 +3178,70 @@ class TestRound14CentauriFlatRoof:
                 f"model said {model_status}; the flat-roof exclusion is not optional"
             )
             assert any("poured concrete" in x.lower() for x in r["reasons"])
+
+
+@pytest.mark.retrieval
+def test_only_the_mixed_status_buckets_carry_a_status_suffix():
+    """Which buckets render a "| STATUS" suffix on each carrier, and which
+    render the bare carrier name.
+
+    Asked twice by manual audits. Round 13's question was about the bucket
+    HEADER ("Insufficient Information" arriving as just "Information") --
+    that header is complete in the source and the truncation was a
+    column-wrap copy artifact. Round 15's question is a DIFFERENT element:
+    the per-carrier suffix. Ten carriers landed in Insufficient Information
+    with no "| STATUS" tag while One Issue and Not Eligible carriers all had
+    one. That is real, it is by design, and the copy-paste was faithful.
+
+    The reason is that One Issue is the only bucket that can hold more than
+    one status -- assign_buckets() puts both INELIGIBLE-with-flaw_count-1 and
+    REFER in it, so the tag is doing real work there. Eligible and
+    Insufficient Information each map to exactly one status, so a tag would
+    only restate the column header.
+
+    Locked in so a third audit doesn't have to ask. If someone deliberately
+    makes the tagging uniform, this test should be updated, not deleted --
+    the point is that the choice is explicit rather than accidental.
+    """
+    app_src = open(
+        os.path.join(os.path.dirname(__file__), "..", "app.py"), encoding="utf-8"
+    ).read()
+    section = app_src[app_src.find("col_yes, col_one, col_info, col_no"):]
+    section = section[:section.find("# ===")] if "# ===" in section else section
+
+    def bucket_body(name):
+        start = section.find(f'st.markdown("### {name}")')
+        assert start != -1, f"bucket header {name!r} not found"
+        rest = section[start:]
+        nxt = rest.find("with col_", 1)
+        return rest[:nxt] if nxt != -1 else rest
+
+    # Buckets holding exactly one status -> bare carrier name.
+    for name in ("Eligible", "Insufficient Information"):
+        body = bucket_body(name)
+        assert 'st.expander(carrier["carrier"])' in body, (
+            f"{name!r} bucket no longer renders the bare carrier name"
+        )
+        assert '+ "  |  " +' not in body, (
+            f"{name!r} bucket gained a status suffix; every carrier in it has the same "
+            f"status, so the suffix would only restate the column header"
+        )
+
+    # One Issue genuinely mixes INELIGIBLE(flaw_count==1) and REFER.
+    one_issue = bucket_body("One Issue")
+    assert 'carrier.get("status", "").replace("_", " ")' in one_issue
+    assert '+ "  |  " +' in one_issue, (
+        "One Issue is the only bucket that can hold two different statuses -- dropping "
+        "its suffix would make INELIGIBLE and REFER indistinguishable in the UI"
+    )
+
+    # Sanity: that mixing claim is a property of assign_buckets, not folklore.
+    mixed = assign_buckets([
+        {"carrier": "a", "status": "INELIGIBLE", "flaw_count": 1},
+        {"carrier": "b", "status": "REFER", "flaw_count": 0},
+    ])
+    assert {r["status"] for r in mixed["one_issue"]} == {"INELIGIBLE", "REFER"}
+    single = assign_buckets([
+        {"carrier": "c", "status": "INSUFFICIENT_INFORMATION", "flaw_count": 0},
+    ])
+    assert {r["status"] for r in single["insufficient_info"]} == {"INSUFFICIENT_INFORMATION"}
