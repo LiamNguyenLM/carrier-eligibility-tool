@@ -79,6 +79,9 @@ from eligibility_check import (
     _SAGE_ROOFER_STATEMENT_CARRIERS,
     _SAGE_FPC_CARRIERS,
     _TWICO_CARRIERS,
+    carrier_programs,
+    get_combined_program_carriers,
+    get_all_carriers,
 )
 from shared_resources import get_vectorstore
 from profiles import (STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE,
@@ -1260,7 +1263,17 @@ class TestBaselineStandardProfile:
         r = self._find("CHUBB")
         assert "house" in " ".join(r.get("citations", [])).lower()
 
-    @pytest.mark.xfail(reason="Liberty Mutual HO6 source file is identical to HO3; condo-only claim isn't grounded in any retrieved rule text, only the filename (backlog, rounds 9-11)")
+    @pytest.mark.xfail(
+        reason="CONFIRMED ROUND 16, and it is a DATA problem, not a code one. The HO6 and HO3 "
+        "records are byte-identical (same sha256 over 27 chunks each) -- the HO6 record holds "
+        "the HO3 document, so the correct Condominium Unit-Owners PDF was never ingested. The "
+        "only 'condominium' text in either is one row of a Minimum Coverage Requirements table. "
+        "Measured 5/20 = 25% over the round 15 STANDARD sweep, and the passes are the model "
+        "inferring from the FILENAME -- its own citation reads 'The document title and content "
+        "indicate this is a Condominium Unit-Owners Program'. No code change can fix this; it "
+        "needs the real HO6 PDF uploaded. See test_no_two_carriers_hold_the_same_document.",
+        strict=False,
+    )
     def test_liberty_mutual_ho6_condo_claim_is_grounded_in_real_text(self):
         r = self._find("Liberty Mutual HO6")
         citations = r.get("citations", [])
@@ -3047,8 +3060,9 @@ class TestRound14RoofShapeRetrievalGuarantee:
         NatGen Premier OneChoice DP3, Progressive DP3 and Steadily."""
         collection = get_vectorstore()._collection
         shape_keywords = _RESTRICTED_ROOF_SHAPES["flat"]
+        tenant_carriers = get_carriers_for_occupancy("Tenant Occupied")
         checked = 0
-        for carrier in get_carriers_for_occupancy("Tenant Occupied"):
+        for carrier in tenant_carriers:
             raw = _all_chunks(carrier)
             has_rule = [c for c in raw if _FLAT_ROOF_RE.search(normalize_chunk_text(c.page_content))]
             if not has_rule:
@@ -3063,7 +3077,16 @@ class TestRound14RoofShapeRetrievalGuarantee:
                 f"{carrier} states a flat-roof rule but the roof-shape guarantee returned "
                 f"nothing for it"
             )
-        assert checked >= 10, f"expected many carriers with flat-roof rules, saw {checked}"
+        # Tied to the carrier list, not a magic number. Round 16's occupancy
+        # fix legitimately shrank the tenant list from 18 to 13 (five
+        # homeowners documents removed, which happened to carry flat-roof
+        # rules too) and a hardcoded ">= 10" failed on a correct change.
+        # The real invariant is the per-carrier assertion above; this is only
+        # a guard against the predicate silently matching nothing.
+        assert checked >= len(tenant_carriers) // 2, (
+            f"only {checked} of {len(tenant_carriers)} tenant carriers matched a flat-roof "
+            f"rule -- the predicate may have stopped matching"
+        )
 
     @pytest.mark.parametrize("text,expected", [
         ("ROOFS/SIDING - Ineligible: g. Flat (unless poured concrete)", True),
@@ -3108,25 +3131,113 @@ class TestRound14RoofShapeRetrievalGuarantee:
 
 
 @pytest.mark.retrieval
-@pytest.mark.xfail(
-    reason="DEFERRED (round 14, found while investigating P1): get_carriers_for_occupancy "
-    "detects homeowners programs with `\"HO3\" in name`, which does not match the hyphenated "
-    "\"HO-3\", so Sage_-_SURE_HO-3 and Sage_-_SafePort_HO-3 are retrieved for Tenant Occupied "
-    "runs. Measured as NOT verdict-affecting: across 7 DP3 sweep runs neither appeared in the "
-    "output once, so the cost is wasted prompt tokens (two documents' chunks) rather than a "
-    "homeowners program being quoted for a tenant risk. Left unfixed this round because the "
-    "same normalisation question applies to ARI_(HOA+)/ARI_(HOB)/CHUBB_HO, which have no "
-    "product token in their names at all -- that wants one deliberate pass over the whole "
-    "occupancy filter, not a hyphen patch.",
-    strict=False,
-)
-def test_hyphenated_ho3_documents_are_excluded_from_tenant_runs():
-    selected = get_carriers_for_occupancy("Tenant Occupied")
-    leaked = [
-        c for c in selected
-        if re.search(r"HO-?3|HO-?6|HOMEOWNERS", c.upper()) and not re.search(r"DP-?3", c.upper())
-    ]
-    assert not leaked, f"homeowners programs selected for a tenant-occupied run: {leaked}"
+class TestOccupancyFilterProductDetection:
+    """Round 16: the deferred "one deliberate pass over the whole occupancy
+    filter". Previously an xfail.
+
+    Three separate places re-derived which product a carrier document is,
+    with slightly different substring checks -- which is exactly how a gap
+    survived in two of them while the third handled it. `"DP3" in name or
+    "DP-3" in name` caught the hyphenated dwelling-fire form, but the
+    homeowners side was only `"HO3" in name`, so Sage_-_SURE_HO-3 and
+    Sage_-_SafePort_HO-3 were offered for tenant-occupied risks. All three
+    now call carrier_programs().
+
+    Measured impact before the fix, over 44 tenant-occupied executions: the
+    five wrongly-included homeowners documents reached the OUTPUT 14-32
+    times each. Never as ELIGIBLE (ARI was INELIGIBLE 32/32), so this was
+    scope noise and wasted prompt tokens rather than a wrong-decline risk.
+    """
+
+    @pytest.mark.parametrize("carrier,expected", [
+        # the punctuation variants that started this -- same program, two spellings
+        ("Sage_-_SURE_HO-3_-_01.31.2026", (True, False)),
+        ("Sage_-_SafePort_HO-3_-_01.31.2026", (True, False)),
+        ("Sage_-_Auros_HO3", (True, False)),
+        ("Sage_-_SURE_DP-3_-_01.31.2026", (False, True)),
+        ("Sage_-_Markel_DP3", (False, True)),
+        # other homeowners forms
+        ("Liberty_Mutual_HO6_-_02.21.2026", (True, False)),
+        ("Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026", (True, False)),
+        ("HOAIC_-_TX-HOMEOWNERS-0326_HO3", (True, False)),
+        # bundles both
+        ("Foremost_DP3_and_HO3_-_07.01.2026", (True, True)),
+    ])
+    def test_product_detection_is_punctuation_insensitive(self, carrier, expected):
+        """CLAUDE.md rule 2: the same program spelled two ways must classify
+        the same way. HO3/HO-3 and DP3/DP-3 are the pairs that matter."""
+        assert carrier_programs(carrier) == expected
+
+    def test_hyphen_and_unhyphenated_forms_agree(self):
+        """Stated directly rather than only via the table above, because the
+        whole defect was these two disagreeing."""
+        assert carrier_programs("Sage_-_SURE_HO-3_-_01.31.2026") == \
+               carrier_programs("Sage_-_SURE_HO3_-_01.31.2026")
+        assert carrier_programs("Sage_-_SURE_DP-3_-_01.31.2026") == \
+               carrier_programs("Sage_-_SURE_DP3_-_01.31.2026")
+
+    @pytest.mark.parametrize("carrier,quote", [
+        ("ARI_(HOA+)", "owner occupied by owner"),
+        ("ARI_(HOB)", "owner occupied by owner"),
+        ("CHUBB_HO_-_05.22.2026", "homeowners insurance"),
+    ])
+    def test_tokenless_carriers_are_classified_from_their_own_documents(self, carrier, quote):
+        """These three filenames carry no product token, so they were kept
+        for EVERY occupancy. They are classified by an explicit map -- and
+        the map's justification is checked against the source text here, so
+        it cannot rot into folklore."""
+        text = " ".join(
+            normalize_chunk_text(c.page_content).lower() for c in _all_chunks(carrier)
+        )
+        assert quote in text, (
+            f"{carrier}: the source line justifying its homeowners classification is gone"
+        )
+        assert carrier_programs(carrier) == (True, False)
+
+    def test_hoaic_dwelling_guide_is_not_swallowed_by_an_hoa_substring(self):
+        """Why the token regex deliberately does NOT match a bare "HOA":
+        HOAIC is a different company, and HOAIC_-_DP_Guide_DP3 is a
+        dwelling-fire document. Matching "HOA" to catch ARI would have
+        misclassified it as combined-program."""
+        assert carrier_programs("HOAIC_-_DP_Guide_DP3") == (False, True)
+        assert "HOAIC_-_DP_Guide_DP3" not in get_combined_program_carriers()
+
+    def test_no_homeowners_document_is_offered_for_a_tenant_risk(self):
+        leaked = [
+            c for c in get_carriers_for_occupancy("Tenant Occupied")
+            if carrier_programs(c)[0] and not carrier_programs(c)[1]
+        ]
+        assert not leaked, f"homeowners programs selected for a tenant-occupied run: {leaked}"
+
+    def test_no_dwelling_fire_document_is_offered_for_an_owner_risk(self):
+        leaked = [
+            c for c in get_carriers_for_occupancy("Owner Occupied")
+            if carrier_programs(c)[1] and not carrier_programs(c)[0]
+        ]
+        assert not leaked, f"dwelling-fire programs selected for an owner-occupied run: {leaked}"
+
+    def test_only_genuinely_combined_documents_appear_in_both_lists(self):
+        owner = set(get_carriers_for_occupancy("Owner Occupied"))
+        tenant = set(get_carriers_for_occupancy("Tenant Occupied"))
+        both = owner & tenant
+        assert both == get_combined_program_carriers(), (
+            f"carriers in both occupancy lists that are not combined-program: "
+            f"{sorted(both - get_combined_program_carriers())}"
+        )
+
+    def test_every_carrier_is_classified_as_something(self):
+        """A document with no recognised product token is kept for every
+        occupancy, which is how ARI and CHUBB slipped through unnoticed. If
+        a new carrier lands with an unrecognised name, fail loudly here
+        rather than silently offering it to everyone."""
+        unclassified = [
+            c for c in get_all_carriers() if carrier_programs(c) == (False, False)
+        ]
+        assert not unclassified, (
+            f"these carriers match no product token and would be offered for EVERY "
+            f"occupancy type -- add them to _PRODUCT_BY_DOCUMENT with a source quote: "
+            f"{unclassified}"
+        )
 
 
 @pytest.mark.retrieval
@@ -3245,3 +3356,48 @@ def test_only_the_mixed_status_buckets_carry_a_status_suffix():
         {"carrier": "c", "status": "INSUFFICIENT_INFORMATION", "flaw_count": 0},
     ])
     assert {r["status"] for r in single["insufficient_info"]} == {"INSUFFICIENT_INFORMATION"}
+
+
+@pytest.mark.retrieval
+@pytest.mark.xfail(
+    reason="TWO KNOWN DATA DEFECTS, both confirmed round 16, both needing a corrected PDF "
+    "upload rather than a code change:\n"
+    "  Liberty_Mutual_HO6 holds the Liberty_Mutual_HO3 document (27 chunks, identical "
+    "sha256) -- the Condominium Unit-Owners guide was never ingested.\n"
+    "  NatGen_Custom360_HO3 holds the NatGen_Custom360_DP3 document (112 chunks, identical "
+    "sha256). The shared file is titled 'Texas Landlord - Custom360' with 31 'landlord' "
+    "mentions and zero homeowners signals, so the DP3 record is the correct one and the HO3 "
+    "record is wrong. Measured over the round 15 STANDARD (owner-occupied) sweep: it appears "
+    "in 20/20 runs, is INELIGIBLE in 18/20, and all 20 outputs correctly say it is a landlord "
+    "program that does not apply -- which means every owner-occupied query reports a carrier "
+    "as not applicable when the truth is that we never ingested its homeowners guide.\n"
+    "This will XPASS once both PDFs are re-uploaded.",
+    strict=False,
+)
+def test_no_two_carriers_hold_the_same_document():
+    """Two carrier records holding byte-identical content means one of them
+    is the wrong PDF.
+
+    Worth a standing check rather than a one-off: this is invisible from the
+    output. The model reads whatever document it is given and reasons about
+    it correctly, so a mis-filed PDF produces confident, well-cited, wrong-
+    program answers instead of an error. Both known cases were found only
+    because a manual audit asked an unrelated question about one of them.
+
+    Related but NOT the same as the round 12 dedup fix: that one was about
+    two carriers legitimately sharing text and the retrieval key collapsing
+    them. This is about a record holding the wrong file entirely.
+    """
+    import hashlib
+    collection = get_vectorstore()._collection
+    by_hash = {}
+    for carrier in get_all_carriers():
+        docs = collection.get(where={"carrier": carrier}, include=["documents"])["documents"]
+        digest = hashlib.sha256("".join(sorted(docs)).encode("utf-8", "replace")).hexdigest()
+        by_hash.setdefault(digest, []).append(carrier)
+
+    duplicates = {h: sorted(v) for h, v in by_hash.items() if len(v) > 1}
+    assert not duplicates, (
+        "carrier records holding identical document content -- one of each pair is the "
+        "wrong PDF: " + "; ".join(" == ".join(v) for v in duplicates.values())
+    )

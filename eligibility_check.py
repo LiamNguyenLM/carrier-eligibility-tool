@@ -261,16 +261,75 @@ def get_all_carriers():
     return all_carriers
 
 
+# Carriers whose FILENAME carries no product token at all. Each is classified
+# from its own document text, quoted below, rather than guessed from the name
+# -- "HOA+"/"HOB" are Texas homeowners form names, but nothing in the string
+# says so to a substring match, and "HOA" would also match HOAIC, which is a
+# different company entirely.
+#
+#   ARI_(HOA+) / ARI_(HOB):
+#       "OCCUPANCY/USE Residence must be: - Owner occupied by owner's
+#        immediate family."
+#   CHUBB_HO_-_05.22.2026:
+#       "Eligible Persons Homeowners Insurance Coverage will only be provided
+#        and renewed for persons that qualify..."
+#
+# Before this map they were kept for EVERY occupancy type, so a
+# tenant-occupied run was offered three homeowners programs. Measured across
+# 44 tenant-occupied executions they reached the output 30-32 times each --
+# never as ELIGIBLE (ARI was INELIGIBLE 32/32), so this was scope noise and
+# wasted prompt tokens rather than a wrong-decline risk, but it is still
+# three carriers an agent should never have been shown for a rental.
+_PRODUCT_BY_DOCUMENT = {
+    "ARI_(HOA+)": "HOMEOWNERS",
+    "ARI_(HOB)": "HOMEOWNERS",
+    "CHUBB_HO_-_05.22.2026": "HOMEOWNERS",
+}
+
+# Product tokens, matched against a PUNCTUATION-STRIPPED name. That is the
+# whole point: "HO-3" and "HO3" are the same program, and the old check used
+# a bare `"HO3" in name`, which silently missed Sage_-_SURE_HO-3 and
+# Sage_-_SafePort_HO-3 while correctly catching the hyphenated "DP-3"
+# alongside "DP3". Deliberately NOT matching bare "HOA"/"HOB" here -- that
+# would swallow HOAIC_-_DP_Guide_DP3, which is a dwelling-fire document.
+_HOMEOWNERS_TOKEN_RE = re.compile(r"HO3|HO5|HO6|HOMEOWNERS")
+_DWELLING_FIRE_TOKEN_RE = re.compile(r"DP1|DP3")
+
+
+def _strip_to_alnum(text):
+    return re.sub(r"[^A-Z0-9]", "", (text or "").upper())
+
+
+def carrier_programs(carrier):
+    """(is_homeowners, is_dwelling_fire) for one carrier document.
+
+    Single source of truth. Three separate places used to re-derive this with
+    slightly different substring checks -- get_combined_program_carriers(),
+    get_carriers_for_occupancy(), and the post-parse filter in
+    check_eligibility() -- which is exactly how the hyphen gap survived in
+    two of them while the third handled it.
+    """
+    override = _PRODUCT_BY_DOCUMENT.get(carrier)
+    if override == "HOMEOWNERS":
+        return True, False
+    if override == "DWELLING_FIRE":
+        return False, True
+
+    flat = _strip_to_alnum(carrier)
+    return (
+        bool(_HOMEOWNERS_TOKEN_RE.search(flat)),
+        bool(_DWELLING_FIRE_TOKEN_RE.search(flat)),
+    )
+
+
 def get_combined_program_carriers():
     """Carriers whose filename bundles more than one program, e.g.
     Foremost_DP3_and_HO3_-_07.01.2026.pdf. These must never be excluded
     by the DP3/HO3 occupancy heuristic -- they're valid for both."""
     combined = set()
     for carrier in get_all_carriers():
-        upper = carrier.upper()
-        is_ho3 = "HO3" in upper or "HOMEOWNERS" in upper
-        is_dp3 = "DP3" in upper or "DP-3" in upper
-        if is_ho3 and is_dp3:
+        is_ho, is_dp = carrier_programs(carrier)
+        if is_ho and is_dp:
             combined.add(carrier)
     return combined
 
@@ -420,12 +479,10 @@ def get_carriers_for_occupancy(occupancy):
         if carrier in combined:
             relevant.append(carrier)
             continue
-        upper = carrier.upper()
-        is_ho3 = "HO3" in upper or "HOMEOWNERS" in upper or "HO6" in upper
-        is_dp3 = "DP3" in upper or "DP-3" in upper
-        if occupancy == "Owner Occupied" and is_dp3:
+        is_ho, is_dp = carrier_programs(carrier)
+        if occupancy == "Owner Occupied" and is_dp:
             continue
-        if occupancy != "Owner Occupied" and is_ho3:
+        if occupancy != "Owner Occupied" and is_ho:
             continue
         relevant.append(carrier)
     return relevant
@@ -2279,8 +2336,17 @@ CARRIER DOCUMENTS:
             if is_combined_program(name):
                 filtered.append(r)
                 continue
-            is_ho3 = "HO3" in name or "HOMEOWNERS" in name
-            is_dp3 = "DP3" in name or "DP-3" in name
+            # Resolve the model's restated name back to the canonical
+            # carrier first, so this uses the SAME classification as
+            # retrieval. Judging the echoed string directly is what let
+            # "Sage - SURE HO-3" through here even when retrieval had
+            # already been fixed; and for ARI/CHUBB the echoed name carries
+            # no product token at all, so only the canonical lookup knows.
+            canon = _resolve_structured_carrier(r.get("carrier", ""), relevant_carriers)
+            if canon is not None:
+                is_ho3, is_dp3 = carrier_programs(canon)
+            else:
+                is_ho3, is_dp3 = carrier_programs(name)
             if occupancy != "Owner Occupied" and is_ho3:
                 continue
             if occupancy == "Owner Occupied" and is_dp3:
