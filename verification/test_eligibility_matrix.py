@@ -1501,7 +1501,13 @@ def test_swyfft_lloyds_and_orion_ppc9_consistency(record_property):
     "verdict-changing on this profile (home age 17 is UNDER the borrowed 0-20 cap, so the "
     "clause reads as corroboration; status was INSUFFICIENT_INFORMATION in 25/25). The same "
     "carrier measured 0/20 misattributed citations on COASTAL, where the clause WOULD be "
-    "adverse. Tracked, not silently green.",
+    "adverse. Tracked, not silently green. "
+    "ROUND 14 UPDATE -- this XPASSED for the first time since it was measured at 0/41. "
+    "Under the old rate that is a <=20% event, so it is suggestive, not settled. A candidate "
+    "cause exists: round 14 added an authoritative-input rule to SYSTEM_INSTRUCTIONS that "
+    "explicitly forbids carrying a property fact in from a carrier's document, which is "
+    "exactly the shape of this bleed. Worth a real sweep before anyone converts this to a "
+    "hard assert -- n=3 is not a measurement.",
     strict=False,
 )
 def test_ari_hoa_plus_no_age_cap_contamination_consistency(record_property):
