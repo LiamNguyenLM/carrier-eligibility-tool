@@ -3401,3 +3401,87 @@ def test_no_two_carriers_hold_the_same_document():
         "carrier records holding identical document content -- one of each pair is the "
         "wrong PDF: " + "; ".join(" == ".join(v) for v in duplicates.values())
     )
+
+
+# Product words as a document describes ITSELF. Counted over the whole
+# document, not just headers: a header-based version was tried and is worse,
+# tripping on Sage Occidental HO3 (1 vs 2) and Travelers HO3 (1 vs 2) where
+# the margins are a single hit wide.
+_SELF_DESCRIBED_HOMEOWNERS_RE = re.compile(
+    r"(?i)\bhomeowners?\b|\bHO-?[356]\b|owner[- ]occupied")
+_SELF_DESCRIBED_DWELLING_FIRE_RE = re.compile(
+    r"(?i)\blandlord\b|dwelling fire|\bDP-?[13]\b|tenant[- ]occupied|"
+    r"rented to others|rental dwelling")
+
+# A document must read overwhelmingly like the OTHER product before this
+# calls it a mismatch: at least this many opposite-product hits, AND that
+# many times its own-product hits. Both conditions matter. Travelers' HO3
+# guide legitimately contains a "LANDLORD DWELLING/LANDLORD CONDOMINIUM
+# ONLY" ineligibility section (ho=3, dp=8, ratio 2.7) and must not trip;
+# NatGen Custom360's mis-filed record is ho=2, dp=34, ratio 17.
+_OPPOSITE_PRODUCT_FLOOR = 10
+_OPPOSITE_PRODUCT_RATIO = 4
+
+
+@pytest.mark.retrieval
+@pytest.mark.xfail(
+    reason="KNOWN DATA DEFECT (round 16): NatGen_Custom360_HO3 holds the DP3 document. Its "
+    "text reads landlord/dwelling-fire 34 times against 2 homeowners hits -- a ratio of 17 -- "
+    "while its filename says HO3. This catches the defect from a SECOND, independent angle to "
+    "the duplicate-hash check, and would still catch it if the file were unique rather than a "
+    "copy of the DP3 record. REMOVE THIS XFAIL MARKER once the correct PDF is uploaded: after "
+    "that it should be a hard assert, so a future mis-ingest fails the build.",
+    strict=False,
+)
+def test_each_document_reads_like_the_product_its_filename_claims():
+    """Catches a carrier slot holding the wrong PRODUCT's document.
+
+    Complements test_no_two_carriers_hold_the_same_document rather than
+    replacing it -- the two cover different failure modes and neither
+    subsumes the other:
+
+      duplicate-hash  catches a record holding a copy of ANOTHER TRACKED
+                      record's file, whatever product that file is. It is
+                      the only one of the two that catches Liberty Mutual
+                      HO6 (which holds the HO3 document -- still a
+                      homeowners document, so its product signals agree
+                      with its filename and this test is silent on it).
+
+      this test       catches a record whose document is the wrong PRODUCT,
+                      even if that file appears nowhere else in the corpus.
+                      It is the only one of the two that would catch NatGen
+                      Custom360 HO3 if the DP3 record did not exist.
+
+    What NEITHER catches: a record holding the wrong document of the RIGHT
+    product that is also unique -- e.g. one homeowners carrier's guide filed
+    under a different homeowners carrier's name. Detecting that needs the
+    carrier's own name to appear in its text, which these documents do not
+    reliably do.
+    """
+    collection = get_vectorstore()._collection
+    mismatched = []
+    for carrier in get_all_carriers():
+        is_ho, is_dp = carrier_programs(carrier)
+        if is_ho and is_dp:
+            continue  # genuinely bundles both; no single expectation to check
+        blob = " ".join(
+            normalize_chunk_text(d)
+            for d in collection.get(where={"carrier": carrier}, include=["documents"])["documents"]
+        )
+        ho_hits = len(_SELF_DESCRIBED_HOMEOWNERS_RE.findall(blob))
+        dp_hits = len(_SELF_DESCRIBED_DWELLING_FIRE_RE.findall(blob))
+
+        if is_ho:
+            own, opposite, reads = ho_hits, dp_hits, "dwelling-fire/landlord"
+        else:
+            own, opposite, reads = dp_hits, ho_hits, "homeowners"
+        if opposite >= _OPPOSITE_PRODUCT_FLOOR and opposite >= _OPPOSITE_PRODUCT_RATIO * max(own, 1):
+            mismatched.append(
+                f"{carrier} (filename says {'HO' if is_ho else 'DP'}, document reads "
+                f"{reads}: {opposite} vs {own} hits)"
+            )
+
+    assert not mismatched, (
+        "carrier records whose document describes a different product than their filename "
+        "claims -- the wrong PDF is almost certainly in that slot: " + "; ".join(mismatched)
+    )
