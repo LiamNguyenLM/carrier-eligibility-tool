@@ -5,12 +5,16 @@ is given and reasons about it correctly, which is exactly what makes these
 dangerous: a mis-filed PDF produces confident, well-cited answers about the
 *wrong program* rather than an error anyone would notice.
 
-Both were found in round 16, and neither was found by looking for it — one
-surfaced because a manual audit asked an unrelated question about a
+DD-1 and DD-2 were found in round 16, and neither was found by looking for
+it — one surfaced because a manual audit asked an unrelated question about a
 condo-claim citation, and the other only because that first one prompted a
-sweep of the whole corpus for duplicate content.
+sweep of the whole corpus for duplicate content. DD-3 was found in round 17
+while building the chat tab, and is a different shape again: a record holding
+no document rather than the wrong one.
 
-Two standing checks now cover this class on every run --
+`data_defects.defective_programs()` is the RUNTIME list, and it derives all
+three rather than naming them, so each clears itself once the PDF is fixed.
+Two standing tests also cover part of this class on every run --
 `test_no_two_carriers_hold_the_same_document` and
 `test_each_document_reads_like_the_product_its_filename_claims`. Both are
 `xfail` naming the defects below; both XPASS once the PDFs are fixed, which
@@ -93,6 +97,50 @@ guide over the HO6 record.
 
 ---
 
+## DD-3 — `Centauri_-_HO3_-_05.01.2026` produced no text at all
+
+**Found round 17**, while building the chat tab. Not found by either standing
+check, and neither could have found it.
+
+```
+Centauri_-_HO3_-_05.01.2026    0 chunks    (3.5 MB PDF on disk)
+Centauri_-_DP3_-_11.16.2022   38 chunks
+```
+
+The PDF is a scan with no text layer, so extraction yielded nothing and the
+loader wrote zero chunks. The program is therefore **absent from the vector
+store entirely** — 40 carriers are indexed and this is not one of them.
+
+This is a third shape, distinct from DD-1 and DD-2. Both of those are records
+holding the WRONG document; this is a record holding NO document. It is the
+most invisible of the three:
+
+- The eligibility pipeline never considers the program, so it never appears in
+  any output to be noticed as wrong.
+- `test_no_two_carriers_hold_the_same_document` and
+  `test_each_document_reads_like_the_product_its_filename_claims` both iterate
+  over records that EXIST in the store. A record that produced no chunks is
+  not there to be checked by either one.
+
+It was reachable from the chat tab, though, and dangerously: building the
+carrier-name index from stored programs alone made "Centauri HO3 roof age"
+resolve to **Centauri's DP3 landlord guide**, because the HO3 record was not a
+candidate and the product filter had nothing to narrow to. An agent asking a
+homeowners question would have been handed the landlord guide's rule with
+nothing flagged. `chat.known_programs()` now unions the defect list in so the
+program is nameable and can be refused by name.
+
+**Fix:** OCR the Centauri HO3 PDF and re-ingest it, or obtain a text-layer
+copy from the carrier.
+
+**Detection now lives in `data_defects.py`**, which derives all three defects
+rather than listing them, so each clears on its own once the PDF is fixed.
+`NO_TEXT` is detected by comparing the PDFs on disk against the programs in
+the store — the filesystem is the only place a zero-chunk document leaves a
+trace.
+
+---
+
 ## Why this class is worth a standing test
 
 Neither defect is visible in the tool's output. Both records return
@@ -112,6 +160,7 @@ more coverage than this:
 |---|---|---|
 | `test_no_two_carriers_hold_the_same_document` | a record holding a copy of **another tracked record's** file, whatever product it is | a wrong file that is **unique** in the corpus |
 | `test_each_document_reads_like_the_product_its_filename_claims` | a record whose document is the **wrong product**, even if unique | a wrong file of the **right product** |
+| `data_defects.defective_programs()` | all of the above, plus a program whose PDF produced **no chunks at all** (DD-3), which neither test above can see | a wrong file of the right product, as above |
 
 Each of the two known defects is caught by exactly one of them, which is why
 both exist:
