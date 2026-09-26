@@ -454,6 +454,130 @@ def _mentions_roof_shape_rule(content, shape_keywords):
     return False
 
 
+# Signals that a chunk states WHO or WHAT DWELLING a carrier will insure at
+# all -- occupancy, ownership, named-insured eligibility. Deliberately NOT a
+# bare "named insured": across this corpus that phrase is mostly noise
+# (Sage's scheduled-jewelry questions "Occupation of each Named Insured",
+# credit-score rating text, Liberty Mutual's "the contractor is not the named
+# insured" course-of-construction rule, binding-procedure steps). Measured
+# against the round-17 family survey: 13/13 genuine rules matched, 0 of 16
+# known-noise chunks matched.
+_OCCUPANCY_ELIGIBILITY_RE = re.compile(
+    r"owner[- ]?occup(?:ied|ant|ancy)"
+    r"|\beligible persons?\b"
+    r"|occupancy\s*(?:and|/)\s*use"
+    r"|(?:must be|not)\s+occupied by"
+    r"|\bdeeded to\b"
+    r"|owned by (?:a|an)\s+(?:business|corporation|llc|limited liability|partnership)"
+    # An ownership ENTITY tied to an eligibility or named-insured verdict.
+    # Deliberately NOT "not acceptable" / "unacceptable" / bare "may not":
+    # those matched Allied Trust's MORTGAGE rule -- "applicants must have a
+    # mortgage through an acceptable financial institution ... trust and/or
+    # bond for deeds are not acceptable" -- which is about financing, not
+    # ownership, and it won a slot over a genuine occupancy rule.
+    r"|\b(?:llc|l\.l\.c\.|corporations?|trusts?|partnerships?)\b[^.]{0,80}?"
+    r"\b(?:ineligible|not eligible|(?:may not|cannot|can not|not) be (?:listed|named|insured))",
+    re.I,
+)
+
+# Language that DECIDES eligibility, as opposed to mentioning occupancy in
+# passing (a coverage-form definition, an endorsement's scope).
+_DECISIVE_OCCUPANCY_RE = re.compile(
+    r"ineligib|not eligible|\beligible persons?\b|may not be listed"
+    r"|must be (?:owner[- ]?occupied|occupied by|deeded)|owned by (?:a|an) ",
+    re.I,
+)
+
+# Per-carrier cap for the occupancy guarantee. Module-level (not local to
+# check_eligibility) so tests use the SAME value production does -- a test
+# with its own hardcoded copy is exactly how this suite has been fooled before.
+#
+# 5, measured, not guessed. Swept 3/4/5 against every carrier and all three
+# Ownership Structure values, counting decisive occupancy chunks that exist
+# but fall outside the cap:
+#
+#     cap  prompt   dropped (Individual / Trust / LLC)
+#      3   +22.6%    8 / 11 / 9   whole Sage family, CHUBB, Allied Trust
+#      4   +26.4%    1 /  4 / 2
+#      5   +27.0%    0 /  3 / 1   Foremost only
+#
+# 4 -> 5 costs 0.6%. The Foremost residue at 5 is not occupancy rules at all:
+# loss-history ("3 or more paid losses ... is ineligible") and an
+# additional-interest note, pulled in only because they mention occupancy in
+# passing. Six carriers need more than 3: Allied Trust has five decisive
+# chunks, and five Sage programs have four each.
+MAX_OCCUPANCY_CHUNKS_PER_CARRIER = 5
+
+# Terms that tie a chunk to one specific Ownership Structure intake value.
+_OWNERSHIP_TERMS = {
+    "LLC": ("llc", "l.l.c", "limited liability", "business", "corporation", "partnership"),
+    "Trust": ("trust",),
+}
+
+
+def _mentions_occupancy_eligibility(content):
+    """A rule about WHO the carrier will insure, or in WHAT kind of dwelling:
+    occupancy, ownership structure, named-insured eligibility.
+
+    Round 17: this is the most fundamental eligibility question a guide
+    answers, and it had no guaranteed lookup -- it rode entirely on embedding
+    rank, like PPC, pool, solar, roof age and roof shape each did before they
+    got one. Surfaced by the long-standing CHUBB backlog item ("cites the
+    multi-unit clause instead of the single-family 'a house' clause"), which
+    had the SYMPTOM right and the cause wrong. CHUBB's Eligible Persons
+    section spans two chunks:
+
+        1. owner-occupant of a MULTIPLE UNIT dwelling (<=2 units) ...
+        2. owner-occupant or tenant of ... a house, a condominium unit ...
+
+    Retrieval kept the first chunk and dropped the second, so clause 2 never
+    reached the prompt. The model cited clause 1 because it was the only
+    eligible-persons clause it was ever shown -- 16/20 recorded STANDARD
+    runs cited it, 0/20 cited clause 2, and a few reasoned that an
+    owner-occupied SINGLE-FAMILY home "satisfies" a multiple-unit-dwelling
+    clause. Not a reasoning error: the model had nothing else to pick.
+
+    The family survey found the same miss on about nine carriers, where it
+    is silent rather than visible -- Allied Trust (all three of its rules),
+    Orion, Progressive HO3, and five Sage programs. For Allied Trust it is
+    verdict-bearing: its "Properties owned by a business, corporation..."
+    exclusion did not reach the prompt for an LLC-owned property, although
+    that is precisely the rule that decides it. (It DID reach for a Trust
+    profile, because "trust" happens to sit close to that chunk in
+    embedding space and "LLC" does not -- the ranking lottery in miniature.)
+    """
+    return bool(_OCCUPANCY_ELIGIBILITY_RE.search(content))
+
+
+def _occupancy_priority_key(ownership):
+    """Rank matching chunks so the ones that decide THIS property survive the
+    per-carrier cap.
+
+    Ownership-aware on purpose. Allied Trust has more matching chunks than
+    the cap holds; without this, an LLC-owned property can fill the cap with
+    owner-occupancy chunks and still drop the business-ownership exclusion
+    that is the only rule actually in question. Tables of contents
+    ("I. Eligible Person 2-3  II. Physical Conditions 4-5 ...") match on the
+    heading alone and carry no rule, so they sort last.
+    """
+    own_terms = _OWNERSHIP_TERMS.get(ownership, ())
+
+    def key(chunk):
+        lower = chunk.page_content.lower()
+        is_toc = len(re.findall(r"\b[ivx]+\.\s", lower)) >= 3 or lower.count("....") >= 3
+        return (
+            not any(t in lower for t in own_terms),
+            is_toc,
+            # Third, prefer a chunk that DECIDES eligibility. Without this an
+            # Individual Owner profile -- no ownership terms to rank on -- fell
+            # back to raw database order, and Allied Trust kept a coverage-form
+            # "owner occupied" mention while dropping "Ineligible - Homes not
+            # occupied by the named insured".
+            not _DECISIVE_OCCUPANCY_RE.search(lower),
+        )
+    return key
+
+
 def _is_ppc_disambiguation_table(content):
     """A Protection Class table whose own text exists to resolve which of
     TWO ISO-assigned classes applies to one location (e.g. a "6/9" split
@@ -2148,6 +2272,27 @@ def check_eligibility(property_details, carrier_subset=None):
             predicate=_mentions_roof_life_expectancy,
             keep=MAX_ROOF_LIFE_CHUNKS_PER_CARRIER,
             priority_key=lambda c: "shingle" not in c.page_content.lower(),
+        )
+        for chunk in found:
+            key = (carrier, chunk.page_content)
+            if key not in seen:
+                seen.add(key)
+                chunks.append(chunk)
+
+    # CHANGED (round 17): guaranteed per-carrier OCCUPANCY / OWNERSHIP
+    # eligibility lookup -- who the carrier will insure at all. Same pattern
+    # as PPC/pool/solar/roof-age/roof-shape above; see
+    # _mentions_occupancy_eligibility's docstring for the CHUBB clause that
+    # never reached the prompt and the Allied Trust LLC exclusion that didn't
+    # either. Unconditional, like roof life expectancy: every property has an
+    # occupancy and an ownership structure, so this rule is always in play.
+    occupancy_key = _occupancy_priority_key(property_details.get("ownership_type", ""))
+    for carrier in relevant_carriers:
+        found = guaranteed_carrier_lookup(
+            collection, carrier,
+            predicate=_mentions_occupancy_eligibility,
+            keep=MAX_OCCUPANCY_CHUNKS_PER_CARRIER,
+            priority_key=occupancy_key,
         )
         for chunk in found:
             key = (carrier, chunk.page_content)

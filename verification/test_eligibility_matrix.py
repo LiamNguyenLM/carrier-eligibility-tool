@@ -76,6 +76,9 @@ from eligibility_check import (
     _strip_contradicted_property_claims,
     _mentions_roof_shape_rule,
     _RESTRICTED_ROOF_SHAPES,
+    _mentions_occupancy_eligibility,
+    _occupancy_priority_key,
+    MAX_OCCUPANCY_CHUNKS_PER_CARRIER,
     _SAGE_ROOFER_STATEMENT_CARRIERS,
     _SAGE_FPC_CARRIERS,
     _TWICO_CARRIERS,
@@ -1258,10 +1261,19 @@ class TestBaselineStandardProfile:
         blob = " ".join(r.get("missing_info", [])).lower()
         assert "county" in blob
 
-    @pytest.mark.xfail(reason="CHUBB cites the multi-unit clause instead of the single-family 'a house' clause (backlog, rounds 9-11)")
     def test_chubb_cites_correct_eligible_persons_clause(self):
+        """Backlog since rounds 9-11; root-caused and fixed in round 17 -- see
+        TestRound17OccupancyEligibilityGuarantee. Clause 2 never reached the
+        prompt, so the model could only cite clause 1 (multiple-unit
+        dwellings) for a single-family home.
+
+        The old assertion was `"house" in citations`, which could PASS while
+        the bug was fully present: CHUBB's clause-1 chunk opens "The term
+        dwelling includes individually owned TOWNHOUSE units". This checks
+        for clause 2's own distinctive text instead."""
         r = self._find("CHUBB")
-        assert "house" in " ".join(r.get("citations", [])).lower()
+        cites = " ".join(r.get("citations", [])).lower()
+        assert re.search(r"a house, a condominium unit|owner-occupant or tenant", cites), cites
 
     @pytest.mark.xfail(
         reason="CONFIRMED ROUND 16, and it is a DATA problem, not a code one. The HO6 and HO3 "
@@ -3485,3 +3497,234 @@ def test_each_document_reads_like_the_product_its_filename_claims():
         "carrier records whose document describes a different product than their filename "
         "claims -- the wrong PDF is almost certainly in that slot: " + "; ".join(mismatched)
     )
+
+
+# ---------------------------------------------------------------------------
+# ROUND 17 -- occupancy / ownership eligibility had no retrieval guarantee.
+#
+# The CHUBB backlog item ("cites the multi-unit clause instead of the
+# single-family 'a house' clause", open since rounds 9-11) was a RETRIEVAL
+# miss, not a reasoning one: CHUBB's Eligible Persons section spans two
+# chunks and clause 2 never reached the prompt, so the model cited clause 1
+# because it was the only one it was shown (16/20 recorded STANDARD runs;
+# 0/20 cited clause 2). The family survey found the same silent miss on ~9
+# carriers, and on Allied Trust it is verdict-bearing: its unconditional
+# "Properties owned by a business, corporation, LLC ... are NOT eligible"
+# did not reach the prompt for an LLC-owned property.
+#
+# General-rule fix, so every assertion below spans several phrasings of the
+# same concept -- per CLAUDE.md, the Allied Trust "Composition Shingle" fix
+# generalized to nothing because its test only knew one wording.
+# ---------------------------------------------------------------------------
+
+class _PromptCaptured(Exception):
+    pass
+
+
+def _captured_prompt(profile):
+    """The exact user prompt check_eligibility() would send -- real retrieval,
+    with the model call intercepted, so zero API cost.
+
+    The original client method is restored in `finally`. Without that, every
+    baseline test that runs after this one in the same session would hit the
+    fake and fail with _PromptCaptured, which would read as a pipeline
+    regression rather than a test-harness leak.
+    """
+    import eligibility_check as ec
+    captured = {}
+    original = ec.client.messages.create
+
+    def fake(**kwargs):
+        captured.update(kwargs)
+        raise _PromptCaptured()
+
+    ec.client.messages.create = fake
+    try:
+        check_eligibility(profile)
+    except _PromptCaptured:
+        pass
+    finally:
+        ec.client.messages.create = original
+    content = captured["messages"][0]["content"]
+    if not isinstance(content, str):
+        content = "".join(b.get("text", "") for b in content)
+    return re.sub(r"\s+", " ", content).lower()
+
+
+def _norm(text):
+    return re.sub(r"\s+", " ", normalize_chunk_text(text)).lower()
+
+
+# (carrier, probe) -- each probe is text that exists in that carrier's own
+# guide and states who or what dwelling it will insure. Several distinct
+# phrasings of the one concept, which is the point.
+_OCCUPANCY_RULES = [
+    ("CHUBB_HO_-_05.22.2026", "a house, a condominium unit"),            # dwelling-type list
+    ("CHUBB_HO_-_05.22.2026", "multiple unit dwelling"),                 # multi-unit clause
+    ("Allied_Trust_HO3", "owned by a business, corporation, llc"),       # entity ownership
+    ("Allied_Trust_HO3", "trust may not be listed as a named insured"),  # trust as insured
+    ("Allied_Trust_HO3", "owner-occupied at least nine months"),         # occupancy duration
+    ("Allied_Trust_HO3", "not occupied by the named insured"),           # occupant identity
+    ("Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3", "deeded to the named insured"),  # title
+    ("Progressive_HO3_-_04.01.2026", "occupied by the owner and owner"),  # family occupancy
+    ("Sage_-_Auros_HO3", "dwellings must be owner occupied"),            # bare requirement
+    ("Sage_-_Wilshire_HO3_-_12.02.2025", "dwellings must be owner occupied"),
+]
+
+
+@pytest.mark.retrieval
+class TestRound17OccupancyEligibilityGuarantee:
+
+    @pytest.mark.parametrize("carrier,probe", _OCCUPANCY_RULES)
+    def test_predicate_matches_every_phrasing_of_the_rule(self, carrier, probe):
+        chunks = [c for c in _all_chunks(carrier) if probe in _norm(c.page_content)]
+        assert chunks, f"premise: {probe!r} is in {carrier}'s guide"
+        assert any(_mentions_occupancy_eligibility(c.page_content) for c in chunks)
+
+    @pytest.mark.parametrize("text", [
+        "Dwellings must be owner occupied.",
+        "Primary residences must be deeded to the named insured and owner occupied.",
+        "Properties owned by an LLC are not eligible for coverage.",
+        "The Trust may NOT be listed as a named insured.",
+        "Residence must be occupied by the owner and owner's immediate family.",
+        "I. Eligible Persons",
+        "OCCUPANCY AND USE - Primary residences only.",
+    ])
+    def test_predicate_matches_synthetic_phrasings(self, text):
+        assert _mentions_occupancy_eligibility(text)
+
+    @pytest.mark.parametrize("text", [
+        "Occupation of each Named Insured. Do they travel frequently?",
+        "A credit-based insurance score of the named insured will be used in rating.",
+        "The contractor is not the named insured.",
+        "Prior to binding coverage, the applicant/named insured must sign the form.",
+        # Allied Trust's MORTGAGE rule. An early version of the predicate
+        # matched this on "trust ... not acceptable" and it won a slot over a
+        # genuine occupancy rule -- caught by the whole-family test below.
+        "If there is a mortgage on the property, applicants must have a mortgage through "
+        "an acceptable financial institution. Private mortgages, land contracts, trust "
+        "and/or bond for deeds are not acceptable.",
+    ])
+    def test_predicate_ignores_named_insured_noise(self, text):
+        """Bare 'named insured' is mostly noise across this corpus. Matching
+        it would spend the per-carrier cap on jewelry-schedule questions,
+        credit-score text and financing rules instead of the rule that
+        decides eligibility."""
+        assert not _mentions_occupancy_eligibility(text)
+
+    @pytest.mark.parametrize("ownership,carrier,probe", [
+        ("LLC", "Allied_Trust_HO3", "owned by a business, corporation, llc"),
+        ("Trust", "Allied_Trust_HO3", "trust may not be listed as a named insured"),
+        ("Individual Owner", "CHUBB_HO_-_05.22.2026", "a house, a condominium unit"),
+        ("Individual Owner", "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3", "deeded to the named insured"),
+    ])
+    def test_the_decisive_rule_survives_the_cap_for_this_ownership_type(self, ownership, carrier, probe):
+        """Uses the production cap, not a copy of it. Without an
+        ownership-aware priority, an LLC property can fill the cap with
+        owner-occupancy chunks and drop the business-ownership exclusion --
+        the one rule actually in question."""
+        kept = guaranteed_carrier_lookup(
+            get_vectorstore()._collection, carrier,
+            predicate=_mentions_occupancy_eligibility,
+            keep=MAX_OCCUPANCY_CHUNKS_PER_CARRIER,
+            priority_key=_occupancy_priority_key(ownership),
+        )
+        assert any(probe in _norm(c.page_content) for c in kept), (
+            f"{carrier}'s {probe!r} did not survive the cap for ownership={ownership}"
+        )
+
+    def test_a_table_of_contents_line_sorts_last(self):
+        """CHUBB's index ("I. Eligible Person 2-3 II. Physical Conditions
+        4-5 ...") matches on the heading alone and carries no rule."""
+        toc = Document(page_content=(
+            "Index Page I. Eligible Person 2-3 II. Physical Conditions 4-5 "
+            "III. Underwriting 5 IV. Claim History 5-6"))
+        rule = Document(page_content="2. A person who is the owner-occupant of a house is eligible.")
+        key = _occupancy_priority_key("Individual Owner")
+        assert key(rule) < key(toc)
+
+    def test_chubb_clause_2_reaches_the_standard_prompt(self):
+        """THE EXACT AUDIT SCENARIO. Before the guarantee this was absent
+        from the STANDARD prompt on every run, so no model could cite it."""
+        assert "a house, a condominium unit" in _captured_prompt(STANDARD_PROFILE)
+
+    @pytest.mark.parametrize("ownership", ["Individual Owner", "Trust", "LLC"])
+    def test_the_whole_family_reaches_the_prompt_for_every_ownership_type(self, ownership):
+        """Every project profile is "Individual Owner", so before round 17 no
+        baseline, sweep or audit had ever exercised the Trust or LLC intake
+        options. Measured before the fix: 2 of 21 (rule x ownership) checks
+        reached the prompt.
+
+        No carve-outs, deliberately. At a cap of 3 this test needed an LLC
+        exception for Allied Trust's nine-month rule, and it was a trap: the
+        exception hid that the cap was also truncating the entire Sage family
+        and CHUBB, which only surfaced once the cap was swept properly (see
+        MAX_OCCUPANCY_CHUNKS_PER_CARRIER). Every rule, every ownership type."""
+        prompt = _captured_prompt(dict(STANDARD_PROFILE, ownership_type=ownership))
+        missing = [f"{c}: {p!r}" for c, p in _OCCUPANCY_RULES if p not in prompt]
+        assert not missing, "occupancy rules missing from the prompt:\n  " + "\n  ".join(missing)
+
+    def test_allied_trust_llc_exclusion_reaches_the_prompt_for_an_llc_property(self):
+        """The verdict-bearing case, on its own so it is named in the output.
+        The chunk says "LLC" VERBATIM and embedding retrieval still missed it
+        for an LLC query -- the strongest evidence that this topic needs a
+        keyword guarantee rather than a better query."""
+        prompt = _captured_prompt(dict(STANDARD_PROFILE, ownership_type="LLC"))
+        assert "owned by a business, corporation, llc" in prompt
+
+
+@pytest.mark.baseline
+def test_chubb_eligible_persons_clause_consistency(record_property):
+    """The CHUBB backlog finding, measured as a pass rate rather than one run.
+
+    Correct means citing clause 2 (the single-dwelling list) and never
+    reasoning that a single-family home satisfies clause 1, the
+    MULTIPLE-UNIT-dwelling clause -- which is what 3 of the 20 recorded
+    pre-fix runs actually did.
+
+    Deliberately not the old `"house" in citations` check: CHUBB's clause-1
+    chunk opens "The term dwelling includes individually owned TOWNHOUSE
+    units", so that assertion could pass while the bug was fully present.
+    """
+    n_runs = 3
+    outcomes = []
+    for _ in range(n_runs):
+        result = check_eligibility(STANDARD_PROFILE)
+        matches = _find_carrier({r["carrier"]: r for r in result}, "chubb")
+        assert matches
+        r = matches[0]
+        cites = " ".join(r.get("citations", [])).lower()
+        reasons = " ".join(r.get("reasons", [])).lower()
+        cites_clause_2 = bool(re.search(
+            r"a house, a condominium unit|owner-occupant or tenant", cites))
+        misapplies_clause_1 = bool(re.search(
+            r"multiple[- ]unit dwelling[^.]{0,200}(satisf|meet|qualif|eligible)", reasons))
+        outcomes.append(cites_clause_2 and not misapplies_clause_1)
+    pass_rate = sum(outcomes) / n_runs
+    record_property("chubb_eligible_persons_pass_rate", pass_rate)
+    print(f"\nCHUBB eligible-persons pass rate: {pass_rate:.0%} over {n_runs} runs ({outcomes})")
+    assert pass_rate == 1.0, f"CHUBB eligible-persons clause correct in only {pass_rate:.0%} of runs"
+
+
+@pytest.mark.baseline
+def test_allied_trust_llc_is_ineligible_on_its_own_rule_consistency(record_property):
+    """An LLC-owned property must be INELIGIBLE at Allied Trust, and on Allied
+    Trust's OWN business-ownership rule -- not merely on SYSTEM_INSTRUCTIONS'
+    general "most HO3 carriers do not accept LLC" line, which is the only
+    thing the model could have leaned on before this rule reached the prompt.
+    """
+    n_runs = 3
+    outcomes = []
+    profile = dict(STANDARD_PROFILE, ownership_type="LLC")
+    for _ in range(n_runs):
+        result = check_eligibility(profile)
+        matches = _find_carrier({r["carrier"]: r for r in result}, "allied trust")
+        assert matches
+        r = matches[0]
+        cites = " ".join(r.get("citations", [])).lower()
+        own_rule = bool(re.search(r"owned by a business|business, corporation|\bllc\b", cites))
+        outcomes.append(r.get("status") == "INELIGIBLE" and own_rule)
+    pass_rate = sum(outcomes) / n_runs
+    record_property("allied_trust_llc_pass_rate", pass_rate)
+    print(f"\nAllied Trust LLC pass rate: {pass_rate:.0%} over {n_runs} runs ({outcomes})")
+    assert pass_rate == 1.0, f"Allied Trust LLC correct in only {pass_rate:.0%} of runs"
