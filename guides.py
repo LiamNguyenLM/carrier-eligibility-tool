@@ -89,6 +89,47 @@ def all_programs():
     return sorted({m["carrier"] for m in raw["metadatas"] if m.get("carrier")})
 
 
+# Markings a carrier put on its own document to restrict how it may be shared.
+# Not a data defect and not a bug -- a governance fact about the file.
+_CONFIDENTIALITY_MARKERS = (
+    "privileged", "confidential", "proprietary",
+    "internal use only", "do not distribute",
+)
+
+
+def confidentiality_markings(program):
+    """{marker: count} for the sharing restrictions a guide carries.
+
+    Exists because "which documents may we send to a third-party vendor" is a
+    question that must be answered from the documents themselves, every time,
+    rather than from a list someone wrote once and forgot to update. 17 of the
+    40 guides carry a marking today, and they are not the ones you would
+    guess: the entire Sage family is "Privileged and Confidential", Foremost
+    says "do not distribute" outright, and Progressive is "proprietary", while
+    Allied Trust, Mercury and the Swyfft programs carry nothing at all.
+
+    Derived rather than listed, for the same reason data_defects is: a
+    re-uploaded guide changes its own answer here with no code change.
+    """
+    text = guide_text(program).lower()
+    return {m: text.count(m) for m in _CONFIDENTIALITY_MARKERS if text.count(m)}
+
+
+def is_confidential(program):
+    """True if the guide restricts its own redistribution.
+
+    Used to gate what may be sent to a NON-Anthropic provider. The eligibility
+    pipeline's existing Anthropic exposure was approved separately and on
+    retrieved snippets; this is the check for anything beyond that.
+    """
+    return bool(confidentiality_markings(program))
+
+
+def unmarked_programs():
+    """Programs whose guides carry no redistribution restriction."""
+    return [p for p in all_programs() if not is_confidential(p)]
+
+
 def estimate_tokens(text):
     """Rough token count. Deliberately a cheap local estimate: this is used to
     decide whether a question is affordable to answer in full-guide mode, and

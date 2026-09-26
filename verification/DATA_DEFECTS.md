@@ -124,11 +124,22 @@ most invisible of the three:
 
 It was reachable from the chat tab, though, and dangerously: building the
 carrier-name index from stored programs alone made "Centauri HO3 roof age"
-resolve to **Centauri's DP3 landlord guide**, because the HO3 record was not a
-candidate and the product filter had nothing to narrow to. An agent asking a
-homeowners question would have been handed the landlord guide's rule with
-nothing flagged. `chat.known_programs()` now unions the defect list in so the
-program is nameable and can be refused by name.
+resolve to **Centauri's DP3 (dwelling fire) guide**, because the HO3 record was
+not a candidate and the product filter had nothing to narrow to. An agent
+asking a homeowners question would have been handed a dwelling-fire rule with
+nothing flagged.
+
+Note the difference from DD-1, because it is easy to overstate the parallel:
+NatGen's mis-filed document really is *titled* "Texas Landlord" and says
+"landlord" 31 times. Centauri's DP3 document says "landlord" **zero** times.
+Its only occupancy mention is a single "The home is tenant occupied" — and
+that appears in a list of circumstances requiring underwriting approval prior
+to binding, not as the document's own product identity. So the defect here is
+purely wrong-PRODUCT (dwelling fire answered for a homeowners question); there
+is no landlord-branding tell of the kind that made DD-1 visible on sight.
+
+`chat.known_programs()` now unions the defect list in so the program is
+nameable and can be refused by name.
 
 **Fix:** OCR the Centauri HO3 PDF and re-ingest it, or obtain a text-layer
 copy from the carrier.

@@ -21,6 +21,7 @@ Three answer paths, chosen by what the question names:
 """
 
 import concurrent.futures
+import hashlib
 import json
 import os
 import re
@@ -34,8 +35,13 @@ import data_defects
 import guides
 from eligibility_check import carrier_programs
 
-# --- the model, and the only two places its identity appears ---------------
+# --- the model, and the only place its identity appears --------------------
 CHAT_MODEL = os.environ.get("CHAT_MODEL", "claude-sonnet-4-5")
+
+# Reasoning depth for the OpenAI path. Luna accepts
+# none | low | medium | high | xhigh (verified against the API -- 'minimal',
+# which earlier GPT-5 models took, is rejected).
+CHAT_REASONING_EFFORT = os.environ.get("CHAT_REASONING_EFFORT", "low")
 
 # Models that REJECT sampling parameters outright (HTTP 400) rather than
 # ignoring them. The Claude 5 family removed temperature/top_p/top_k, so
@@ -45,19 +51,58 @@ CHAT_MODEL = os.environ.get("CHAT_MODEL", "claude-sonnet-4-5")
 # parameter is dropped for those models and the determinism has to come from
 # measured pass rates instead. Listed by prefix because the family shares the
 # behaviour.
+#
+# gpt-6-luna behaves the same way and was verified the same way:
+#   temperature=0  -> 400 "does not support 0 with this model. Only the
+#                     default (1) value is supported."
+#   top_p          -> 400 "is not supported with this model."
+# So neither provider offers temperature-0 determinism any more. On the
+# OpenAI side the nearest lever is `seed`, which is best-effort only -- the
+# responses come back with system_fingerprint=None, so there is not even a
+# signal for when the backend changed underneath you.
 _NO_SAMPLING_PARAMS = ("claude-opus-5", "claude-sonnet-5", "claude-fable-5", "claude-opus-4-")
 
 _client = anthropic.Anthropic(max_retries=6)
+_openai_client = None
+
+
+def _is_openai(model):
+    return model.startswith(("gpt-", "o1", "o3", "o4"))
+
+
+def _get_openai_client():
+    """Lazy, so the Claude path never needs OPENAI_API_KEY set."""
+    global _openai_client
+    if _openai_client is None:
+        import openai
+        _openai_client = openai.OpenAI(max_retries=6)
+    return _openai_client
 
 
 def _complete(system, blocks, max_tokens=4000):
     """THE model call. Returns (text, usage_dict, latency_seconds).
 
-    `blocks` is a list of (text, cacheable) pairs forming the single user
-    message. Guide text goes first and cacheable; the question goes last and
-    is never cached, so a follow-up about the same carrier reuses the guide
-    prefix instead of paying for it again.
+    `blocks` is a list of (text, cacheable) pairs forming the prompt. Guide
+    text comes first and is marked cacheable; the question comes last and
+    never is.
+
+    Provider dispatch lives here and nowhere else -- everything above and
+    below this function deals in (text, cacheable) pairs and a usage dict
+    with provider-neutral keys, so a bake-off is a CHAT_MODEL change.
+
+    The usage dict's keys are Anthropic-shaped because that is what the
+    existing callers and logs already speak; the OpenAI branch maps onto
+    them. Note that "cache_creation_input_tokens" has no OpenAI equivalent
+    (its caching is implicit and unbilled-at-write), so it stays 0 there --
+    a reader comparing the two providers' logs should not read that as a
+    cache that failed to write.
     """
+    if _is_openai(CHAT_MODEL):
+        return _complete_openai(system, blocks, max_tokens)
+    return _complete_anthropic(system, blocks, max_tokens)
+
+
+def _complete_anthropic(system, blocks, max_tokens):
     content = []
     for text, cacheable in blocks:
         block = {"type": "text", "text": text}
@@ -94,6 +139,95 @@ def _complete(system, blocks, max_tokens=4000):
         "output_tokens": usage.output_tokens,
         "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
         "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
+    }, latency
+
+
+def _complete_openai(system, blocks, max_tokens):
+    """The OpenAI path. A port of the SHAPE, not of the caching strategy.
+
+    CACHING IS NOT PORTABLE HERE, and this is measured rather than assumed.
+    Anthropic caches a PREFIX: mark the guide text with cache_control and
+    every later question about the same carrier reads it back, which is what
+    makes full-guide mode affordable (measured 10x: $0.167 -> $0.017).
+
+    Luna's cache turned out to key on the WHOLE prompt. Measured on a fresh
+    ~8,000-token prefix, guide block in its own message so the prefix is
+    byte-identical:
+
+        identical prompt, repeated          cached 8023/8026  (100%)
+        same prefix, question changed       cached 0          (0%)
+        ... + constant prompt_cache_key     cached 0          (0%)
+        ... + prompt_cache_retention="24h"  cached 0          (0%)
+
+    So there is no prefix reuse to have. Every distinct question re-pays for
+    the full guide text, and since distinct questions are the entire point of
+    a chat tab, the cache never fires in real use. It fires only on a repeat
+    of an identical question -- which is what a golden-set rerun is, so cost
+    measured across repeat runs FLATTERS this path and has to be taken from
+    the cold call.
+
+    Two further behaviours worth knowing, both measured:
+      - cache population is asynchronous. Requests fired back to back all
+        miss; they start hitting a few seconds later. An early probe of mine
+        read as "caching does not work at all" purely because the calls were
+        0.6s apart.
+      - `prompt_cache_retention` accepts "24h" (and the default). "30m",
+        "1h" and "in-memory" are all rejected as invalid, so the TTL is not
+        freely chosen.
+
+    `prompt_cache_key` is still sent. It does nothing for varying questions,
+    but it is the documented routing hint for the identical-prompt case, it
+    costs nothing, and if the backend ever gains prefix reuse this is the
+    parameter that would switch it on.
+    """
+    messages = [{"role": "system", "content": system}]
+    for text, _cacheable in blocks:
+        # Each block is its own message, so the guide text is byte-identical
+        # across questions. That is what a prefix cache would need; it does
+        # not help today, but it costs nothing and keeps the shape honest.
+        messages.append({"role": "user", "content": text})
+
+    cache_key = hashlib.sha256(
+        "".join(text for text, cacheable in blocks if cacheable).encode("utf-8", "replace")
+    ).hexdigest()[:32]
+
+    kwargs = dict(
+        model=CHAT_MODEL,
+        messages=messages,
+        # NOT max_tokens: the OpenAI parameter is max_completion_tokens, and
+        # it has to cover REASONING tokens as well as the visible answer.
+        # Sizing it like an answer-only budget starves the reasoning and
+        # returns an empty string with finish_reason="length".
+        max_completion_tokens=max_tokens + 4000,
+        reasoning_effort=CHAT_REASONING_EFFORT,
+        # Best-effort determinism; see _NO_SAMPLING_PARAMS for why this is
+        # the most that is available. Deliberately a fixed constant.
+        seed=0,
+        prompt_cache_key=cache_key,
+        timeout=300.0,
+    )
+
+    started = time.time()
+    response = _get_openai_client().chat.completions.create(**kwargs)
+    latency = time.time() - started
+
+    usage = response.usage
+    cached = 0
+    if getattr(usage, "prompt_tokens_details", None) is not None:
+        cached = getattr(usage.prompt_tokens_details, "cached_tokens", 0) or 0
+    reasoning = 0
+    if getattr(usage, "completion_tokens_details", None) is not None:
+        reasoning = getattr(usage.completion_tokens_details, "reasoning_tokens", 0) or 0
+
+    text = response.choices[0].message.content or ""
+    return text, {
+        # Uncached input only, so this lines up with Anthropic's input_tokens.
+        "input_tokens": usage.prompt_tokens - cached,
+        "output_tokens": usage.completion_tokens,
+        "cache_read_input_tokens": cached,
+        "cache_creation_input_tokens": 0,
+        "reasoning_tokens": reasoning,
+        "finish_reason": response.choices[0].finish_reason,
     }, latency
 
 
@@ -299,7 +433,32 @@ _SOURCE_LINE_RE = re.compile(
     r"^[ \t]*[-*]?[ \t]*([^\n:]{1,80}?)[ \t]*:[ \t]*[\"“](.+?)[\"”]",
     re.M | re.S,
 )
-_INLINE_QUOTE_RE = re.compile(r"[\"“]([^\"“”]{25,})[\"”]")
+def _inline_quotes(answer):
+    """Every double-quoted span in the answer, paired correctly.
+
+    Pairing has to be positional -- 1st quote with 2nd, 3rd with 4th -- and
+    NOT a regex, because a regex cannot tell an opening delimiter from a
+    closing one. The earlier pattern
+    `["“]([^"“”]{25,})["”]` did exactly that and produced
+    FALSE fabrication reports: given
+
+        ... treats detached garages as "Other Structures" under Coverage B,
+        and garage type and size are used in rating. **SOURCES**
+        Orion_...HO3: "Coverage B - Other Structures ...
+
+    it began at the CLOSING quote of "Other Structures", ran to the OPENING
+    quote of the first SOURCES entry, and reported the ordinary prose in
+    between as a quote appearing in no guide. Any answer that quotes a short
+    term inline and then cites sources -- a completely normal shape -- was
+    marked unverified. Measured on Orion: 3 of 3 Sonnet answers failed this
+    way while the quotes themselves were all genuine.
+
+    Splitting on the delimiter makes the odd-indexed segments the quoted ones
+    by construction, which is the property the regex lacked.
+    """
+    normalized = (answer or "").replace("“", '"').replace("”", '"')
+    parts = normalized.split('"')
+    return [parts[i] for i in range(1, len(parts), 2)]
 
 
 def _compare_key(text):
@@ -460,7 +619,7 @@ def verify_quotes(answer, program_texts):
                 "actually_from": elsewhere,
             })
 
-    for quote in _INLINE_QUOTE_RE.findall(answer):
+    for quote in _inline_quotes(answer):
         key = _compare_key(quote)
         if key in seen or len(key) < 25:
             continue
@@ -639,7 +798,7 @@ def _classify_one(program, question):
     return program, parsed, usage, latency
 
 
-def answer_cross_carrier(question, max_workers=8):
+def answer_cross_carrier(question, max_workers=8, programs=None):
     """Every program, one small call each, grouped in code.
 
     One call per program rather than one call over all of them. The pipeline's
@@ -650,7 +809,13 @@ def answer_cross_carrier(question, max_workers=8):
     structurally impossible instead of detectable.
     """
     defects = data_defects.defective_programs()
-    programs = [p for p in guides.all_programs() if p not in defects]
+    # `programs` lets a caller narrow the sweep. Its reason for existing is
+    # the Luna bake-off: a cross-carrier question otherwise touches all 40
+    # guides, including the 17 that restrict their own redistribution, so
+    # measuring this path against a third-party provider needs a way to
+    # exclude them rather than a promise to be careful.
+    candidates = guides.all_programs() if programs is None else list(programs)
+    programs = [p for p in candidates if p not in defects]
 
     results, usages, latencies = {}, [], []
     started = time.time()

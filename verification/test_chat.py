@@ -264,6 +264,37 @@ class TestQuoteVerifier:
         mercury = chat._compare_key(guides.guide_text("Mercury_HO3_-_01.01.2026"))
         assert not chat._appears_in(quote, mercury)
 
+    def test_a_short_quoted_term_in_prose_does_not_fake_a_fabrication(self):
+        """Regression for a FALSE POSITIVE in the verifier itself.
+
+        An answer that quotes a short term inline and then lists sources is a
+        completely ordinary shape. The old regex-based extractor started
+        matching at that term's CLOSING quote and ran to the next OPENING
+        quote, reporting the prose in between as a quote found in no guide.
+        Measured on Orion: 3 of 3 Sonnet answers were marked unverified while
+        every actual quote was genuine.
+
+        A verifier's false positives cost more than its false negatives here
+        -- agents who see it cry wolf will stop reading it."""
+        program = "Allied_Trust_HO3"
+        texts = self._texts(program)
+        real = next(
+            s for s in re.split(r"(?<=[.!?])\s+", texts[program]) if 60 < len(s) < 180
+        )
+        answer = (
+            'Yes. The guide treats these as "Other Structures" under Coverage B, '
+            'and there is no eligibility restriction.\n\n'
+            'SOURCES\n- {}: "{}"'.format(program, real)
+        )
+        verified, problems = chat.verify_quotes(answer, texts)
+        assert verified, problems
+
+    def test_quotes_are_paired_positionally_not_greedily(self):
+        """The property the regex lacked, asserted directly: with four
+        delimiters, segments 1 and 3 are the quotes and segment 2 is prose."""
+        quotes = chat._inline_quotes('a "first quote" b "second quote" c')
+        assert quotes == ["first quote", "second quote"]
+
     def test_whitespace_and_punctuation_differences_still_verify(self):
         """The corpus's own extraction inserts spaces mid-word ("P ools") and
         replacement characters where smart quotes were. A verifier that
@@ -375,6 +406,37 @@ def _rate(fn, runs=None):
     return passes, runs, failures
 
 
+def _gate(*programs):
+    """Skip this case if CHAT_MODEL is a third-party provider and any guide it
+    would send restricts its own redistribution.
+
+    The gate is here rather than in a note to me, because "remember not to
+    send the Sage guides to OpenAI" is exactly the kind of instruction that
+    survives one round and then does not. 17 of 40 guides carry a marking --
+    the whole Sage family is "Privileged and Confidential", Foremost says "do
+    not distribute", Progressive is "proprietary" -- and the markings are read
+    from the documents at run time, so a re-upload or a newly marked guide
+    changes the gate with no code change.
+
+    Anthropic is not gated: that exposure predates this and was approved on
+    its own terms. This is the check for sending guide text ANYWHERE ELSE.
+    """
+    if not chat._is_openai(chat.CHAT_MODEL):
+        return
+    marked = {p: guides.confidentiality_markings(p) for p in programs}
+    marked = {p: m for p, m in marked.items() if m}
+    if marked:
+        pytest.skip(
+            "CHAT_MODEL={} is a third-party provider and this case would send "
+            "restricted guide text: {}. Cleared for unmarked guides only.".format(
+                chat.CHAT_MODEL,
+                "; ".join(
+                    "{} ({})".format(p, ", ".join(sorted(m))) for p, m in marked.items()
+                ),
+            )
+        )
+
+
 def _assert_rate(fn, threshold=1.0):
     passes, runs, failures = _rate(fn)
     rate = passes / runs
@@ -387,8 +449,30 @@ def _assert_rate(fn, threshold=1.0):
 
 @pytest.mark.baseline
 class TestGoldenSet:
+    """NOTE ON PHRASING -- read before adding a case.
+
+    Assert the FACT, not one model's wording of it. These assertions were
+    originally written against Claude Sonnet's output and silently encoded its
+    phrasing; running the same suite against gpt-6-luna scored three cases
+    80%, 60% and 0% on answers that were all substantively CORRECT:
+
+        "roofs over 25 years are excluded"      vs demanded "older than 25 years"
+        "does not SPECIFICALLY address"         vs demanded "does not address"
+        "flat roofs are not listed as ineligible" tripped a bare search for
+                                                  the word "ineligible"
+
+    That is the same substring mistake this project keeps catching in the
+    product (Lloyds/Lloyd's, HOA+/HOAIC, Foremost's "2.5 feet" matching "5
+    feet"), except in the measuring instrument, where it is worse: it reports
+    a correct answer as a regression, and it makes any cross-model comparison
+    meaningless because the incumbent is graded on the phrasing it happens to
+    use. Accept the family of phrasings the fact can be stated in, and assert
+    separately that the WRONG answer is absent.
+    """
 
     def test_progressive_galvanized_notes_the_pex_difference(self):
+        _gate("Progressive_HO3_-_04.01.2026", "Progressive_HO6_-_10.01.2025",
+              "Progressive_DP3_-_10.01.2024")
         """All three Progressive guides make galvanized ineligible, but HO3
         and HO6 exclude only PEX installed before 2011 while DP3 excludes all
         PEX. A per-program answer is the whole point of the feature, so the
@@ -403,14 +487,26 @@ class TestGoldenSet:
         _assert_rate(check)
 
     def test_swyfft_lloyds_roof_age_is_25_not_30(self):
+        _gate("Swyfft_-_Lloyds_(Surplus)_HO3")
+
         def check():
             answer, result = _ask_text("what is the maximum roof age for Swyfft Lloyds?")
             assert result["quotes_verified"], result["quote_problems"]
-            assert "25" in answer
-            assert "older than 25 years" in answer.lower()
+            lowered = answer.lower()
+            # The FACT is 25, not one model's way of saying it. Demanding the
+            # literal "older than 25 years" scored Luna 4/5 for answering
+            # "roofs over 25 years are excluded" -- same rule, different
+            # words. See NOTE ON PHRASING at the top of this class.
+            assert re.search(r"(older than|over|more than|exceed\w*|>\s*)\s*25\b", lowered) \
+                or re.search(r"\b25\s*years?\b", lowered)
+            # The point of this case is the contrast: Lloyds caps at 25 where
+            # the other three Swyfft programs cap at 30. Claiming 30 is the
+            # regression.
+            assert not re.search(r"maximum[^.]{0,30}\b30\b", lowered)
         _assert_rate(check)
 
     def test_foremost_pool_fence_is_four_feet_never_five(self):
+        _gate("Foremost_DP3_and_HO3_-_07.01.2026")
         """The old extractor bug said 5. An answer saying 5 is worse than no
         answer, so that is asserted separately from the correct value.
 
@@ -429,6 +525,8 @@ class TestGoldenSet:
         _assert_rate(check)
 
     def test_allied_trust_flat_roofs_require_poured_reinforced_concrete(self):
+        _gate("Allied_Trust_HO3")
+
         def check():
             answer, result = _ask_text("does Allied Trust allow flat roofs?")
             assert result["quotes_verified"], result["quote_problems"]
@@ -438,6 +536,7 @@ class TestGoldenSet:
         _assert_rate(check)
 
     def test_mercury_flat_roofs_need_binding_approval_not_a_decline(self):
+        _gate("Mercury_HO3_-_01.01.2026")
         """THE SPEC'S EXPECTED ANSWER FOR THIS CASE WAS WRONG, and the guide
         settles it. "Dwellings with flat roofs" is item 9 of Mercury HO3's
         section **C. BINDING APPROVAL** -- "The following risks need
@@ -464,10 +563,19 @@ class TestGoldenSet:
             assert result["quotes_verified"], result["quote_problems"]
             lowered = answer.lower()
             assert "approval" in lowered or "approved" in lowered
-            assert not re.search(r"\b(ineligible|not eligible|declines?)\b", lowered)
+            # Must not assert a DECLINE. A bare search for "ineligible" is
+            # wrong: it fired on Luna's "flat roofs are not listed as
+            # ineligible", which is the correct answer stated in the negative.
+            # What matters is an AFFIRMATIVE claim that flat roofs are
+            # declined, so the pattern requires the subject and the copula.
+            assert not re.search(
+                r"flat roofs?[^.]{0,40}\b(are|is)\s+(ineligible|not eligible|declined)", lowered
+            )
+            assert not re.search(r"\b(declines|excludes)\s+(dwellings with\s+)?flat roofs?", lowered)
         _assert_rate(check)
 
     def test_allied_trust_trampolines_is_not_addressed_not_guessed(self):
+        _gate("Allied_Trust_HO3")
         """The guide does not mention trampolines at all. The only correct
         answer is that it does not address it -- inventing a plausible
         industry-standard trampoline rule is the exact failure the system
@@ -475,11 +583,20 @@ class TestGoldenSet:
         def check():
             answer, result = _ask_text("does Allied Trust HO3 allow trampolines?")
             lowered = answer.lower()
-            assert "doesn't address" in lowered or "does not address" in lowered
+            # "does not address" / "doesn't address" / "does not SPECIFICALLY
+            # address" / "does not mention" are the same answer. The literal
+            # two-word check scored Luna 3/5 purely on the inserted adverb.
+            assert re.search(
+                r"(does\s*n[o']?t|do\s*n[o']?t|no\b)[^.]{0,30}\b(address|mention|specif|cover|discuss)",
+                lowered,
+            ) or "not addressed" in lowered
+            # And it must not have invented a rule.
+            assert not re.search(r"trampolines?[^.]{0,40}\b(are|is)\s+(ineligible|prohibited|not permitted|excluded)", lowered)
             assert result["quotes_verified"], result["quote_problems"]
         _assert_rate(check)
 
     def test_sage_auros_pool_rule_is_liability_coverage_not_a_decline(self):
+        _gate("Sage_-_Auros_HO3")
         """Sage's pool rules sit under "Liability Exposure - Swimming Pools".
         They restrict pool LIABILITY COVERAGE; they do not decline the home.
         Reporting a coverage restriction as a decline would lose a writable
