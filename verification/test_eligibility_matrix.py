@@ -3728,3 +3728,377 @@ def test_allied_trust_llc_is_ineligible_on_its_own_rule_consistency(record_prope
     record_property("allied_trust_llc_pass_rate", pass_rate)
     print(f"\nAllied Trust LLC pass rate: {pass_rate:.0%} over {n_runs} runs ({outcomes})")
     assert pass_rate == 1.0, f"Allied Trust LLC correct in only {pass_rate:.0%} of runs"
+
+
+# ---------------------------------------------------------------------------
+# ROUND 17 (cont.) -- Trust and LLC ownership: real profile coverage.
+#
+# The occupancy guarantee above proved the rules REACH the model. It did not
+# prove the model reasons to the right verdict once they do -- and before this
+# no profile in the project had ever used ownership_type "Trust" or "LLC", so
+# there was no evidence either way.
+#
+# Every expectation below was read from the carrier's own text AND the heading
+# it sits under (the Mercury flat-roof lesson: a phrase means what its heading
+# says). The family does NOT share one rule, which is why assuming Allied
+# Trust's shape everywhere would have been wrong:
+#
+#   LLC, flat exclusion -> INELIGIBLE on the carrier's own rule
+#     Allied Trust ("...LLC, partnership, estates or land trusts etc., are NOT
+#     eligible"), Progressive HO3, Sage Auros / SURE / SafePort / Trium /
+#     Wilshire ("non-individual owned properties are ineligible"), Mercury
+#     (item x under "The following risks are ineligible"), Orion ("f.
+#     Ownership" under "INELGIBLE RISKS"), Liberty Mutual HO3 (under
+#     "Ineligible Risks", before "Refer to Underwriting").
+#
+#   LLC, permitted / conditional / referral -> must NOT be declined on it
+#     Sage Markel ("Residence held by corporations, including LLCs, is
+#     eligible"), Sage Vave (tax/real-estate holding entities), Foremost ("the
+#     only eligible business ... is an LLC" if no business in the name),
+#     NatGen Premier (ineligible only when owning more than 10 dwellings),
+#     Travelers (only with business/commercial exposure), Swyfft Benchmark x2
+#     and Topa and Lloyds ("Check with us first ... underwriting approval"),
+#     Progressive HO6 (condo LLC exception with prior approval).
+#
+#   Trust -> no carrier here flatly excludes a family/living trust
+#     Who must LIVE there differs: Allied Trust the grantor; Foremost the
+#     grantor and/or trustee; the Sage family trustee, grantor OR beneficiary.
+#     Progressive and the Swyfft programs REFER any trust to underwriting.
+#     Mercury excludes only a "Corporate Trust". Land trusts are excluded by
+#     Allied Trust, Progressive and Foremost -- a different thing.
+#
+# EXCLUDED, wrong document on file: Sage_-_Occidental_HO3 holds an older
+# revision of Occidental's DP3 dwelling-fire guide (header "DWELLING FIRE
+# PROGRAM (DP3)", policy form DP 00 03, 84% text overlap with the DP3 record);
+# Liberty_Mutual_HO6 and NatGen_Custom360_HO3 are the round-16 DD-2 / DD-1
+# records. An expectation built on the wrong document would test nothing.
+# ---------------------------------------------------------------------------
+
+from profiles import OWNERSHIP_BASE_PROFILE
+
+_LLC_FLAT_EXCLUSION = [
+    "Allied_Trust_HO3",
+    "Progressive_HO3_-_04.01.2026",
+    "Sage_-_Auros_HO3",
+    "Sage_-_SURE_HO-3_-_01.31.2026",
+    "Sage_-_SafePort_HO-3_-_01.31.2026",
+    "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026",
+    "Sage_-_Wilshire_HO3_-_12.02.2025",
+    "Mercury_HO3_-_01.01.2026",
+    "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3",
+    "Liberty_Mutual_HO3_-_02.21.2026",
+]
+_LLC_NOT_A_FLAT_DECLINE = [
+    "Sage_-_Markel_HO3",
+    "Sage_-_Vave_HO3_-_07.01.2026",
+    "Foremost_DP3_and_HO3_-_07.01.2026",
+    "NatGen_Premier_OneChoice_HO3_-_02.26.2025",
+    "Travelers_HO3_-_06.12.2026",
+    "Swyfft_-_Benchmark_(Admitted)_HO3",
+    "Swyfft_-_Benchmark_(Surplus)_HO3",
+    "Swyfft_-_Topa_(Surplus)_HO3",
+    "Swyfft_-_Lloyds_(Surplus)_HO3",
+    "Progressive_HO6_-_10.01.2025",
+]
+_TRUST_NOT_A_DECLINE = [
+    "Allied_Trust_HO3",
+    "Progressive_HO3_-_04.01.2026",
+    "Progressive_HO6_-_10.01.2025",
+    "Sage_-_Auros_HO3",
+    "Sage_-_SURE_HO-3_-_01.31.2026",
+    "Sage_-_SafePort_HO-3_-_01.31.2026",
+    "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026",
+    "Sage_-_Wilshire_HO3_-_12.02.2025",
+    "Sage_-_Vave_HO3_-_07.01.2026",
+    "Sage_-_Markel_HO3",
+    "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3",
+    "Foremost_DP3_and_HO3_-_07.01.2026",
+    "TWICO_HO3",
+    "Travelers_HO3_-_06.12.2026",
+    "Swyfft_-_Benchmark_(Admitted)_HO3",
+    "Swyfft_-_Benchmark_(Surplus)_HO3",
+    "Swyfft_-_Topa_(Surplus)_HO3",
+    "Swyfft_-_Lloyds_(Surplus)_HO3",
+    "Mercury_HO3_-_01.01.2026",
+]
+# The carrier's own text explicitly routes a trust to underwriting.
+_TRUST_REFERRAL = [
+    "Allied_Trust_HO3",               # "Residence Held in Trust | Submit for Approval with Trust documents"
+    "Progressive_HO3_-_04.01.2026",   # "must be referred to Underwriting for prior Underwriting approval"
+    "Progressive_HO6_-_10.01.2025",
+    "Swyfft_-_Benchmark_(Admitted)_HO3",  # "Check with us first. You'll need underwriting approval"
+    "Swyfft_-_Benchmark_(Surplus)_HO3",
+    "Swyfft_-_Topa_(Surplus)_HO3",
+    "Swyfft_-_Lloyds_(Surplus)_HO3",
+]
+
+# (carrier or None, verbatim source fragment). None = fragment is unique to
+# one guide, so matching the whole prompt is enough; a carrier is named where
+# several guides share the wording (the Sage and Swyfft families).
+_LLC_RULE_PROBES = {
+    "Allied Trust": (None, "owned by a business, corporation, llc"),
+    "Progressive HO3": (None, "in the name of a business, limited liability corporation"),
+    "Sage Auros": ("Sage_-_Auros_HO3", "non-individual owned properties are ineligible"),
+    "Sage SURE": ("Sage_-_SURE_HO-3_-_01.31.2026", "non-individual owned properties are ineligible"),
+    "Sage SafePort": ("Sage_-_SafePort_HO-3_-_01.31.2026", "non-individual owned properties are ineligible"),
+    "Sage Trium": ("Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026", "non-individual owned properties are ineligible"),
+    "Sage Wilshire": ("Sage_-_Wilshire_HO3_-_12.02.2025", "non-individual owned properties are ineligible"),
+    "Mercury": (None, "properties owned by an llc, corporation"),
+    "Orion": (None, "deeded to or owned by a corporation, limited liability company"),
+    "Liberty Mutual HO3": (None, "buildings owned by a corporation, company, llc"),
+    "Sage Markel": (None, "including llcs, is eligible"),
+    "Sage Vave": (None, "in the name of an llc, llp, or corporation are only eligible"),
+    "Foremost": (None, "the only eligible business"),
+    "NatGen Premier": (None, "llcs owning more than 10 dwellings"),
+    "Travelers": (None, "any type of non-personal entity"),
+    "Swyfft Benchmark A": ("Swyfft_-_Benchmark_(Admitted)_HO3", "homes in the name of a trust or llc"),
+    "Swyfft Benchmark S": ("Swyfft_-_Benchmark_(Surplus)_HO3", "homes in the name of a trust or llc"),
+    "Swyfft Topa": ("Swyfft_-_Topa_(Surplus)_HO3", "homes in the name of a trust or llc"),
+    "Swyfft Lloyds": (None, "if home is in the name of a corp, llc or llp"),
+    "Progressive HO6": (None, "exceptions may be granted to condominium units written in the name of an llc"),
+}
+_TRUST_RULE_PROBES = {
+    "Allied Trust, conditional clause": (None, "owned in the name of a trust are eligible if the grantor"),
+    "Allied Trust, approval table": (None, "submit for approval with trust documents"),
+    "Progressive HO3": (None, "owned in the name of a trust or ira must be referred"),
+    "Progressive HO6": (None, "must be referred to underwriting for prior approval"),
+    "Sage Auros": ("Sage_-_Auros_HO3", "residence held in trust if the residence is occupied by the trustee"),
+    "Sage SURE": ("Sage_-_SURE_HO-3_-_01.31.2026", "residence held in trust if the residence is occupied by the trustee"),
+    "Sage SafePort": ("Sage_-_SafePort_HO-3_-_01.31.2026", "residence held in trust if the residence is occupied by the trustee"),
+    "Sage Trium": ("Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026", "residence held in trust if the residence is occupied by the trustee"),
+    "Sage Wilshire": ("Sage_-_Wilshire_HO3_-_12.02.2025", "residence held in trust if the residence is occupied by the trustee"),
+    "Sage Vave": (None, "in the name of a trust are eligible only when"),
+    "Sage Markel": (None, "residence held in trust is eligible"),
+    "Orion": (None, "titled in the name of a revocable living trust"),
+    "Foremost": (None, "residing in the home must be the grantor"),
+    "TWICO": (None, "trusts must be in the name of the trustee"),
+    "Travelers": (None, "any type of non-personal entity"),
+    "Swyfft Benchmark A": ("Swyfft_-_Benchmark_(Admitted)_HO3", "homes in the name of a trust or llc"),
+    "Swyfft Benchmark S": ("Swyfft_-_Benchmark_(Surplus)_HO3", "homes in the name of a trust or llc"),
+    "Swyfft Topa": ("Swyfft_-_Topa_(Surplus)_HO3", "homes in the name of a trust or llc"),
+    "Swyfft Lloyds": ("Swyfft_-_Lloyds_(Surplus)_HO3", "homes in the name of a trust"),
+    "Mercury": (None, "and/or corporate trust"),
+}
+
+_SECTIONS_CACHE = {}
+
+
+def _captured_sections(profile):
+    """({carrier: normalized text of its prompt sections}, whole prompt), with
+    the model call intercepted -- zero API cost. Cached per profile, since
+    retrieval is deterministic and several tests read the same prompt."""
+    key = tuple(sorted(profile.items()))
+    if key not in _SECTIONS_CACHE:
+        import eligibility_check as ec
+        captured = {}
+        original = ec.client.messages.create
+
+        def fake(**kwargs):
+            captured.update(kwargs)
+            raise _PromptCaptured()
+
+        ec.client.messages.create = fake
+        try:
+            check_eligibility(profile)
+        except _PromptCaptured:
+            pass
+        finally:
+            ec.client.messages.create = original
+        content = captured["messages"][0]["content"]
+        if not isinstance(content, str):
+            content = "".join(b.get("text", "") for b in content)
+        per = {}
+        for name, body in re.findall(
+                r"\n--- (.+?) \(page [^)]*\) ---\n(.*?)(?=\n--- |\nCARRIERS WITH NO|\Z)", content, re.S):
+            per[name] = per.get(name, "") + " " + re.sub(r"[\s|]+", " ", body).lower()
+        _SECTIONS_CACHE[key] = (per, re.sub(r"[\s|]+", " ", content).lower())
+    return _SECTIONS_CACHE[key]
+
+
+def _unreached(ownership, probes):
+    per, whole = _captured_sections(dict(OWNERSHIP_BASE_PROFILE, ownership_type=ownership))
+    return [label for label, (carrier, text) in probes.items()
+            if text not in (per.get(carrier, "") if carrier else whole)]
+
+
+@pytest.mark.retrieval
+class TestRound17OwnershipRuleRetrieval:
+
+    @pytest.mark.parametrize("text", [
+        "Residence held in trust is eligible.",
+        "Residence held by corporations, including LLCs, is eligible.",
+        "Properties owned in the name of a trust are eligible if the grantor(s) are still residing in the dwelling.",
+        "Homes in the name of a Trust or LLC",
+        "Risks written in the name of an LLC, LLP, or corporation are only eligible when the following criteria are met.",
+        "Dwellings titled in the name of a Revocable Living Trust are eligible.",
+        "Individuals, corporations, LLCs, trusts, or estates allowed on title.",
+        "Any type of non-personal entity (e.g. Trust, LLC, etc.) with any business exposure.",
+    ])
+    def test_permissive_and_conditional_ownership_rules_match(self, text):
+        """The first cut of the predicate was built from EXCLUSION language
+        only, so rules that permit or condition ownership never matched -- and
+        for an LLC or trust property those are the rules that prevent a wrong
+        decline. Eight phrasings, one concept."""
+        assert _mentions_occupancy_eligibility(text)
+
+    @pytest.mark.parametrize("text", [
+        # financing, not ownership -- Allied Trust's mortgage rule, second wording
+        "Individuals as mortgagees, deeds of trust and/or bond for deeds are not acceptable.",
+        # how the home was bought, not who owns it -- and "trustee" is not "trust"
+        "Dwellings purchased at, from or through foreclosure, bank or trustee sale are only acceptable if the insured provides an appraisal.",
+        # an endorsement NAME in a list, no rule
+        "Trust Endorsement Scheduled Personal Property Service Line Enhancement",
+        # the program manager's own corporate name
+        "SAGESURE INSURANCE MANAGERS LLC A Licensed Property Casualty Insurance Agency",
+        "SageSure Insurance Managers LLC does not guarantee the completeness and accuracy of its contents.",
+        "MIC General Insurance Corporation Edition Date: 08/01/2016 Form Number: 13942",
+    ])
+    def test_entity_words_in_other_roles_do_not_match(self, text):
+        """Widening the predicate to permissive language is only safe if an
+        entity word in some OTHER role stays out."""
+        assert not _mentions_occupancy_eligibility(text)
+
+    def test_a_carriers_own_brand_is_not_an_ownership_signal(self):
+        """Every Allied Trust chunk says "Allied Trust". Before brand stripping,
+        a Trust profile boosted all of that carrier's chunks equally, so the
+        ownership-aware ranking did nothing for the one carrier whose trust
+        rule it most needed to surface."""
+        key = _occupancy_priority_key("Trust")
+        brand_only = Document(
+            page_content="Allied Trust does NOT accept galvanized plumbing. Homes not occupied by the named insured are ineligible.",
+            metadata={"carrier": "Allied_Trust_HO3"})
+        real_trust = Document(
+            page_content="Properties owned in the name of a trust are eligible if the grantor(s) are still residing in the dwelling.",
+            metadata={"carrier": "Allied_Trust_HO3"})
+        assert key(real_trust) < key(brand_only)
+
+    @pytest.mark.parametrize("text,is_ownership", [
+        ("Properties owned by a business, corporation, LLC are NOT eligible.", True),
+        ("Homes in the name of a Business are ineligible.", True),
+        ("Scheduled property used in any insured's business or profession is not eligible for this coverage.", False),
+        ("Business Exposures other than Permitted Incidental Office Occupancy are ineligible.", False),
+    ])
+    def test_business_counts_as_ownership_only_when_it_is_the_owner(self, text, is_ownership):
+        """Bare "business" boosted Allied Trust's scheduled-personal-property
+        rule over its genuine occupancy rules for an LLC profile."""
+        key = _occupancy_priority_key("LLC")
+        boosted = key(Document(page_content=text, metadata={"carrier": "X"}))[0] is False
+        assert boosted is is_ownership
+
+    def test_every_llc_rule_reaches_the_prompt_for_an_llc_property(self):
+        """Flat exclusions, permissions, conditions and referrals alike -- 20
+        rules across the family. Measured before the permissive widening:
+        15/20, with every miss a rule that allows or conditions an LLC."""
+        missing = _unreached("LLC", _LLC_RULE_PROBES)
+        assert not missing, f"LLC rules missing from an LLC property's prompt: {missing}"
+
+    def test_every_trust_rule_reaches_the_prompt_for_a_trust_property(self):
+        """Measured before: 14/20. The miss that mattered most was Allied
+        Trust's own conditional clause -- split across a chunk boundary exactly
+        the way CHUBB's clause 2 was, with the continuation ("The Trust may
+        NOT be listed...") matching and the head, which carries the grantor
+        condition, matching nothing."""
+        missing = _unreached("Trust", _TRUST_RULE_PROBES)
+        assert not missing, f"trust rules missing from a Trust property's prompt: {missing}"
+
+
+def _resolve_results(results, canonical):
+    """{canonical carrier: result record}. Exact-one match or it is left out
+    and reported -- never a coin flip, per _find_carrier."""
+    out, missing = {}, []
+    for c in canonical:
+        want = normalize_carrier_name(c)
+        hits = [r for r in results
+                if want == normalize_carrier_name(r.get("carrier", ""))
+                or want in normalize_carrier_name(r.get("carrier", ""))]
+        if len(hits) == 1:
+            out[c] = hits[0]
+        else:
+            missing.append((c, len(hits)))
+    return out, missing
+
+
+def _blob(r):
+    return " ".join(r.get("reasons", []) + r.get("citations", []) + r.get("missing_info", [])
+                    + [r.get("notes", "")]).lower()
+
+
+_ENTITY_CITE_RE = re.compile(r"\bllcs?\b|limited liability|business|corporation|non-individual|entity", re.I)
+_REFERRAL_RE = re.compile(r"underwrit|approval|\brefer", re.I)
+
+
+@pytest.mark.baseline
+def test_trust_and_llc_verdicts_follow_each_carriers_own_rule(record_property):
+    """The claim the retrieval tests cannot make: once each carrier's
+    ownership rule reaches the model, the VERDICT follows that carrier's rule.
+
+    Each repetition runs the clean base profile three times -- Individual
+    Owner (the control), Trust, LLC -- so ownership is the only variable. A
+    "must not be declined" check only applies to a carrier the control did
+    not already decline for some unrelated reason, so an unrelated decline can
+    never be misread as an ownership decline.
+    """
+    n_runs = 3
+    checks = {}   # (check name, carrier) -> [bool per run]
+    unresolved = set()
+
+    def record(name, carrier, ok):
+        checks.setdefault((name, carrier), []).append(bool(ok))
+
+    for _ in range(n_runs):
+        runs = {own: check_eligibility(dict(OWNERSHIP_BASE_PROFILE, ownership_type=own))
+                for own in ("Individual Owner", "Trust", "LLC")}
+        every = sorted(set(_LLC_FLAT_EXCLUSION + _LLC_NOT_A_FLAT_DECLINE + _TRUST_NOT_A_DECLINE))
+        by = {}
+        for own, res in runs.items():
+            by[own], miss = _resolve_results(res, every)
+            unresolved.update((own, c, n) for c, n in miss)
+        control = by["Individual Owner"]
+
+        for c in _LLC_FLAT_EXCLUSION:
+            r = by["LLC"].get(c)
+            if r is None:
+                continue
+            own_rule = any(_ENTITY_CITE_RE.search(x) for x in r.get("citations", []))
+            record("LLC: INELIGIBLE on its own entity rule", c, r.get("status") == "INELIGIBLE" and own_rule)
+
+        for name, owner_type, group in (
+            ("LLC: not declined (permitted/conditional/referral)", "LLC", _LLC_NOT_A_FLAT_DECLINE),
+            ("Trust: not declined", "Trust", _TRUST_NOT_A_DECLINE),
+        ):
+            for c in group:
+                r, ctl = by[owner_type].get(c), control.get(c)
+                if r is None or ctl is None or ctl.get("status") == "INELIGIBLE":
+                    continue
+                record(name, c, r.get("status") != "INELIGIBLE")
+
+        for c in _TRUST_REFERRAL:
+            r, ctl = by["Trust"].get(c), control.get(c)
+            if r is None or ctl is None or ctl.get("status") == "INELIGIBLE":
+                continue
+            record("Trust: referral surfaced", c,
+                   r.get("status") == "REFER" or _REFERRAL_RE.search(_blob(r)))
+
+        at = by["Trust"].get("Allied_Trust_HO3")
+        if at is not None:
+            # Allied Trust's trust rule turns on the GRANTOR residing and being
+            # the named insured. The intake cannot say who lives in a
+            # trust-owned home, so the condition has to be surfaced, not assumed.
+            record("Trust: Allied Trust surfaces the grantor condition", "Allied_Trust_HO3",
+                   "grantor" in _blob(at))
+
+    # ---- report: pass rate per check, and every individual failure
+    failures, summary = [], {}
+    for (name, carrier), outcomes in sorted(checks.items()):
+        s = summary.setdefault(name, [0, 0])
+        s[0] += sum(outcomes); s[1] += len(outcomes)
+        if not all(outcomes):
+            failures.append(f"{name} | {carrier} | {sum(outcomes)}/{len(outcomes)}")
+    print("\nTrust/LLC verdict checks over", n_runs, "runs:")
+    for name, (p, t) in summary.items():
+        print(f"   {p:3d}/{t:<3d} {p / t:6.0%}  {name}")
+        record_property(name, f"{p}/{t}")
+    for u in sorted(unresolved):
+        print("   unresolved carrier name:", u)
+    assert checks, "no checks ran -- the carrier resolution matched nothing"
+    assert not failures, "ownership verdict checks failed:\n  " + "\n  ".join(failures)

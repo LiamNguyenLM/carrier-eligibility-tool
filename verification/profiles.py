@@ -125,3 +125,32 @@ AUDIT_R14_DP3_PROFILE = {
     "solar_panels": "No",
     "ppc": "8A",
 }
+
+
+# Round 17: the base for Trust / LLC ownership coverage. Every profile above
+# is "Individual Owner", so before round 17 no baseline, sweep or audit had
+# ever exercised the Trust or LLC intake options at all.
+#
+# Deliberately CLEAN, so ownership is the only thing that can decline a
+# carrier: PPC 3 (STANDARD's PPC 9 declines a large share of the family on its
+# own and would drown any ownership effect), no pool, no solar, not coastal,
+# newer roof, and "Architectural Shingle" rather than "Composition Shingle" so
+# TWICO's documented 3-tab-vs-architectural ambiguity cannot intervene.
+# Tests vary only ownership_type on top of this.
+OWNERSHIP_BASE_PROFILE = {
+    "year_built": 2012,
+    "roof_age": 5,
+    "roof_type": "Architectural Shingle",
+    "roof_shape": "Gable",
+    "construction_type": "Frame",
+    "plumbing_type": "Copper",
+    "occupancy_type": "Owner Occupied",
+    "ownership_type": "Individual Owner",
+    "coastal_tier": "Not Coastal",
+    "swimming_pool": "No Pool",
+    "pool_accessories": "None",
+    "has_dogs": "No",
+    "aggressive_breed": "No",
+    "solar_panels": "No",
+    "ppc": "3",
+}

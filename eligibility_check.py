@@ -462,6 +462,14 @@ def _mentions_roof_shape_rule(content, shape_keywords):
 # insured" course-of-construction rule, binding-procedure steps). Measured
 # against the round-17 family survey: 13/13 genuine rules matched, 0 of 16
 # known-noise chunks matched.
+# Ownership entities as a regex fragment. Word-bounded on purpose: "trustee"
+# must not count as "trust" -- Sage's foreclosure rule reads "bank or trustee
+# sale are only acceptable if...", which is about how the home was bought.
+_OWNERSHIP_ENTITY = (
+    r"(?:trusts?|llcs?|llps?|l\.l\.c\.|corporations?|corp\b|business(?:es)?"
+    r"|estates?|partnerships?|ira)\b"
+)
+
 _OCCUPANCY_ELIGIBILITY_RE = re.compile(
     r"owner[- ]?occup(?:ied|ant|ancy)"
     r"|\beligible persons?\b"
@@ -476,7 +484,23 @@ _OCCUPANCY_ELIGIBILITY_RE = re.compile(
     # bond for deeds are not acceptable" -- which is about financing, not
     # ownership, and it won a slot over a genuine occupancy rule.
     r"|\b(?:llc|l\.l\.c\.|corporations?|trusts?|partnerships?)\b[^.]{0,80}?"
-    r"\b(?:ineligible|not eligible|(?:may not|cannot|can not|not) be (?:listed|named|insured))",
+    r"\b(?:ineligible|not eligible|(?:may not|cannot|can not|not) be (?:listed|named|insured))"
+    # PERMISSIVE, CONDITIONAL and REFERRAL ownership rules. The first cut of
+    # this predicate was built from exclusion language only. Measured on a
+    # clean Trust/LLC profile, every flat LLC exclusion reached the prompt
+    # (10/10) while the rules that PERMIT or CONDITION ownership did not:
+    # Sage Markel "Residence held by corporations, including LLCs, is
+    # eligible", Sage Vave, Foremost, Travelers, Orion's living-trust rule,
+    # Swyfft Topa's referral, and Allied Trust's own conditional clause
+    # "Properties owned in the name of a trust are eligible if the grantor(s)
+    # are still residing in the dwelling". For an LLC or trust property those
+    # are exactly the rules that prevent a WRONG DECLINE -- SYSTEM_INSTRUCTIONS
+    # carries a generic "most HO3 carriers do not accept LLC" line the model
+    # could otherwise fall back on.
+    r"|\b(?:in|under) the name of (?:a|an|the)\s+(?:\w+\s+){0,3}?" + _OWNERSHIP_ENTITY
+    + r"|\bheld (?:in|by) (?:a\s+)?(?:\w+\s+){0,2}?" + _OWNERSHIP_ENTITY
+    + r"|\b" + _OWNERSHIP_ENTITY + r"[^.]{0,60}?\b(?:is|are)\s+(?:only\s+)?(?:eligible|allowed|acceptable)\b"
+    + r"|allowed on title|non-personal entit|only eligible business",
     re.I,
 )
 
@@ -484,7 +508,12 @@ _OCCUPANCY_ELIGIBILITY_RE = re.compile(
 # passing (a coverage-form definition, an endorsement's scope).
 _DECISIVE_OCCUPANCY_RE = re.compile(
     r"ineligib|not eligible|\beligible persons?\b|may not be listed"
-    r"|must be (?:owner[- ]?occupied|occupied by|deeded)|owned by (?:a|an) ",
+    r"|must be (?:owner[- ]?occupied|occupied by|deeded)|owned by (?:a|an) "
+    # A conditional permission or a referral decides the outcome as surely as
+    # an exclusion does -- "eligible IF the grantor resides", "must be
+    # referred to Underwriting" -- so it must not rank below passing mentions.
+    r"|\b(?:is|are) (?:only )?eligible\b|\beligible (?:if|only|when)\b|only eligible"
+    r"|must be referred|underwriting approval|submit for approval|allowed on title",
     re.I,
 )
 
@@ -492,26 +521,40 @@ _DECISIVE_OCCUPANCY_RE = re.compile(
 # check_eligibility) so tests use the SAME value production does -- a test
 # with its own hardcoded copy is exactly how this suite has been fooled before.
 #
-# 5, measured, not guessed. Swept 3/4/5 against every carrier and all three
-# Ownership Structure values, counting decisive occupancy chunks that exist
-# but fall outside the cap:
+# 6, measured, not guessed, and measured TWICE because the first answer went
+# stale. The first sweep (exclusion-only predicate) chose 5. Adding the
+# permissive / conditional / referral ownership rules gave Allied Trust more
+# genuine chunks than 5 holds, so it was re-swept against the real acceptance
+# criterion -- the named rules in the round-17 tests reaching the prompt, on a
+# clean owner-occupied profile, per Ownership Structure:
 #
-#     cap  prompt   dropped (Individual / Trust / LLC)
-#      3   +22.6%    8 / 11 / 9   whole Sage family, CHUBB, Allied Trust
-#      4   +26.4%    1 /  4 / 2
-#      5   +27.0%    0 /  3 / 1   Foremost only
+#     cap   Individual   Trust    LLC     prompt (clean profile)
+#      5      10/10      29/30   30/30    33,622 tok
+#      6      10/10      30/30   30/30    34,388 tok   <- smallest with all
+#      7      10/10      30/30   30/30    34,518 tok
 #
-# 4 -> 5 costs 0.6%. The Foremost residue at 5 is not occupancy rules at all:
-# loss-history ("3 or more paid losses ... is ineligible") and an
-# additional-interest note, pulled in only because they mention occupancy in
-# passing. Six carriers need more than 3: Allied Trust has five decisive
-# chunks, and five Sage programs have four each.
-MAX_OCCUPANCY_CHUNKS_PER_CARRIER = 5
+# The miss at 5 is Allied Trust's "Homes not occupied by the named insured"
+# for a Trust profile -- genuine, and relevant, since that carrier's trust
+# rule hinges on who occupies. Pre-fix the same prompt was 23,759 tok, so the
+# guarantee costs about +10.6K input tokens per run on this profile. A
+# carrier's own brand is stripped before ranking (see _carrier_brand), and
+# "business" only counts as an ownership term when it is the owner -- both
+# measured defects of the ranking, not of the cap.
+MAX_OCCUPANCY_CHUNKS_PER_CARRIER = 6
 
 # Terms that tie a chunk to one specific Ownership Structure intake value.
 _OWNERSHIP_TERMS = {
-    "LLC": ("llc", "l.l.c", "limited liability", "business", "corporation", "partnership"),
-    "Trust": ("trust",),
+    # Bare "business" is deliberately NOT a term: it boosted Allied Trust's
+    # scheduled-personal-property rule ("scheduled property used in any
+    # insured's business or profession is not eligible for this coverage") over
+    # genuine occupancy rules for an LLC profile. Business only counts when it
+    # is the OWNER.
+    "LLC": re.compile(
+        r"\bllcs?\b|l\.l\.c|limited liability|non-individual|non-personal entit"
+        r"|\bcorporations?\b|\bcorp\b|partnerships?"
+        r"|(?:owned by|in the name of|held by|deeded to|titled (?:to|in))[^.]{0,40}\bbusiness",
+        re.I),
+    "Trust": re.compile(r"\btrusts?\b", re.I),
 }
 
 
@@ -549,6 +592,15 @@ def _mentions_occupancy_eligibility(content):
     return bool(_OCCUPANCY_ELIGIBILITY_RE.search(content))
 
 
+def _carrier_brand(carrier):
+    """The insurer's name as it appears in running text: "Allied_Trust_HO3"
+    -> "allied trust". Product tokens, dates and punctuation removed."""
+    stem = re.sub(r"\d{2}\.\d{2}\.\d{4}", " ", carrier or "")
+    words = [w for w in re.split(r"[^A-Za-z]+", stem)
+             if w and not re.fullmatch(r"(?i)ho|dp|hoa|hob|tx|and", w)]
+    return " ".join(words[:2]).lower() if len(words) >= 2 else ""
+
+
 def _occupancy_priority_key(ownership):
     """Rank matching chunks so the ones that decide THIS property survive the
     per-carrier cap.
@@ -560,13 +612,20 @@ def _occupancy_priority_key(ownership):
     ("I. Eligible Person 2-3  II. Physical Conditions 4-5 ...") match on the
     heading alone and carry no rule, so they sort last.
     """
-    own_terms = _OWNERSHIP_TERMS.get(ownership, ())
+    own_terms = _OWNERSHIP_TERMS.get(ownership)
 
     def key(chunk):
         lower = chunk.page_content.lower()
+        # Strip the carrier's own BRAND before looking for ownership terms.
+        # Every Allied Trust chunk says "Allied Trust", so without this a Trust
+        # profile boosted all of that carrier's chunks equally -- the
+        # ownership-aware ranking did nothing for the one carrier whose trust
+        # rule it most needed to surface.
+        brand = _carrier_brand(chunk.metadata.get("carrier", ""))
+        scan = lower.replace(brand, " ") if brand else lower
         is_toc = len(re.findall(r"\b[ivx]+\.\s", lower)) >= 3 or lower.count("....") >= 3
         return (
-            not any(t in lower for t in own_terms),
+            not (own_terms is not None and own_terms.search(scan)),
             is_toc,
             # Third, prefer a chunk that DECIDES eligibility. Without this an
             # Individual Owner profile -- no ownership terms to rank on -- fell
