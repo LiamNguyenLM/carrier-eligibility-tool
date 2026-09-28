@@ -193,3 +193,47 @@ If contamination is ever observed in ISOLATED mode, the bleed hypothesis is
 wrong or incomplete and OQ-1 goes back to fully unexplained -- regardless of
 how many clean isolated runs preceded it. Round 15's 0/20 isolated buys no
 credit against that.
+
+### Round 17: the guard fired again -- on HO3, owner-occupied
+
+The instrumented guard printed, during a test run on 2026-09-28:
+
+```
+INTAKE CONTRADICTION [OQ-1]: carrier='Travelers HO3' field='solar_panels' intake_value='No' removed=1 status_was='INELIGIBLE'
+```
+
+What is known -- and it is all that is known, because nothing of the run was
+saved:
+
+| | |
+|---|---|
+| test | `test_allied_trust_llc_is_ineligible_on_its_own_rule_consistency` (one of its 3 runs) |
+| profile | STANDARD with `ownership_type="LLC"` -- Owner Occupied, HO3 set, `Solar Panels: No` |
+| code | `chubb-eligible-persons` at 0d03290 plus its uncommitted round-17 changes |
+| mode | one COMBINED completion (not isolated) |
+| carrier | Travelers HO3 -- a single carrier, not a cluster |
+| guard | fired; removed the contradicted claim; status before the guard was INELIGIBLE |
+
+Two things set it apart from the round-14 observation, and both matter
+before reading it as evidence:
+
+- It is the first sighting outside DP3.
+- Travelers' OWN guide mentions solar, once, in its ineligible list: "H. A
+  risk with a liability exposure including, but not limited to, ... a
+  unprotected ground mounted solar panels, ... or swimming pools that are not
+  fenced". In round 14, 3 of the 7 affected carriers had no solar text at
+  all, which is what ruled out retrieval there. Here the carrier's own rule
+  names solar, and the STANDARD profile has a pool in the same sentence, so
+  the plainer explanation -- the model treating a rule's subject as a fact
+  about the property -- fits as well as bleed does.
+
+So it does not settle anything, and it is weaker evidence for bleed than a
+recurrence on a carrier with no solar text would have been. It was a combined
+run, so it says nothing about the isolated-mode question above. Not chased
+this round, deliberately.
+
+**What changed so the next one is captured:** the round-17 consistency tests
+now record every model call's RAW text -- before `_strip_contradicted_property_claims()`
+rewrites it -- plus usage and timing, into `verification/*_results.json`
+(git-ignored). A recurrence under those tests will leave the full pre-guard
+output behind.

@@ -3711,70 +3711,214 @@ class TestRound17OccupancyEligibilityGuarantee:
         assert "owned by a business, corporation, llc" in prompt
 
 
+class _CallRecorder:
+    """Record every model call made during a pipeline run -- test-side only,
+    no product change. Per call: wall-clock seconds (INCLUDING any SDK retries,
+    since that is what an agent waits through), input / output / cache
+    tokens, stop reason, and the RAW model text before any post-generation
+    backstop rewrites it. The raw text is what makes a future OQ-1 recurrence
+    diagnosable -- the round-17 Travelers one was caught by the backstop and
+    nothing of it was kept."""
+
+    def __init__(self):
+        self.calls = []
+
+    def __enter__(self):
+        import time
+        import eligibility_check as ec
+        self._ec, self._real = ec, ec.client.messages.create
+
+        def recorded(**kwargs):
+            t0 = time.perf_counter()
+            resp = self._real(**kwargs)
+            u = resp.usage
+            self.calls.append({
+                "api_seconds": round(time.perf_counter() - t0, 2),
+                "input_tokens": u.input_tokens,
+                "output_tokens": u.output_tokens,
+                "cache_read_input_tokens": getattr(u, "cache_read_input_tokens", 0) or 0,
+                "cache_creation_input_tokens": getattr(u, "cache_creation_input_tokens", 0) or 0,
+                "stop_reason": resp.stop_reason,
+                "raw_text": "".join(b.text for b in resp.content if getattr(b, "type", "") == "text"),
+            })
+            return resp
+
+        ec.client.messages.create = recorded
+        return self
+
+    def __exit__(self, *exc):
+        self._ec.client.messages.create = self._real
+
+
+def _recorded_run(profile):
+    """One full check_eligibility() run: (results, record). The record holds
+    the pipeline's end-to-end seconds and every model call's usage."""
+    import time
+    with _CallRecorder() as rec:
+        t0 = time.perf_counter()
+        results = check_eligibility(profile)
+        total = round(time.perf_counter() - t0, 2)
+    return results, {"pipeline_seconds": total, "calls": rec.calls}
+
+
+def _dump_runs(path, profile, runs):
+    import json, subprocess
+    try:
+        commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
+                                text=True, cwd=os.path.dirname(__file__)).stdout.strip()
+    except Exception:
+        commit = "unknown"
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump({"commit": commit, "profile": profile, "runs": runs}, fh, indent=1,
+                  ensure_ascii=False)
+
+
+def _dump_path(name):
+    # verification/*_results.json is git-ignored, so none of this is committed.
+    return os.path.join(os.path.dirname(__file__), f"{name}_results.json")
+
+
+# ---- CHUBB eligible persons: three separate questions, scored separately ----
+
+_CHUBB_CLAUSE_1_RE = re.compile(r"multiple[- ]unit|multi-unit|two residential units|clause 1\b", re.I)
+_CHUBB_CLAUSE_2_CITE_RE = re.compile(r"a house, a condominium unit|owner-occupant or tenant", re.I)
+# "Clause 1 does not apply" must NOT read as "clause 1 is satisfied". The
+# old check (multiple[- ]unit dwelling ... satisf|meet|qualif|eligible) fired
+# on exactly that contrast -- a correct answer the fix itself made likely.
+_SETS_ASIDE_RE = re.compile(
+    r"\b(?:does not|doesn't|do not|not)\s+(?:apply|applicable|relevant|a multiple|multi)"
+    r"|\bn/a\b|\binapplicable\b|\bnot applicable\b|\brather than\b|\binstead\b"
+    r"|\bonly (?:applies|covers)\b|\bapplies only\b|\bnot a multiple\b|\birrelevant\b", re.I)
+_SATISFIED_RE = re.compile(r"satisf|\bmeets?\b|qualif|complies|is eligible|are eligible", re.I)
+
+
+def _chubb_clause_1_stance(r):
+    """Per reason item (and per notes sentence): "claims satisfied" if one
+    mentions clause 1 and concludes it is met WITHOUT setting it aside;
+    "sets aside" if one mentions clause 1 and says it does not apply; else
+    "not discussed". A claim anywhere outranks a set-aside elsewhere."""
+    units = list(r.get("reasons", [])) + re.split(r"(?<=[.!?])\s+", r.get("notes", "") or "")
+    stance = "not discussed"
+    for u in units:
+        if not _CHUBB_CLAUSE_1_RE.search(u):
+            continue
+        if _SETS_ASIDE_RE.search(u):
+            stance = "sets aside" if stance == "not discussed" else stance
+        elif _SATISFIED_RE.search(u):
+            return "claims satisfied"
+    return stance
+
+
+def _score_chubb_runs(runs):
+    """Pure: one row per run answering (a) status, (b) clause 2 cited, (c) the
+    stance on clause 1. (a) passes unless CHUBB is declined ON the eligible-
+    persons rule -- its status on STANDARD also depends on unrelated rules."""
+    rows = []
+    for run in runs:
+        matches = [x for x in run["results"] if "CHUBB" in x.get("carrier", "").upper()]
+        if len(matches) != 1:
+            rows.append({"resolved": False})
+            continue
+        r = matches[0]
+        cites = " ".join(r.get("citations", []))
+        declined_on_persons = r.get("status") == "INELIGIBLE" and bool(re.search(
+            r"eligible persons|owner-occupant|multiple[- ]unit", " ".join(r.get("reasons", [])), re.I))
+        rows.append({
+            "resolved": True,
+            "status": r.get("status"),
+            "a_status_ok": not declined_on_persons,
+            "b_clause_2_cited": bool(_CHUBB_CLAUSE_2_CITE_RE.search(cites)),
+            "b_clause_1_cited": bool(_CHUBB_CLAUSE_1_RE.search(cites)),
+            "c_clause_1_stance": _chubb_clause_1_stance(r),
+        })
+    return rows
+
+
+@pytest.mark.retrieval
+@pytest.mark.parametrize("reason,expected", [
+    # Round 15's recorded failure shape: clause 1 applied as if met.
+    ("The carrier states a person who is the owner-occupant of a multiple unit dwelling of not "
+     "more than two residential units is eligible. This property is owner-occupied, which "
+     "satisfies this requirement.", "claims satisfied"),
+    # The contrast a CORRECT answer makes -- the old regex failed this.
+    ("The multiple unit dwelling clause does not apply; the home is eligible under clause 2.",
+     "sets aside"),
+    ("Clause 1 covers multi-unit dwellings and is not applicable here; the owner-occupant of a "
+     "house is eligible under clause 2.", "sets aside"),
+    ("An owner-occupant of a house is eligible for home insurance.", "not discussed"),
+])
+def test_chubb_clause_1_stance_tells_satisfied_from_set_aside(reason, expected):
+    """Pins the reasoning classifier. A check that cannot tell "satisfies
+    clause 1" from "clause 1 does not apply" would fail the fix for doing
+    exactly what it should."""
+    assert _chubb_clause_1_stance({"reasons": [reason], "notes": ""}) == expected
+
+
 @pytest.mark.baseline
 @pytest.mark.xfail(
-    reason="MEASURED 0/3 in round 17 (plus 0/1 in the TestBaselineStandardProfile run: 0/4). "
-    "The retrieval fix is real -- clause 2 reaches every STANDARD prompt -- but the model still "
-    "cites clause 1, the multiple-unit-dwelling clause, for a property whose intake never says "
-    "how many units it has. Not verdict-changing. Tracked, not claimed fixed: the round-17 "
-    "commit that removed this xfail said 'fixes the CHUBB eligible-persons backlog item', and "
-    "that was wrong.",
+    reason="UNDER RE-EVALUATION (round 17). The first measurement (0/3, and 0/1 in "
+    "TestBaselineStandardProfile) used a check that never read status and whose reasoning "
+    "regex fired on a CORRECT answer contrasting the two clauses ('the multiple unit dwelling "
+    "clause does not apply ...'). Rescored as three separate questions -- see "
+    "_score_chubb_runs -- from a dumped run, read by eye before any product change.",
     strict=False,
 )
 def test_chubb_eligible_persons_clause_consistency(record_property):
-    """The CHUBB backlog finding, measured as a pass rate rather than one run.
-
-    Correct means citing clause 2 (the single-dwelling list) and never
-    reasoning that a single-family home satisfies clause 1, the
-    MULTIPLE-UNIT-dwelling clause -- which is what 3 of the 20 recorded
-    pre-fix runs actually did.
-
-    Deliberately not the old `"house" in citations` check: CHUBB's clause-1
-    chunk opens "The term dwelling includes individually owned TOWNHOUSE
-    units", so that assertion could pass while the bug was fully present.
-    """
+    """The CHUBB backlog finding, split into the three questions it actually
+    contains: (a) is the status right for an owner-occupant, (b) is clause 2
+    cited, (c) does the reasoning CLAIM a home satisfies the multiple-unit
+    clause, as opposed to setting it aside. Raw output is dumped first."""
     n_runs = 3
-    outcomes = []
+    runs = []
     for _ in range(n_runs):
-        result = check_eligibility(STANDARD_PROFILE)
-        matches = _find_carrier({r["carrier"]: r for r in result}, "chubb")
-        assert matches
-        r = matches[0]
-        cites = " ".join(r.get("citations", [])).lower()
-        reasons = " ".join(r.get("reasons", [])).lower()
-        cites_clause_2 = bool(re.search(
-            r"a house, a condominium unit|owner-occupant or tenant", cites))
-        misapplies_clause_1 = bool(re.search(
-            r"multiple[- ]unit dwelling[^.]{0,200}(satisf|meet|qualif|eligible)", reasons))
-        outcomes.append(cites_clause_2 and not misapplies_clause_1)
-    pass_rate = sum(outcomes) / n_runs
-    record_property("chubb_eligible_persons_pass_rate", pass_rate)
-    print(f"\nCHUBB eligible-persons pass rate: {pass_rate:.0%} over {n_runs} runs ({outcomes})")
-    assert pass_rate == 1.0, f"CHUBB eligible-persons clause correct in only {pass_rate:.0%} of runs"
+        results, rec = _recorded_run(STANDARD_PROFILE)
+        runs.append({"results": results, **rec})
+        _dump_runs(_dump_path("chubb_consistency"), STANDARD_PROFILE, runs)
+    rows = _score_chubb_runs(runs)
+    print(f"\nCHUBB eligible persons over {n_runs} runs (raw: {_dump_path('chubb_consistency')}):")
+    for i, row in enumerate(rows, 1):
+        print(f"   run {i}: {row}")
+    for key in ("a_status_ok", "b_clause_2_cited"):
+        record_property(key, sum(bool(r.get(key)) for r in rows))
+    assert all(r["resolved"] for r in rows), "CHUBB not uniquely resolved in every run"
+    assert all(r["a_status_ok"] and r["b_clause_2_cited"]
+               and r["c_clause_1_stance"] != "claims satisfied" for r in rows), rows
+
+
+def _score_allied_llc_runs(runs):
+    """Pure: INELIGIBLE, on Allied Trust's OWN verbatim entity exclusion."""
+    frag = _compare_key("owned by a business, corporation, llc")
+    out = []
+    for run in runs:
+        found, _ = _resolve_results(run["results"], ["Allied_Trust_HO3"])
+        r = found.get("Allied_Trust_HO3")
+        if r is None:
+            out.append({"resolved": False})
+            continue
+        out.append({"resolved": True, "status": r.get("status"),
+                    "own_rule_cited": any(frag in _compare_key(c) for c in r.get("citations", []))})
+    return out
 
 
 @pytest.mark.baseline
 def test_allied_trust_llc_is_ineligible_on_its_own_rule_consistency(record_property):
-    """An LLC-owned property must be INELIGIBLE at Allied Trust, and on Allied
-    Trust's OWN business-ownership rule -- not merely on SYSTEM_INSTRUCTIONS'
-    general "most HO3 carriers do not accept LLC" line, which is the only
-    thing the model could have leaned on before this rule reached the prompt.
-    """
+    """An LLC-owned property must be INELIGIBLE at Allied Trust, on Allied
+    Trust's OWN verbatim business-ownership exclusion -- not merely on
+    SYSTEM_INSTRUCTIONS' general "most HO3 carriers do not accept LLC" line.
+    The verbatim fragment replaced a keyword match, which Allied Trust's own
+    unrelated "BUSINESS EXPOSURE" rule could satisfy."""
     n_runs = 3
-    outcomes = []
     profile = dict(STANDARD_PROFILE, ownership_type="LLC")
+    runs = []
     for _ in range(n_runs):
-        result = check_eligibility(profile)
-        matches = _find_carrier({r["carrier"]: r for r in result}, "allied trust")
-        assert matches
-        r = matches[0]
-        cites = " ".join(r.get("citations", [])).lower()
-        own_rule = bool(re.search(r"owned by a business|business, corporation|\bllc\b", cites))
-        outcomes.append(r.get("status") == "INELIGIBLE" and own_rule)
-    pass_rate = sum(outcomes) / n_runs
-    record_property("allied_trust_llc_pass_rate", pass_rate)
-    print(f"\nAllied Trust LLC pass rate: {pass_rate:.0%} over {n_runs} runs ({outcomes})")
-    assert pass_rate == 1.0, f"Allied Trust LLC correct in only {pass_rate:.0%} of runs"
+        results, rec = _recorded_run(profile)
+        runs.append({"results": results, **rec})
+        _dump_runs(_dump_path("allied_llc_consistency"), profile, runs)
+    rows = _score_allied_llc_runs(runs)
+    print(f"\nAllied Trust LLC over {n_runs} runs (raw: {_dump_path('allied_llc_consistency')}): {rows}")
+    ok = [r["resolved"] and r["status"] == "INELIGIBLE" and r["own_rule_cited"] for r in rows]
+    record_property("allied_trust_llc_pass_rate", sum(ok) / n_runs)
+    assert all(ok), rows
 
 
 # ---------------------------------------------------------------------------
@@ -4282,22 +4426,31 @@ def test_trust_and_llc_verdicts_follow_each_carriers_own_rule(record_property):
     ignored, verification/*_results.json) before scoring, so an assertion
     change can be re-scored with _score_ownership_runs() for free.
     """
-    import json, subprocess
     n_runs = 3
-    reps = []
-    try:
-        commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
-                                text=True, cwd=os.path.dirname(__file__)).stdout.strip()
-    except Exception:
-        commit = "unknown"
+    recorded = []   # [{ownership: {"results", "pipeline_seconds", "calls"}}]
     for _ in range(n_runs):
-        reps.append({own: check_eligibility(dict(OWNERSHIP_BASE_PROFILE, ownership_type=own))
-                     for own in ("Individual Owner", "Trust", "LLC")})
-        with open(_OWNERSHIP_DUMP, "w", encoding="utf-8") as fh:   # after every rep
-            json.dump({"commit": commit, "profile": OWNERSHIP_BASE_PROFILE, "reps": reps},
-                      fh, indent=1, ensure_ascii=False)
+        rep = {}
+        for own in ("Individual Owner", "Trust", "LLC"):
+            results, rec = _recorded_run(dict(OWNERSHIP_BASE_PROFILE, ownership_type=own))
+            rep[own] = {"results": results, **rec}
+        recorded.append(rep)
+        _dump_runs(_OWNERSHIP_DUMP, OWNERSHIP_BASE_PROFILE, recorded)   # after every rep
 
+    reps = [{own: v["results"] for own, v in rep.items()} for rep in recorded]
     checks, coverage = _score_ownership_runs(reps)
+
+    # Not asserted -- reported. The eligibility pipeline does not consult the
+    # data-defect list, so these carriers get ordinary verdicts from the wrong
+    # document. What they actually say is the input to a product decision.
+    print("\nKnown-defective records in the Individual Owner results (not asserted):")
+    for rep_i, rep in enumerate(reps, 1):
+        found, _ = _resolve_results(rep["Individual Owner"], [
+            "NatGen_Custom360_HO3_-_06.25.2026", "Sage_-_Occidental_HO3",
+            "Liberty_Mutual_HO6_-_02.21.2026", "Centauri_-_HO3_-_05.01.2026"])
+        for c in ("NatGen_Custom360_HO3_-_06.25.2026", "Sage_-_Occidental_HO3",
+                  "Liberty_Mutual_HO6_-_02.21.2026", "Centauri_-_HO3_-_05.01.2026"):
+            r = found.get(c)
+            print(f"   rep {rep_i} {c[:34]:34s} " + ("NOT IN OUTPUT" if r is None else r.get("status")))
 
     print(f"\nTrust/LLC verdict checks over {n_runs} runs (raw results: {_OWNERSHIP_DUMP}):")
     failures = []
