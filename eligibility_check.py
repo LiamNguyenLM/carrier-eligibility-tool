@@ -470,13 +470,33 @@ _OWNERSHIP_ENTITY = (
     r"|estates?|partnerships?|ira)\b"
 )
 
-_OCCUPANCY_ELIGIBILITY_RE = re.compile(
+# Round 17, Liam's decision: the guarantee is split in two, and only the first
+# half runs for an ordinary customer.
+#
+#   OCCUPANCY rules -- who must live there, what kind of dwelling. For EVERY
+#   property. This is the CHUBB clause-2 fix itself, and it corrects wrong
+#   citations for owner-occupied customers across ~9 carriers.
+#
+#   ENTITY-OWNERSHIP rules -- trust and LLC/business ownership, exclusions and
+#   permissions alike. ONLY when ownership_type is Trust or LLC. Such a rule
+#   cannot change an individual owner's verdict, and trust/LLC properties are
+#   rare, so the common case should not carry their tokens or spend capped
+#   slots on them. A chunk holding both kinds (Allied Trust's APPLICANT(S)
+#   section) still comes in for an individual through its occupancy wording.
+_OCCUPANCY_RULE_RE = re.compile(
     r"owner[- ]?occup(?:ied|ant|ancy)"
     r"|\beligible persons?\b"
     r"|occupancy\s*(?:and|/)\s*use"
     r"|(?:must be|not)\s+occupied by"
-    r"|\bdeeded to\b"
-    r"|owned by (?:a|an)\s+(?:business|corporation|llc|limited liability|partnership)"
+    # Title held by the occupant. Narrowed from a bare "deeded to" so Orion's
+    # ENTITY rule ("Properties deeded to or owned by a corporation, limited
+    # liability company ...") does not ride in on the occupancy side.
+    r"|\bdeeded to the named insured\b",
+    re.I,
+)
+
+_OWNERSHIP_ENTITY_RULE_RE = re.compile(
+    r"owned by (?:a|an)\s+(?:business|corporation|llc|limited liability|partnership)"
     # An ownership ENTITY tied to an eligibility or named-insured verdict.
     # Deliberately NOT "not acceptable" / "unacceptable" / bare "may not":
     # those matched Allied Trust's MORTGAGE rule -- "applicants must have a
@@ -540,7 +560,27 @@ _DECISIVE_OCCUPANCY_RE = re.compile(
 # carrier's own brand is stripped before ranking (see _carrier_brand), and
 # "business" only counts as an ownership term when it is the owner -- both
 # measured defects of the ranking, not of the cap.
-MAX_OCCUPANCY_CHUNKS_PER_CARRIER = 6
+#
+# Since the Individual-Owner gate, this is the TRUST / LLC cap only.
+MAX_OWNERSHIP_CHUNKS_PER_CARRIER = 6
+
+# Individual Owner carries occupancy rules only, so it gets its own cap.
+# Swept 1-6 on the occupancy-only predicate against the eight occupancy rules
+# the round-17 tests name, on STANDARD and the clean ownership base profile,
+# with REAL token counts from messages.count_tokens:
+#
+#     cap   STANDARD tokens   missing
+#      1        44,385        CHUBB clause 2, AT not-occupied, Prog HO3, Sage x2
+#      2        46,681        AT "not occupied by the named insured"
+#      3        49,332        -          <- smallest with all eight
+#      4        50,449        -
+#      6        51,791        -
+#
+# Pre-branch main is 42,864 on the same profile, so the CHUBB clause-2 fix
+# itself costs an ordinary customer about +6.5K input tokens (+15%).
+MAX_OCCUPANCY_CHUNKS_PER_CARRIER = 3
+
+_OWNERSHIP_STRUCTURES_WITH_ENTITY_RULES = {"Trust", "LLC"}
 
 # Terms that tie a chunk to one specific Ownership Structure intake value.
 _OWNERSHIP_TERMS = {
@@ -578,7 +618,16 @@ def _mentions_occupancy_eligibility(content):
     eligible-persons clause it was ever shown -- 16/20 recorded STANDARD
     runs cited it, 0/20 cited clause 2, and a few reasoned that an
     owner-occupied SINGLE-FAMILY home "satisfies" a multiple-unit-dwelling
-    clause. Not a reasoning error: the model had nothing else to pick.
+    clause. The model had nothing else to pick.
+
+    NECESSARY BUT NOT SUFFICIENT -- measured after the fix, not assumed. With
+    clause 2 now in the prompt on every run, the model STILL cited clause 1 in
+    4 of 4 STANDARD runs. Contributing factor: the intake has no dwelling-type
+    or unit-count field, so "single-family" -- exactly the fact separating
+    clause 1 (multiple unit, <=2) from clause 2 (a house, a condominium unit,
+    ...) -- is never given to the model. Not verdict-changing (both clauses
+    make an owner-occupant eligible). Tracked as xfail; adding a unit-count
+    field is a product decision, not a prompt fix.
 
     The family survey found the same miss on about nine carriers, where it
     is silent rather than visible -- Allied Trust (all three of its rules),
@@ -589,7 +638,34 @@ def _mentions_occupancy_eligibility(content):
     profile, because "trust" happens to sit close to that chunk in
     embedding space and "LLC" does not -- the ranking lottery in miniature.)
     """
-    return bool(_OCCUPANCY_ELIGIBILITY_RE.search(content))
+    return _mentions_occupancy_rule(content) or _mentions_ownership_entity_rule(content)
+
+
+def _mentions_occupancy_rule(content):
+    """Occupancy half only: who lives there, what kind of dwelling. Runs for
+    every property -- see the split above _OCCUPANCY_RULE_RE."""
+    return bool(_OCCUPANCY_RULE_RE.search(content))
+
+
+def _mentions_ownership_entity_rule(content):
+    """Entity-ownership half: trust and LLC/business rules, exclusions and
+    permissions alike. Only for Trust / LLC properties."""
+    return bool(_OWNERSHIP_ENTITY_RULE_RE.search(content))
+
+
+def _occupancy_predicate_for(ownership):
+    """The guarantee's predicate for this Ownership Structure. An individual
+    owner gets occupancy rules only -- an LLC exclusion or a trust condition
+    cannot change that customer's verdict."""
+    if ownership in _OWNERSHIP_STRUCTURES_WITH_ENTITY_RULES:
+        return _mentions_occupancy_eligibility
+    return _mentions_occupancy_rule
+
+
+def _occupancy_cap_for(ownership):
+    if ownership in _OWNERSHIP_STRUCTURES_WITH_ENTITY_RULES:
+        return MAX_OWNERSHIP_CHUNKS_PER_CARRIER
+    return MAX_OCCUPANCY_CHUNKS_PER_CARRIER
 
 
 def _carrier_brand(carrier):
@@ -2345,12 +2421,18 @@ def check_eligibility(property_details, carrier_subset=None):
     # never reached the prompt and the Allied Trust LLC exclusion that didn't
     # either. Unconditional, like roof life expectancy: every property has an
     # occupancy and an ownership structure, so this rule is always in play.
-    occupancy_key = _occupancy_priority_key(property_details.get("ownership_type", ""))
+    # Trust / LLC properties additionally get entity-ownership rules and a
+    # larger cap; an individual owner gets occupancy rules only (Liam's call,
+    # round 17 -- see the split above _OCCUPANCY_RULE_RE).
+    ownership = property_details.get("ownership_type", "")
+    occupancy_key = _occupancy_priority_key(ownership)
+    occupancy_predicate = _occupancy_predicate_for(ownership)
+    occupancy_cap = _occupancy_cap_for(ownership)
     for carrier in relevant_carriers:
         found = guaranteed_carrier_lookup(
             collection, carrier,
-            predicate=_mentions_occupancy_eligibility,
-            keep=MAX_OCCUPANCY_CHUNKS_PER_CARRIER,
+            predicate=occupancy_predicate,
+            keep=occupancy_cap,
             priority_key=occupancy_key,
         )
         for chunk in found:

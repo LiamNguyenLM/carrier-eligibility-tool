@@ -77,8 +77,14 @@ from eligibility_check import (
     _mentions_roof_shape_rule,
     _RESTRICTED_ROOF_SHAPES,
     _mentions_occupancy_eligibility,
+    _mentions_occupancy_rule,
+    _mentions_ownership_entity_rule,
+    _occupancy_predicate_for,
+    _occupancy_cap_for,
     _occupancy_priority_key,
+    _carrier_brand,
     MAX_OCCUPANCY_CHUNKS_PER_CARRIER,
+    MAX_OWNERSHIP_CHUNKS_PER_CARRIER,
     _SAGE_ROOFER_STATEMENT_CARRIERS,
     _SAGE_FPC_CARRIERS,
     _TWICO_CARRIERS,
@@ -1261,11 +1267,23 @@ class TestBaselineStandardProfile:
         blob = " ".join(r.get("missing_info", [])).lower()
         assert "county" in blob
 
+    @pytest.mark.xfail(
+        reason="RETRIEVAL FIXED, CITATION NOT (round 17, measured). Clause 2 ('a house, a "
+        "condominium unit, ...') now reaches the prompt on every run -- see "
+        "test_chubb_clause_2_reaches_the_standard_prompt -- but with both clauses present the "
+        "model still cited clause 1 ('owner-occupant of a multiple unit dwelling') in 4 of 4 "
+        "STANDARD runs. Contributing factor: the intake has no dwelling-type or unit-count "
+        "field, so 'single-family' -- the one fact that separates the two clauses -- is never "
+        "given to the model. NOT verdict-changing: both clauses make an owner-occupant "
+        "eligible. Adding that field is a product decision, not a prompt fix.",
+        strict=False,
+    )
     def test_chubb_cites_correct_eligible_persons_clause(self):
-        """Backlog since rounds 9-11; root-caused and fixed in round 17 -- see
-        TestRound17OccupancyEligibilityGuarantee. Clause 2 never reached the
-        prompt, so the model could only cite clause 1 (multiple-unit
-        dwellings) for a single-family home.
+        """Backlog since rounds 9-11. Round 17 root-caused and fixed the
+        RETRIEVAL half -- clause 2 never reached the prompt, so the model
+        could only cite clause 1 (multiple-unit dwellings) for a single-family
+        home. It now reaches every run, and the citation is still wrong; see
+        the xfail reason.
 
         The old assertion was `"house" in citations`, which could PASS while
         the bug was fully present: CHUBB's clause-1 chunk opens "The term
@@ -3558,11 +3576,11 @@ def _norm(text):
 # (carrier, probe) -- each probe is text that exists in that carrier's own
 # guide and states who or what dwelling it will insure. Several distinct
 # phrasings of the one concept, which is the point.
+# Occupancy rules: who lives there, what kind of dwelling. These reach EVERY
+# property's prompt -- they are the CHUBB clause-2 fix for ordinary customers.
 _OCCUPANCY_RULES = [
     ("CHUBB_HO_-_05.22.2026", "a house, a condominium unit"),            # dwelling-type list
     ("CHUBB_HO_-_05.22.2026", "multiple unit dwelling"),                 # multi-unit clause
-    ("Allied_Trust_HO3", "owned by a business, corporation, llc"),       # entity ownership
-    ("Allied_Trust_HO3", "trust may not be listed as a named insured"),  # trust as insured
     ("Allied_Trust_HO3", "owner-occupied at least nine months"),         # occupancy duration
     ("Allied_Trust_HO3", "not occupied by the named insured"),           # occupant identity
     ("Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3", "deeded to the named insured"),  # title
@@ -3571,15 +3589,29 @@ _OCCUPANCY_RULES = [
     ("Sage_-_Wilshire_HO3_-_12.02.2025", "dwellings must be owner occupied"),
 ]
 
+# Entity-ownership rules: reach only a Trust / LLC property's prompt (Liam's
+# decision, round 17) -- such a rule cannot change an individual's verdict.
+_ENTITY_OWNERSHIP_RULES = [
+    ("Allied_Trust_HO3", "owned by a business, corporation, llc"),       # entity ownership
+    ("Allied_Trust_HO3", "trust may not be listed as a named insured"),  # trust as insured
+]
+
 
 @pytest.mark.retrieval
 class TestRound17OccupancyEligibilityGuarantee:
 
-    @pytest.mark.parametrize("carrier,probe", _OCCUPANCY_RULES)
+    @pytest.mark.parametrize("carrier,probe", _OCCUPANCY_RULES + _ENTITY_OWNERSHIP_RULES)
     def test_predicate_matches_every_phrasing_of_the_rule(self, carrier, probe):
         chunks = [c for c in _all_chunks(carrier) if probe in _norm(c.page_content)]
         assert chunks, f"premise: {probe!r} is in {carrier}'s guide"
         assert any(_mentions_occupancy_eligibility(c.page_content) for c in chunks)
+
+    @pytest.mark.parametrize("carrier,probe", _OCCUPANCY_RULES)
+    def test_every_occupancy_rule_matches_the_individual_owner_predicate(self, carrier, probe):
+        """An individual owner's guarantee runs the OCCUPANCY half only, so the
+        CHUBB clause-2 fix for ordinary customers rests entirely on it."""
+        chunks = [c for c in _all_chunks(carrier) if probe in _norm(c.page_content)]
+        assert any(_mentions_occupancy_rule(c.page_content) for c in chunks)
 
     @pytest.mark.parametrize("text", [
         "Dwellings must be owner occupied.",
@@ -3619,14 +3651,14 @@ class TestRound17OccupancyEligibilityGuarantee:
         ("Individual Owner", "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3", "deeded to the named insured"),
     ])
     def test_the_decisive_rule_survives_the_cap_for_this_ownership_type(self, ownership, carrier, probe):
-        """Uses the production cap, not a copy of it. Without an
-        ownership-aware priority, an LLC property can fill the cap with
-        owner-occupancy chunks and drop the business-ownership exclusion --
-        the one rule actually in question."""
+        """Uses the production predicate AND cap for each ownership type, not a
+        copy of either. Without an ownership-aware priority, an LLC property
+        can fill the cap with owner-occupancy chunks and drop the
+        business-ownership exclusion -- the one rule actually in question."""
         kept = guaranteed_carrier_lookup(
             get_vectorstore()._collection, carrier,
-            predicate=_mentions_occupancy_eligibility,
-            keep=MAX_OCCUPANCY_CHUNKS_PER_CARRIER,
+            predicate=_occupancy_predicate_for(ownership),
+            keep=_occupancy_cap_for(ownership),
             priority_key=_occupancy_priority_key(ownership),
         )
         assert any(probe in _norm(c.page_content) for c in kept), (
@@ -3659,9 +3691,15 @@ class TestRound17OccupancyEligibilityGuarantee:
         exception for Allied Trust's nine-month rule, and it was a trap: the
         exception hid that the cap was also truncating the entire Sage family
         and CHUBB, which only surfaced once the cap was swept properly (see
-        MAX_OCCUPANCY_CHUNKS_PER_CARRIER). Every rule, every ownership type."""
+        MAX_OCCUPANCY_CHUNKS_PER_CARRIER). Every rule, every ownership type.
+
+        Since the Individual-Owner gate, "every rule" means the rules that can
+        matter for that ownership type: occupancy rules for everyone, plus
+        entity-ownership rules for Trust and LLC."""
         prompt = _captured_prompt(dict(STANDARD_PROFILE, ownership_type=ownership))
-        missing = [f"{c}: {p!r}" for c, p in _OCCUPANCY_RULES if p not in prompt]
+        expected = _OCCUPANCY_RULES + (
+            _ENTITY_OWNERSHIP_RULES if ownership in ("Trust", "LLC") else [])
+        missing = [f"{c}: {p!r}" for c, p in expected if p not in prompt]
         assert not missing, "occupancy rules missing from the prompt:\n  " + "\n  ".join(missing)
 
     def test_allied_trust_llc_exclusion_reaches_the_prompt_for_an_llc_property(self):
@@ -3674,6 +3712,15 @@ class TestRound17OccupancyEligibilityGuarantee:
 
 
 @pytest.mark.baseline
+@pytest.mark.xfail(
+    reason="MEASURED 0/3 in round 17 (plus 0/1 in the TestBaselineStandardProfile run: 0/4). "
+    "The retrieval fix is real -- clause 2 reaches every STANDARD prompt -- but the model still "
+    "cites clause 1, the multiple-unit-dwelling clause, for a property whose intake never says "
+    "how many units it has. Not verdict-changing. Tracked, not claimed fixed: the round-17 "
+    "commit that removed this xfail said 'fixes the CHUBB eligible-persons backlog item', and "
+    "that was wrong.",
+    strict=False,
+)
 def test_chubb_eligible_persons_clause_consistency(record_property):
     """The CHUBB backlog finding, measured as a pass rate rather than one run.
 
@@ -3915,6 +3962,29 @@ def _captured_sections(profile):
     return _SECTIONS_CACHE[key]
 
 
+_SECTIONS_WITHOUT_CACHE = {}
+
+
+def _captured_sections_without_occupancy_guarantee(profile):
+    """Same capture with the occupancy guarantee switched off for an
+    individual owner, to tell what the GUARANTEE adds from what other
+    retrieval paths already bring. Restored in finally."""
+    key = tuple(sorted(profile.items()))
+    if key not in _SECTIONS_WITHOUT_CACHE:
+        import eligibility_check as ec
+        real = ec._mentions_occupancy_rule
+        saved = _SECTIONS_CACHE.pop(key, None)
+        ec._mentions_occupancy_rule = lambda content: False
+        try:
+            _SECTIONS_WITHOUT_CACHE[key] = _captured_sections(profile)
+        finally:
+            ec._mentions_occupancy_rule = real
+            _SECTIONS_CACHE.pop(key, None)   # never let the switched-off capture be reused
+            if saved is not None:
+                _SECTIONS_CACHE[key] = saved
+    return _SECTIONS_WITHOUT_CACHE[key]
+
+
 def _unreached(ownership, probes):
     per, whole = _captured_sections(dict(OWNERSHIP_BASE_PROFILE, ownership_type=ownership))
     return [label for label, (carrier, text) in probes.items()
@@ -3985,6 +4055,59 @@ class TestRound17OwnershipRuleRetrieval:
         boosted = key(Document(page_content=text, metadata={"carrier": "X"}))[0] is False
         assert boosted is is_ownership
 
+    # ---- the Individual-Owner gate (Liam's decision, round 17), both ways ----
+
+    @pytest.mark.parametrize("fragment", [
+        "including llcs, is eligible",                                     # Sage Markel
+        "in the name of an llc, llp, or corporation are only eligible",    # Sage Vave
+        "any type of non-personal entity",                                 # Travelers
+        "owned in the name of a trust or ira must be referred",           # Progressive HO3
+        "owned in the name of a trust are eligible if the grantor",       # Allied Trust
+        "deeded to or owned by a corporation, limited liability company",  # Orion
+        "properties owned by an llc, corporation",                         # Mercury
+        "llcs owning more than 10 dwellings",                              # NatGen Premier
+    ])
+    @pytest.mark.parametrize("profile", ["STANDARD", "OWNERSHIP_BASE"])
+    def test_the_guarantee_adds_no_entity_only_rule_to_an_individual_prompt(self, fragment, profile):
+        """Trust and LLC properties are rare, so the common case must not pay
+        for their rules through the guarantee.
+
+        The claim is deliberately "the guarantee ADDS none", not "none is in
+        the prompt". A first version asserted absence outright; it held on
+        STANDARD and failed on the clean profile, where Progressive HO3's
+        trust-referral bullet and NatGen Premier's "LLCs owning more than 10
+        dwellings" bullet arrive with the guarantee switched OFF -- they sit
+        inside general ineligible-risk lists the main query already fetches.
+        So: anything present with the guarantee must be present without it."""
+        base = STANDARD_PROFILE if profile == "STANDARD" else OWNERSHIP_BASE_PROFILE
+        prof = dict(base, ownership_type="Individual Owner")
+        _, with_guarantee = _captured_sections(prof)
+        if fragment not in with_guarantee:
+            return
+        _, without = _captured_sections_without_occupancy_guarantee(prof)
+        assert fragment in without, f"the occupancy guarantee added {fragment!r} for an individual owner"
+
+    def test_each_ownership_type_gets_its_own_predicate_and_cap(self):
+        assert _occupancy_predicate_for("Individual Owner") is _mentions_occupancy_rule
+        assert _occupancy_cap_for("Individual Owner") == MAX_OCCUPANCY_CHUNKS_PER_CARRIER
+        for own in ("Trust", "LLC"):
+            assert _occupancy_predicate_for(own) is _mentions_occupancy_eligibility
+            assert _occupancy_cap_for(own) == MAX_OWNERSHIP_CHUNKS_PER_CARRIER
+        assert MAX_OCCUPANCY_CHUNKS_PER_CARRIER < MAX_OWNERSHIP_CHUNKS_PER_CARRIER
+
+    @pytest.mark.parametrize("text", [
+        "Properties owned by a business, corporation, LLC are NOT eligible for coverage.",
+        "Residence held in trust is eligible.",
+        "Properties deeded to or owned by a corporation, limited liability company (LLC).",
+    ])
+    def test_entity_rules_are_not_occupancy_rules(self, text):
+        """The split has to be clean in both halves: an entity rule must match
+        the entity half and NOT the occupancy half, or it rides into every
+        individual's prompt. Orion's is the case that needed "deeded to"
+        narrowed to "deeded to the named insured"."""
+        assert _mentions_ownership_entity_rule(text)
+        assert not _mentions_occupancy_rule(text)
+
     def test_every_llc_rule_reaches_the_prompt_for_an_llc_property(self):
         """Flat exclusions, permissions, conditions and referrals alike -- 20
         rules across the family. Measured before the permissive widening:
@@ -4004,13 +4127,25 @@ class TestRound17OwnershipRuleRetrieval:
 
 def _resolve_results(results, canonical):
     """{canonical carrier: result record}. Exact-one match or it is left out
-    and reported -- never a coin flip, per _find_carrier."""
+    and reported (and the test fails on it) -- never a coin flip, per
+    _find_carrier.
+
+    Matches in BOTH directions. The model restates carrier names freely and
+    often drops the date ("Mercury HO3" for Mercury_HO3_-_01.01.2026). The
+    first version only accepted an output name CONTAINING the full canonical
+    one, and on the round-17 run it silently dropped 13 expected carriers per
+    Trust/LLC run -- eight of the ten flat-exclusion carriers among them --
+    while the check still printed 6/6. A floor of 6 characters keeps a bare
+    "Sage" from matching everything; a multi-match is left unresolved."""
     out, missing = {}, []
     for c in canonical:
         want = normalize_carrier_name(c)
-        hits = [r for r in results
-                if want == normalize_carrier_name(r.get("carrier", ""))
-                or want in normalize_carrier_name(r.get("carrier", ""))]
+
+        def related(r):
+            got = normalize_carrier_name(r.get("carrier", ""))
+            return bool(got) and (got == want or want in got or (len(got) >= 6 and got in want))
+
+        hits = [r for r in results if related(r)]
         if len(hits) == 1:
             out[c] = hits[0]
         else:
@@ -4018,13 +4153,117 @@ def _resolve_results(results, canonical):
     return out, missing
 
 
-def _blob(r):
-    return " ".join(r.get("reasons", []) + r.get("citations", []) + r.get("missing_info", [])
-                    + [r.get("notes", "")]).lower()
+def _compare_key(text):
+    """Alphanumerics only, lowercased: a verbatim fragment still matches when
+    the model's quote differs in spacing or punctuation, and nothing else."""
+    return "".join(ch for ch in (text or "").lower() if ch.isalnum())
 
 
-_ENTITY_CITE_RE = re.compile(r"\bllcs?\b|limited liability|business|corporation|non-individual|entity", re.I)
-_REFERRAL_RE = re.compile(r"underwrit|approval|\brefer", re.I)
+# The carrier's OWN verbatim entity-exclusion text. Matching this -- not a
+# keyword -- is what makes an LLC pass prove the carrier's rule was used: a
+# bare "llc|business|corporation" search passes on Sage's page header
+# ("SAGESURE INSURANCE MANAGERS LLC") or Allied Trust's unrelated "BUSINESS
+# EXPOSURE" rule.
+_LLC_FLAT_FRAGMENTS = {
+    "Allied_Trust_HO3": "owned by a business, corporation, llc",
+    "Progressive_HO3_-_04.01.2026": "in the name of a business, limited liability corporation",
+    "Sage_-_Auros_HO3": "non-individual owned properties are ineligible",
+    "Sage_-_SURE_HO-3_-_01.31.2026": "non-individual owned properties are ineligible",
+    "Sage_-_SafePort_HO-3_-_01.31.2026": "non-individual owned properties are ineligible",
+    "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026": "non-individual owned properties are ineligible",
+    "Sage_-_Wilshire_HO3_-_12.02.2025": "non-individual owned properties are ineligible",
+    "Mercury_HO3_-_01.01.2026": "properties owned by an llc, corporation",
+    "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3": "owned by a corporation, limited liability company",
+    "Liberty_Mutual_HO3_-_02.21.2026": "buildings owned by a corporation, company, llc",
+}
+assert set(_LLC_FLAT_FRAGMENTS) == set(_LLC_FLAT_EXCLUSION)
+
+# A referral must be ABOUT the trust. Bare "underwrit|approval|refer" over the
+# whole record passed on Allied Trust's page footer ("UNDERWRITING
+# GUIDELINES") and on unrelated rules ("125 amps may be acceptable with
+# underwriting approval") -- the old "townhouse units" shape again. So one
+# single unit (a reason, a citation, a missing_info item, or one sentence of
+# the notes) has to carry BOTH a trust word and referral language.
+_TRUST_WORD_RE = re.compile(r"\btrusts?\b", re.I)
+_REFERRAL_LANGUAGE_RE = re.compile(
+    r"\brefer(?:red|ral|ring)?\b|underwriting approval|prior approval|submit for approval"
+    r"|approval before binding|check with us|underwriter", re.I)
+
+
+def _record_units(r):
+    notes = re.split(r"(?<=[.!?])\s+", r.get("notes", "") or "")
+    return [u for u in (r.get("reasons", []) + r.get("citations", [])
+                        + r.get("missing_info", []) + notes) if u]
+
+
+def _trust_referral_surfaced(r, carrier):
+    brand = _carrier_brand(carrier)
+    for unit in _record_units(r):
+        scan = unit.lower().replace(brand, " ") if brand else unit.lower()
+        if _TRUST_WORD_RE.search(scan) and _REFERRAL_LANGUAGE_RE.search(scan):
+            return True
+    return False
+
+
+def _score_ownership_runs(reps):
+    """Pure scoring over recorded runs -- no API calls -- so a changed
+    assertion can be re-scored from the JSON dump instead of re-paid for.
+
+    reps: [{"Individual Owner": [records], "Trust": [...], "LLC": [...]}, ...]
+    Returns (checks, coverage): checks[(group, carrier)] = [bool per run];
+    coverage[group] = {"expected", "ran", "skipped": [(carrier, why)],
+    "unresolved": [(ownership, carrier, n_matches)]}.
+    """
+    groups = {
+        "LLC: INELIGIBLE on its own verbatim entity rule": ("LLC", _LLC_FLAT_EXCLUSION),
+        "LLC: not declined (permitted/conditional/referral)": ("LLC", _LLC_NOT_A_FLAT_DECLINE),
+        "Trust: not declined": ("Trust", _TRUST_NOT_A_DECLINE),
+        "Trust: referral surfaced, about the trust": ("Trust", _TRUST_REFERRAL),
+        "Trust: Allied Trust surfaces the grantor condition": ("Trust", ["Allied_Trust_HO3"]),
+    }
+    checks = {}
+    coverage = {g: {"expected": len(cs) * len(reps), "ran": 0, "skipped": [], "unresolved": []}
+                for g, (_, cs) in groups.items()}
+    every = sorted({c for _, cs in groups.values() for c in cs})
+
+    for rep in reps:
+        by = {}
+        for own, res in rep.items():
+            by[own], missing = _resolve_results(res, every)
+            for g, (g_own, cs) in groups.items():
+                for c, n in missing:
+                    if c in cs and own in (g_own, "Individual Owner"):
+                        coverage[g]["unresolved"].append((own, c, n))
+        control = by["Individual Owner"]
+        for g, (own, cs) in groups.items():
+            for c in cs:
+                r, ctl = by[own].get(c), control.get(c)
+                if r is None or ctl is None:
+                    continue  # already counted as unresolved
+                # The control rule applies to EVERY group, the flat-exclusion
+                # one included: a pass must prove OWNERSHIP moved the verdict,
+                # so a carrier the control already declined proves nothing.
+                if ctl.get("status") == "INELIGIBLE":
+                    coverage[g]["skipped"].append((c, "control INELIGIBLE"))
+                    continue
+                coverage[g]["ran"] += 1
+                if g.startswith("LLC: INELIGIBLE"):
+                    frag = _compare_key(_LLC_FLAT_FRAGMENTS[c])
+                    ok = (r.get("status") == "INELIGIBLE"
+                          and any(frag in _compare_key(x) for x in r.get("citations", [])))
+                elif g.startswith("Trust: referral"):
+                    ok = _trust_referral_surfaced(r, c)
+                elif g.startswith("Trust: Allied Trust"):
+                    ok = "grantor" in " ".join(_record_units(r)).lower()
+                else:
+                    ok = r.get("status") != "INELIGIBLE"
+                checks.setdefault((g, c), []).append(bool(ok))
+    return checks, coverage
+
+
+_OWNERSHIP_DUMP = os.environ.get(
+    "OWNERSHIP_VERDICT_DUMP",
+    os.path.join(os.path.dirname(__file__), "ownership_verdicts_results.json"))
 
 
 @pytest.mark.baseline
@@ -4033,72 +4272,49 @@ def test_trust_and_llc_verdicts_follow_each_carriers_own_rule(record_property):
     ownership rule reaches the model, the VERDICT follows that carrier's rule.
 
     Each repetition runs the clean base profile three times -- Individual
-    Owner (the control), Trust, LLC -- so ownership is the only variable. A
-    "must not be declined" check only applies to a carrier the control did
-    not already decline for some unrelated reason, so an unrelated decline can
-    never be misread as an ownership decline.
+    Owner (the control), Trust, LLC -- so ownership is the only variable.
+    EVERY check, the flat-exclusion one included, skips a carrier the control
+    already declined, so a pass proves ownership moved the verdict. Skips and
+    unresolved names are counted and reported, never silently dropped, and an
+    expected carrier that cannot be resolved fails the test.
+
+    Every run's raw per-carrier output is written to _OWNERSHIP_DUMP (git-
+    ignored, verification/*_results.json) before scoring, so an assertion
+    change can be re-scored with _score_ownership_runs() for free.
     """
+    import json, subprocess
     n_runs = 3
-    checks = {}   # (check name, carrier) -> [bool per run]
-    unresolved = set()
-
-    def record(name, carrier, ok):
-        checks.setdefault((name, carrier), []).append(bool(ok))
-
+    reps = []
+    try:
+        commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
+                                text=True, cwd=os.path.dirname(__file__)).stdout.strip()
+    except Exception:
+        commit = "unknown"
     for _ in range(n_runs):
-        runs = {own: check_eligibility(dict(OWNERSHIP_BASE_PROFILE, ownership_type=own))
-                for own in ("Individual Owner", "Trust", "LLC")}
-        every = sorted(set(_LLC_FLAT_EXCLUSION + _LLC_NOT_A_FLAT_DECLINE + _TRUST_NOT_A_DECLINE))
-        by = {}
-        for own, res in runs.items():
-            by[own], miss = _resolve_results(res, every)
-            unresolved.update((own, c, n) for c, n in miss)
-        control = by["Individual Owner"]
+        reps.append({own: check_eligibility(dict(OWNERSHIP_BASE_PROFILE, ownership_type=own))
+                     for own in ("Individual Owner", "Trust", "LLC")})
+        with open(_OWNERSHIP_DUMP, "w", encoding="utf-8") as fh:   # after every rep
+            json.dump({"commit": commit, "profile": OWNERSHIP_BASE_PROFILE, "reps": reps},
+                      fh, indent=1, ensure_ascii=False)
 
-        for c in _LLC_FLAT_EXCLUSION:
-            r = by["LLC"].get(c)
-            if r is None:
-                continue
-            own_rule = any(_ENTITY_CITE_RE.search(x) for x in r.get("citations", []))
-            record("LLC: INELIGIBLE on its own entity rule", c, r.get("status") == "INELIGIBLE" and own_rule)
+    checks, coverage = _score_ownership_runs(reps)
 
-        for name, owner_type, group in (
-            ("LLC: not declined (permitted/conditional/referral)", "LLC", _LLC_NOT_A_FLAT_DECLINE),
-            ("Trust: not declined", "Trust", _TRUST_NOT_A_DECLINE),
-        ):
-            for c in group:
-                r, ctl = by[owner_type].get(c), control.get(c)
-                if r is None or ctl is None or ctl.get("status") == "INELIGIBLE":
-                    continue
-                record(name, c, r.get("status") != "INELIGIBLE")
-
-        for c in _TRUST_REFERRAL:
-            r, ctl = by["Trust"].get(c), control.get(c)
-            if r is None or ctl is None or ctl.get("status") == "INELIGIBLE":
-                continue
-            record("Trust: referral surfaced", c,
-                   r.get("status") == "REFER" or _REFERRAL_RE.search(_blob(r)))
-
-        at = by["Trust"].get("Allied_Trust_HO3")
-        if at is not None:
-            # Allied Trust's trust rule turns on the GRANTOR residing and being
-            # the named insured. The intake cannot say who lives in a
-            # trust-owned home, so the condition has to be surfaced, not assumed.
-            record("Trust: Allied Trust surfaces the grantor condition", "Allied_Trust_HO3",
-                   "grantor" in _blob(at))
-
-    # ---- report: pass rate per check, and every individual failure
-    failures, summary = [], {}
-    for (name, carrier), outcomes in sorted(checks.items()):
-        s = summary.setdefault(name, [0, 0])
-        s[0] += sum(outcomes); s[1] += len(outcomes)
-        if not all(outcomes):
-            failures.append(f"{name} | {carrier} | {sum(outcomes)}/{len(outcomes)}")
-    print("\nTrust/LLC verdict checks over", n_runs, "runs:")
-    for name, (p, t) in summary.items():
-        print(f"   {p:3d}/{t:<3d} {p / t:6.0%}  {name}")
-        record_property(name, f"{p}/{t}")
-    for u in sorted(unresolved):
-        print("   unresolved carrier name:", u)
-    assert checks, "no checks ran -- the carrier resolution matched nothing"
+    print(f"\nTrust/LLC verdict checks over {n_runs} runs (raw results: {_OWNERSHIP_DUMP}):")
+    failures = []
+    for g, cov in coverage.items():
+        results = [ok for (grp, _), oks in checks.items() if grp == g for ok in oks]
+        passed = sum(results)
+        print(f"   {g}")
+        print(f"      passed {passed}/{len(results)}   ran {cov['ran']}/{cov['expected']}"
+              f"   skipped {len(cov['skipped'])}   unresolved {len(cov['unresolved'])}")
+        for c, why in sorted(set(cov["skipped"])):
+            print(f"      skipped: {c} ({why})")
+        for u in sorted(set(cov["unresolved"])):
+            print(f"      UNRESOLVED: {u}")
+            failures.append(f"unresolved carrier {u} in group {g!r}")
+        record_property(g, f"{passed}/{len(results)} ran {cov['ran']}/{cov['expected']}")
+    for (g, c), oks in sorted(checks.items()):
+        if not all(oks):
+            failures.append(f"{g} | {c} | {sum(oks)}/{len(oks)}")
+    assert any(cov["ran"] for cov in coverage.values()), "no check ran at all"
     assert not failures, "ownership verdict checks failed:\n  " + "\n  ".join(failures)
