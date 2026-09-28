@@ -274,10 +274,18 @@ class TestSageFamilyStructuredFPC:
         assert all(r == results[0] for r in results)
 
     def test_occidental_variant_lacks_no_rental_condition_others_have(self):
-        # Confirmed directly against Occidental's own source text -- a real
-        # per-carrier difference, not a dropped bullet to "fix" back to
-        # matching its siblings.
-        _, occidental_reasons = sage_family_fpc_eligibility("4", distance_miles=6, carrier="Sage_-_Occidental_HO3")
+        # A real per-carrier difference, not a dropped bullet to "fix" back to
+        # matching its siblings -- but confirmed for the DP3 (DWELLING FIRE)
+        # program only. Retargeted to the DP3 record in round 17: the HO3
+        # record holds the DP3 guide too (DD-4), so this was never HO3
+        # evidence, and the source-text premise is now asserted against the
+        # record it is actually true of.
+        dp3_text = " ".join(c.page_content for c in _all_chunks("Sage_-_Occidental_DP3")).lower()
+        assert "dwelling fire program" in dp3_text, "premise: this is Occidental's DP3 guide"
+        assert "no rental exposures allowed" not in dp3_text, (
+            "premise: Occidental's DP3 guide lacks row 5's no-rental condition"
+        )
+        _, occidental_reasons = sage_family_fpc_eligibility("4", distance_miles=6, carrier="Sage_-_Occidental_DP3")
         _, auros_reasons = sage_family_fpc_eligibility("4", distance_miles=6, carrier="Sage_-_Auros_HO3")
         assert "no rental exposure" not in " ".join(occidental_reasons).lower()
         assert "no prior fire losses" in " ".join(occidental_reasons).lower(), (
@@ -482,11 +490,14 @@ class TestSageFPCOverrideWiring:
 
     def test_fpc_conclusion_in_reasons_still_upgrades_verdict(self):
         # Different field/phrasing -- generalization check per CLAUDE.md.
+        # Carrier moved off Sage_-_Occidental_HO3 in round 17: that record
+        # holds the DP3 guide (DD-4), and this test is about override wiring,
+        # which any Sage FPC carrier with a correct HO3 document exercises.
         result = self._make_carrier_result(
-            "Sage - Occidental HO3",
+            "Sage - SURE HO-3",
             reasons=["Protection Class 4 does not trigger the FPC 9 or greater ineligible row."],
         )
-        _apply_structured_overrides([result], ["Sage_-_Occidental_HO3"], dict(COASTAL_PPC4_PROFILE))
+        _apply_structured_overrides([result], ["Sage_-_SURE_HO-3_-_01.31.2026"], dict(COASTAL_PPC4_PROFILE))
         assert result["status"] == "ELIGIBLE"
 
     def test_unrelated_missing_info_is_not_forced_eligible(self):
@@ -1205,7 +1216,10 @@ class TestSageFamilyFPCRetrieval:
 
     @pytest.mark.parametrize("carrier", [
         "Sage_-_Auros_HO3",
-        "Sage_-_Occidental_HO3",
+        # DP3, not HO3, since round 17: a claim about the document's own FPC
+        # rows is only meaningful against the record that truly holds them,
+        # and Sage_-_Occidental_HO3 holds the DP3 guide (DD-4).
+        "Sage_-_Occidental_DP3",
         "Sage_-_Wilshire_HO3_-_12.02.2025",
     ])
     def test_both_low_and_high_fpc_rows_retrievable(self, carrier):
@@ -1229,7 +1243,9 @@ class TestSageFamilyFPCRetrieval:
         11 -- this is a retrieval-level guard against it ever silently
         reappearing (it should never exist in these three carriers' own
         chunks at all)."""
-        for carrier in ["Sage_-_Auros_HO3", "Sage_-_Occidental_HO3", "Sage_-_Wilshire_HO3_-_12.02.2025"]:
+        # Occidental checked on its DP3 record since round 17 -- the HO3 record
+        # holds the DP3 guide (DD-4), so that is the Occidental text on file.
+        for carrier in ["Sage_-_Auros_HO3", "Sage_-_Occidental_DP3", "Sage_-_Wilshire_HO3_-_12.02.2025"]:
             chunks = _all_chunks(carrier)
             assert not any("classification" in c.page_content.lower() for c in chunks), (
                 f"{carrier}: 'classification' terminology found in its own chunks -- "
@@ -1335,7 +1351,13 @@ class TestBaselineAltProfile:
         assert "ppc 10" not in blob and "ppc-10" not in blob
 
     @pytest.mark.parametrize("carrier_substr", [
-        "Auros", "Occidental", "Wilshire",
+        "Auros",
+        # The id says it on every run: this case reads the DP3 guide filed
+        # under the HO3 name (DD-4). It still guards how the pipeline handles
+        # the text on file, but a pass is NOT evidence about Occidental's HO3
+        # program. Revisit when the real PDF is uploaded.
+        pytest.param("Occidental", id="Occidental-DD4-DP3-doc-not-HO3-evidence"),
+        "Wilshire",
     ])
     def test_sage_family_ppc1_is_eligible_not_insufficient(self, carrier_substr):
         """Round 11: a full read of all six Sage documents' FPC tables
@@ -1420,7 +1442,15 @@ def test_progressive_ho3_solar_consistency(record_property):
 
 @pytest.mark.baseline
 def test_sage_occidental_pool_fence_consistency(record_property):
-    """Was a hard, unconditional assert (test_sage_occidental_pool_fence_rule_is_found)
+    """DD-4 (round 17): NOT HO3 EVIDENCE. Sage_-_Occidental_HO3 holds the
+    08/06/2025 revision of Occidental's DWELLING FIRE PROGRAM (DP3) guide, so
+    every measurement below -- including the 55% -- is of the DP3 pool rule
+    read under an HO3 name in an owner-occupied run. It still guards how the
+    pipeline handles the text on file; it says nothing about Occidental's HO3
+    program. The pool-fence TEXT claim now lives on the DP3 record (see
+    test_pool_spec_matches_each_carriers_own_source_clause).
+
+    Was a hard, unconditional assert (test_sage_occidental_pool_fence_rule_is_found)
     until a 20-run measurement this session found it actually passes only
     55% (11/20) of the time -- meaning it had been passing or failing by
     luck depending on which run CI happened to catch, silently, with no
@@ -1450,7 +1480,8 @@ def test_sage_occidental_pool_fence_consistency(record_property):
         outcomes.append("fenc" in blob or "gate" in blob)
     pass_rate = sum(outcomes) / len(outcomes)
     record_property("sage_occidental_pool_fence_pass_rate", pass_rate)
-    print(f"\nSage Occidental pool-fence pass rate: {pass_rate:.0%} over {n_runs} runs ({outcomes})")
+    print(f"\nSage Occidental pool-fence pass rate: {pass_rate:.0%} over {n_runs} runs ({outcomes})"
+          f"  [DD-4: DP3 guide on file under the HO3 name -- not HO3 evidence]")
     assert pass_rate > 0.0, (
         f"Sage Occidental's pool-fence rule did not surface in ANY of {n_runs} runs -- "
         f"this has regressed from partial (55% measured over 20 runs) to total failure."
@@ -1646,6 +1677,8 @@ def test_prose_only_cross_carrier_bleed_is_absent():
     Trium/SURE/SafePort's own documents)."""
     result = check_eligibility(ALT_PROFILE)
     by_carrier = {r["carrier"]: r for r in result}
+    # Occidental's prose here is generated from the DP3 guide filed under the
+    # HO3 name (DD-4): a clean result for it is not evidence about HO3.
     for target in ["Auros", "Occidental", "Wilshire"]:
         matches = _find_carrier(by_carrier, target)
         assert matches, f"{target}: not found in output"
@@ -1811,6 +1844,8 @@ def test_sage_family_ppc1_pass_rate(record_property):
     case (which mostly passes), this one mostly does NOT -- do not let a
     single good run get reported as "fixed" without re-running this."""
     n_runs = 3
+    # Occidental's rate is measured on the DP3 guide filed under the HO3 name
+    # (DD-4) -- tracked, but not evidence about Occidental's HO3 program.
     target_carriers = ["Auros", "Occidental", "Wilshire"]
     per_carrier_outcomes = {c: [] for c in target_carriers}
     for _ in range(n_runs):
@@ -2238,7 +2273,9 @@ class TestRound13PoolSpecNotAssumedMet:
     @pytest.mark.parametrize("carrier,expected_height,source_phrase", [
         ("ARI_(HOA+)", "6", "6' high fence"),
         ("ARI_(HOB)", "6", "6' high fence"),
-        ("Sage_-_Occidental_HO3", "4", "minimum height of 4 feet"),
+        # The DP3 record since round 17: this clause is the DP3 guide's, and
+        # Sage_-_Occidental_HO3 holds that same guide (DD-4).
+        ("Sage_-_Occidental_DP3", "4", "minimum height of 4 feet"),
         ("Foremost_DP3_and_HO3_-_07.01.2026", "4", "fence minimum four feet high"),
         ("Sage_-_Markel_HO3", "4", "approved fence (at least four feet high)"),
         ("Allied_Trust_HO3", "4", "fence at least 4-foot-high"),
@@ -3436,34 +3473,105 @@ def test_no_two_carriers_hold_the_same_document():
     )
 
 
-# Product words as a document describes ITSELF. Counted over the whole
-# document, not just headers: a header-based version was tried and is worse,
-# tripping on Sage Occidental HO3 (1 vs 2) and Travelers HO3 (1 vs 2) where
-# the margins are a single hit wide.
+# Product words as a document describes ITSELF, counted over the whole
+# document. This is the WORD rule, and it is what catches NatGen Custom360
+# HO3 (DD-1: 34 landlord/dwelling-fire hits against 2).
+#
+# CORRECTION (DD-4, round 17). This comment used to say "a header-based
+# version was tried and is worse, tripping on Sage Occidental HO3 (1 vs 2)".
+# That trip was CORRECT: Sage_-_Occidental_HO3 holds Occidental's DWELLING
+# FIRE PROGRAM (DP3) guide, and the header version saw it. It was treated as
+# a false positive and tuned away, and the defect went unseen until round 17.
+# The word rule on its own misses it for a specific reason: 5 of the record's
+# 6 "homeowners" hits are "owner occupied", which dwelling-fire guides use
+# constantly ("Dwellings (DP 00 03) must be: ... Owner or Tenant occupied").
+#
+# "owner occupied" is deliberately KEPT in the word rule anyway, because
+# dropping it was measured and makes the rule worse: Travelers HO3 goes from
+# 3 vs 8 (ratio 2.7, safe) to 1 vs 8 (ratio 8), protected only by the 10-hit
+# floor. The fix for DD-4 is a SECOND signal below, not a weaker first one.
 _SELF_DESCRIBED_HOMEOWNERS_RE = re.compile(
     r"(?i)\bhomeowners?\b|\bHO-?[356]\b|owner[- ]occupied")
 _SELF_DESCRIBED_DWELLING_FIRE_RE = re.compile(
     r"(?i)\blandlord\b|dwelling fire|\bDP-?[13]\b|tenant[- ]occupied|"
     r"rented to others|rental dwelling")
 
-# A document must read overwhelmingly like the OTHER product before this
-# calls it a mismatch: at least this many opposite-product hits, AND that
-# many times its own-product hits. Both conditions matter. Travelers' HO3
-# guide legitimately contains a "LANDLORD DWELLING/LANDLORD CONDOMINIUM
-# ONLY" ineligibility section (ho=3, dp=8, ratio 2.7) and must not trip;
-# NatGen Custom360's mis-filed record is ho=2, dp=34, ratio 17.
+# A document must read overwhelmingly like the OTHER product before the word
+# rule calls it a mismatch: at least this many opposite-product hits, AND that
+# many times its own-product hits. Travelers' HO3 guide legitimately contains
+# a "LANDLORD DWELLING/LANDLORD CONDOMINIUM ONLY" ineligibility section (ho=3,
+# dp=8, ratio 2.7) and must not trip; NatGen Custom360's mis-filed record is
+# ho=2, dp=34, ratio 17.
 _OPPOSITE_PRODUCT_FLOOR = 10
 _OPPOSITE_PRODUCT_RATIO = 4
+
+# The REFERENCE rule: what policy FORM and PRODUCT the guide says it writes.
+# Endorsement numbers are deliberately excluded -- DP guides cite HO 04 70
+# (the Texas wind/hail exclusion) and HO guides cite dwelling endorsements --
+# so only the policy forms themselves (HO 00 0x, DP 00 0x), bare product names
+# (HO-3, DP3) and program titles count. "owner occupied" is not a signal here.
+#
+# Measured over every single-product record: Sage_-_Occidental_HO3 is the ONLY
+# one with zero references to its own product and any to the other -- 0 HO vs
+# 5 DP, every one of them the document describing itself: its title "TEXAS
+# OCCIDENTAL DWELLING FIRE PROGRAM (DP3)", its footer "TX Occidental DP3
+# Revised 08/06/2025", and twice "Dwellings: DP 00 03" under Forms. The close
+# call is Liberty Mutual DP3: 0 DP vs 1 HO, and that one HO hit is a
+# cross-reference ("the maintenance standards that apply to Safeco's
+# homeowners program are consistent with those for Landlord Protection").
+# Floor 3 leaves a two-hit margin on each side. Travelers is 0 vs 0 and
+# cannot trip a reference-based rule at all.
+_HO_PRODUCT_REF_RE = re.compile(
+    r"(?i)\bHO[- ]?00[- ]?0[2-8]\b|\bHO[- ]?[3568]\b(?![- ]?\d)|homeowners? program")
+_DP_PRODUCT_REF_RE = re.compile(
+    r"(?i)\bDP[- ]?00[- ]?0[1-3]\b|\bDP[- ]?[13]\b(?![- ]?\d)|dwelling fire program|landlord program")
+_PRODUCT_REF_FLOOR = 3
+
+
+def _product_mismatches():
+    """{carrier: reason} for every single-product record whose document
+    describes the other product, by EITHER rule. Shared by the standing check
+    and its calibration test, so the two cannot drift apart."""
+    collection = get_vectorstore()._collection
+    found = {}
+    for carrier in get_all_carriers():
+        is_ho, is_dp = carrier_programs(carrier)
+        if is_ho == is_dp:
+            continue  # bundles both (Foremost), or no product token to check
+        blob = " ".join(
+            normalize_chunk_text(d)
+            for d in collection.get(where={"carrier": carrier}, include=["documents"])["documents"]
+        )
+        ho_words = len(_SELF_DESCRIBED_HOMEOWNERS_RE.findall(blob))
+        dp_words = len(_SELF_DESCRIBED_DWELLING_FIRE_RE.findall(blob))
+        ho_refs = len(_HO_PRODUCT_REF_RE.findall(blob))
+        dp_refs = len(_DP_PRODUCT_REF_RE.findall(blob))
+        if is_ho:
+            own_w, opp_w, own_r, opp_r, reads = ho_words, dp_words, ho_refs, dp_refs, "dwelling-fire/landlord"
+        else:
+            own_w, opp_w, own_r, opp_r, reads = dp_words, ho_words, dp_refs, ho_refs, "homeowners"
+        why = []
+        if opp_w >= _OPPOSITE_PRODUCT_FLOOR and opp_w >= _OPPOSITE_PRODUCT_RATIO * max(own_w, 1):
+            why.append(f"word rule {opp_w} vs {own_w}")
+        if own_r == 0 and opp_r >= _PRODUCT_REF_FLOOR:
+            why.append(f"reference rule {opp_r} vs {own_r}")
+        if why:
+            found[carrier] = (f"filename says {'HO' if is_ho else 'DP'}, document reads {reads}: "
+                              + "; ".join(why))
+    return found
 
 
 @pytest.mark.retrieval
 @pytest.mark.xfail(
-    reason="KNOWN DATA DEFECT (round 16): NatGen_Custom360_HO3 holds the DP3 document. Its "
-    "text reads landlord/dwelling-fire 34 times against 2 homeowners hits -- a ratio of 17 -- "
-    "while its filename says HO3. This catches the defect from a SECOND, independent angle to "
-    "the duplicate-hash check, and would still catch it if the file were unique rather than a "
-    "copy of the DP3 record. REMOVE THIS XFAIL MARKER once the correct PDF is uploaded: after "
-    "that it should be a hard assert, so a future mis-ingest fails the build.",
+    reason="KNOWN DATA DEFECTS, both needing a corrected PDF, not a code change. "
+    "DD-1 (round 16): NatGen_Custom360_HO3 holds the DP3 document -- caught by the WORD rule, "
+    "landlord/dwelling-fire 34 times against 2 homeowners hits. "
+    "DD-4 (round 17): Sage_-_Occidental_HO3 holds the 08/06/2025 revision of Occidental's "
+    "DWELLING FIRE PROGRAM (DP3) guide -- caught by the REFERENCE rule, 5 references to DP3 / "
+    "DP 00 03 against 0 to any HO product. Neither the duplicate-hash check (the two Occidental "
+    "revisions differ byte-for-byte) nor the word rule (as tuned) saw DD-4. REMOVE THIS XFAIL "
+    "MARKER once both PDFs are corrected: after that it should be a hard assert, so a future "
+    "mis-ingest fails the build.",
     strict=False,
 )
 def test_each_document_reads_like_the_product_its_filename_claims():
@@ -3481,9 +3589,11 @@ def test_each_document_reads_like_the_product_its_filename_claims():
                       with its filename and this test is silent on it).
 
       this test       catches a record whose document is the wrong PRODUCT,
-                      even if that file appears nowhere else in the corpus.
-                      It is the only one of the two that would catch NatGen
-                      Custom360 HO3 if the DP3 record did not exist.
+                      even if that file appears nowhere else in the corpus
+                      -- by word counts (DD-1) or by the policy forms and
+                      program name the document gives itself (DD-4, whose
+                      file is a different REVISION of its sibling's guide, so
+                      no hash check could ever see it).
 
     What NEITHER catches: a record holding the wrong document of the RIGHT
     product that is also unique -- e.g. one homeowners carrier's guide filed
@@ -3491,32 +3601,11 @@ def test_each_document_reads_like_the_product_its_filename_claims():
     carrier's own name to appear in its text, which these documents do not
     reliably do.
     """
-    collection = get_vectorstore()._collection
-    mismatched = []
-    for carrier in get_all_carriers():
-        is_ho, is_dp = carrier_programs(carrier)
-        if is_ho and is_dp:
-            continue  # genuinely bundles both; no single expectation to check
-        blob = " ".join(
-            normalize_chunk_text(d)
-            for d in collection.get(where={"carrier": carrier}, include=["documents"])["documents"]
-        )
-        ho_hits = len(_SELF_DESCRIBED_HOMEOWNERS_RE.findall(blob))
-        dp_hits = len(_SELF_DESCRIBED_DWELLING_FIRE_RE.findall(blob))
-
-        if is_ho:
-            own, opposite, reads = ho_hits, dp_hits, "dwelling-fire/landlord"
-        else:
-            own, opposite, reads = dp_hits, ho_hits, "homeowners"
-        if opposite >= _OPPOSITE_PRODUCT_FLOOR and opposite >= _OPPOSITE_PRODUCT_RATIO * max(own, 1):
-            mismatched.append(
-                f"{carrier} (filename says {'HO' if is_ho else 'DP'}, document reads "
-                f"{reads}: {opposite} vs {own} hits)"
-            )
-
+    mismatched = _product_mismatches()
     assert not mismatched, (
         "carrier records whose document describes a different product than their filename "
-        "claims -- the wrong PDF is almost certainly in that slot: " + "; ".join(mismatched)
+        "claims -- the wrong PDF is almost certainly in that slot: "
+        + "; ".join(f"{c} ({why})" for c, why in sorted(mismatched.items()))
     )
 
 
@@ -5085,3 +5174,38 @@ def test_ari_hoa_plus_is_not_declined_on_ari_hob_age_rule():
     if len(ari) != 1:
         pytest.fail(f"replay returned {len(ari)} ARI (HOA+) records")    # not the xfail's reason
     assert ari[0]["status"] != "INELIGIBLE", ari[0]
+
+
+@pytest.mark.retrieval
+class TestProductCheckCalibration:
+    """Pins the product check's behaviour in BOTH directions, as a hard assert
+    that runs every commit. The standing check above is xfail while the
+    defects exist, so on its own it could quietly start flagging -- or stop
+    flagging -- anything without the suite noticing."""
+
+    @pytest.mark.parametrize("carrier", [
+        "Travelers_HO3_-_06.12.2026",        # real LANDLORD section; words 3 vs 8, refs 0 vs 0
+        "Sage_-_Vave_HO3_-_07.01.2026",      # refs 19 HO vs 4 DP
+        "Sage_-_Markel_HO3",                 # refs 32 HO vs 1 DP
+        "Liberty_Mutual_DP3_-_02.21.2026",   # refs 0 DP vs 1 HO -- a cross-reference
+        "Sage_-_Occidental_DP3",             # the CORRECT record of the DD-4 pair
+    ])
+    def test_the_known_close_calls_are_not_flagged(self, carrier):
+        assert carrier not in _product_mismatches()
+
+    def test_only_known_defects_are_flagged(self):
+        """Anything flagged that is not a documented defect is either a new
+        mis-ingest (investigate the PDF) or a false positive (fix the rule) --
+        never something to add here without reading the document."""
+        known = {"NatGen_Custom360_HO3_-_06.25.2026", "Sage_-_Occidental_HO3"}
+        assert set(_product_mismatches()) <= known, set(_product_mismatches()) - known
+
+    def test_occidental_ho3_is_flagged_while_it_holds_the_dp3_guide(self):
+        """Premise-guarded, so it clears itself: once the real HO3 PDF is
+        uploaded the record stops calling itself a dwelling-fire program and
+        this has nothing to assert."""
+        text = " ".join(c.page_content for c in _all_chunks("Sage_-_Occidental_HO3")).upper()
+        if "DWELLING FIRE PROGRAM" not in text:
+            pytest.skip("Sage_-_Occidental_HO3 no longer self-describes as DP3 -- DD-4 fixed?")
+        assert "Sage_-_Occidental_HO3" in _product_mismatches()
+        assert "reference rule" in _product_mismatches()["Sage_-_Occidental_HO3"]

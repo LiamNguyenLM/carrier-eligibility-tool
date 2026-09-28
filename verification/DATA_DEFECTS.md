@@ -93,6 +93,70 @@ guide over the HO6 record.
 
 ---
 
+## DD-4 — `Sage_-_Occidental_HO3` holds Occidental's DP3 (Dwelling Fire) guide
+
+**Found round 17**, while checking the Sage family's trust/LLC rules against
+their own headings. (DD-3, Centauri HO3's zero-chunk scan, is recorded on the
+`chat-tab` branch and lands here when that branch merges.)
+
+The record named HO3 is the **08/06/2025 revision of Occidental's DWELLING
+FIRE PROGRAM (DP3) guide**. The DP3 record holds the 10/24/2025 revision of
+the same guide:
+
+```
+                         header                                   revised     policy form
+Sage_-_Occidental_HO3    TEXAS OCCIDENTAL DWELLING FIRE PROGRAM (DP3)  08/06/2025  DP 00 03
+Sage_-_Occidental_DP3    TEXAS OCCIDENTAL DWELLING FIRE PROGRAM (DP3)  10/24/2025  DP 00 03
+```
+
+84% text overlap between the two, identical form numbers, and **zero**
+references to any HO product or HO policy form in the "HO3" record. Its own
+Forms row reads "These forms are eligible: • Dwellings: DP 00 03", and its
+eligibility list reads "Dwellings (DP 00 03) must be: One to four family. o
+Owner or Tenant occupied." Occidental's homeowners guide was never ingested.
+
+**Why neither standing check caught it, and why that matters most:**
+
+- **Duplicate hash**: the two records are different *revisions*, so their
+  bytes differ. A hash check can only ever catch an exact copy.
+- **Product check (as tuned in round 16)**: it counted "owner occupied" as a
+  homeowners self-description, and dwelling-fire guides say it constantly --
+  5 of this record's 6 "homeowners" hits were "owner occupied", so a DP3
+  guide scored 6 HO vs 5 DP and read as homeowners. Worse, a header-based
+  version of the check had **caught this exact record** ("Sage Occidental HO3
+  (1 vs 2)") and was recorded as a false positive and tuned away. The trip
+  was correct.
+
+**Fixed in the check, not the data:** a second, reference-based rule now
+counts only the policy forms and product names a guide gives itself (HO 00
+0x / HO-3 / "homeowners program" vs DP 00 0x / DP3 / "dwelling fire
+program"), with endorsement numbers excluded. Over every single-product
+record, Occidental HO3 is the only one with 0 own-product references and any
+opposite ones (0 vs 5). `TestProductCheckCalibration` pins the result both
+ways every commit: Travelers (0 vs 0 — it cannot trip a reference rule),
+Vave HO3 (19 vs 4), Markel HO3 (32 vs 1), Liberty Mutual DP3 (0 vs 1, a
+cross-reference to Safeco's homeowners program) and the correct Occidental DP3
+record all stay unflagged. "owner occupied" was **kept** in the word rule:
+removing it was measured and moves Travelers from 3 vs 8 (ratio 2.7) to 1 vs 8
+(ratio 8), protected only by the 10-hit floor.
+
+**What was built on the wrong document**, and what was done about each:
+
+| where | claim | round 17 |
+|---|---|---|
+| `structured_rules.sage_family_fpc_eligibility` | Occidental's row 5 lacks "no rental exposures allowed" (3-condition carve-out) | **Annotated**: confirmed for DP3 only, unverified for HO3. Not reverted to the 4-condition version -- that is equally a guess. |
+| `test_occidental_variant_lacks_no_rental_condition_others_have` | same, as a source-text claim | **Retargeted** to the DP3 record, with the premise asserted against its text |
+| `test_both_low_and_high_fpc_rows_retrievable`, the "classification" guard, the pool-spec row ("minimum height of 4 feet") | claims about the document's own text | **Retargeted** to `Sage_-_Occidental_DP3`, which holds the same text |
+| `test_fpc_conclusion_in_reasons_still_upgrades_verdict` | override wiring; carrier incidental | **Moved** to Sage SURE HO-3 |
+| `test_sage_family_ppc1_is_eligible_not_insufficient[Occidental]`, `test_sage_occidental_pool_fence_consistency`, `test_sage_family_ppc1_pass_rate`, `test_prose_only_cross_carrier_bleed_is_absent` | end-to-end HO3 verdicts in owner-occupied runs | **Annotated, still running**: cannot be retargeted (the DP3 record is not evaluated for owner-occupied profiles). The param id and printed rate now say "not HO3 evidence" on every run. Two of these passed in round 16's baseline -- against the DP3 text. |
+| `eligibility_check.py` comments (the `_mentions_pool_rule` "#19/57" finding and others) | retrieval findings measured on this record | **Left as-is** -- still true of the text on file; recorded here instead of edited, to avoid a comment-only conflict with branches changing that file |
+
+**Fix:** upload Occidental's real HO3 (homeowners) guide over the HO3 record,
+then revisit every row above -- starting with the carve-out, which will need
+re-confirming against the real text in one direction or the other.
+
+---
+
 ## Why this class is worth a standing test
 
 Neither defect is visible in the tool's output. Both records return
@@ -111,7 +175,7 @@ more coverage than this:
 | | catches | misses |
 |---|---|---|
 | `test_no_two_carriers_hold_the_same_document` | a record holding a copy of **another tracked record's** file, whatever product it is | a wrong file that is **unique** in the corpus |
-| `test_each_document_reads_like_the_product_its_filename_claims` | a record whose document is the **wrong product**, even if unique | a wrong file of the **right product** |
+| `test_each_document_reads_like_the_product_its_filename_claims` | a record whose document is the **wrong product**, even if unique -- by word counts (DD-1) or, since round 17, by the policy forms and program name it gives itself (DD-4, a different *revision* of its sibling, so no hash could see it) | a wrong file of the **right product** |
 
 Each of the two known defects is caught by exactly one of them, which is why
 both exist:

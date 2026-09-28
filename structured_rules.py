@@ -36,15 +36,25 @@ def sage_family_fpc_eligibility(ppc, distance_miles=None, hydrant_feet=None, car
       5. FPC 4-8,  >5mi,   hydrant irrelevant        -> ELIGIBLE if 3 conditions + 4 more ("C")
       6. FPC 9+,   >5mi,   hydrant irrelevant        -> INELIGIBLE                    ("C")
 
-    NOTE -- Occidental is a REAL, CONFIRMED exception, not an extraction
-    artifact: row 5's fourth extra condition, "no rental exposures
-    allowed," is present in Auros, Wilshire, Trium, SURE, and SafePort's
-    text but genuinely absent from Occidental's own document (confirmed
-    directly against Occidental's source text, not assumed). Pass
-    carrier="occidental" (or any string containing "occidental",
-    case-insensitive) to get Occidental's 3-condition version of row 5;
-    every other carrier (including carrier=None, the default) gets the
-    4-condition version.
+    NOTE -- Occidental's 3-condition row 5 is CONFIRMED FOR THE DP3
+    (DWELLING FIRE) PROGRAM ONLY, and UNVERIFIED for HO3. Row 5's fourth
+    extra condition, "no rental exposures allowed," is present in Auros,
+    Wilshire, Trium, SURE, and SafePort's text and absent from Occidental's
+    -- but the "Occidental source text" this was confirmed against was the
+    DP3 guide in BOTH records: Sage_-_Occidental_HO3 holds the 08/06/2025
+    revision of Occidental's DWELLING FIRE PROGRAM (DP3) guide (data defect
+    DD-4, see verification/DATA_DEFECTS.md). A dwelling-fire program leaving
+    out a no-rental condition is exactly what you would expect of a program
+    written for rentals, so it says nothing about Occidental's homeowners
+    program. Do NOT "fix" this back to the siblings' 4-condition version
+    either -- that is equally a guess. Revisit when the real Occidental HO3
+    PDF is uploaded.
+
+    Pass carrier="occidental" (or any string containing "occidental",
+    case-insensitive) to get the 3-condition version of row 5; every other
+    carrier (including carrier=None, the default) gets the 4-condition
+    version. The substring match means the HO3 slot currently receives the
+    DP3-derived version.
 
     The current customer intake form (see profiles.py) only collects a
     single PPC/FPC value -- no driving-distance-to-station or
@@ -71,8 +81,9 @@ def sage_family_fpc_eligibility(ppc, distance_miles=None, hydrant_feet=None, car
         "accessible by fire-fighting equipment year-round with a minimum 10-foot roadway width"
     )
     if is_occidental:
-        # Occidental's row 5 genuinely lacks "no rental exposures allowed"
-        # -- confirmed against its own source text, not a dropped bullet.
+        # Occidental's row 5 lacks "no rental exposures allowed" in the DP3
+        # guide -- confirmed there, not a dropped bullet. UNVERIFIED for HO3:
+        # the HO3 record holds the DP3 guide too (DD-4). See the NOTE above.
         conditions_high_fpc_extra = (
             "home under 25 years old, primary occupancy only, and no prior fire losses"
         )
