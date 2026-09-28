@@ -63,6 +63,15 @@ NO_TEXT = "NO_TEXT"
 _WRONG_PRODUCT_MIN_HITS = 10
 _WRONG_PRODUCT_MIN_RATIO = 4.0
 
+# Policy FORMS and PRODUCT names a guide gives ITSELF -- endorsement numbers
+# excluded, since DP guides cite HO 04 70 and vice versa. Mirrors the standing
+# test's reference rule; see the WRONG_PRODUCT block below for why it exists.
+_HO_PRODUCT_REF_RE = re.compile(
+    r"(?i)\bHO[- ]?00[- ]?0[2-8]\b|\bHO[- ]?[3568]\b(?![- ]?\d)|homeowners? program")
+_DP_PRODUCT_REF_RE = re.compile(
+    r"(?i)\bDP[- ]?00[- ]?0[1-3]\b|\bDP[- ]?[13]\b(?![- ]?\d)|dwelling fire program|landlord program")
+_PRODUCT_REF_FLOOR = 3
+
 _HOMEOWNERS_SIGNALS = ("homeowners", "ho-3", "ho3", "owner occupied", "owner-occupied")
 _DWELLING_FIRE_SIGNALS = ("landlord", "dwelling fire", "dp-3", "dp3", "tenant occupied")
 _CONDO_SIGNALS = ("condominium", "condo", "unit-owner", "unit owner", "ho-6", "ho6")
@@ -240,23 +249,40 @@ def defective_programs():
         )
         own_hits = _count_signals(text, own)
         opposite_hits = _count_signals(text, opposite)
+        word_rule = (opposite_hits >= _WRONG_PRODUCT_MIN_HITS
+                     and opposite_hits >= _WRONG_PRODUCT_MIN_RATIO * max(own_hits, 1))
 
-        if opposite_hits < _WRONG_PRODUCT_MIN_HITS:
-            continue
-        if opposite_hits < _WRONG_PRODUCT_MIN_RATIO * max(own_hits, 1):
+        # The REFERENCE rule -- same signal and floor as the standing test
+        # (verification/test_eligibility_matrix.py, _product_mismatches), and
+        # the one that catches DD-4: Sage_-_Occidental_HO3 holds Occidental's
+        # DWELLING FIRE PROGRAM (DP3) guide, 0 HO references vs 5 DP. The word
+        # rule alone misses it because 5 of its 6 "homeowners" hits are
+        # "owner occupied", which dwelling-fire guides say constantly.
+        flat = re.sub(r"\s+", " ", text)
+        ho_refs = len(_HO_PRODUCT_REF_RE.findall(flat))
+        dp_refs = len(_DP_PRODUCT_REF_RE.findall(flat))
+        own_refs, opposite_refs = (ho_refs, dp_refs) if is_ho else (dp_refs, ho_refs)
+        ref_rule = own_refs == 0 and opposite_refs >= _PRODUCT_REF_FLOOR
+
+        if not (word_rule or ref_rule):
             continue
 
+        evidence = []
+        if word_rule:
+            evidence.append("{} opposite-product mentions against {} of its own".format(
+                opposite_hits, own_hits))
+        if ref_rule:
+            evidence.append("it names the other product's policy forms {} times and its "
+                            "own none".format(opposite_refs))
         defects.setdefault(carrier, {
             "kind": WRONG_PRODUCT,
             "detail": (
                 "This program's filename says {claimed}, but its text reads like "
-                "{actual} ({opposite} opposite-product mentions against {own} of its "
-                "own). The file on record is the wrong document."
+                "{actual} ({evidence}). The file on record is the wrong document."
             ).format(
                 claimed="homeowners" if is_ho else "dwelling fire",
                 actual="dwelling fire / landlord" if is_ho else "homeowners",
-                opposite=opposite_hits,
-                own=own_hits,
+                evidence="; ".join(evidence),
             ),
         })
 

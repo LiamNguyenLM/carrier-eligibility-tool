@@ -334,10 +334,36 @@ class TestDataDefects:
         assert "Allied_Trust_HO3" not in defects
         assert "Progressive_HO3_-_04.01.2026" not in defects
 
+    def test_occidental_ho3_is_flagged_while_it_holds_the_dp3_guide(self):
+        """DD-4: Sage_-_Occidental_HO3 holds Occidental's DWELLING FIRE PROGRAM
+        (DP3) guide. Caught by the reference rule -- it names DP 00 03 / DP3
+        five times and no HO product at all. Premise-guarded, so it clears
+        itself once the real HO3 PDF is uploaded."""
+        from shared_resources import get_vectorstore
+        raw = get_vectorstore()._collection.get(
+            where={"carrier": "Sage_-_Occidental_HO3"}, include=["documents"])
+        if "DWELLING FIRE PROGRAM" not in " ".join(raw["documents"]).upper():
+            pytest.skip("Sage_-_Occidental_HO3 no longer self-describes as DP3 -- DD-4 fixed?")
+        defect = data_defects.defective_programs().get("Sage_-_Occidental_HO3")
+        assert defect is not None and defect["kind"] == data_defects.WRONG_PRODUCT
+
+    @pytest.mark.parametrize("program", [
+        "Sage_-_Occidental_DP3",             # the CORRECT record of the DD-4 pair
+        "Travelers_HO3_-_06.12.2026",        # a real LANDLORD section; 0 vs 0 references
+        "Sage_-_Vave_HO3_-_07.01.2026",
+        "Sage_-_Markel_HO3",
+        "Liberty_Mutual_DP3_-_02.21.2026",   # 1 HO reference, a cross-reference
+    ])
+    def test_the_reference_rules_close_calls_are_not_flagged(self, program):
+        """The reference rule must not over-block. Each of these was the
+        nearest miss when its floor was set."""
+        assert program not in data_defects.defective_programs()
+
     @pytest.mark.parametrize("program", [
         "Liberty_Mutual_HO6_-_02.21.2026",
         "NatGen_Custom360_HO3_-_06.25.2026",
         "Centauri_-_HO3_-_05.01.2026",
+        "Sage_-_Occidental_HO3",
     ])
     def test_asking_about_a_defective_program_refuses_instead_of_answering(self, program):
         """No model call happens at all -- the refusal is structural."""
