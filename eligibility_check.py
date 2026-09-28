@@ -620,14 +620,18 @@ def _mentions_occupancy_eligibility(content):
     owner-occupied SINGLE-FAMILY home "satisfies" a multiple-unit-dwelling
     clause. The model had nothing else to pick.
 
-    NECESSARY BUT NOT SUFFICIENT -- measured after the fix, not assumed. With
-    clause 2 now in the prompt on every run, the model STILL cited clause 1 in
-    4 of 4 STANDARD runs. Contributing factor: the intake has no dwelling-type
-    or unit-count field, so "single-family" -- exactly the fact separating
-    clause 1 (multiple unit, <=2) from clause 2 (a house, a condominium unit,
-    ...) -- is never given to the model. Not verdict-changing (both clauses
-    make an owner-occupant eligible). Tracked as xfail; adding a unit-count
-    field is a product decision, not a prompt fix.
+    RECLASSIFIED after measuring: correct verdict basis, citation not
+    decidable from the current intake. With clause 2 in every prompt the model
+    still often cites clause 1 -- but the intake has no dwelling-type or
+    unit-count field, so "single-family", the one fact separating clause 1
+    (<=2-unit dwelling) from clause 2 (a house, a condominium unit, ...), is
+    never given to it, and both clauses make an owner-occupant eligible.
+    Citing clause 1 is one of two valid answers. The genuine reasoning error
+    -- inventing a dwelling type, as 3 of 20 pre-fix runs did -- was absent in
+    all 3 post-fix runs and is now hard-asserted. What this guarantee fixes is
+    that the model can SEE CHUBB's whole eligible-persons section. A
+    dwelling-type field is a product decision; no prompt text should push the
+    model to assume single-family.
 
     The family survey found the same miss on about nine carriers, where it
     is silent rather than visible -- Allied Trust (all three of its rules),

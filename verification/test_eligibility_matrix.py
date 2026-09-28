@@ -1268,14 +1268,14 @@ class TestBaselineStandardProfile:
         assert "county" in blob
 
     @pytest.mark.xfail(
-        reason="RETRIEVAL FIXED, CITATION NOT (round 17, measured). Clause 2 ('a house, a "
-        "condominium unit, ...') now reaches the prompt on every run -- see "
-        "test_chubb_clause_2_reaches_the_standard_prompt -- but with both clauses present the "
-        "model still cited clause 1 ('owner-occupant of a multiple unit dwelling') in 4 of 4 "
-        "STANDARD runs. Contributing factor: the intake has no dwelling-type or unit-count "
-        "field, so 'single-family' -- the one fact that separates the two clauses -- is never "
-        "given to the model. NOT verdict-changing: both clauses make an owner-occupant "
-        "eligible. Adding that field is a product decision, not a prompt fix.",
+        reason="NOT DECIDABLE FROM THE CURRENT INTAKE -- reclassified round 17, not a model "
+        "error. Retrieval is fixed: clause 2 reaches every STANDARD prompt. But CHUBB's two "
+        "clauses split on dwelling type / unit count (clause 1: <=2-unit dwelling; clause 2: a "
+        "house, condo, ...), the intake collects neither, and BOTH make an owner-occupant "
+        "eligible -- so citing clause 1 is one of two valid answers to what the model is told. "
+        "This test presumes single-family. The real reasoning error (inventing a dwelling type) "
+        "is hard-asserted in test_chubb_reasoning_never_invents_a_dwelling_type. A dwelling-type "
+        "field is Liam's call.",
         strict=False,
     )
     def test_chubb_cites_correct_eligible_persons_clause(self):
@@ -3854,35 +3854,149 @@ def test_chubb_clause_1_stance_tells_satisfied_from_set_aside(reason, expected):
     assert _chubb_clause_1_stance({"reasons": [reason], "notes": ""}) == expected
 
 
-@pytest.mark.baseline
-@pytest.mark.xfail(
-    reason="UNDER RE-EVALUATION (round 17). The first measurement (0/3, and 0/1 in "
-    "TestBaselineStandardProfile) used a check that never read status and whose reasoning "
-    "regex fired on a CORRECT answer contrasting the two clauses ('the multiple unit dwelling "
-    "clause does not apply ...'). Rescored as three separate questions -- see "
-    "_score_chubb_runs -- from a dumped run, read by eye before any product change.",
-    strict=False,
+_CHUBB_ELIGIBLE_PERSONS_FRAGMENTS = (
+    "owner-occupant of a multiple unit dwelling",            # clause 1
+    "owner-occupant or tenant of a dwelling",                # clause 2
 )
-def test_chubb_eligible_persons_clause_consistency(record_property):
-    """The CHUBB backlog finding, split into the three questions it actually
-    contains: (a) is the status right for an owner-occupant, (b) is clause 2
-    cited, (c) does the reasoning CLAIM a home satisfies the multiple-unit
-    clause, as opposed to setting it aside. Raw output is dumped first."""
-    n_runs = 3
+_DWELLING_TYPE_ASSERTED_RE = re.compile(
+    r"\b(?:this|the)\s+(?:property|home|dwelling|house|residence|risk)\s+(?:is|is a|being)\s+"
+    r"(?:an?\s+)?(?:single[- ]family|one[- ]unit|two[- ]unit|two[- ]family|duplex|multi[- ]?(?:unit|family))",
+    re.I)
+
+
+def _invents_dwelling_type(r):
+    """True if the reasoning states a dwelling type or unit count as a fact
+    about THIS property. The intake never gives one, so any such statement is
+    invented -- the round-15 shape ("this single-family home satisfies the
+    multiple-unit clause") is the case that matters."""
+    units = list(r.get("reasons", [])) + re.split(r"(?<=[.!?])\s+", r.get("notes", "") or "")
+    return any(_DWELLING_TYPE_ASSERTED_RE.search(u) for u in units)
+
+
+@pytest.fixture(scope="module")
+def chubb_standard_runs():
+    """Three recorded STANDARD runs, made ONCE and scored by every CHUBB test
+    below -- so one set of calls answers (a), (b) and (c). Dumped first.
+
+    REUSE_DUMPS=1 re-scores the existing dump instead of paying for new runs
+    -- the point of dumping. Its commit is printed, so a stale dump is visible."""
+    import json
+    path = _dump_path("chubb_consistency")
+    if os.environ.get("REUSE_DUMPS") and os.path.exists(path):
+        with open(path, encoding="utf-8") as fh:
+            dumped = json.load(fh)
+        print(f"\nCHUBB: re-scoring dump from commit {dumped['commit']} ({len(dumped['runs'])} runs)")
+        return dumped["runs"]
     runs = []
-    for _ in range(n_runs):
+    for _ in range(3):
         results, rec = _recorded_run(STANDARD_PROFILE)
         runs.append({"results": results, **rec})
         _dump_runs(_dump_path("chubb_consistency"), STANDARD_PROFILE, runs)
     rows = _score_chubb_runs(runs)
-    print(f"\nCHUBB eligible persons over {n_runs} runs (raw: {_dump_path('chubb_consistency')}):")
+    print(f"\nCHUBB over {len(runs)} STANDARD runs (raw: {_dump_path('chubb_consistency')}):")
     for i, row in enumerate(rows, 1):
         print(f"   run {i}: {row}")
-    for key in ("a_status_ok", "b_clause_2_cited"):
-        record_property(key, sum(bool(r.get(key)) for r in rows))
-    assert all(r["resolved"] for r in rows), "CHUBB not uniquely resolved in every run"
-    assert all(r["a_status_ok"] and r["b_clause_2_cited"]
-               and r["c_clause_1_stance"] != "claims satisfied" for r in rows), rows
+    return runs
+
+
+def _chubb(run):
+    matches = [x for x in run["results"] if "CHUBB" in x.get("carrier", "").upper()]
+    assert len(matches) == 1, f"CHUBB not uniquely resolved: {[x.get('carrier') for x in matches]}"
+    return matches[0]
+
+
+# CHUBB's eligible-persons question, reclassified in round 17. The intake has
+# no dwelling-type or unit-count field, and CHUBB's two clauses split exactly
+# on that fact: clause 1 an owner-occupant of a dwelling of <=2 units, clause
+# 2 an owner-occupant of a house, condo, etc. BOTH make an owner-occupant
+# eligible. Citing clause 1 is one of two valid answers to what the model is
+# actually told, so it is recorded, not failed. What IS a defect is the model
+# inventing the missing fact -- the round-15 shape.
+
+@pytest.mark.baseline
+def test_chubb_eligible_persons_never_decides_a_decline(chubb_standard_runs):
+    """(a), as far as eligible persons determines it: an owner-occupant
+    satisfies either clause, so CHUBB must never be declined on this rule."""
+    for run in chubb_standard_runs:
+        r = _chubb(run)
+        assert not (r.get("status") == "INELIGIBLE" and re.search(
+            r"eligible persons|owner-occupant|multiple[- ]unit", " ".join(r.get("reasons", [])), re.I)), r
+
+
+@pytest.mark.baseline
+def test_chubb_reasoning_never_invents_a_dwelling_type(chubb_standard_runs):
+    """(c) -- the only part of the old backlog item that is a real reasoning
+    error. Round 15's recorded runs did it 3/20."""
+    for run in chubb_standard_runs:
+        r = _chubb(run)
+        assert _chubb_clause_1_stance(r) != "claims satisfied", r.get("reasons")
+        assert not _invents_dwelling_type(r), r.get("reasons")
+
+
+@pytest.mark.baseline
+def test_chubb_eligible_persons_citations_come_from_that_section(chubb_standard_runs, record_property):
+    """(b), as a correctness check rather than a clause preference: WHEN the
+    model cites an eligible-persons rule, it must be one of CHUBB's two
+    clauses, verbatim. Which one -- and whether it cites one at all -- is
+    recorded for information only."""
+    cited = []
+    for run in chubb_standard_runs:
+        r = _chubb(run)
+        persons = [c for c in r.get("citations", []) if re.search(r"owner-occupant|eligible person", c, re.I)]
+        for c in persons:
+            assert any(_compare_key(f) in _compare_key(c) for f in _CHUBB_ELIGIBLE_PERSONS_FRAGMENTS), c
+        cited.append("clause 2" if any(_compare_key(_CHUBB_ELIGIBLE_PERSONS_FRAGMENTS[1]) in _compare_key(c) for c in persons)
+                     else "clause 1" if persons else "none")
+    print(f"\n   CHUBB eligible-persons citation per run (informational): {cited}")
+    record_property("chubb_eligible_persons_citation", ",".join(cited))
+
+
+@pytest.mark.baseline
+@pytest.mark.xfail(
+    reason="NOT DECIDABLE FROM THE CURRENT INTAKE, not a model error. CHUBB's clause 1 (owner-"
+    "occupant of a dwelling of <=2 units) and clause 2 (owner-occupant of a house, condo, ...) "
+    "split on dwelling type / unit count, and the intake collects neither. This asserts clause "
+    "2, which presumes single-family -- a fact the model is never given. Whether to add a "
+    "dwelling-type field is a product decision for Liam; no prompt text should push the model "
+    "to assume single-family.",
+    strict=False,
+)
+def test_chubb_cites_the_clause_matching_the_dwelling_type(chubb_standard_runs):
+    for run in chubb_standard_runs:
+        assert _CHUBB_CLAUSE_2_CITE_RE.search(" ".join(_chubb(run).get("citations", [])))
+
+
+@pytest.mark.baseline
+@pytest.mark.xfail(
+    reason="SEPARATE, PRE-EXISTING, LIKELY VERDICT-CHANGING (found round 17, not fixed). CHUBB "
+    "came back INSUFFICIENT_INFORMATION in 3/3 STANDARD runs (19/20 in round 15), and every "
+    "stated reason is the guide's SILENCE -- 'do not provide specific eligibility criteria for "
+    "PPC, roof age, home age, or swimming pool requirements'. CHUBB's guide contains no PPC, "
+    "roof-age or pool rule at all (see test_chubb_guide_has_no_ppc_roof_age_or_pool_rule), and "
+    "SYSTEM_INSTRUCTIONS says a topic a carrier's document is silent on is UNRESTRICTED. Not "
+    "yet confirmed that ELIGIBLE is right: CHUBB is tier-based and its tier conditions were not "
+    "assessed this round. Nothing to do with eligible persons.",
+    strict=False,
+)
+def test_chubb_is_not_insufficient_on_guide_silence_alone(chubb_standard_runs):
+    for run in chubb_standard_runs:
+        assert _chubb(run).get("status") != "INSUFFICIENT_INFORMATION"
+
+
+@pytest.mark.retrieval
+@pytest.mark.parametrize("topic,pattern", [
+    ("PPC / protection class", r"protection class|\bppc\b|\bfpc\b"),
+    ("roof age", r"roof[^.]{0,40}(?:age|years? old)|age of (?:the )?roof"),
+    ("swimming pool", r"swimming|\bpool"),
+])
+def test_chubb_guide_has_no_ppc_roof_age_or_pool_rule(topic, pattern):
+    """Pins the premise of the xfail above. If CHUBB's guide is re-uploaded
+    with one of these rules, this fails and that xfail must be revisited --
+    its reasons would then be legitimate rather than silence."""
+    text = " ".join(normalize_chunk_text(c.page_content) for c in _all_chunks("CHUBB_HO_-_05.22.2026"))
+    assert not re.search(pattern, text, re.I), f"CHUBB's guide now states a {topic} rule"
+
+
 
 
 def _score_allied_llc_runs(runs):
