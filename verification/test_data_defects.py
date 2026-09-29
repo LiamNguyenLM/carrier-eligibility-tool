@@ -79,6 +79,43 @@ class TestDataDefects:
             "Sage_-_Occidental_HO3",                # DD-4
         }
 
+    def test_expected_programs_list_matches_the_pdf_folder(self):
+        """The committed list is the only way production knows what SHOULD
+        be in the store (Railway has no PDF folder). Wherever the PDFs exist,
+        it must match them exactly -- a new carrier added locally fails here
+        until its name is added."""
+        if not os.path.isdir(data_defects.PDF_FOLDER):
+            pytest.skip("no local PDF folder to compare against")
+        assert data_defects._expected_programs_from_list() == data_defects._expected_programs_from_pdfs()
+
+    def test_centauri_is_flagged_without_the_pdf_folder(self, monkeypatch):
+        """PRODUCTION'S CASE: no PDF folder at all. add_carrier_to_database
+        refuses a PDF with no text and writes nothing, so the list is the only
+        way Centauri HO3 can appear."""
+        monkeypatch.setattr(data_defects, "PDF_FOLDER", "./no-such-folder-in-production")
+        defect = data_defects.defective_programs().get("Centauri_-_HO3_-_05.01.2026")
+        assert defect is not None and defect["kind"] == data_defects.NO_TEXT
+
+    def test_the_list_never_decides_presence(self, monkeypatch):
+        """Once Centauri HO3 is uploaded with real text its NO_TEXT defect
+        clears with no edit to the list -- simulated by the store holding
+        chunks for it."""
+        real = data_defects._chunks_by_carrier()
+        uploaded = dict(real)
+        uploaded["Centauri_-_HO3_-_05.01.2026"] = [
+            ({"carrier": "Centauri_-_HO3_-_05.01.2026"},
+             "Centauri homeowners HO-3 underwriting guidelines. Owner occupied dwellings only.")]
+        monkeypatch.setattr(data_defects, "_chunks_by_carrier", lambda: uploaded)
+        assert "Centauri_-_HO3_-_05.01.2026" in data_defects._expected_programs_from_list()
+        assert "Centauri_-_HO3_-_05.01.2026" not in data_defects.defective_programs()
+
+    def test_a_program_in_the_store_is_never_flagged_just_for_missing_from_the_list(self, monkeypatch):
+        monkeypatch.setattr(data_defects, "EXPECTED_PROGRAMS_FILE", "./no-such-list.txt")
+        monkeypatch.setattr(data_defects, "PDF_FOLDER", "./no-such-folder")
+        defects = data_defects.defective_programs()
+        assert "Allied_Trust_HO3" not in defects
+        assert "Centauri_-_HO3_-_05.01.2026" not in defects   # nothing says it is expected
+
     def test_guide_date_comes_from_the_filename(self):
         assert data_defects.guide_date("Progressive_HO3_-_04.01.2026") == "04.01.2026"
         assert data_defects.guide_date("Allied_Trust_HO3") is None

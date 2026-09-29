@@ -14,7 +14,8 @@ from eligibility_check import check_eligibility, assign_buckets
 from upload_carrier import (
     add_carrier_to_database,
     remove_carrier_from_database,
-    list_carriers_in_database
+    list_carriers_in_database,
+    database_fingerprint,
 )
 
 st.set_page_config(
@@ -255,12 +256,40 @@ with tab1:
             else:
                 st.success("No carriers fully ineligible.")
 
+        # Rows the pipeline writes for carriers it could not check -- a
+        # wrong or unreadable guide on file, or no answer from the model.
+        could_not_check = buckets["guide_unavailable"] + buckets["not_evaluated"]
+        if could_not_check:
+            st.markdown("### Could Not Be Checked")
+            for carrier in could_not_check:
+                st.warning("**" + carrier["carrier"] + "** — " + carrier["reasons"][0])
+                with st.expander("Details: " + carrier["carrier"]):
+                    render_carrier(carrier)
+
 
 # ============================================================
 # TAB 2: MANAGE CARRIERS
 # ============================================================
 with tab2:
     st.title("Manage Carrier Documents")
+
+    st.subheader("Database Fingerprint")
+    st.caption("Compare with the same panel in the local app. If they differ, the live "
+               "database is not the committed seed -- see handoff.md, 'Updating carrier "
+               "guides in production'.")
+    try:
+        fp = database_fingerprint()
+        st.code(
+            f"carriers  {fp['carriers']}\n"
+            f"chunks    {fp['chunks']}\n"
+            f"documents {fp['documents_sha256'][:16]}\n"
+            f"metadata  {fp['metadata_sha256'][:16]}",
+            language=None,
+        )
+    except Exception as e:
+        st.warning("Could not compute the database fingerprint: " + str(e))
+
+    st.divider()
 
     st.subheader("Current Carriers In Database")
     try:

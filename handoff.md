@@ -62,7 +62,52 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     cutover, and the tier/pricing-section exclusion stays in place for
     Trust and LLC.
 
-## The rebuild/deploy sequence (needed after any pdf_extraction.py, upload_carrier.py, load_docs.py, or eligibility_check.py change)
+## Updating carrier guides in production
+
+Uploads happen in the app on Liam's computer, and **they never reach
+production by themselves**. Railway's database is a persistent volume, seeded
+from the committed `carrier_docs_db_seed/`. `seed_db.sh` only copies the seed
+into an EMPTY volume, or when `FORCE_RESEED=1` is set.
+
+The DD-1, DD-2 and DD-4 re-uploads and the Centauri HO3 fix
+(`verification/DATA_DEFECTS.md`) all follow this path:
+
+1. **Upload locally.** In the local app's Manage Carriers tab, remove the bad
+   record and upload the correct PDF under the same carrier name. If the
+   carrier is NEW, add its name to `expected_programs.txt`.
+2. **Rebuild the seed and commit it.**
+   ```powershell
+   Remove-Item -Recurse -Force carrier_docs_db_seed
+   Copy-Item -Recurse carrier_docs_db carrier_docs_db_seed
+   git add -f carrier_docs_db_seed
+   git add expected_programs.txt
+   git commit -m "Re-upload <carrier>"
+   git push origin main
+   ```
+3. **Deploy once with `FORCE_RESEED=1`.** Set it in Railway and redeploy.
+   Check the logs for `Forced reseed complete`. Then check that the
+   Database Fingerprint in the live Manage Carriers tab matches the local
+   one exactly: carriers, chunks, and both hashes.
+4. **Unset `FORCE_RESEED`** straight away.
+
+> **Warning.** `FORCE_RESEED=1` WIPES the live database and replaces it with
+> the seed. Anything uploaded in the live app and not in the committed seed
+> is lost, on that deploy and on EVERY later deploy while the variable stays
+> set. As of 2026-09-29 there have been no live uploads, so a reseed loses
+> nothing.
+
+The **Database Fingerprint** panel is also the way to tell whether production
+holds an older seed at all. The seed was rebuilt four times on 08-15
+(b7242d0 through a87535c). Local values on 2026-09-29, identical for
+`carrier_docs_db` and the committed seed: 40 carriers, 2,491 chunks,
+documents `3e45426347c356dd`, metadata `e35264910096fc15`. If the live panel
+differs, deploy once with `FORCE_RESEED=1` as in step 3.
+
+A fixed guide clears its "Could Not Be Checked" warning row on its own.
+Presence and defects are read from the database; `expected_programs.txt`
+only lists what should be there.
+
+## The rebuild/deploy sequence (a full re-index: needed after a change to how PDFs become chunks -- pdf_extraction.py, load_docs.py, or the chunking in upload_carrier.py)
 
 ```powershell
 python load_docs.py

@@ -22,6 +22,7 @@ except Exception:
     pass
 
 from shared_resources import get_embeddings, get_vectorstore
+import data_defects
 from structured_rules import (
     sage_family_fpc_eligibility,
     mercury_roof_eligibility,
@@ -782,21 +783,23 @@ def _is_ppc_disambiguation_table(content):
     return "two or more classification" in lower or "classifications are shown" in lower
 
 
+def _fits_occupancy(carrier, occupancy, combined):
+    """The one occupancy routing rule, shared by get_carriers_for_occupancy
+    and the data-defect rows (which must route a program the store does not
+    hold -- Centauri HO3 -- exactly as it would route one it does)."""
+    if carrier in combined:
+        return True
+    is_ho, is_dp = carrier_programs(carrier)
+    if occupancy == "Owner Occupied" and is_dp:
+        return False
+    if occupancy != "Owner Occupied" and is_ho:
+        return False
+    return True
+
+
 def get_carriers_for_occupancy(occupancy):
     combined = get_combined_program_carriers()
-
-    relevant = []
-    for carrier in sorted(get_all_carriers()):
-        if carrier in combined:
-            relevant.append(carrier)
-            continue
-        is_ho, is_dp = carrier_programs(carrier)
-        if occupancy == "Owner Occupied" and is_dp:
-            continue
-        if occupancy != "Owner Occupied" and is_ho:
-            continue
-        relevant.append(carrier)
-    return relevant
+    return [c for c in sorted(get_all_carriers()) if _fits_occupancy(c, occupancy, combined)]
 
 
 def build_retrieval_query(property_details, home_age):
@@ -2322,9 +2325,23 @@ def check_eligibility(property_details, carrier_subset=None):
     query = build_retrieval_query(property_details, home_age)
 
     relevant_carriers = get_carriers_for_occupancy(occupancy)
+    # Carriers whose guide on file is unusable (data_defects: wrong document,
+    # or none at all) are left out of the prompt entirely and shown as a fixed
+    # warning row instead -- see _add_fixed_rows. Absent programs (Centauri
+    # HO3 produced no text, so the store never held it) are routed by the
+    # same occupancy rule as stored ones.
+    defects = data_defects.defective_programs()
+    combined = get_combined_program_carriers()
+    unavailable = sorted(
+        p for p in defects
+        if p in relevant_carriers
+        or (p not in get_all_carriers() and _fits_occupancy(p, occupancy, combined))
+    )
     if carrier_subset is not None:
         subset = set(carrier_subset)
         relevant_carriers = [c for c in relevant_carriers if c in subset]
+        unavailable = [p for p in unavailable if p in subset]
+    relevant_carriers = [c for c in relevant_carriers if c not in defects]
     vectorstore = get_vectorstore()
 
     seen = set()
@@ -2740,7 +2757,7 @@ CARRIER DOCUMENTS:
             filtered, relevant_carriers, property_details, solar_classes
         )
 
-        return filtered
+        return _add_fixed_rows(filtered, relevant_carriers, unavailable, defects)
 
     except json.JSONDecodeError as e:
         # CHANGED (round 12): print length + the tail, not just the first
@@ -2775,6 +2792,9 @@ CARRIER DOCUMENTS:
         if isinstance(offset, int):
             window = json_str[max(0, offset - 300): offset + 300]
             print("RAW RESPONSE AROUND OFFSET", offset, ":", repr(window))
+        # The warning rows do not depend on the model, so they appear even
+        # here; "not evaluated" rows do not -- the Parse Error record already
+        # says every carrier needs the check re-run.
         return [{
             "carrier": "Parse Error",
             "status": "INSUFFICIENT_INFORMATION",
@@ -2786,11 +2806,91 @@ CARRIER DOCUMENTS:
             "missing_info": ["Try submitting again"],
             "notes": "",
             "flaw_count": 0
-        }]
+        }] + [_guide_unavailable_row(p, defects[p]) for p in unavailable]
+
+# Two statuses the PIPELINE writes -- never the model -- for carriers it could
+# not check. Liam's decisions, 2026-09-28/29. Each has its own UI bucket.
+GUIDE_UNAVAILABLE = "GUIDE_UNAVAILABLE"
+NOT_EVALUATED = "NOT_EVALUATED"
+
+_GUIDE_UNAVAILABLE_TEXT = {
+    data_defects.NO_TEXT: "The guide on file has no readable text -- check with the carrier directly.",
+}
+_GUIDE_WRONG_DOCUMENT_TEXT = "The guide on file is the wrong document -- check with the carrier directly."
+_NOT_EVALUATED_TEXT = "No answer came back for this carrier in this check -- run the check again."
+
+
+def _guide_unavailable_row(program, defect):
+    """A fixed row for a carrier whose guide on file cannot be used. It is
+    never sent to the model: a mis-filed PDF produces confident, well-cited
+    answers about the WRONG program (DATA_DEFECTS.md), and a program with no
+    text has nothing to answer from. The row clears by itself once the
+    store holds a usable guide."""
+    return {
+        "carrier": program,
+        "status": GUIDE_UNAVAILABLE,
+        "flaw_count": 0,
+        "reasons": [_GUIDE_UNAVAILABLE_TEXT.get(defect["kind"], _GUIDE_WRONG_DOCUMENT_TEXT)],
+        "citations": [],
+        "missing_info": [],
+        "notes": defect["detail"],
+    }
+
+
+def _not_evaluated_row(program):
+    return {
+        "carrier": program,
+        "status": NOT_EVALUATED,
+        "flaw_count": 0,
+        "reasons": [_NOT_EVALUATED_TEXT],
+        "citations": [],
+        "missing_info": [],
+        "notes": ("This carrier was in the check, but the model's answer left it out "
+                  "entirely, so nothing was decided for it."),
+    }
+
+
+def _add_fixed_rows(results, relevant_carriers, unavailable, defects):
+    """Append the rows the pipeline owns, so no carrier ever silently
+    disappears from the results:
+
+      GUIDE_UNAVAILABLE -- every carrier in `unavailable`. A model record for
+        one is dropped first; it cannot come from this prompt, which omits
+        those carriers, but a replayed or invented one must not sit beside
+        the warning.
+      NOT_EVALUATED -- every carrier that WAS in the prompt and got no record.
+        Round 17: 1 of 48 recorded calls returned 26 of 28 carriers
+        (stop_reason end_turn, not a truncation), and nothing said so.
+
+    Deliberately conservative: a record whose name matches no carrier at all
+    does not cover one, so a badly misnamed record yields a row alongside it
+    rather than risk hiding a real omission."""
+    def is_unavailable(r):
+        name = r.get("carrier", "")
+        # A name that fits a USABLE carrier is kept, even if it also fits a
+        # defective one: "Liberty Mutual" is as likely LM HO3 as LM HO6.
+        if _resolve_structured_carrier(name, relevant_carriers) is not None:
+            return False
+        if _resolve_structured_carrier(name, unavailable) is not None:
+            return True
+        # A name that fits no usable carrier, but fits a defective one once a
+        # model-added parenthetical is dropped: "NatGen Custom360 (Landlord)".
+        # Safe only here, where no usable carrier competes for the name.
+        words = _carrier_words(name, drop_parenthetical=True)
+        return bool(words) and sum(words <= _carrier_words(p) for p in unavailable) == 1
+
+    kept = [r for r in results if not (unavailable and is_unavailable(r))]
+    covered = {_resolve_structured_carrier(r.get("carrier", ""), relevant_carriers) for r in kept}
+    missing = [c for c in relevant_carriers if c not in covered]
+    return (kept
+            + [_not_evaluated_row(c) for c in missing]
+            + [_guide_unavailable_row(p, defects[p]) for p in unavailable])
+
 
 def assign_buckets(results):
     """Split check_eligibility() results into the four UI buckets, one per
-    actual status. Extracted out of app.py so it's testable without a
+    actual status -- plus one bucket each for the two pipeline-written
+    statuses, GUIDE_UNAVAILABLE and NOT_EVALUATED. Extracted out of app.py so it's testable without a
     Streamlit session -- this exact logic was the source of a labeling bug
     confirmed identically across three separate audit rounds and three
     customer profiles: the old 3-bucket version collapsed REFER and
@@ -2822,4 +2922,6 @@ def assign_buckets(results):
         "one_issue": one_issue,
         "insufficient_info": insufficient_info,
         "not_eligible": not_eligible,
+        "guide_unavailable": [r for r in results if r.get("status") == GUIDE_UNAVAILABLE],
+        "not_evaluated": [r for r in results if r.get("status") == NOT_EVALUATED],
     }

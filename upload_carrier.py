@@ -79,6 +79,36 @@ def remove_carrier_from_database(carrier_name):
     return 0
 
 
+def database_fingerprint(collection=None):
+    """What is in the database, as numbers two copies can be compared by:
+    carrier count, chunk count, and one sha256 over every chunk's text and
+    one over every chunk's metadata.
+
+    Order-independent and id-independent (each list is sorted before
+    hashing), so a seed copied into the volume and a store rebuilt from the
+    same PDFs give the same values. Shown in the Manage Carriers tab so the
+    live database can be checked against the committed seed: the seed was
+    rebuilt four times on 08-15, and seed_db.sh only copies into an EMPTY
+    volume, so production may hold an older one."""
+    import hashlib
+    import json
+    if collection is None:
+        collection = get_vectorstore()._collection
+    raw = collection.get(include=["documents", "metadatas"])
+    docs = raw["documents"]
+    metas = raw["metadatas"]
+
+    def digest(items):
+        return hashlib.sha256("\n".join(sorted(items)).encode("utf-8")).hexdigest()
+
+    return {
+        "carriers": len({m.get("carrier") for m in metas if m.get("carrier")}),
+        "chunks": len(docs),
+        "documents_sha256": digest(json.dumps(d, ensure_ascii=False) for d in docs),
+        "metadata_sha256": digest(json.dumps(m, sort_keys=True, ensure_ascii=False) for m in metas),
+    }
+
+
 def list_carriers_in_database():
     vectorstore = get_vectorstore()
     collection = vectorstore._collection

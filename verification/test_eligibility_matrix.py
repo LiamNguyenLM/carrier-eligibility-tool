@@ -95,6 +95,8 @@ from eligibility_check import (
     carrier_programs,
     get_combined_program_carriers,
     get_all_carriers,
+    GUIDE_UNAVAILABLE,
+    NOT_EVALUATED,
 )
 from shared_resources import get_vectorstore
 from profiles import (STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE,
@@ -935,8 +937,13 @@ class TestBucketAssignment:
             self._make("INELIGIBLE", flaw_count=3, carrier="multi"),
             self._make("REFER", carrier="refer"),
             self._make("INSUFFICIENT_INFORMATION", carrier="info"),
+            # the two pipeline-written statuses (Step 2, 2026-09-29)
+            self._make(GUIDE_UNAVAILABLE, carrier="wrong-guide"),
+            self._make(NOT_EVALUATED, carrier="skipped"),
         ]
         buckets = assign_buckets(results)
+        assert buckets["guide_unavailable"] == [results[5]]
+        assert buckets["not_evaluated"] == [results[6]]
         placed = [r for b in buckets.values() for r in b]
         placed_names = sorted(r["carrier"] for r in placed)
         assert placed_names == sorted(r["carrier"] for r in results), (
@@ -2656,11 +2663,15 @@ def test_insufficient_information_bucket_label_is_not_truncated():
         os.path.join(os.path.dirname(__file__), "..", "app.py"), encoding="utf-8"
     ).read()
     assert 'st.markdown("### Insufficient Information")' in app_src
-    for label in ("### Eligible", "### One Issue", "### Not Eligible"):
+    for label in ("### Eligible", "### One Issue", "### Not Eligible", "### Could Not Be Checked"):
         assert f'st.markdown("{label}")' in app_src, f"bucket header {label!r} missing"
+    # Step 2 (2026-09-29): two pipeline-written buckets, rendered together
+    # under "Could Not Be Checked".
     assert set(assign_buckets([]).keys()) == {
-        "eligible", "one_issue", "insufficient_info", "not_eligible"
+        "eligible", "one_issue", "insufficient_info", "not_eligible",
+        "guide_unavailable", "not_evaluated",
     }
+    assert 'buckets["guide_unavailable"] + buckets["not_evaluated"]' in app_src
 
 
 # ---------------------------------------------------------------------------
@@ -5222,3 +5233,127 @@ class TestProductCheckCalibration:
         assert mismatched <= set(runtime), mismatched - set(runtime)
         wrong_product = {p for p, d in runtime.items() if d["kind"] == data_defects.WRONG_PRODUCT}
         assert wrong_product <= mismatched, wrong_product - mismatched
+
+
+# ---------------------------------------------------------------------------
+# Step 2 (Liam, 2026-09-28/29): rows the PIPELINE writes for carriers it
+# could not check. A carrier whose guide on file is unusable is left out of
+# the prompt and shown as a GUIDE_UNAVAILABLE row; a carrier the model left
+# out of its answer gets a NOT_EVALUATED row. No carrier silently vanishes.
+# All zero-API: the model call is intercepted or answered from a fixture.
+# ---------------------------------------------------------------------------
+
+_DEFECTIVE_HO = {
+    "NatGen_Custom360_HO3_-_06.25.2026": "wrong document",   # DD-1, holds the DP3 guide
+    "Liberty_Mutual_HO6_-_02.21.2026": "wrong document",     # DD-2, holds the HO3 guide
+    "Centauri_-_HO3_-_05.01.2026": "no readable text",       # DD-3, never in the store
+    "Sage_-_Occidental_HO3": "wrong document",               # DD-4, holds the DP3 guide
+}
+
+
+def _answer_for(carriers, **extra_records):
+    """A model answer with one plain record per carrier, plus any extra
+    records (a replayed defective carrier, a misnamed one) by name."""
+    import json
+    recs = [{"carrier": c, "status": "ELIGIBLE", "flaw_count": 0, "reasons": ["fixture"],
+             "citations": [], "missing_info": [], "notes": ""} for c in carriers]
+    recs += [dict(recs[0] if recs else {}, carrier=name, **fields)
+             for name, fields in extra_records.items()]
+    return json.dumps(recs)
+
+
+def _usable(occupancy):
+    import data_defects
+    defects = data_defects.defective_programs()
+    return [c for c in get_carriers_for_occupancy(occupancy) if c not in defects]
+
+
+@pytest.mark.retrieval
+class TestFixedRows:
+
+    @pytest.mark.parametrize("carrier", [c for c in _DEFECTIVE_HO if c != "Centauri_-_HO3_-_05.01.2026"])
+    def test_a_defective_carrier_is_left_out_of_the_prompt(self, carrier):
+        per, whole = _captured_sections(OWNERSHIP_BASE_PROFILE)
+        assert carrier not in per
+        assert _norm(carrier) not in whole
+
+    def test_its_usable_sibling_stays_in_the_prompt(self):
+        """DD-2's bad record is the HO6; the Liberty Mutual HO3 guide is fine."""
+        per, _ = _captured_sections(OWNERSHIP_BASE_PROFILE)
+        assert "Liberty_Mutual_HO3_-_02.21.2026" in per
+
+    def test_each_of_the_four_gets_the_row_and_nothing_else_does(self):
+        results = _replayed_run(OWNERSHIP_BASE_PROFILE, _answer_for(_usable("Owner Occupied")))
+        rows = {r["carrier"]: r for r in results if r["status"] == GUIDE_UNAVAILABLE}
+        assert set(rows) == set(_DEFECTIVE_HO)
+        for carrier, kind in _DEFECTIVE_HO.items():
+            assert kind in rows[carrier]["reasons"][0], rows[carrier]["reasons"]
+            assert "check with the carrier directly" in rows[carrier]["reasons"][0]
+        assert not [r for r in results if r["status"] == NOT_EVALUATED]
+        assert sorted(r["carrier"] for r in results) == sorted(
+            _usable("Owner Occupied") + list(_DEFECTIVE_HO))
+
+    def test_a_replayed_record_for_a_defective_carrier_is_replaced_not_duplicated(self):
+        """Recorded outputs from before Step 2 still hold model records for
+        these carriers -- in round 17's own spelling, "(Landlord)" included."""
+        answer = _answer_for(_usable("Owner Occupied"), **{
+            "NatGen Custom360 (Landlord)": {"status": "INELIGIBLE", "flaw_count": 1},
+            "Sage - Occidental HO3": {"status": "ELIGIBLE"},
+            "Liberty Mutual HO6": {"status": "INELIGIBLE", "flaw_count": 1},
+        })
+        results = _replayed_run(OWNERSHIP_BASE_PROFILE, answer)
+        for carrier in _DEFECTIVE_HO:
+            assert [r["status"] for r in results if r["carrier"] == carrier] == [GUIDE_UNAVAILABLE]
+        assert not [r for r in results if r["carrier"] in (
+            "NatGen Custom360 (Landlord)", "Sage - Occidental HO3", "Liberty Mutual HO6")]
+
+    def test_a_tenant_property_gets_no_warning_rows(self):
+        """All four defects are homeowners records; their dwelling-fire
+        siblings are sound and stay."""
+        tenant = dict(OWNERSHIP_BASE_PROFILE, occupancy_type="Tenant Occupied")
+        results = _replayed_run(tenant, _answer_for(_usable("Tenant Occupied")))
+        assert not [r for r in results if r["status"] in (GUIDE_UNAVAILABLE, NOT_EVALUATED)]
+
+    @pytest.mark.parametrize("cleared", list(_DEFECTIVE_HO))
+    def test_the_row_disappears_once_the_defect_clears(self, cleared, monkeypatch):
+        """Presence and defects come from the store, so fixing a PDF needs no
+        code or list edit. Simulated by the detector no longer reporting it."""
+        import data_defects
+        real = data_defects.defective_programs()
+        monkeypatch.setattr(data_defects, "defective_programs",
+                            lambda: {p: d for p, d in real.items() if p != cleared})
+        results = _replayed_run(OWNERSHIP_BASE_PROFILE, _answer_for(_usable("Owner Occupied")))
+        assert cleared not in {r["carrier"] for r in results if r["status"] == GUIDE_UNAVAILABLE}
+        if cleared in get_all_carriers():
+            assert _norm(cleared) in _captured_prompt(OWNERSHIP_BASE_PROFILE)
+
+    def test_a_carrier_the_model_skips_gets_a_not_evaluated_row(self):
+        """THE EXACT ROUND-17 SHAPE: rep 3 Trust at 1b446e2 returned 26 of 28
+        carriers, leaving out Foremost and NatGen Custom360. NatGen Custom360
+        is now a warning row either way; Foremost must not vanish."""
+        trust = dict(OWNERSHIP_BASE_PROFILE, ownership_type="Trust")
+        answered = [c for c in _usable("Owner Occupied") if c != "Foremost_DP3_and_HO3_-_07.01.2026"]
+        results = _replayed_run(trust, _answer_for(answered))
+        assert [r["carrier"] for r in results if r["status"] == NOT_EVALUATED] == [
+            "Foremost_DP3_and_HO3_-_07.01.2026"]
+        assert "run the check again" in [r for r in results if r["status"] == NOT_EVALUATED][0]["reasons"][0]
+
+    @pytest.mark.parametrize("dropped", ["Allied_Trust_HO3", "Sage_-_SURE_HO-3_-_01.31.2026"])
+    def test_any_skipped_carrier_gets_the_row(self, dropped):
+        results = _replayed_run(OWNERSHIP_BASE_PROFILE,
+                                _answer_for([c for c in _usable("Owner Occupied") if c != dropped]))
+        assert [r["carrier"] for r in results if r["status"] == NOT_EVALUATED] == [dropped]
+
+    def test_an_abbreviated_name_still_counts_as_an_answer(self):
+        """"Orion HO3" is Orion's record (round-17 spelling), not an omission."""
+        orion = "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3"
+        answer = _answer_for([c for c in _usable("Owner Occupied") if c != orion],
+                             **{"Orion HO3": {"status": "ELIGIBLE"}})
+        results = _replayed_run(OWNERSHIP_BASE_PROFILE, answer)
+        assert not [r for r in results if r["status"] == NOT_EVALUATED]
+
+    def test_a_parse_failure_still_shows_the_warning_rows(self):
+        results = _replayed_run(OWNERSHIP_BASE_PROFILE, "this is not json [ {")
+        assert results[0]["carrier"] == "Parse Error"
+        assert {r["carrier"] for r in results if r["status"] == GUIDE_UNAVAILABLE} == set(_DEFECTIVE_HO)
+        assert not [r for r in results if r["status"] == NOT_EVALUATED]

@@ -50,6 +50,18 @@ from shared_resources import get_vectorstore
 
 PDF_FOLDER = "./carrier_eligibility_pdfs"
 
+# The programs that SHOULD be in the store, committed next to this module.
+# Production (Railway) has no PDF folder -- it is gitignored and the volume is
+# seeded from carrier_docs_db_seed/ alone -- and an upload through the app
+# writes its PDF to a temp file it deletes. So without this list a program
+# whose PDF extracted to nothing (Centauri HO3) is invisible in production.
+# It says only what is EXPECTED: whether a program is present, and whether
+# it is defective, always comes from the store, so a later upload clears the
+# program's warning row with no edit here. test_expected_programs_list_
+# matches_the_pdf_folder keeps it in step with the local PDFs.
+EXPECTED_PROGRAMS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                      "expected_programs.txt")
+
 DUPLICATE_DOCUMENT = "DUPLICATE_DOCUMENT"
 WRONG_PRODUCT = "WRONG_PRODUCT"
 NO_TEXT = "NO_TEXT"
@@ -164,6 +176,23 @@ def _expected_programs_from_pdfs():
     }
 
 
+def _expected_programs_from_list():
+    """Program names in EXPECTED_PROGRAMS_FILE: one per line, '#' comments."""
+    try:
+        with open(EXPECTED_PROGRAMS_FILE, encoding="utf-8") as fh:
+            return {line.strip() for line in fh
+                    if line.strip() and not line.lstrip().startswith("#")}
+    except FileNotFoundError:
+        return set()
+
+
+def expected_programs():
+    """Every program that should be in the store: the committed list plus any
+    PDF on disk. Used ONLY to find programs MISSING from the store; presence
+    and every other defect come from the store itself."""
+    return _expected_programs_from_list() | _expected_programs_from_pdfs()
+
+
 def defective_programs():
     """{program_name: {"kind": ..., "detail": ...}} for every unusable program.
 
@@ -173,14 +202,14 @@ def defective_programs():
     grouped = _chunks_by_carrier()
     defects = {}
 
-    # --- NO_TEXT: on disk, absent from the store -------------------------
-    for program in sorted(_expected_programs_from_pdfs() - set(grouped)):
+    # --- NO_TEXT: expected, absent from the store -------------------------
+    for program in sorted(expected_programs() - set(grouped)):
         defects[program] = {
             "kind": NO_TEXT,
             "detail": (
-                "The PDF on file produced no readable text at all (it appears to be a "
-                "scanned image), so this program has no searchable content in the "
-                "database. It cannot be answered from."
+                "No readable guide for this program is in the database. Its PDF produced "
+                "no text when it was loaded (it appears to be a scanned image), so it "
+                "cannot be answered from."
             ),
         }
 

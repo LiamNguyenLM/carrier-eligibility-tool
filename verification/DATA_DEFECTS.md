@@ -14,6 +14,14 @@ no document rather than the wrong one. DD-4 was found in round 17 too.
 
 `data_defects.defective_programs()` is the RUNTIME list, and it derives all
 four rather than naming them, so each clears itself once the PDF is fixed.
+Since 2026-09-29 the eligibility check leaves every program on it out of the
+prompt and shows it under **Could Not Be Checked** with a fixed row: "The
+guide on file is the wrong document" (or "has no readable text"), "check
+with the carrier directly". Centauri HO3 is known to production only through
+`expected_programs.txt`, because Railway has no PDF folder. That list says
+only which programs should exist; presence and defects always come from the
+database. The re-upload procedure is in handoff.md, "Updating carrier guides
+in production".
 Two standing tests also cover part of this class on every run --
 `test_no_two_carriers_hold_the_same_document` and
 `test_each_document_reads_like_the_product_its_filename_claims`. Both are

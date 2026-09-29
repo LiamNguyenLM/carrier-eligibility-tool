@@ -1,0 +1,46 @@
+# Every carrier program that SHOULD be in the database, one per line.
+# This list says only what is expected. Whether a program is present, and
+# whether its guide is usable, always comes from the database (data_defects.py),
+# so uploading a fixed PDF clears its warning row with no edit here.
+# Add a line when you add a NEW carrier; remove one when you retire a carrier.
+ARI_(HOA+)
+ARI_(HOB)
+Allied_Trust_HO3
+CHUBB_HO_-_05.22.2026
+Centauri_-_DP3_-_11.16.2022
+Centauri_-_HO3_-_05.01.2026
+Foremost_DP3_and_HO3_-_07.01.2026
+HOAIC_-_DP_Guide_DP3
+HOAIC_-_TX-HOMEOWNERS-0326_HO3
+Liberty_Mutual_DP3_-_02.21.2026
+Liberty_Mutual_HO3_-_02.21.2026
+Liberty_Mutual_HO6_-_02.21.2026
+Mercury_HO3_-_01.01.2026
+NatGen_Custom360_DP3_-_06.25.2026
+NatGen_Custom360_HO3_-_06.25.2026
+NatGen_Premier_OneChoice_DP3_-_02.26.2025
+NatGen_Premier_OneChoice_HO3_-_02.26.2025
+Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3
+Progressive_DP3_-_10.01.2024
+Progressive_HO3_-_04.01.2026
+Progressive_HO6_-_10.01.2025
+Sage_-_Auros_HO3
+Sage_-_Markel_DP3
+Sage_-_Markel_HO3
+Sage_-_Occidental_DP3
+Sage_-_Occidental_HO3
+Sage_-_SURE_DP-3_-_01.31.2026
+Sage_-_SURE_HO-3_-_01.31.2026
+Sage_-_SafePort_DP-3_-_01.31.2026
+Sage_-_SafePort_HO-3_-_01.31.2026
+Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026
+Sage_-_Vave_DP3_-_07.01.2026
+Sage_-_Vave_HO3_-_07.01.2026
+Sage_-_Wilshire_HO3_-_12.02.2025
+Steadily_Underwriting_Guidelines_DP3
+Swyfft_-_Benchmark_(Admitted)_HO3
+Swyfft_-_Benchmark_(Surplus)_HO3
+Swyfft_-_Lloyds_(Surplus)_HO3
+Swyfft_-_Topa_(Surplus)_HO3
+TWICO_HO3
+Travelers_HO3_-_06.12.2026
