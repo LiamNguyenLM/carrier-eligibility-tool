@@ -57,6 +57,7 @@ from eligibility_check import (
     _apply_structured_overrides,
     _strip_misattributed_citations,
     _citation_attributed_carrier,
+    _resolve_structured_carrier,
     _mentions_solar,
     _mentions_protection_class,
     _mentions_pool_rule,
@@ -1324,6 +1325,34 @@ class TestBaselineAltProfile:
         matches = _find_carrier(self.by_carrier, substr)
         assert matches, f"No carrier matching {substr!r} in output: {list(self.by_carrier)}"
         return matches[0]
+
+    # Round 17 verdict diff: ELIGIBLE 3/3 on main, INSUFFICIENT_INFORMATION 3/3
+    # with the gated guarantee. Non-strict: this class is one run, the finding
+    # is a 3-run one, so a single lucky pass must not fail the suite -- it
+    # shows as XPASS in -rA.
+    @pytest.mark.xfail(
+        reason="VERDICT-CHANGING, NOT FIXED (round 17 verdict diff, 3/3): the guarantee adds "
+        "CHUBB's 'Tiering Guidelines' chunk and the model holds CHUBB on 'which tier' -- tier "
+        "placement comes after eligibility. See test_chubb_tiering_chunk_is_not_added_to_the_alt_prompt.",
+        strict=False,
+    )
+    def test_chubb_is_not_insufficient_on_tier_placement(self):
+        r = self._find("CHUBB")
+        blob = " ".join(r.get("missing_info", [])).lower()
+        assert not (r["status"] == "INSUFFICIENT_INFORMATION" and "tier" in blob), r
+
+    @pytest.mark.xfail(
+        reason="VERDICT-CHANGING, NOT FIXED (round 17 verdict diff, 3/3): HOAIC HO3 held on "
+        "'which program (HOB/HO3/HO2)' -- the carrier record already says HO3 -- or on whether a "
+        "roof payment schedule (loss settlement, not eligibility) applies. Its prompt sections were "
+        "identical on main, which answered ELIGIBLE 3/3.",
+        strict=False,
+    )
+    def test_hoaic_is_not_insufficient_on_program_or_roof_schedule(self):
+        r = self._find("HOAIC")
+        blob = " ".join(r.get("missing_info", [])).lower()
+        assert not (r["status"] == "INSUFFICIENT_INFORMATION"
+                    and re.search(r"program|payment schedule|roof schedule", blob)), r
 
     def test_mercury_no_spurious_ppc10_question(self):
         # Round 10 bug (fixed): asked about PPC 10 eligibility for a PPC-1 customer.
@@ -3973,9 +4002,10 @@ def test_chubb_cites_the_clause_matching_the_dwelling_type(chubb_standard_runs):
     "stated reason is the guide's SILENCE -- 'do not provide specific eligibility criteria for "
     "PPC, roof age, home age, or swimming pool requirements'. CHUBB's guide contains no PPC, "
     "roof-age or pool rule at all (see test_chubb_guide_has_no_ppc_roof_age_or_pool_rule), and "
-    "SYSTEM_INSTRUCTIONS says a topic a carrier's document is silent on is UNRESTRICTED. Not "
-    "yet confirmed that ELIGIBLE is right: CHUBB is tier-based and its tier conditions were not "
-    "assessed this round. Nothing to do with eligible persons.",
+    "SYSTEM_INSTRUCTIONS says a topic a carrier's document is silent on is UNRESTRICTED. Its "
+    "tiers are not an eligibility question either: section VIII says risks that qualify under "
+    "sections I-III 'become eligible for placement in our Standard Tier', and the tier rules place "
+    "them for pricing. Nothing to do with eligible persons.",
     strict=False,
 )
 def test_chubb_is_not_insufficient_on_guide_silence_alone(chubb_standard_runs):
@@ -4383,7 +4413,14 @@ class TestRound17OwnershipRuleRetrieval:
         assert not missing, f"trust rules missing from a Trust property's prompt: {missing}"
 
 
-def _resolve_results(results, canonical):
+def _carrier_words(name, drop_parenthetical=False):
+    s = (name or "").upper().replace("HO-3", "HO3").replace("DP-3", "DP3")
+    if drop_parenthetical:
+        s = re.sub(r"\(.*?\)", " ", s)
+    return set(re.findall(r"[A-Z0-9]+", s))
+
+
+def _resolve_results(results, canonical, universe=()):
     """{canonical carrier: result record}. Exact-one match or it is left out
     and reported (and the test fails on it) -- never a coin flip, per
     _find_carrier.
@@ -4394,8 +4431,19 @@ def _resolve_results(results, canonical):
     one, and on the round-17 run it silently dropped 13 expected carriers per
     Trust/LLC run -- eight of the ten flat-exclusion carriers among them --
     while the check still printed 6/6. A floor of 6 characters keeps a bare
-    "Sage" from matching everything; a multi-match is left unresolved."""
+    "Sage" from matching everything; a multi-match is left unresolved.
+
+    Containment still misses a name whose dropped part sits in the MIDDLE:
+    "Orion HO3" (Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3), "HOAIC HO3"
+    (HOAIC_-_TX-HOMEOWNERS-0326_HO3). The model wrote "Orion HO3" in all 3
+    round-17 Individual Owner controls, so Orion's LLC and Trust checks never
+    ran. Only when containment finds NOTHING, a record whose words are a
+    subset of the canonical name's words is accepted -- and only if those
+    words fit exactly one carrier in `universe`, the FULL carrier list, not
+    the caller's subset (otherwise "Sage HO3" would resolve to whichever Sage
+    program the caller happened to ask for). No universe, no fallback."""
     out, missing = {}, []
+    universe_words = {u: _carrier_words(u) for u in universe}
     for c in canonical:
         want = normalize_carrier_name(c)
 
@@ -4404,6 +4452,14 @@ def _resolve_results(results, canonical):
             return bool(got) and (got == want or want in got or (len(got) >= 6 and got in want))
 
         hits = [r for r in results if related(r)]
+        if not hits and c in universe_words:
+            for drop in (False, True):      # "NatGen Custom360 (Landlord)" needs the second pass
+                def fits_only_c(r):
+                    w = _carrier_words(r.get("carrier", ""), drop)
+                    return bool(w) and [u for u, uw in universe_words.items() if w <= uw] == [c]
+                hits = [r for r in results if fits_only_c(r)]
+                if hits:
+                    break
         if len(hits) == 1:
             out[c] = hits[0]
         else:
@@ -4463,11 +4519,20 @@ def _trust_referral_surfaced(r, carrier):
     return False
 
 
-def _score_ownership_runs(reps):
+# Referral misses read by eye and deferred -- each has its own strict xfail
+# below, so it stays visible on every run instead of failing the aggregate
+# (and hiding any NEW miss behind a failure everyone already expects).
+_TRUST_REFERRAL_KNOWN_MISSES = {
+    "Allied_Trust_HO3": "test_allied_trust_trust_is_refer_on_its_approval_row",
+}
+
+
+def _score_ownership_runs(reps, universe=()):
     """Pure scoring over recorded runs -- no API calls -- so a changed
     assertion can be re-scored from the JSON dump instead of re-paid for.
 
     reps: [{"Individual Owner": [records], "Trust": [...], "LLC": [...]}, ...]
+    universe: the full carrier list, for _resolve_results' fallback.
     Returns (checks, coverage): checks[(group, carrier)] = [bool per run];
     coverage[group] = {"expected", "ran", "skipped": [(carrier, why)],
     "unresolved": [(ownership, carrier, n_matches)]}.
@@ -4476,7 +4541,8 @@ def _score_ownership_runs(reps):
         "LLC: INELIGIBLE on its own verbatim entity rule": ("LLC", _LLC_FLAT_EXCLUSION),
         "LLC: not declined (permitted/conditional/referral)": ("LLC", _LLC_NOT_A_FLAT_DECLINE),
         "Trust: not declined": ("Trust", _TRUST_NOT_A_DECLINE),
-        "Trust: referral surfaced, about the trust": ("Trust", _TRUST_REFERRAL),
+        "Trust: REFER, with the referral about the trust": (
+            "Trust", [c for c in _TRUST_REFERRAL if c not in _TRUST_REFERRAL_KNOWN_MISSES]),
         "Trust: Allied Trust surfaces the grantor condition": ("Trust", ["Allied_Trust_HO3"]),
     }
     checks = {}
@@ -4487,7 +4553,7 @@ def _score_ownership_runs(reps):
     for rep in reps:
         by = {}
         for own, res in rep.items():
-            by[own], missing = _resolve_results(res, every)
+            by[own], missing = _resolve_results(res, every, universe)
             for g, (g_own, cs) in groups.items():
                 for c, n in missing:
                     if c in cs and own in (g_own, "Individual Owner"):
@@ -4509,8 +4575,12 @@ def _score_ownership_runs(reps):
                     frag = _compare_key(_LLC_FLAT_FRAGMENTS[c])
                     ok = (r.get("status") == "INELIGIBLE"
                           and any(frag in _compare_key(x) for x in r.get("citations", [])))
-                elif g.startswith("Trust: referral"):
-                    ok = _trust_referral_surfaced(r, c)
+                elif g.startswith("Trust: REFER"):
+                    # The status, not only the wording: REFER is its own UI
+                    # bucket (One Issue), and SYSTEM_INSTRUCTIONS ranks it
+                    # above INSUFFICIENT_INFORMATION when the carrier's own
+                    # text offers a referral path for this situation.
+                    ok = r.get("status") == "REFER" and _trust_referral_surfaced(r, c)
                 elif g.startswith("Trust: Allied Trust"):
                     ok = "grantor" in " ".join(_record_units(r)).lower()
                 else:
@@ -4538,11 +4608,18 @@ def test_trust_and_llc_verdicts_follow_each_carriers_own_rule(record_property):
 
     Every run's raw per-carrier output is written to _OWNERSHIP_DUMP (git-
     ignored, verification/*_results.json) before scoring, so an assertion
-    change can be re-scored with _score_ownership_runs() for free.
+    change can be re-scored with _score_ownership_runs() for free --
+    REUSE_DUMPS=1 does exactly that, with the dump's commit printed.
     """
+    import json
     n_runs = 3
     recorded = []   # [{ownership: {"results", "pipeline_seconds", "calls"}}]
-    for _ in range(n_runs):
+    if os.environ.get("REUSE_DUMPS") and os.path.exists(_OWNERSHIP_DUMP):
+        with open(_OWNERSHIP_DUMP, encoding="utf-8") as fh:
+            dumped = json.load(fh)
+        recorded = dumped["runs"]
+        print(f"\nOwnership: re-scoring dump from commit {dumped['commit']} ({len(recorded)} reps)")
+    for _ in range(n_runs - len(recorded)):
         rep = {}
         for own in ("Individual Owner", "Trust", "LLC"):
             results, rec = _recorded_run(dict(OWNERSHIP_BASE_PROFILE, ownership_type=own))
@@ -4551,7 +4628,8 @@ def test_trust_and_llc_verdicts_follow_each_carriers_own_rule(record_property):
         _dump_runs(_OWNERSHIP_DUMP, OWNERSHIP_BASE_PROFILE, recorded)   # after every rep
 
     reps = [{own: v["results"] for own, v in rep.items()} for rep in recorded]
-    checks, coverage = _score_ownership_runs(reps)
+    universe = get_carriers_for_occupancy("Owner Occupied")
+    checks, coverage = _score_ownership_runs(reps, universe)
 
     # Not asserted -- reported. The eligibility pipeline does not consult the
     # data-defect list, so these carriers get ordinary verdicts from the wrong
@@ -4560,7 +4638,7 @@ def test_trust_and_llc_verdicts_follow_each_carriers_own_rule(record_property):
     for rep_i, rep in enumerate(reps, 1):
         found, _ = _resolve_results(rep["Individual Owner"], [
             "NatGen_Custom360_HO3_-_06.25.2026", "Sage_-_Occidental_HO3",
-            "Liberty_Mutual_HO6_-_02.21.2026", "Centauri_-_HO3_-_05.01.2026"])
+            "Liberty_Mutual_HO6_-_02.21.2026", "Centauri_-_HO3_-_05.01.2026"], universe)
         for c in ("NatGen_Custom360_HO3_-_06.25.2026", "Sage_-_Occidental_HO3",
                   "Liberty_Mutual_HO6_-_02.21.2026", "Centauri_-_HO3_-_05.01.2026"):
             r = found.get(c)
@@ -4585,3 +4663,272 @@ def test_trust_and_llc_verdicts_follow_each_carriers_own_rule(record_property):
             failures.append(f"{g} | {c} | {sum(oks)}/{len(oks)}")
     assert any(cov["ran"] for cov in coverage.values()), "no check ran at all"
     assert not failures, "ownership verdict checks failed:\n  " + "\n  ".join(failures)
+
+
+@pytest.mark.baseline
+@pytest.mark.xfail(
+    reason="VERDICT-CHANGING, NOT FIXED (round 17, read by eye): Allied Trust/Trust is "
+    "INSUFFICIENT_INFORMATION in 3/3 runs, not REFER -- the model follows the grantor clause "
+    "and drops the 'Residence Held in Trust | Submit for Approval with Trust documents' row, "
+    "which IS in the prompt. The other five trust-referral carriers are REFER 3/3.",
+    strict=True,
+    raises=AssertionError,
+)
+def test_allied_trust_trust_is_refer_on_its_approval_row():
+    """Scored from the dump test_trust_and_llc_verdicts_follow_each_carriers_own_rule
+    writes (it runs first in file order), so it costs no extra calls. The
+    exact finding: status REFER (the One Issue bucket), with the referral
+    stated about the trust -- the grantor condition alone is not enough."""
+    import json
+    if not os.path.exists(_OWNERSHIP_DUMP):
+        pytest.skip(f"no ownership dump at {_OWNERSHIP_DUMP}")
+    with open(_OWNERSHIP_DUMP, encoding="utf-8") as fh:
+        reps = json.load(fh)["runs"]
+    universe = get_carriers_for_occupancy("Owner Occupied")
+    rows = []
+    for rep in reps:
+        found, missing = _resolve_results(rep["Trust"]["results"], ["Allied_Trust_HO3"], universe)
+        if missing:
+            pytest.fail(f"Allied Trust not resolved in a Trust run: {missing}")
+        r = found["Allied_Trust_HO3"]
+        rows.append((r.get("status"), _trust_referral_surfaced(r, "Allied_Trust_HO3")))
+    assert all(s == "REFER" and ok for s, ok in rows), f"(status, referral surfaced) per run: {rows}"
+
+
+# The names the model actually wrote in round 17's recorded runs, where
+# containment alone fails because the dropped part sits in the middle.
+_NAMES_MISSING_THEIR_MIDDLE = [
+    ("Orion HO3", "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3"),
+    ("HOAIC HO3", "HOAIC_-_TX-HOMEOWNERS-0326_HO3"),
+    ("HOAIC TX Homeowners HO3", "HOAIC_-_TX-HOMEOWNERS-0326_HO3"),
+    ("NatGen Custom360 (Landlord)", "NatGen_Custom360_HO3_-_06.25.2026"),
+]
+_RESOLVER_UNIVERSE = [
+    "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3", "HOAIC_-_TX-HOMEOWNERS-0326_HO3",
+    "NatGen_Custom360_HO3_-_06.25.2026", "NatGen_Premier_OneChoice_HO3_-_02.26.2025",
+    "Sage_-_Auros_HO3", "Sage_-_Markel_HO3", "Sage_-_Vave_HO3_-_07.01.2026",
+    "Sage_-_SURE_HO-3_-_01.31.2026", "Swyfft_-_Benchmark_(Admitted)_HO3",
+    "Swyfft_-_Benchmark_(Surplus)_HO3",
+]
+
+
+@pytest.mark.retrieval
+@pytest.mark.parametrize("written, canonical", _NAMES_MISSING_THEIR_MIDDLE)
+def test_verdict_resolver_accepts_a_name_missing_its_middle(written, canonical):
+    found, missing = _resolve_results([{"carrier": written}], [canonical], _RESOLVER_UNIVERSE)
+    assert found.get(canonical) == {"carrier": written}, missing
+
+
+@pytest.mark.retrieval
+@pytest.mark.parametrize("written, asked", [
+    ("Sage HO3", "Sage_-_Markel_HO3"),                                # four Sage programs fit
+    ("Swyfft Benchmark HO3", "Swyfft_-_Benchmark_(Surplus)_HO3"),     # Admitted and Surplus fit
+    ("NatGen HO3", "NatGen_Custom360_HO3_-_06.25.2026"),              # Custom360 and Premier fit
+])
+def test_verdict_resolver_never_picks_among_several_carriers(written, asked):
+    """Even when the caller asks for ONE of them -- uniqueness is judged
+    against the full list, not the caller's subset."""
+    found, _ = _resolve_results([{"carrier": written}], [asked], _RESOLVER_UNIVERSE)
+    assert asked not in found
+
+
+@pytest.mark.retrieval
+def test_verdict_resolver_fallback_needs_the_full_carrier_list():
+    found, _ = _resolve_results([{"carrier": "Orion HO3"}],
+                                ["Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3"])
+    assert not found
+
+
+@pytest.mark.retrieval
+def test_verdict_resolver_prefers_containment_over_the_fallback():
+    orion = "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3"
+    recs = [{"carrier": orion, "status": "full name"}, {"carrier": "Orion HO3", "status": "short"}]
+    found, _ = _resolve_results(recs, [orion], _RESOLVER_UNIVERSE)
+    assert found[orion]["status"] == "full name"
+
+
+@pytest.mark.retrieval
+def test_names_missing_their_middle_are_real_owner_occupied_carriers():
+    """Keeps the pipeline xfail below failing for its stated reason, not a
+    renamed carrier."""
+    carriers = set(get_carriers_for_occupancy("Owner Occupied"))
+    assert {c for _, c in _NAMES_MISSING_THEIR_MIDDLE} <= carriers
+
+
+@pytest.mark.retrieval
+@pytest.mark.xfail(
+    reason="DEFERRED (round 17): the PIPELINE's _resolve_structured_carrier is containment-only, "
+    "so these names resolve to None and the record skips every post-parse guard -- 14/420 "
+    "recorded records, in 6/15 calls. Replaying all 15 with a fixed resolver: 0 verdict "
+    "changes, 5 lost pool-spec notes. A pipeline change; needs the baseline tier before merge.",
+    strict=True,
+    raises=AssertionError,
+)
+@pytest.mark.parametrize("written, canonical", _NAMES_MISSING_THEIR_MIDDLE)
+def test_pipeline_resolves_the_carrier_names_the_model_actually_writes(written, canonical):
+    carriers = get_carriers_for_occupancy("Owner Occupied")
+    assert _resolve_structured_carrier(written, carriers) == canonical
+
+
+# Vave's roof age-band table, verbatim from its guide. Roof age is a
+# guaranteed-lookup topic, but _mentions_roof_life_expectancy's age-band
+# clause keys on the word "excluded" -- TWICO's and Swyfft's wording -- and
+# Vave's header says "Exclusion for roofs over". Found round 17 when the
+# model said "the table details are not fully provided in the retrieved
+# excerpts": the table is in the guide and never reached a recorded prompt.
+_VAVE = "Sage_-_Vave_HO3_-_07.01.2026"
+_VAVE_ROOF_TABLE = (
+    "| ROOF COVERAGE1 |  |  |  |\n| --- | --- | --- | --- |\n"
+    "| Roof Type | RCV for roofs under | ACV for roofs between | Exclusion for roofs over |\n"
+    "| Asphalt Shingles | < 15 years | 15–25 years | > 25 years |")
+_VAVE_XFAIL = pytest.mark.xfail(
+    reason="NOT FIXED (round 17): the roof age-band predicate needs the word 'excluded'; Vave's "
+    "table says 'Exclusion for roofs over', so Vave's roof-age rule has no retrieval guarantee. "
+    "A retrieval change; needs the baseline tier before merge.",
+    strict=True,
+    raises=AssertionError,
+)
+
+
+@pytest.mark.retrieval
+@_VAVE_XFAIL
+@pytest.mark.parametrize("text", [
+    _VAVE_ROOF_TABLE,                                                   # Vave, verbatim
+    "Roof loss settlement is RCV for roofs under 15 years and ACV from 15 to 20 years; "
+    "a roof exclusion applies over 20 years.",                          # same rule, in prose
+], ids=["vave-table", "prose"])
+def test_roof_age_band_with_exclusion_wording_is_a_roof_age_rule(text):
+    assert _mentions_roof_life_expectancy(text)
+
+
+@pytest.mark.retrieval
+@_VAVE_XFAIL
+@pytest.mark.parametrize("profile", [STANDARD_PROFILE, OWNERSHIP_BASE_PROFILE],
+                         ids=["STANDARD", "OWNERSHIP_BASE"])
+def test_vave_roof_age_table_reaches_the_prompt(profile):
+    per, _ = _captured_sections(profile)
+    if not per.get(_VAVE):
+        pytest.fail(f"{_VAVE} has no section in the prompt at all")   # not the xfail's reason
+    assert "rcv for roofs under" in per[_VAVE].lower()
+
+
+# ---------------------------------------------------------------------------
+# Round 17 verdict diff (main 72e34db vs the gated guarantee, Individual
+# Owner, 4 profiles x 3 runs). Three (profile, carrier) statuses changed in
+# 3/3 runs on each side; all three read as WORSE on the gated side. One is
+# caused by the guarantee's own content (CHUBB); in the other two the
+# carrier's prompt sections were byte-identical and the verdict moved anyway.
+# ---------------------------------------------------------------------------
+
+# CHUBB's page-8 chunk as it reaches the ALT prompt. Its heading, one chunk
+# earlier, is "VIII. Tiering Guidelines -- Risks that qualify for homeowners
+# insurance based on the criteria in sections I-III, become eligible for
+# placement in our Standard Tier ... for risks that qualify for discounted
+# pricing." Tier placement comes AFTER eligibility.
+_CHUBB_TIER_CHUNK = (
+    "• Risks in Flood Zone V are only acceptable for tenants and condominiums on the 3rd floor or "
+    "higher. • Risks in Flood Zone A are subject to pre-approval. Minimum $3,000,000 Maximum "
+    "$5,000,000 AND Year Built Ten Years Old - House: Coverage A OR $5,000,000 or greater Discount "
+    "Tier Conditions • Must satisfy Standard Tier Conditions • Primary residence must be single "
+    "family or two family home and owner-occupied")
+_TIER_PLACEMENT_XFAIL = pytest.mark.xfail(
+    reason="VERDICT-CHANGING, NOT FIXED (round 17 verdict diff): the occupancy guarantee matches "
+    "'owner-occupied' under CHUBB's 'VIII. Tiering Guidelines' (pricing placement, after "
+    "eligibility) and adds that chunk; ALT CHUBB went ELIGIBLE 3/3 -> INSUFFICIENT_INFORMATION "
+    "3/3 on 'which tier'. A guarantee change; needs the baseline tier before merge.",
+    strict=True,
+    raises=AssertionError,
+)
+
+
+@pytest.mark.retrieval
+@_TIER_PLACEMENT_XFAIL
+@pytest.mark.parametrize("text", [
+    _CHUBB_TIER_CHUNK,                                                  # CHUBB, verbatim
+    "Preferred Tier Conditions: all Standard Tier Conditions must be met, and the dwelling "
+    "must be owner-occupied with no business conducted on premises.",   # same kind of rule
+], ids=["chubb-verbatim", "second-phrasing"])
+def test_tier_placement_conditions_are_not_occupancy_rules(text):
+    assert not _mentions_occupancy_rule(text)
+
+
+@pytest.mark.retrieval
+@_TIER_PLACEMENT_XFAIL
+def test_chubb_tiering_chunk_is_not_added_to_the_alt_prompt():
+    """THE EXACT DIFF SCENARIO: absent from main's ALT prompt, added by the guarantee."""
+    per, _ = _captured_sections(ALT_PROFILE)
+    chubb = per.get("CHUBB_HO_-_05.22.2026")
+    if not chubb:
+        pytest.fail("CHUBB has no section in the ALT prompt at all")    # not the xfail's reason
+    assert "discount tier conditions" not in chubb.lower()
+
+
+def _replayed_run(profile, raw_text):
+    """check_eligibility() with the model call answered by recorded text --
+    real retrieval and the real post-parse chain, zero API cost. Restored in
+    finally, like _captured_prompt."""
+    import types
+    import eligibility_check as ec
+    original = ec.client.messages.create
+
+    def fake(**kwargs):
+        return types.SimpleNamespace(
+            content=[types.SimpleNamespace(type="text", text=raw_text)], stop_reason="end_turn",
+            usage=types.SimpleNamespace(input_tokens=0, output_tokens=0,
+                                        cache_read_input_tokens=0, cache_creation_input_tokens=0))
+
+    ec.client.messages.create = fake
+    try:
+        return check_eligibility(dict(profile))
+    finally:
+        ec.client.messages.create = original
+
+
+# ARI (HOA+)'s record from gated COASTAL_PPC4 run 1, verbatim as the model
+# wrote it (identical reasoning in runs 2 and 3). The first citation is ARI
+# (HOB)'s AGE rule -- it sits in the ARI_(HOB) section of the prompt, under
+# an "HOB Underwriting Guidelines" page footer -- relabelled as HOA+'s own.
+# ARI (HOA+)'s guide has no home-age limit at all ("An inspection is
+# required on homes over 5 years old" is its only age line), and HOB's rule
+# itself sends homes over 20 to HOA/HOA Plus. Main read it correctly 3/3.
+_ARI_HOA_PLUS_COASTAL_RECORD = {
+    "carrier": "ARI_(HOA+)",
+    "reasons": [
+        "Home Age is 22 years, which exceeds the 20-year maximum for HOA+ (homes over 20 years old "
+        "can be considered for HOA/HOA Plus, but this is the HOA+ program specifically)",
+        "Roof Age is 16 years. Roofs 15 years or older are covered on Actual Cash Value (ACV) basis "
+        "rather than Replacement Cost Value (RCV)",
+        "Tile roofs are not listed among the ineligible roof types (wood, flat, asbestos, tar/gravel, "
+        "expensive metal), so the roof material itself is acceptable",
+        "PPC 4 is within the eligible range (1-9 per the quick reference table)",
+    ],
+    "citations": [
+        "ARI_(HOA+): 'Homes 0-20 years old are eligible for this program. Homes over 20years old can "
+        "be considered for coverage under the HOA/HOA Plus.'",
+        "ARI_(HOA+): 'Roofs that are 15 years or older will be covered on an Actual Cash Value (ACV) "
+        "basis.'",
+    ],
+    "missing_info": [],
+    "notes": "Roof coverage would be on ACV basis due to roof age of 16 years. The property exceeds "
+             "the 20-year age limit for the HOA+ program specifically.",
+    "status": "INELIGIBLE",
+    "flaw_count": 1,
+}
+
+
+@pytest.mark.retrieval
+@pytest.mark.xfail(
+    reason="VERDICT-CHANGING, NOT FIXED (round 17 verdict diff): COASTAL_PPC4 ARI (HOA+) is "
+    "INELIGIBLE in 3/3 gated runs (0/3 main) on ARI (HOB)'s home-age rule, cited under HOA+'s own "
+    "label -- label-only misattribution checks cannot see it. Both ARI sections were identical "
+    "in the two prompts.",
+    strict=True,
+    raises=AssertionError,
+)
+def test_ari_hoa_plus_is_not_declined_on_ari_hob_age_rule():
+    import json
+    results = _replayed_run(COASTAL_PPC4_PROFILE, json.dumps([_ARI_HOA_PLUS_COASTAL_RECORD]))
+    ari = [r for r in results if r.get("carrier") == "ARI_(HOA+)"]
+    if len(ari) != 1:
+        pytest.fail(f"replay returned {len(ari)} ARI (HOA+) records")    # not the xfail's reason
+    assert ari[0]["status"] != "INELIGIBLE", ari[0]
