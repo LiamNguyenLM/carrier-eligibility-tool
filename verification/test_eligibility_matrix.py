@@ -97,6 +97,7 @@ from eligibility_check import (
     get_all_carriers,
     GUIDE_UNAVAILABLE,
     NOT_EVALUATED,
+    _is_openai_model,
 )
 from shared_resources import get_vectorstore
 from profiles import (STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE,
@@ -5357,3 +5358,86 @@ class TestFixedRows:
         assert results[0]["carrier"] == "Parse Error"
         assert {r["carrier"] for r in results if r["status"] == GUIDE_UNAVAILABLE} == set(_DEFECTIVE_HO)
         assert not [r for r in results if r["status"] == NOT_EVALUATED]
+
+
+# ---------------------------------------------------------------------------
+# Step "now" (Liam, 2026-09-29): the pipeline's model call behind the same
+# provider switch chat.py uses. This suite itself is pinned to Sonnet in
+# conftest.py regardless of ELIGIBILITY_MODEL's default, so every test above
+# this point still exercises what it was calibrated against -- these are the
+# only tests that touch the switch itself.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.retrieval
+@pytest.mark.parametrize("model, is_openai", [
+    ("gpt-6-luna", True),
+    ("gpt-4o", True),
+    ("o3-mini", True),
+    ("o1", True),
+    ("claude-sonnet-4-5", False),
+    ("claude-opus-5-5", False),
+])
+def test_is_openai_model_matches_by_prefix(model, is_openai):
+    assert _is_openai_model(model) is is_openai
+
+
+@pytest.mark.retrieval
+def test_the_suite_itself_is_pinned_to_sonnet():
+    """Pins conftest.py's setdefault, so a change there that lets the
+    default (gpt-6-luna) leak into the suite fails loudly here instead of
+    as a real API call inside a 'retrieval' test."""
+    import eligibility_check as ec
+    assert ec.ELIGIBILITY_MODEL == "claude-sonnet-4-5"
+    assert not _is_openai_model(ec.ELIGIBILITY_MODEL)
+
+
+@pytest.mark.retrieval
+def test_complete_dispatches_on_the_model_name(monkeypatch):
+    """The one thing this suite can check without an OpenAI key: _complete
+    routes to the Anthropic branch (which the rest of the suite mocks via
+    client.messages.create) when ELIGIBILITY_MODEL is not an OpenAI model,
+    and to the OpenAI branch when it is -- without touching client at all."""
+    import eligibility_check as ec
+
+    def boom_openai(*a, **k):
+        raise AssertionError("OpenAI branch reached for a Sonnet model")
+    monkeypatch.setattr(ec, "_complete_openai", boom_openai)
+    monkeypatch.setattr(ec, "_complete_anthropic", lambda *a, **k: ("[]", {}))
+    assert ec._complete("sys", "user", 100) == ("[]", {})
+
+    def boom_anthropic(*a, **k):
+        raise AssertionError("Anthropic branch reached for an OpenAI model")
+    monkeypatch.setattr(ec, "ELIGIBILITY_MODEL", "gpt-6-luna")
+    monkeypatch.setattr(ec, "_complete_anthropic", boom_anthropic)
+    monkeypatch.setattr(ec, "_complete_openai", lambda *a, **k: ("[]", {}))
+    assert ec._complete("sys", "user", 100) == ("[]", {})
+
+
+@pytest.mark.retrieval
+def test_complete_anthropic_shape_is_unchanged():
+    """THE REVERT PATH: with ELIGIBILITY_MODEL back on Sonnet, the request
+    _complete_anthropic sends is identical in every field the rest of the
+    suite (and the real pipeline pre-Luna) depends on -- model, system cache
+    control, and the single-user-message shape client.messages.create() is
+    mocked against everywhere else in this file."""
+    import eligibility_check as ec
+    captured = {}
+    monkeypatch_original = ec.client.messages.create
+
+    def fake(**kwargs):
+        captured.update(kwargs)
+        raise _PromptCaptured()
+
+    ec.client.messages.create = fake
+    try:
+        ec._complete_anthropic("SYS TEXT", "USER TEXT", 999)
+    except _PromptCaptured:
+        pass
+    finally:
+        ec.client.messages.create = monkeypatch_original
+    assert captured["model"] == "claude-sonnet-4-5"
+    assert captured["max_tokens"] == 999
+    assert captured["system"] == [{"type": "text", "text": "SYS TEXT",
+                                   "cache_control": {"type": "ephemeral"}}]
+    assert captured["messages"] == [{"role": "user", "content": "USER TEXT"}]
+    assert captured["temperature"] == 0

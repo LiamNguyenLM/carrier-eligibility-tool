@@ -18,6 +18,8 @@ except ImportError:
 try:
     if "ANTHROPIC_API_KEY" in st.secrets:
         os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
+    if "OPENAI_API_KEY" in st.secrets:
+        os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
 except Exception:
     pass
 
@@ -55,6 +57,115 @@ retriever = load_retriever()
 # exponentially-backed-off retry -- it does NOT swallow errors, and a
 # genuine failure still raises after the budget is spent.
 client = anthropic.Anthropic(max_retries=6)
+
+# --- the model, and the only place its identity appears --------------------
+# Liam, 2026-09-29 (prototype, internal testing only -- Jonathan has not
+# cleared this for agents): default is gpt-6-luna. Reverting to Sonnet is
+# one variable: ELIGIBILITY_MODEL=claude-sonnet-4-5. Same switch shape as
+# chat.py's CHAT_MODEL / _complete() -- provider dispatch lives in ONE
+# function and nowhere else, so a bake-off is an env-var change.
+#
+# UNVALIDATED ON LUNA: every Tier 2 baseline in this suite was measured
+# against Sonnet's output. The verification suite pins ELIGIBILITY_MODEL to
+# Sonnet in conftest.py regardless of this default, so the fast and baseline
+# tiers keep testing what they were calibrated against; only a real
+# deployment (or a test that overrides the env var itself) exercises Luna.
+ELIGIBILITY_MODEL = os.environ.get("ELIGIBILITY_MODEL", "gpt-6-luna")
+
+# Reasoning depth for the OpenAI path -- same values and same default as
+# chat.py's CHAT_REASONING_EFFORT ('minimal' is rejected; verified against
+# the API there).
+ELIGIBILITY_REASONING_EFFORT = os.environ.get("ELIGIBILITY_REASONING_EFFORT", "low")
+
+_openai_client = None
+
+
+def _is_openai_model(model):
+    return model.startswith(("gpt-", "o1", "o3", "o4"))
+
+
+def _get_openai_client():
+    """Lazy, so the Anthropic path never needs OPENAI_API_KEY set."""
+    global _openai_client
+    if _openai_client is None:
+        import openai
+        _openai_client = openai.OpenAI(max_retries=6)
+    return _openai_client
+
+
+def _complete(system_text, user_content, max_tokens):
+    """THE model call -- the only place ELIGIBILITY_MODEL's identity appears
+    below this point. Returns (raw_text, usage_dict); usage_dict's keys are
+    Anthropic-shaped (mirrors chat.py's _complete) because that is what the
+    cache-visibility print and the truncation diagnostics below already
+    speak, and the OpenAI branch maps onto them. "cache_creation_input_tokens"
+    has no OpenAI equivalent (its caching is implicit and unbilled-at-write),
+    so it stays 0 there -- not a cache write that failed.
+    """
+    if _is_openai_model(ELIGIBILITY_MODEL):
+        return _complete_openai(system_text, user_content, max_tokens)
+    return _complete_anthropic(system_text, user_content, max_tokens)
+
+
+def _complete_anthropic(system_text, user_content, max_tokens):
+    response = client.messages.create(
+        model=ELIGIBILITY_MODEL,
+        max_tokens=max_tokens,
+        temperature=0,
+        system=[{
+            "type": "text",
+            "text": system_text,
+            "cache_control": {"type": "ephemeral"},
+        }],
+        messages=[{"role": "user", "content": user_content}],
+        # See the original CHANGED (round 12) note on the caller: an explicit
+        # timeout skips the SDK's max_tokens-derived refusal heuristic.
+        timeout=900.0,
+    )
+    text = "".join(b.text for b in response.content if getattr(b, "type", "") == "text")
+    usage = response.usage
+    return text, {
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+        "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
+        "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
+        "stop_reason": getattr(response, "stop_reason", "n/a"),
+    }
+
+
+def _complete_openai(system_text, user_content, max_tokens):
+    """The OpenAI path. A port of the SHAPE, not of the caching strategy --
+    see chat.py's _complete_openai for the measured findings (Luna's cache
+    keys on the WHOLE prompt, so this pipeline's single-call-per-check shape
+    never benefits from it either way)."""
+    response = _get_openai_client().chat.completions.create(
+        model=ELIGIBILITY_MODEL,
+        messages=[
+            {"role": "system", "content": system_text},
+            {"role": "user", "content": user_content},
+        ],
+        # NOT max_tokens: the OpenAI parameter is max_completion_tokens, and
+        # it has to cover REASONING tokens as well as the visible answer --
+        # sizing it like an answer-only budget starves the reasoning and
+        # returns an empty string with finish_reason="length".
+        max_completion_tokens=max_tokens + 4000,
+        reasoning_effort=ELIGIBILITY_REASONING_EFFORT,
+        # Best-effort determinism only -- Luna rejects temperature=0 (400).
+        seed=0,
+        timeout=900.0,
+    )
+    usage = response.usage
+    cached = 0
+    if getattr(usage, "prompt_tokens_details", None) is not None:
+        cached = getattr(usage.prompt_tokens_details, "cached_tokens", 0) or 0
+    text = response.choices[0].message.content or ""
+    return text, {
+        "input_tokens": usage.prompt_tokens - cached,
+        "output_tokens": usage.completion_tokens,
+        "cache_read_input_tokens": cached,
+        "cache_creation_input_tokens": 0,
+        "stop_reason": response.choices[0].finish_reason,
+    }
 
 
 # CHANGED: split out into a module-level constant so the exact same bytes
@@ -2619,64 +2730,46 @@ CARRIER DOCUMENTS:
         user_content += "\n".join(f"- {c}" for c in no_chunk_carriers)
         user_content += "\n"
 
-    response = client.messages.create(
-        model="claude-sonnet-4-5",
-        # CHANGED (round 12): raised from 12000. A recurring "JSON PARSE
-        # ERROR" (~20-30% of runs, previously misattributed to a
-        # character-escaping issue in ARI's chunk text -- see
-        # normalize_chunk_text()'s docstring) was confirmed via a full,
-        # untruncated capture of an actual failure to be a plain output-
-        # token budget overrun: the response cut off mid-object after only
-        # ~20 of ~28 carriers, with missing_info's closing "]" but no
-        # closing "}" or outer "]" -- the model simply ran out of its
-        # 12000-token allowance partway through a verbose ~28-carrier JSON
-        # array. The earlier ARI apostrophe/newline fix wasn't wrong to
-        # apply (it's still a real, harmless cleanup) but it was NOT the
-        # cause of the recurring failures -- every previous debug print
-        # only showed raw[:1000], which always happens to contain ARI's
-        # section since it sorts near the start of the carrier list,
-        # regardless of where the actual truncation occurred much later.
-        max_tokens=MAX_RESPONSE_TOKENS,
-        temperature=0,
-        system=[
-            {
-                "type": "text",
-                "text": SYSTEM_INSTRUCTIONS,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ],
-        messages=[{"role": "user", "content": user_content}],
-        # CHANGED (round 12): the anthropic SDK estimates a non-streaming
-        # call's worst-case duration from max_tokens alone (3600s *
-        # max_tokens / 128000) and REFUSES to make the call at all above a
-        # 10-minute estimate -- raising MAX_RESPONSE_TOKENS to 24000 alone
-        # pushed this past that threshold and made every single call raise
-        # ValueError immediately (a hard, total failure, worse than the
-        # intermittent truncation it was meant to fix). Passing an explicit
-        # timeout here skips that heuristic entirely (the SDK only applies
-        # it when timeout is NOT explicitly given) while still using a
-        # normal non-streaming call -- real calls have taken up to ~180s
-        # observed this session, so 900s leaves large headroom without
-        # needing to implement streaming.
-        timeout=900.0,
-    )
+    # CHANGED (round 12): MAX_RESPONSE_TOKENS raised from 12000. A recurring
+    # "JSON PARSE ERROR" (~20-30% of runs, previously misattributed to a
+    # character-escaping issue in ARI's chunk text -- see
+    # normalize_chunk_text()'s docstring) was confirmed via a full,
+    # untruncated capture of an actual failure to be a plain output-token
+    # budget overrun: the response cut off mid-object after only ~20 of ~28
+    # carriers, with missing_info's closing "]" but no closing "}" or outer
+    # "]" -- the model simply ran out of its 12000-token allowance partway
+    # through a verbose ~28-carrier JSON array. The earlier ARI
+    # apostrophe/newline fix wasn't wrong to apply (it's still a real,
+    # harmless cleanup) but it was NOT the cause of the recurring failures --
+    # every previous debug print only showed raw[:1000], which always
+    # happens to contain ARI's section since it sorts near the start of the
+    # carrier list, regardless of where the actual truncation occurred much
+    # later.
+    #
+    # CHANGED (round 12, separately): the Anthropic SDK estimates a
+    # non-streaming call's worst-case duration from max_tokens alone (3600s *
+    # max_tokens / 128000) and REFUSES to make the call at all above a
+    # 10-minute estimate -- raising MAX_RESPONSE_TOKENS to 24000 alone pushed
+    # this past that threshold. _complete_anthropic passes an explicit
+    # timeout to skip that heuristic entirely; real calls have taken up to
+    # ~180s observed this session, so 900s leaves large headroom.
+    raw, usage = _complete(SYSTEM_INSTRUCTIONS, user_content, MAX_RESPONSE_TOKENS)
 
     # CHANGED: cache visibility. cache_read_input_tokens > 0 means this call
     # got a cache hit; cache_creation_input_tokens > 0 means this call just
     # wrote the cache (normal on the first call, or after the ~5 min TTL
-    # lapses between checks).
-    usage = getattr(response, "usage", None)
-    if usage is not None:
-        print(
-            "Cache: read=%s created=%s input=%s"
-            % (
-                getattr(usage, "cache_read_input_tokens", "n/a"),
-                getattr(usage, "cache_creation_input_tokens", "n/a"),
-                getattr(usage, "input_tokens", "n/a"),
-            )
+    # lapses between checks). Always 0/0 on the OpenAI path -- see
+    # _complete's docstring.
+    print(
+        "Cache: read=%s created=%s input=%s"
+        % (
+            usage["cache_read_input_tokens"],
+            usage["cache_creation_input_tokens"],
+            usage["input_tokens"],
         )
+    )
 
-    raw = response.content[0].text.strip()
+    raw = raw.strip()
 
     if "```" in raw:
         raw = raw.replace("```json", "").replace("```", "").strip()
@@ -2768,7 +2861,7 @@ CARRIER DOCUMENTS:
         # cutoff actually happened, which is near the END of a long
         # response. stop_reason directly confirms truncation when present.
         print("JSON PARSE ERROR:", str(e))
-        print("RAW RESPONSE LENGTH:", len(raw), "stop_reason:", getattr(response, "stop_reason", "n/a"))
+        print("RAW RESPONSE LENGTH:", len(raw), "stop_reason:", usage.get("stop_reason", "n/a"))
         print("RAW RESPONSE HEAD:", raw[:500])
         print("RAW RESPONSE TAIL:", raw[-1000:])
         # CHANGED (round 13): also dump the WHOLE response next to the error,
