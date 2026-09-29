@@ -93,6 +93,29 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
 
 ## Open work, in priority order (2026-09-29)
 
+0. **Smoke test finding, not yet root-caused: the NOT_EVALUATED safety net
+   may not catch every way Luna drops a carrier.** Two back-to-back real
+   Luna runs of OWNERSHIP_BASE/LLC (no code change between them):
+   - Run 1: 25 model records for 23 distinct carriers -- Sage SURE HO-3 and
+     Sage SafePort HO-3 absent, and **no NOT_EVALUATED row appeared for
+     either**, which `_add_fixed_rows`'s coverage check should have caught
+     (any `relevant_carrier` not in the resolved set of `kept` carriers gets
+     one). Not yet explained: whether some other pair of carriers was
+     silently DUPLICATED in that run's raw JSON (consuming 2 slots invisibly
+     because the resolver's `covered` set collapses duplicates), which would
+     explain the record count without a code bug, or whether the coverage
+     check itself has a gap this smoke test wasn't built to catch.
+   - Run 2 (same profile, same code): all 26 usable carriers present, but
+     Sage Vave HO3 and Sage Wilshire HO3 EACH appear twice (30 total
+     records for 26 distinct carriers) -- no omission this time.
+   - Both runs' JSON parsed without error; this is a completeness issue, not
+     a parseability one. Before this prototype goes past internal testing,
+     capture a failing run's raw JSON (not just the post-parse `results`)
+     and confirm whether `_add_fixed_rows` is actually blind to duplicate-
+     masking-an-omission, or whether run 1's specific raw output had some
+     other shape. Zero-API once a raw sample is in hand -- reuse the replay
+     harness in verification/test_eligibility_matrix.py.
+
 1. **What's unvalidated on Luna.** Every Tier 2 baseline in this suite (the
    pipeline's and the chat tab's) was measured against Sonnet's output, not
    Luna's. On the pipeline side specifically, four model-text consumers can
