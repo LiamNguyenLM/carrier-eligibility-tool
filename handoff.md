@@ -62,6 +62,65 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     cutover, and the tier/pricing-section exclusion stays in place for
     Trust and LLC.
 
+- **2026-09-29 — Ship a PROTOTYPE on gpt-6-luna, both surfaces, for internal
+  testing only (Liam). Jonathan has not cleared this for agents.**
+  - **What changed.** `eligibility_check.ELIGIBILITY_MODEL` and
+    `chat.CHAT_MODEL` both default to `gpt-6-luna` now (previously
+    `claude-sonnet-4-5`). Each model call goes through one dispatch function
+    (`_complete()`), so reverting either surface to Sonnet is one env var.
+  - **The chat tab's confidentiality GATE is removed** (Liam's decision,
+    carried over from the earlier Luna plan). It used to skip a golden test
+    case when `CHAT_MODEL` was a third-party provider and the case would
+    send a guide that restricts its own redistribution.
+    `guides.confidentiality_markings()` / `is_confidential()` stay, as a
+    fact about the documents, not a runtime block. **The 17 of 40 guides
+    that carry a marking, and so now go to a non-Anthropic provider by
+    default:** CHUBB_HO, Foremost_DP3_and_HO3, Progressive_HO3,
+    Progressive_HO6, and the whole Sage family (Auros, Markel HO3/DP3,
+    Occidental HO3/DP3, SURE HO3/DP3, SafePort HO3/DP3, Trium, Vave
+    HO3/DP3, Wilshire). Full markings, per program, are one call:
+    `guides.confidentiality_markings(program)` in a Python shell, or
+    `guides.unmarked_programs()` for the 23 that carry none.
+  - **Not done this round (see "Open work" below): the Step 2 baseline
+    tier, Step 3's quote-in-own-guide guard and Vave fix, and the full
+    Luna-vs-Sonnet comparison with a measured noise floor.** The suite
+    itself is pinned to Sonnet regardless of these defaults
+    (`verification/conftest.py`), so its numbers are unaffected; only a
+    real deployment or an explicit env-var override exercises Luna.
+  - **Smoke test, not a sweep:** one pipeline run each on STANDARD and
+    OWNERSHIP_BASE/LLC, one chat-tab question. See the report for this
+    round for the result.
+
+## Open work, in priority order (2026-09-29)
+
+1. **What's unvalidated on Luna.** Every Tier 2 baseline in this suite (the
+   pipeline's and the chat tab's) was measured against Sonnet's output, not
+   Luna's. On the pipeline side specifically, four model-text consumers can
+   change a verdict by keying on the model's own wording:
+   `_strip_contradicted_property_claims` (the OQ-1 guard),
+   `_drop_manufactured_pool_questions`, `_hold_for_unresolved_topic`, and
+   the Sage FPC upgrade in `_apply_structured_overrides`. None of these has
+   been checked against how Luna phrases the same facts.
+2. **Step 3:** the quote-in-own-guide guard (the ARI (HOA+)/(HOB)
+   cross-citation xfail) and Vave's roof-age predicate fix (needs
+   "Exclusion" as well as "excluded").
+3. **The full Luna-vs-Sonnet comparison, with a noise floor.** Run Sonnet
+   twice as two independent sets on the same commit before comparing either
+   to Luna — Allied Trust/Trust went 0/3 → 3/3 REFER on byte-identical
+   input in this round's own re-run, so a 3-of-3 "consistent" result is
+   provisional until it is checked against Sonnet's own variance.
+4. **Compact output** (verification/COMPACT_OUTPUT_INVENTORY.md, on the
+   compact-output branch) — measurement done, format not built.
+5. **Second homes:** route Seasonal/Secondary Home to HO and DP carriers,
+   let each guide's own occupancy rule decide, turn the occupancy guarantee
+   on for those two occupancies.
+6. **The intake fields:** pool fence height, self-latching gate, miles to
+   fire station, feet to hydrant (all optional).
+7. **Allied Trust trust-to-REFER** (0/3 or 3/3 across recorded runs, not
+   yet a stable fix) and **CHUBB's insufficiency on guide silence** (its
+   guide has no PPC/roof-age/pool rule at all; SYSTEM_INSTRUCTIONS says
+   silence is unrestricted, and the model does not always follow that).
+
 ## Updating carrier guides in production
 
 Uploads happen in the app on Liam's computer, and **they never reach
@@ -72,9 +131,17 @@ into an EMPTY volume, or when `FORCE_RESEED=1` is set.
 The DD-1, DD-2 and DD-4 re-uploads and the Centauri HO3 fix
 (`verification/DATA_DEFECTS.md`) all follow this path:
 
-1. **Upload locally.** In the local app's Manage Carriers tab, remove the bad
-   record and upload the correct PDF under the same carrier name. If the
-   carrier is NEW, add its name to `expected_programs.txt`.
+1. **Upload locally, AND replace the file in `carrier_eligibility_pdfs/`.**
+   In the local app's Manage Carriers tab, remove the bad record and upload
+   the correct PDF under the same carrier name. Then also copy the correct
+   PDF into `carrier_eligibility_pdfs/` under the same filename, replacing
+   the wrong one there. **Both steps are required** -- the Manage Carriers
+   upload writes only to the vector store; it does not save the PDF
+   anywhere, and `carrier_eligibility_pdfs/` is the folder `load_docs.py`
+   reads to rebuild the WHOLE database from scratch. Fix only the store and
+   a later full rebuild (see "The rebuild/deploy sequence" below) silently
+   re-ingests the wrong guide, undoing the fix with no error anywhere. If
+   the carrier is NEW, add its name to `expected_programs.txt`.
 2. **Rebuild the seed and commit it.**
    ```powershell
    Remove-Item -Recurse -Force carrier_docs_db_seed

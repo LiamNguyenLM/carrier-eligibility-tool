@@ -57,7 +57,7 @@ with st.sidebar:
         st.session_state.authenticated = False
         st.rerun()
 
-tab1, tab2 = st.tabs(["Eligibility Check", "Manage Carriers"])
+tab1, tab3, tab2 = st.tabs(["Eligibility Check", "Ask the Guides", "Manage Carriers"])
 
 
 # ============================================================
@@ -364,3 +364,144 @@ with tab2:
                 st.success(carrier_name + " added successfully. " +
                            str(chunks_added) + " searchable sections created.")
                 st.info("Switch to the Eligibility Check tab to use it.")
+
+
+# ============================================================
+# TAB 3: ASK THE GUIDES
+# ============================================================
+with tab3:
+    import chat as chat_module
+
+    st.title("Ask the Guides")
+    st.caption(
+        "One-off questions about a carrier's underwriting guide, answered with "
+        "quotes from the guide on file. This does not run an eligibility report."
+    )
+
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+    if "chat_programs" not in st.session_state:
+        st.session_state.chat_programs = []
+
+    col_clear, col_note = st.columns([1, 4])
+    with col_clear:
+        if st.button("Clear chat", key="chat_clear", use_container_width=True):
+            st.session_state.chat_history = []
+            st.session_state.chat_programs = []
+            st.rerun()
+    with col_note:
+        if st.session_state.chat_programs:
+            st.caption(
+                "Follow-up questions will stay on: "
+                + ", ".join(st.session_state.chat_programs)
+            )
+
+    def _render_result(result):
+        """One assistant turn. Warnings before the answer, never after."""
+        for program, defect in result.get("blocked", []):
+            st.error(
+                "**{p}** — this guide cannot be answered from.\n\n{d}\n\n"
+                "Upload the correct PDF on the Manage Carriers tab. This warning "
+                "clears itself once the right document is in place.".format(
+                    p=program, d=defect["detail"]
+                )
+            )
+
+        if result["mode"] == "ambiguous":
+            st.warning(
+                "**\"{phrase}\" matches more than one carrier.** These are different "
+                "insurers with different rules, so I'm not going to pick one for you. "
+                "Which did you mean?".format(phrase=result["phrase"])
+            )
+            for candidate in result["candidates"]:
+                st.markdown("- " + candidate)
+            return
+
+        if result["mode"] == "cross_carrier":
+            grouped = result["grouped"]
+
+            def _section(title, rows, empty):
+                st.markdown("### " + title)
+                if not rows:
+                    st.caption(empty)
+                    return
+                for row in rows:
+                    label = row["program"]
+                    if row["date"]:
+                        label += "  (guide dated " + row["date"] + ")"
+                    with st.expander(label):
+                        if row["detail"]:
+                            st.markdown(row["detail"])
+                        if row["quote"]:
+                            st.markdown("> " + row["quote"])
+
+            _section(
+                "Guide says yes (check the conditions)", grouped["yes"],
+                "No guide affirmatively addresses this.",
+            )
+            _section(
+                "Guide says no", grouped["no"],
+                "No guide excludes this.",
+            )
+            _section(
+                "Guide doesn't address it", grouped["not_addressed"],
+                "Every guide speaks to this.",
+            )
+            st.info(
+                "A guide that doesn't address something has no rule about it. "
+                "That is **not** the same as accepting it — confirm with the "
+                "underwriter before relying on silence."
+            )
+            if result.get("skipped"):
+                st.caption(
+                    "Excluded (no usable document on file): "
+                    + ", ".join(result["skipped"])
+                )
+            return
+
+        if result.get("answer"):
+            if result.get("quotes_verified") is False:
+                st.error(
+                    "**Some quotes below could not be found in the guide they are "
+                    "attributed to.** Treat this answer as unverified and check the "
+                    "PDF directly."
+                )
+                for problem in result["quote_problems"]:
+                    st.markdown(
+                        "- `{reason}` — {quote}".format(
+                            reason=problem["reason"], quote=problem["quote"][:200]
+                        )
+                    )
+            st.markdown(result["answer"])
+
+    # Replay the conversation so far.
+    for turn in st.session_state.chat_history:
+        with st.chat_message(turn["role"]):
+            if turn["role"] == "user":
+                st.markdown(turn["content"])
+            else:
+                _render_result(turn["result"])
+
+    question = st.chat_input("e.g. does Progressive take galvanized plumbing?")
+    if question:
+        with st.chat_message("user"):
+            st.markdown(question)
+
+        with st.chat_message("assistant"):
+            with st.spinner("Reading the guides..."):
+                result = chat_module.ask(
+                    question,
+                    history=[
+                        {"role": t["role"], "content": t.get("content", "")}
+                        for t in st.session_state.chat_history
+                    ],
+                    carried_forward=st.session_state.chat_programs,
+                )
+            _render_result(result)
+
+        st.session_state.chat_history.append({"role": "user", "content": question})
+        st.session_state.chat_history.append(
+            {"role": "assistant", "content": result.get("answer") or "", "result": result}
+        )
+        if result.get("programs"):
+            st.session_state.chat_programs = result["programs"]
