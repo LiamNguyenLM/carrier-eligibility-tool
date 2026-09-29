@@ -41,6 +41,27 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
 - **Centauri HO3** — scanned/image PDF, 0 pages/chunks extracted (pdfplumber can't OCR). Needs either an OCR preprocessing step or manual re-typing as an eligibility-notes text file. Not fixed, by design (needs a decision, not a quick patch).
 - **PPC fix (#8 above) not yet verified against a real audit round** — was built and unit-tested in isolation, but the actual end-to-end effect on Swyfft Lloyd's / the Sage family hasn't been confirmed with real data yet.
 
+## Product decisions (dated)
+
+- **2026-09-28 — The occupancy/ownership guarantee runs for Trust and LLC
+  properties only (Liam).**
+  - **Why.** Across the round-17 verdict diff (main 72e34db vs the guarantee,
+    4 profiles × 3 runs) it made no individual-owner verdict better. It made
+    three worse in 3 of 3 runs: ALT CHUBB, ALT HOAIC and COASTAL ARI (HOA+).
+    CHUBB's was caused directly by the guarantee, which pulled in its
+    "VIII. Tiering Guidelines" section. It also cost about 2 cents a check
+    (+5.2K–6.6K input tokens).
+  - **The trade.** Individual owners give up 19 better citations, for zero
+    extra cost and zero new regressions.
+  - **Verified.** Their captured request is byte-identical to 72e34db's on
+    STANDARD, ALT, COASTAL_PPC4 and OWNERSHIP_BASE.
+  - **Also given up.** CHUBB's clause 2 no longer reaches their prompt, so
+    main's rate of inventing a dwelling type (3 of 20 runs) returns for
+    them. It is tracked as an xfail.
+  - **Next.** The guarantee is switched on for second homes after the Luna
+    cutover, and the tier/pricing-section exclusion stays in place for
+    Trust and LLC.
+
 ## The rebuild/deploy sequence (needed after any pdf_extraction.py, upload_carrier.py, load_docs.py, or eligibility_check.py change)
 
 ```powershell

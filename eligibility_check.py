@@ -470,19 +470,19 @@ _OWNERSHIP_ENTITY = (
     r"|estates?|partnerships?|ira)\b"
 )
 
-# Round 17, Liam's decision: the guarantee is split in two, and only the first
-# half runs for an ordinary customer.
+# Round 17, Liam's decision: the guarantee is split in two.
 #
-#   OCCUPANCY rules -- who must live there, what kind of dwelling. For EVERY
-#   property. This is the CHUBB clause-2 fix itself, and it corrects wrong
-#   citations for owner-occupied customers across ~9 carriers.
+#   OCCUPANCY rules -- who must live there, what kind of dwelling. This is the
+#   CHUBB clause-2 fix itself. It was first run for EVERY property; since
+#   2026-09-28 it runs only inside the Trust / LLC guarantee, and will run on
+#   its own for second homes (see _occupancy_guarantee_applies for why an
+#   individual owner no longer gets it).
 #
 #   ENTITY-OWNERSHIP rules -- trust and LLC/business ownership, exclusions and
 #   permissions alike. ONLY when ownership_type is Trust or LLC. Such a rule
 #   cannot change an individual owner's verdict, and trust/LLC properties are
 #   rare, so the common case should not carry their tokens or spend capped
-#   slots on them. A chunk holding both kinds (Allied Trust's APPLICANT(S)
-#   section) still comes in for an individual through its occupancy wording.
+#   slots on them.
 _OCCUPANCY_RULE_RE = re.compile(
     r"owner[- ]?occup(?:ied|ant|ancy)"
     r"|\beligible persons?\b"
@@ -564,7 +564,10 @@ _DECISIVE_OCCUPANCY_RE = re.compile(
 # Since the Individual-Owner gate, this is the TRUST / LLC cap only.
 MAX_OWNERSHIP_CHUNKS_PER_CARRIER = 6
 
-# Individual Owner carries occupancy rules only, so it gets its own cap.
+# The occupancy-only predicate's cap. It was the Individual Owner cap until
+# 2026-09-28, when individual owners stopped getting the guarantee (see
+# _occupancy_guarantee_applies); it is kept for second homes, the one place
+# occupancy rules alone decide the answer. The sweep that chose it:
 # Swept 1-6 on the occupancy-only predicate against the eight occupancy rules
 # the round-17 tests name, on STANDARD and the clean ownership base profile,
 # with REAL token counts from messages.count_tokens:
@@ -581,6 +584,48 @@ MAX_OWNERSHIP_CHUNKS_PER_CARRIER = 6
 MAX_OCCUPANCY_CHUNKS_PER_CARRIER = 3
 
 _OWNERSHIP_STRUCTURES_WITH_ENTITY_RULES = {"Trust", "LLC"}
+
+
+# Liam's decision, 2026-09-28: the guarantee runs only where occupancy or
+# ownership rules actually decide answers -- Trust and LLC properties today,
+# and second homes once they are routed to HO carriers (after the Luna
+# cutover). For an individual owner the round-17 verdict diff (main 72e34db
+# vs the gated guarantee, 4 profiles x 3 runs) found no verdict made better,
+# three made worse in 3/3 runs -- one of them, CHUBB's tiering section,
+# directly by what the guarantee added -- and 19 better citations, at +5.2K
+# to +6.6K input tokens (about 2 cents) a check. Individual owners trade those
+# 19 citations for zero extra cost and zero new regressions: their prompt is
+# byte-identical to 72e34db's. The occupancy-only predicate and its cap stay;
+# second homes will use them.
+def _occupancy_guarantee_applies(property_details):
+    return property_details.get("ownership_type", "") in _OWNERSHIP_STRUCTURES_WITH_ENTITY_RULES
+
+
+# Tier PLACEMENT is pricing, decided after eligibility. CHUBB's "VIII.
+# Tiering Guidelines": "Risks that qualify for homeowners insurance based on
+# the criteria in sections I-III, become eligible for placement in our
+# Standard Tier ... for risks that qualify for discounted pricing." Its
+# "Discount Tier Conditions" include "Primary residence must be single family
+# or two family home and owner-occupied" -- an occupancy phrase under a
+# pricing heading. Matched without the heading, it rode into the prompt and
+# ALT CHUBB went ELIGIBLE 3/3 -> INSUFFICIENT_INFORMATION 3/3 on "which tier".
+# A retrieval predicate is a phrase search, and a phrase found without its
+# heading is this project's recurring wrong-answer cause.
+#
+# Swept over all 2,491 chunks in the store: of the 8 this pattern hits, only
+# CHUBB's page-8 chunk also matches the guarantee, so it is the only one
+# removed. Bare "tier" is deliberately not a term -- Texas coastal "First
+# Tier" counties appear in 58 chunks.
+_TIER_PLACEMENT_RE = re.compile(
+    r"\btier(?:ing)?\s+(?:conditions|guidelines|placement)\b"
+    r"|\bqualify for (?:the |our )?(?:\w+\s+){0,2}tier\b"
+    r"|\bdiscounted pricing\b",
+    re.I,
+)
+
+
+def _is_tier_placement(content):
+    return bool(_TIER_PLACEMENT_RE.search(content))
 
 # Terms that tie a chunk to one specific Ownership Structure intake value.
 _OWNERSHIP_TERMS = {
@@ -646,15 +691,18 @@ def _mentions_occupancy_eligibility(content):
 
 
 def _mentions_occupancy_rule(content):
-    """Occupancy half only: who lives there, what kind of dwelling. Runs for
-    every property -- see the split above _OCCUPANCY_RULE_RE."""
-    return bool(_OCCUPANCY_RULE_RE.search(content))
+    """Occupancy half only: who lives there, what kind of dwelling. Part of
+    every Trust / LLC guarantee, and on its own the predicate second homes
+    will use -- see _occupancy_guarantee_applies. Never a tier-placement
+    (pricing) section."""
+    return bool(_OCCUPANCY_RULE_RE.search(content)) and not _is_tier_placement(content)
 
 
 def _mentions_ownership_entity_rule(content):
     """Entity-ownership half: trust and LLC/business rules, exclusions and
-    permissions alike. Only for Trust / LLC properties."""
-    return bool(_OWNERSHIP_ENTITY_RULE_RE.search(content))
+    permissions alike. Only for Trust / LLC properties. Never a
+    tier-placement (pricing) section."""
+    return bool(_OWNERSHIP_ENTITY_RULE_RE.search(content)) and not _is_tier_placement(content)
 
 
 def _occupancy_predicate_for(ownership):
@@ -951,11 +999,35 @@ def _normalize_carrier_name(s):
     return "".join(ch for ch in s.upper() if ch.isalnum())
 
 
+def _carrier_words(name, drop_parenthetical=False):
+    s = (name or "").upper().replace("HO-3", "HO3").replace("DP-3", "DP3")
+    if drop_parenthetical:
+        s = re.sub(r"\(.*?\)", " ", s)
+    return set(re.findall(r"[A-Z0-9]+", s))
+
+
 def _resolve_structured_carrier(reported_name, canonical_names):
     """The model restates carrier names in its own JSON output rather than
     echoing the exact DB metadata string -- resolve against the known
     carrier list the same tolerant way is_combined_program (above) already
-    does for the DP3/HO3 heuristic, rather than requiring an exact match."""
+    does for the DP3/HO3 heuristic, rather than requiring an exact match.
+
+    Containment misses a name whose dropped part sits in the MIDDLE: "Orion
+    HO3" for Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3, "HOAIC HO3" for
+    HOAIC_-_TX-HOMEOWNERS-0326_HO3. A miss returned None, and every
+    post-parse guard then skipped that record silently -- 14 of 420 recorded
+    round-17 records, in 6 of 15 calls. So, only when containment finds
+    nothing, a name whose words are a subset of exactly ONE carrier's words
+    resolves to it. Several fits ("Sage HO3") stay unresolved.
+
+    Words in parentheses are NEVER dropped here, although that would also
+    catch "NatGen Custom360 (Landlord)". _citation_attributed_carrier asks
+    about one carrier at a time, and "ARI (HOB)" minus its parenthetical is
+    just "ARI" -- which fits ARI (HOA+) too, so HOB's rule quoted in HOA+'s
+    record stopped being recognised as foreign (caught by
+    test_reproduces_the_exact_ari_finding). A carrier's parenthetical is part
+    of its identity. The Custom360 record is a wrong-guide carrier, left out
+    of the prompt entirely once the data-defect row lands."""
     norm_reported = _normalize_carrier_name(reported_name)
     if not norm_reported:
         return None
@@ -963,7 +1035,9 @@ def _resolve_structured_carrier(reported_name, canonical_names):
         norm_canon = _normalize_carrier_name(canon)
         if norm_canon and (norm_canon in norm_reported or norm_reported in norm_canon):
             return canon
-    return None
+    words = _carrier_words(reported_name)
+    fits = [c for c in canonical_names if words and words <= _carrier_words(c)]
+    return fits[0] if len(fits) == 1 else None
 
 
 def _force_ineligible(result, reason_text):
@@ -2428,11 +2502,14 @@ def check_eligibility(property_details, carrier_subset=None):
     # Trust / LLC properties additionally get entity-ownership rules and a
     # larger cap; an individual owner gets occupancy rules only (Liam's call,
     # round 17 -- see the split above _OCCUPANCY_RULE_RE).
+    #
+    # Since 2026-09-28 it runs only where _occupancy_guarantee_applies says so
+    # (Trust / LLC today); an individual owner's prompt is exactly main's.
     ownership = property_details.get("ownership_type", "")
     occupancy_key = _occupancy_priority_key(ownership)
     occupancy_predicate = _occupancy_predicate_for(ownership)
     occupancy_cap = _occupancy_cap_for(ownership)
-    for carrier in relevant_carriers:
+    for carrier in (relevant_carriers if _occupancy_guarantee_applies(property_details) else []):
         found = guaranteed_carrier_lookup(
             collection, carrier,
             predicate=occupancy_predicate,

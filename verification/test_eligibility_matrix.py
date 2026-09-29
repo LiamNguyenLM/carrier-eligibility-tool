@@ -58,6 +58,9 @@ from eligibility_check import (
     _strip_misattributed_citations,
     _citation_attributed_carrier,
     _resolve_structured_carrier,
+    _carrier_words,
+    _occupancy_guarantee_applies,
+    _is_tier_placement,
     _mentions_solar,
     _mentions_protection_class,
     _mentions_pool_rule,
@@ -1270,21 +1273,20 @@ class TestBaselineStandardProfile:
 
     @pytest.mark.xfail(
         reason="NOT DECIDABLE FROM THE CURRENT INTAKE -- reclassified round 17, not a model "
-        "error. Retrieval is fixed: clause 2 reaches every STANDARD prompt. But CHUBB's two "
-        "clauses split on dwelling type / unit count (clause 1: <=2-unit dwelling; clause 2: a "
-        "house, condo, ...), the intake collects neither, and BOTH make an owner-occupant "
-        "eligible -- so citing clause 1 is one of two valid answers to what the model is told. "
-        "This test presumes single-family. The real reasoning error (inventing a dwelling type) "
-        "is hard-asserted in test_chubb_reasoning_never_invents_a_dwelling_type. A dwelling-type "
-        "field is Liam's call.",
+        "error. CHUBB's two clauses split on dwelling type / unit count (clause 1: <=2-unit "
+        "dwelling; clause 2: a house, condo, ...), the intake collects neither, and BOTH make an "
+        "owner-occupant eligible. Since 2026-09-28 an individual owner's prompt is main's again "
+        "(the guarantee is Trust/LLC only), so clause 2 does not reach this profile at all. This "
+        "test presumes single-family. A dwelling-type field is Liam's call.",
         strict=False,
     )
     def test_chubb_cites_correct_eligible_persons_clause(self):
-        """Backlog since rounds 9-11. Round 17 root-caused and fixed the
-        RETRIEVAL half -- clause 2 never reached the prompt, so the model
-        could only cite clause 1 (multiple-unit dwellings) for a single-family
-        home. It now reaches every run, and the citation is still wrong; see
-        the xfail reason.
+        """Backlog since rounds 9-11. Round 17 root-caused the RETRIEVAL half
+        -- clause 2 never reached the prompt, so the model could only cite
+        clause 1 (multiple-unit dwellings) for a single-family home. The
+        guarantee that fixed it now runs for Trust / LLC only (Liam,
+        2026-09-28), so for this individual-owner profile it is main's
+        behaviour again; see the xfail reason.
 
         The old assertion was `"house" in citations`, which could PASS while
         the bug was fully present: CHUBB's clause-1 chunk opens "The term
@@ -1325,34 +1327,6 @@ class TestBaselineAltProfile:
         matches = _find_carrier(self.by_carrier, substr)
         assert matches, f"No carrier matching {substr!r} in output: {list(self.by_carrier)}"
         return matches[0]
-
-    # Round 17 verdict diff: ELIGIBLE 3/3 on main, INSUFFICIENT_INFORMATION 3/3
-    # with the gated guarantee. Non-strict: this class is one run, the finding
-    # is a 3-run one, so a single lucky pass must not fail the suite -- it
-    # shows as XPASS in -rA.
-    @pytest.mark.xfail(
-        reason="VERDICT-CHANGING, NOT FIXED (round 17 verdict diff, 3/3): the guarantee adds "
-        "CHUBB's 'Tiering Guidelines' chunk and the model holds CHUBB on 'which tier' -- tier "
-        "placement comes after eligibility. See test_chubb_tiering_chunk_is_not_added_to_the_alt_prompt.",
-        strict=False,
-    )
-    def test_chubb_is_not_insufficient_on_tier_placement(self):
-        r = self._find("CHUBB")
-        blob = " ".join(r.get("missing_info", [])).lower()
-        assert not (r["status"] == "INSUFFICIENT_INFORMATION" and "tier" in blob), r
-
-    @pytest.mark.xfail(
-        reason="VERDICT-CHANGING, NOT FIXED (round 17 verdict diff, 3/3): HOAIC HO3 held on "
-        "'which program (HOB/HO3/HO2)' -- the carrier record already says HO3 -- or on whether a "
-        "roof payment schedule (loss settlement, not eligibility) applies. Its prompt sections were "
-        "identical on main, which answered ELIGIBLE 3/3.",
-        strict=False,
-    )
-    def test_hoaic_is_not_insufficient_on_program_or_roof_schedule(self):
-        r = self._find("HOAIC")
-        blob = " ".join(r.get("missing_info", [])).lower()
-        assert not (r["status"] == "INSUFFICIENT_INFORMATION"
-                    and re.search(r"program|payment schedule|roof schedule", blob)), r
 
     def test_mercury_no_spurious_ppc10_question(self):
         # Round 10 bug (fixed): asked about PPC 10 eligibility for a PPC-1 customer.
@@ -3636,9 +3610,10 @@ class TestRound17OccupancyEligibilityGuarantee:
         assert any(_mentions_occupancy_eligibility(c.page_content) for c in chunks)
 
     @pytest.mark.parametrize("carrier,probe", _OCCUPANCY_RULES)
-    def test_every_occupancy_rule_matches_the_individual_owner_predicate(self, carrier, probe):
-        """An individual owner's guarantee runs the OCCUPANCY half only, so the
-        CHUBB clause-2 fix for ordinary customers rests entirely on it."""
+    def test_every_occupancy_rule_matches_the_occupancy_only_predicate(self, carrier, probe):
+        """The OCCUPANCY half on its own. No property uses it alone today --
+        individual owners no longer get the guarantee (2026-09-28) -- but
+        second homes will, once they are routed to HO carriers."""
         chunks = [c for c in _all_chunks(carrier) if probe in _norm(c.page_content)]
         assert any(_mentions_occupancy_rule(c.page_content) for c in chunks)
 
@@ -3704,12 +3679,21 @@ class TestRound17OccupancyEligibilityGuarantee:
         key = _occupancy_priority_key("Individual Owner")
         assert key(rule) < key(toc)
 
-    def test_chubb_clause_2_reaches_the_standard_prompt(self):
-        """THE EXACT AUDIT SCENARIO. Before the guarantee this was absent
-        from the STANDARD prompt on every run, so no model could cite it."""
-        assert "a house, a condominium unit" in _captured_prompt(STANDARD_PROFILE)
+    @pytest.mark.parametrize("ownership", ["Trust", "LLC"])
+    def test_chubb_clause_2_reaches_the_prompt_where_the_guarantee_runs(self, ownership):
+        """THE ORIGINAL AUDIT SCENARIO, on the properties the guarantee still
+        runs for. Before it, clause 2 was absent from the STANDARD prompt on
+        every run, so no model could cite it."""
+        assert "a house, a condominium unit" in _captured_prompt(
+            dict(STANDARD_PROFILE, ownership_type=ownership))
 
-    @pytest.mark.parametrize("ownership", ["Individual Owner", "Trust", "LLC"])
+    def test_chubb_clause_2_is_back_to_mains_behaviour_for_an_individual_owner(self):
+        """Liam, 2026-09-28: an individual owner's prompt is exactly main's,
+        where clause 2 did not reach STANDARD. Pinned so a change that quietly
+        re-enables the guarantee for individuals shows up here by name."""
+        assert "a house, a condominium unit" not in _captured_prompt(STANDARD_PROFILE)
+
+    @pytest.mark.parametrize("ownership", ["Trust", "LLC"])
     def test_the_whole_family_reaches_the_prompt_for_every_ownership_type(self, ownership):
         """Every project profile is "Individual Owner", so before round 17 no
         baseline, sweep or audit had ever exercised the Trust or LLC intake
@@ -3722,12 +3706,11 @@ class TestRound17OccupancyEligibilityGuarantee:
         and CHUBB, which only surfaced once the cap was swept properly (see
         MAX_OCCUPANCY_CHUNKS_PER_CARRIER). Every rule, every ownership type.
 
-        Since the Individual-Owner gate, "every rule" means the rules that can
-        matter for that ownership type: occupancy rules for everyone, plus
-        entity-ownership rules for Trust and LLC."""
+        Individual Owner is no longer a case: since 2026-09-28 the guarantee
+        runs for Trust and LLC only, and the individual-owner prompt is pinned
+        to main's by test_the_guarantee_adds_nothing_for_an_individual_owner."""
         prompt = _captured_prompt(dict(STANDARD_PROFILE, ownership_type=ownership))
-        expected = _OCCUPANCY_RULES + (
-            _ENTITY_OWNERSHIP_RULES if ownership in ("Trust", "LLC") else [])
+        expected = _OCCUPANCY_RULES + _ENTITY_OWNERSHIP_RULES
         missing = [f"{c}: {p!r}" for c, p in expected if p not in prompt]
         assert not missing, "occupancy rules missing from the prompt:\n  " + "\n  ".join(missing)
 
@@ -3953,6 +3936,13 @@ def test_chubb_eligible_persons_never_decides_a_decline(chubb_standard_runs):
 
 
 @pytest.mark.baseline
+@pytest.mark.xfail(
+    reason="ACCEPTED WITH LIAM'S 2026-09-28 DECISION, not a new regression: the guarantee now runs "
+    "for Trust/LLC only, so this individual-owner STANDARD prompt is main's again, without clause 2. "
+    "Measured rates: main's prompt invented a dwelling type in 3/20 round-15 runs; with clause 2 "
+    "present, 0/3. Non-strict: a 3-run fixture at ~15%/run passes most of the time.",
+    strict=False,
+)
 def test_chubb_reasoning_never_invents_a_dwelling_type(chubb_standard_runs):
     """(c) -- the only part of the old backlog item that is a real reasoning
     error. Round 15's recorded runs did it 3/20."""
@@ -4253,24 +4243,33 @@ def _captured_sections(profile):
 _SECTIONS_WITHOUT_CACHE = {}
 
 
-def _captured_sections_without_occupancy_guarantee(profile):
-    """Same capture with the occupancy guarantee switched off for an
-    individual owner, to tell what the GUARANTEE adds from what other
-    retrieval paths already bring. Restored in finally."""
-    key = tuple(sorted(profile.items()))
+def _captured_sections_patched(profile, **patches):
+    """_captured_sections with pipeline attributes temporarily replaced, to
+    tell what one mechanism adds from what other retrieval paths bring.
+    Cached per (profile, patch names); never pollutes the unpatched cache;
+    restored in finally."""
+    key = (tuple(sorted(profile.items())), tuple(sorted(patches)))
     if key not in _SECTIONS_WITHOUT_CACHE:
         import eligibility_check as ec
-        real = ec._mentions_occupancy_rule
-        saved = _SECTIONS_CACHE.pop(key, None)
-        ec._mentions_occupancy_rule = lambda content: False
+        plain = tuple(sorted(profile.items()))
+        real = {name: getattr(ec, name) for name in patches}
+        saved = _SECTIONS_CACHE.pop(plain, None)
+        for name, value in patches.items():
+            setattr(ec, name, value)
         try:
             _SECTIONS_WITHOUT_CACHE[key] = _captured_sections(profile)
         finally:
-            ec._mentions_occupancy_rule = real
-            _SECTIONS_CACHE.pop(key, None)   # never let the switched-off capture be reused
+            for name, value in real.items():
+                setattr(ec, name, value)
+            _SECTIONS_CACHE.pop(plain, None)   # never let a patched capture be reused
             if saved is not None:
-                _SECTIONS_CACHE[key] = saved
+                _SECTIONS_CACHE[plain] = saved
     return _SECTIONS_WITHOUT_CACHE[key]
+
+
+def _captured_sections_without_occupancy_guarantee(profile):
+    """The same capture with the occupancy guarantee switched off entirely."""
+    return _captured_sections_patched(profile, _occupancy_guarantee_applies=lambda details: False)
 
 
 def _unreached(ownership, probes):
@@ -4343,37 +4342,32 @@ class TestRound17OwnershipRuleRetrieval:
         boosted = key(Document(page_content=text, metadata={"carrier": "X"}))[0] is False
         assert boosted is is_ownership
 
-    # ---- the Individual-Owner gate (Liam's decision, round 17), both ways ----
+    # ---- the gate (Liam's decisions, round 17 and 2026-09-28), both ways ----
 
-    @pytest.mark.parametrize("fragment", [
-        "including llcs, is eligible",                                     # Sage Markel
-        "in the name of an llc, llp, or corporation are only eligible",    # Sage Vave
-        "any type of non-personal entity",                                 # Travelers
-        "owned in the name of a trust or ira must be referred",           # Progressive HO3
-        "owned in the name of a trust are eligible if the grantor",       # Allied Trust
-        "deeded to or owned by a corporation, limited liability company",  # Orion
-        "properties owned by an llc, corporation",                         # Mercury
-        "llcs owning more than 10 dwellings",                              # NatGen Premier
+    @pytest.mark.parametrize("ownership,applies", [
+        ("Individual Owner", False), ("Trust", True), ("LLC", True), ("", False),
     ])
-    @pytest.mark.parametrize("profile", ["STANDARD", "OWNERSHIP_BASE"])
-    def test_the_guarantee_adds_no_entity_only_rule_to_an_individual_prompt(self, fragment, profile):
-        """Trust and LLC properties are rare, so the common case must not pay
-        for their rules through the guarantee.
+    def test_the_guarantee_runs_for_trust_and_llc_only(self, ownership, applies):
+        assert _occupancy_guarantee_applies(dict(STANDARD_PROFILE, ownership_type=ownership)) is applies
 
-        The claim is deliberately "the guarantee ADDS none", not "none is in
-        the prompt". A first version asserted absence outright; it held on
-        STANDARD and failed on the clean profile, where Progressive HO3's
-        trust-referral bullet and NatGen Premier's "LLCs owning more than 10
-        dwellings" bullet arrive with the guarantee switched OFF -- they sit
-        inside general ineligible-risk lists the main query already fetches.
-        So: anything present with the guarantee must be present without it."""
-        base = STANDARD_PROFILE if profile == "STANDARD" else OWNERSHIP_BASE_PROFILE
-        prof = dict(base, ownership_type="Individual Owner")
-        _, with_guarantee = _captured_sections(prof)
-        if fragment not in with_guarantee:
-            return
-        _, without = _captured_sections_without_occupancy_guarantee(prof)
-        assert fragment in without, f"the occupancy guarantee added {fragment!r} for an individual owner"
+    @pytest.mark.parametrize("profile", [STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE,
+                                         OWNERSHIP_BASE_PROFILE],
+                             ids=["STANDARD", "ALT", "COASTAL_PPC4", "OWNERSHIP_BASE"])
+    def test_the_guarantee_adds_nothing_for_an_individual_owner(self, profile):
+        """Liam, 2026-09-28: individual-owner checks go back to exactly what
+        main does. Measured once against 72e34db itself -- the whole captured
+        request, every field, byte-identical on all four profiles. This is the
+        DB-independent form of that claim, so it survives a re-upload: with
+        the guarantee switched off entirely, nothing in the prompt changes."""
+        prof = dict(profile, ownership_type="Individual Owner")
+        assert _captured_sections(prof) == _captured_sections_without_occupancy_guarantee(prof)
+
+    @pytest.mark.parametrize("ownership", ["Trust", "LLC"])
+    def test_the_guarantee_still_adds_rules_for_trust_and_llc(self, ownership):
+        """The other half, so the gate cannot be satisfied by switching the
+        guarantee off for everyone."""
+        prof = dict(OWNERSHIP_BASE_PROFILE, ownership_type=ownership)
+        assert _captured_sections(prof) != _captured_sections_without_occupancy_guarantee(prof)
 
     def test_each_ownership_type_gets_its_own_predicate_and_cap(self):
         assert _occupancy_predicate_for("Individual Owner") is _mentions_occupancy_rule
@@ -4390,9 +4384,10 @@ class TestRound17OwnershipRuleRetrieval:
     ])
     def test_entity_rules_are_not_occupancy_rules(self, text):
         """The split has to be clean in both halves: an entity rule must match
-        the entity half and NOT the occupancy half, or it rides into every
-        individual's prompt. Orion's is the case that needed "deeded to"
-        narrowed to "deeded to the named insured"."""
+        the entity half and NOT the occupancy half, or it rides into a prompt
+        that only asked for occupancy rules (second homes, once routed).
+        Orion's is the case that needed "deeded to" narrowed to "deeded to
+        the named insured"."""
         assert _mentions_ownership_entity_rule(text)
         assert not _mentions_occupancy_rule(text)
 
@@ -4411,13 +4406,6 @@ class TestRound17OwnershipRuleRetrieval:
         condition, matching nothing."""
         missing = _unreached("Trust", _TRUST_RULE_PROBES)
         assert not missing, f"trust rules missing from a Trust property's prompt: {missing}"
-
-
-def _carrier_words(name, drop_parenthetical=False):
-    s = (name or "").upper().replace("HO-3", "HO3").replace("DP-3", "DP3")
-    if drop_parenthetical:
-        s = re.sub(r"\(.*?\)", " ", s)
-    return set(re.findall(r"[A-Z0-9]+", s))
 
 
 def _resolve_results(results, canonical, universe=()):
@@ -4756,18 +4744,66 @@ def test_names_missing_their_middle_are_real_owner_occupied_carriers():
 
 
 @pytest.mark.retrieval
-@pytest.mark.xfail(
-    reason="DEFERRED (round 17): the PIPELINE's _resolve_structured_carrier is containment-only, "
-    "so these names resolve to None and the record skips every post-parse guard -- 14/420 "
-    "recorded records, in 6/15 calls. Replaying all 15 with a fixed resolver: 0 verdict "
-    "changes, 5 lost pool-spec notes. A pipeline change; needs the baseline tier before merge.",
-    strict=True,
-    raises=AssertionError,
-)
-@pytest.mark.parametrize("written, canonical", _NAMES_MISSING_THEIR_MIDDLE)
+@pytest.mark.parametrize("written, canonical", [
+    (w, c) for w, c in _NAMES_MISSING_THEIR_MIDDLE if "(" not in w
+])
 def test_pipeline_resolves_the_carrier_names_the_model_actually_writes(written, canonical):
+    """Fixed 2026-09-28. Containment alone resolved these to None, and every
+    post-parse guard skipped the record -- 14 of 420 recorded round-17
+    records, in 6 of 15 calls. ("NatGen Custom360 (Landlord)" is deliberately
+    not resolved by the pipeline -- see the next test.)"""
     carriers = get_carriers_for_occupancy("Owner Occupied")
     assert _resolve_structured_carrier(written, carriers) == canonical
+
+
+@pytest.mark.retrieval
+@pytest.mark.parametrize("label, carrier", [
+    ("ARI (HOB)", "ARI_(HOA+)"),
+    ("ARI (HOA+)", "ARI_(HOB)"),
+    ("Swyfft Benchmark (Surplus)", "Swyfft_-_Benchmark_(Admitted)_HO3"),
+])
+def test_pipeline_resolver_never_drops_a_carriers_own_parenthetical(label, carrier):
+    """_citation_attributed_carrier asks one carrier at a time. A first cut
+    of the fallback dropped parentheticals, so "ARI (HOB)" became "ARI" and
+    fitted ARI (HOA+) -- and HOB's rule in HOA+'s record stopped being
+    recognised as foreign."""
+    assert _resolve_structured_carrier(label, [carrier]) is None
+
+
+@pytest.mark.retrieval
+@pytest.mark.parametrize("written", [
+    "Sage HO3",                  # fits every Sage HO3 program
+    "Swyfft Benchmark HO3",      # fits Admitted and Surplus
+    "NatGen HO3",                # fits Custom360 and Premier
+])
+def test_pipeline_resolver_never_picks_among_several_carriers(written):
+    carriers = get_carriers_for_occupancy("Owner Occupied")
+    assert _resolve_structured_carrier(written, carriers) is None
+
+
+@pytest.mark.retrieval
+def test_pipeline_resolver_fallback_runs_only_when_containment_finds_nothing(monkeypatch):
+    """Every name containment already resolved resolves exactly as before:
+    with the fallback made to blow up, canonical names and the usual
+    date-dropped spellings still resolve."""
+    import eligibility_check as ec
+    carriers = get_carriers_for_occupancy("Owner Occupied")
+
+    def boom(*a, **k):
+        raise AssertionError("fallback reached for a name containment resolves")
+    monkeypatch.setattr(ec, "_carrier_words", boom)
+    for name in list(carriers) + ["Mercury HO3", "Allied Trust HO3", "Sage - SURE HO-3"]:
+        assert ec._resolve_structured_carrier(name, carriers) is not None, name
+
+
+@pytest.mark.retrieval
+@pytest.mark.parametrize("label, expected", [
+    ("Orion HO3", "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3"),   # now attributable
+    ("Sage HO3", None),                                               # still ambiguous
+])
+def test_citation_labels_resolve_by_the_same_rule(label, expected):
+    carriers = get_carriers_for_occupancy("Owner Occupied")
+    assert _citation_attributed_carrier(f"{label}: 'some quoted rule'", carriers) == expected
 
 
 # Vave's roof age-band table, verbatim from its guide. Roof age is a
@@ -4815,12 +4851,15 @@ def test_vave_roof_age_table_reaches_the_prompt(profile):
 # ---------------------------------------------------------------------------
 # Round 17 verdict diff (main 72e34db vs the gated guarantee, Individual
 # Owner, 4 profiles x 3 runs). Three (profile, carrier) statuses changed in
-# 3/3 runs on each side; all three read as WORSE on the gated side. One is
-# caused by the guarantee's own content (CHUBB); in the other two the
-# carrier's prompt sections were byte-identical and the verdict moved anyway.
+# 3/3 runs on each side, all worse on the gated side: ALT CHUBB, ALT HOAIC,
+# COASTAL ARI (HOA+). Liam's decision (2026-09-28) takes individual owners
+# off the guarantee, so all three are main's behaviour again. What remains
+# below is what outlives that decision: the tier exclusion, because the same
+# CHUBB section would reach Trust / LLC prompts, and the ARI record, because
+# a quote relabelled from a sibling carrier can come from ANY prompt.
 # ---------------------------------------------------------------------------
 
-# CHUBB's page-8 chunk as it reaches the ALT prompt. Its heading, one chunk
+# CHUBB's page-8 chunk as it reaches the prompt. Its heading, one chunk
 # earlier, is "VIII. Tiering Guidelines -- Risks that qualify for homeowners
 # insurance based on the criteria in sections I-III, become eligible for
 # placement in our Standard Tier ... for risks that qualify for discounted
@@ -4831,36 +4870,52 @@ _CHUBB_TIER_CHUNK = (
     "$5,000,000 AND Year Built Ten Years Old - House: Coverage A OR $5,000,000 or greater Discount "
     "Tier Conditions • Must satisfy Standard Tier Conditions • Primary residence must be single "
     "family or two family home and owner-occupied")
-_TIER_PLACEMENT_XFAIL = pytest.mark.xfail(
-    reason="VERDICT-CHANGING, NOT FIXED (round 17 verdict diff): the occupancy guarantee matches "
-    "'owner-occupied' under CHUBB's 'VIII. Tiering Guidelines' (pricing placement, after "
-    "eligibility) and adds that chunk; ALT CHUBB went ELIGIBLE 3/3 -> INSUFFICIENT_INFORMATION "
-    "3/3 on 'which tier'. A guarantee change; needs the baseline tier before merge.",
-    strict=True,
-    raises=AssertionError,
-)
 
 
 @pytest.mark.retrieval
-@_TIER_PLACEMENT_XFAIL
 @pytest.mark.parametrize("text", [
     _CHUBB_TIER_CHUNK,                                                  # CHUBB, verbatim
     "Preferred Tier Conditions: all Standard Tier Conditions must be met, and the dwelling "
     "must be owner-occupied with no business conducted on premises.",   # same kind of rule
 ], ids=["chubb-verbatim", "second-phrasing"])
 def test_tier_placement_conditions_are_not_occupancy_rules(text):
+    assert _is_tier_placement(text)
     assert not _mentions_occupancy_rule(text)
 
 
 @pytest.mark.retrieval
-@_TIER_PLACEMENT_XFAIL
-def test_chubb_tiering_chunk_is_not_added_to_the_alt_prompt():
-    """THE EXACT DIFF SCENARIO: absent from main's ALT prompt, added by the guarantee."""
-    per, _ = _captured_sections(ALT_PROFILE)
-    chubb = per.get("CHUBB_HO_-_05.22.2026")
-    if not chubb:
-        pytest.fail("CHUBB has no section in the ALT prompt at all")    # not the xfail's reason
-    assert "discount tier conditions" not in chubb.lower()
+def test_tier_placement_conditions_are_not_ownership_rules_either():
+    assert not _mentions_ownership_entity_rule(
+        "Ultra Preferred Tier Conditions: the residence may not be held in a trust or LLC and is "
+        "ineligible for this tier if it is.")
+
+
+@pytest.mark.retrieval
+@pytest.mark.parametrize("text", [
+    "Dwellings in First Tier counties must be owner occupied.",   # coastal tier, not pricing
+    "Tier 1 and Tier 2 coastal counties: dwellings must be owner occupied.",
+])
+def test_coastal_tiers_are_not_tier_placement(text):
+    """Bare "tier" is Texas coastal geography in 58 chunks of this corpus."""
+    assert not _is_tier_placement(text)
+    assert _mentions_occupancy_rule(text)
+
+
+@pytest.mark.retrieval
+@pytest.mark.parametrize("ownership", ["Trust", "LLC"])
+def test_chubb_tiering_chunk_stays_out_of_trust_and_llc_prompts(ownership):
+    """The case the exclusion is kept for once individual owners are off the
+    guarantee. The premise is checked too: with the exclusion switched off,
+    the guarantee DOES add the chunk -- so a pass means the exclusion is
+    doing the work, not that CHUBB's section simply never ranks."""
+    chubb = "CHUBB_HO_-_05.22.2026"
+    prof = dict(ALT_PROFILE, ownership_type=ownership)
+    without_exclusion, _ = _captured_sections_patched(prof, _is_tier_placement=lambda content: False)
+    assert "discount tier conditions" in without_exclusion.get(chubb, ""), \
+        "premise: without the exclusion the guarantee adds CHUBB's tiering chunk"
+    per, _ = _captured_sections(prof)
+    assert per.get(chubb), "CHUBB has no section in the prompt at all"
+    assert "discount tier conditions" not in per[chubb]
 
 
 def _replayed_run(profile, raw_text):
@@ -4918,10 +4973,11 @@ _ARI_HOA_PLUS_COASTAL_RECORD = {
 
 @pytest.mark.retrieval
 @pytest.mark.xfail(
-    reason="VERDICT-CHANGING, NOT FIXED (round 17 verdict diff): COASTAL_PPC4 ARI (HOA+) is "
-    "INELIGIBLE in 3/3 gated runs (0/3 main) on ARI (HOB)'s home-age rule, cited under HOA+'s own "
-    "label -- label-only misattribution checks cannot see it. Both ARI sections were identical "
-    "in the two prompts.",
+    reason="VERDICT-CHANGING, NOT FIXED: a real model record (COASTAL_PPC4 ARI (HOA+), 3/3 in the "
+    "round-17 gated runs) declined on ARI (HOB)'s home-age rule quoted under HOA+'s own label. "
+    "Individual owners are off the guarantee now, but nothing in the pipeline checks a quote "
+    "against the cited carrier's own document, so any prompt can produce it. Step 3's "
+    "quote-in-own-guide guard is the fix.",
     strict=True,
     raises=AssertionError,
 )
