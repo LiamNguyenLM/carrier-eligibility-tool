@@ -5209,3 +5209,16 @@ class TestProductCheckCalibration:
             pytest.skip("Sage_-_Occidental_HO3 no longer self-describes as DP3 -- DD-4 fixed?")
         assert "Sage_-_Occidental_HO3" in _product_mismatches()
         assert "reference rule" in _product_mismatches()["Sage_-_Occidental_HO3"]
+
+    def test_the_runtime_detector_agrees_with_this_check(self):
+        """data_defects.py runs the same product rule for the live app. Two
+        copies of one rule drift apart, so pin them together: every record
+        this check flags is a runtime defect too (possibly under another
+        kind -- NatGen Custom360 is DUPLICATE_DOCUMENT first), and every
+        runtime WRONG_PRODUCT record is flagged here."""
+        import data_defects
+        runtime = data_defects.defective_programs()
+        mismatched = set(_product_mismatches())
+        assert mismatched <= set(runtime), mismatched - set(runtime)
+        wrong_product = {p for p, d in runtime.items() if d["kind"] == data_defects.WRONG_PRODUCT}
+        assert wrong_product <= mismatched, wrong_product - mismatched

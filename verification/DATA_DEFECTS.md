@@ -5,12 +5,16 @@ is given and reasons about it correctly, which is exactly what makes these
 dangerous: a mis-filed PDF produces confident, well-cited answers about the
 *wrong program* rather than an error anyone would notice.
 
-Both were found in round 16, and neither was found by looking for it — one
-surfaced because a manual audit asked an unrelated question about a
+DD-1 and DD-2 were found in round 16, and neither was found by looking for
+it — one surfaced because a manual audit asked an unrelated question about a
 condo-claim citation, and the other only because that first one prompted a
-sweep of the whole corpus for duplicate content.
+sweep of the whole corpus for duplicate content. DD-3 was found in round 17
+while building the chat tab, and is a different shape again: a record holding
+no document rather than the wrong one. DD-4 was found in round 17 too.
 
-Two standing checks now cover this class on every run --
+`data_defects.defective_programs()` is the RUNTIME list, and it derives all
+four rather than naming them, so each clears itself once the PDF is fixed.
+Two standing tests also cover part of this class on every run --
 `test_no_two_carriers_hold_the_same_document` and
 `test_each_document_reads_like_the_product_its_filename_claims`. Both are
 `xfail` naming the defects below; both XPASS once the PDFs are fixed, which
@@ -18,7 +22,6 @@ is the signal to **remove their xfail markers** (so a future mis-ingest fails
 the build) and delete this file. See "What the two checks do and do not
 cover" at the bottom -- they are complementary, and each known defect is
 caught by only one of them.
-
 ---
 
 ## DD-1 — `NatGen_Custom360_HO3` holds the DP3 (Landlord) document
@@ -90,6 +93,61 @@ document for.
 
 **Fix:** upload the real Liberty Mutual **HO6** (Condominium Unit-Owners)
 guide over the HO6 record.
+
+---
+
+## DD-3 — `Centauri_-_HO3_-_05.01.2026` produced no text at all
+
+**Found round 17**, while building the chat tab. Not found by either standing
+check, and neither could have found it.
+
+```
+Centauri_-_HO3_-_05.01.2026    0 chunks    (3.5 MB PDF on disk)
+Centauri_-_DP3_-_11.16.2022   38 chunks
+```
+
+The PDF is a scan with no text layer, so extraction yielded nothing and the
+loader wrote zero chunks. The program is therefore **absent from the vector
+store entirely** — 40 carriers are indexed and this is not one of them.
+
+This is a third shape, distinct from DD-1 and DD-2. Both of those are records
+holding the WRONG document; this is a record holding NO document. It is the
+most invisible of the three:
+
+- The eligibility pipeline never considers the program, so it never appears in
+  any output to be noticed as wrong.
+- `test_no_two_carriers_hold_the_same_document` and
+  `test_each_document_reads_like_the_product_its_filename_claims` both iterate
+  over records that EXIST in the store. A record that produced no chunks is
+  not there to be checked by either one.
+
+It was reachable from the chat tab, though, and dangerously: building the
+carrier-name index from stored programs alone made "Centauri HO3 roof age"
+resolve to **Centauri's DP3 (dwelling fire) guide**, because the HO3 record was
+not a candidate and the product filter had nothing to narrow to. An agent
+asking a homeowners question would have been handed a dwelling-fire rule with
+nothing flagged.
+
+Note the difference from DD-1, because it is easy to overstate the parallel:
+NatGen's mis-filed document really is *titled* "Texas Landlord" and says
+"landlord" 31 times. Centauri's DP3 document says "landlord" **zero** times.
+Its only occupancy mention is a single "The home is tenant occupied" — and
+that appears in a list of circumstances requiring underwriting approval prior
+to binding, not as the document's own product identity. So the defect here is
+purely wrong-PRODUCT (dwelling fire answered for a homeowners question); there
+is no landlord-branding tell of the kind that made DD-1 visible on sight.
+
+On the chat-tab branch, `chat.known_programs()` unions the defect list in so
+the program is nameable and can be refused by name.
+
+**Fix:** OCR the Centauri HO3 PDF and re-ingest it, or obtain a text-layer
+copy from the carrier.
+
+**Detection now lives in `data_defects.py`**, which derives all three defects
+rather than listing them, so each clears on its own once the PDF is fixed.
+`NO_TEXT` is detected by comparing the PDFs on disk against the programs in
+the store — the filesystem is the only place a zero-chunk document leaves a
+trace.
 
 ---
 
