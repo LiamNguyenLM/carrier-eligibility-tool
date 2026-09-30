@@ -490,3 +490,40 @@ def centauri_dp3_flat_roof(roof_shape, roof_type):
         f"flat and its material is {roof_type!r}, which is not poured concrete, so the "
         f"exception does not apply."
     ]
+
+
+# ---------------------------------------------------------------------------
+# Sage family ADDRESS rule (Liam, 2026-09-30). Read from every Sage guide:
+#
+#   "Property must be located in: South Texas (meaning a county located
+#    entirely south of 31 degrees North) except Nueces county, or One of the
+#    following counties in East Texas: Bell, Falls, Robertson, Leon, Madison,
+#    Houston, Trinity, and Polk."
+#
+# Carried by Auros, SURE HO-3, SafePort HO-3, Wilshire, Trium (WITHOUT the
+# Nueces exception), and the SURE DP-3, SafePort DP-3 and Occidental DP3/HO3
+# guides ("except in Nueces county"). NOT by Markel or Vave, whose guides say
+# only that the property must be in the state of Texas.
+#
+# The guide lists the eight East Texas counties by name but does NOT list
+# the South Texas ones, so "entirely south of 31 degrees North" is decided
+# from each county's northernmost latitude (texas_counties.csv, U.S. Census
+# Bureau 2023 cartographic boundaries): max latitude < 31.0. All eight named
+# East Texas counties reach north of 31 degrees, which is why the guide names
+# them.
+# ---------------------------------------------------------------------------
+
+SAGE_EAST_TEXAS_COUNTIES = ("Bell", "Falls", "Robertson", "Leon", "Madison", "Houston",
+                            "Trinity", "Polk")
+
+
+def sage_county_in_territory(county, county_max_latitude, nueces_excluded=True):
+    """"IN", "OUT" or "UNKNOWN" for the Sage address rule. Blank or
+    unrecognised county -> UNKNOWN; never a guess."""
+    if not county or county not in county_max_latitude:
+        return "UNKNOWN"
+    if county in SAGE_EAST_TEXAS_COUNTIES:
+        return "IN"
+    if nueces_excluded and county == "Nueces":
+        return "OUT"
+    return "IN" if county_max_latitude[county] < 31.0 else "OUT"

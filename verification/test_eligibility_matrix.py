@@ -102,6 +102,7 @@ from eligibility_check import (
     usable_answer_count,
     _mentions_coverage_a_limit,
     _coverage_a_priority_key,
+    _county_item_present,
 )
 from shared_resources import get_vectorstore
 from profiles import (STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE,
@@ -1361,15 +1362,14 @@ class TestBaselineAltProfile:
         blob = " ".join(r.get("missing_info", [])).lower()
         assert "ppc 10" not in blob and "ppc-10" not in blob
 
-    @pytest.mark.parametrize("carrier_substr", [
-        "Auros",
-        # The id says it on every run: this case reads the DP3 guide filed
-        # under the HO3 name (DD-4). It still guards how the pipeline handles
-        # the text on file, but a pass is NOT evidence about Occidental's HO3
-        # program. Revisit when the real PDF is uploaded.
-        pytest.param("Occidental", id="Occidental-DD4-DP3-doc-not-HO3-evidence"),
-        "Wilshire",
-    ])
+    # CHANGED DELIBERATELY (Liam, 2026-09-30): this used to assert "not
+    # INSUFFICIENT_INFORMATION". ALT has no County, and Auros and Wilshire
+    # only write in specific counties, so the correct answer is now
+    # INSUFFICIENT_INFORMATION -- held on County, NOT on the FPC table, which
+    # is still the thing this test exists to guard. Occidental dropped: it
+    # has been a wrong-guide row (GUIDE_UNAVAILABLE) since 2026-09-29, which
+    # made this case pass without testing anything.
+    @pytest.mark.parametrize("carrier_substr", ["Auros", "Wilshire"])
     def test_sage_family_ppc1_is_eligible_not_insufficient(self, carrier_substr):
         """Round 11: a full read of all six Sage documents' FPC tables
         confirms an FPC-1 risk is eligible under every row -- the
@@ -1390,9 +1390,10 @@ class TestBaselineAltProfile:
         "flaky, track the rate" category that Swyfft/Orion/Allied Trust/
         Mercury are in."""
         r = self._find(carrier_substr)
-        assert r["status"] != "INSUFFICIENT_INFORMATION", (
-            f"{carrier_substr}: PPC 1 can never fail the FPC>=9 exclusion clause; "
-            f"expected ELIGIBLE (with conditions to confirm), got {r['status']}."
+        assert _held_only_on_county(r), (
+            f"{carrier_substr}: PPC 1 can never fail the FPC>=9 exclusion clause; with no "
+            f"County the only hold is the address rule. Got {r['status']}, "
+            f"missing_info={r.get('missing_info')}."
         )
 
 
@@ -1855,9 +1856,11 @@ def test_sage_family_ppc1_pass_rate(record_property):
     case (which mostly passes), this one mostly does NOT -- do not let a
     single good run get reported as "fixed" without re-running this."""
     n_runs = 3
-    # Occidental's rate is measured on the DP3 guide filed under the HO3 name
-    # (DD-4) -- tracked, but not evidence about Occidental's HO3 program.
-    target_carriers = ["Auros", "Occidental", "Wilshire"]
+    # CHANGED DELIBERATELY (Liam, 2026-09-30): the outcome is "not held on
+    # the FPC table" -- since the County hold, a County-only hold is the
+    # correct answer for ALT (no County). Occidental dropped: a wrong-guide
+    # row since 2026-09-29.
+    target_carriers = ["Auros", "Wilshire"]
     per_carrier_outcomes = {c: [] for c in target_carriers}
     for _ in range(n_runs):
         result = check_eligibility(ALT_PROFILE)
@@ -1865,7 +1868,7 @@ def test_sage_family_ppc1_pass_rate(record_property):
         for target in target_carriers:
             matches = _find_carrier(by_carrier, target)
             assert matches, f"{target}: not found in output"
-            per_carrier_outcomes[target].append(matches[0]["status"] != "INSUFFICIENT_INFORMATION")
+            per_carrier_outcomes[target].append(_held_only_on_county(matches[0]))
     for carrier, outcomes in per_carrier_outcomes.items():
         rate = sum(outcomes) / len(outcomes)
         record_property(f"sage_{carrier.lower()}_ppc1_pass_rate", rate)
@@ -5532,7 +5535,8 @@ class TestNoSilentlyEmptyResult:
     ])
     def test_status_is_normalised_by_case_space_and_hyphen_only(self, written, expected):
         results = _replay_live(_with_status(written))
-        statuses = {r["status"] for r in results if r["carrier"] in _usable("Owner Occupied")}
+        usable = set(_usable("Owner Occupied"))          # once, not once per record
+        statuses = {r["status"] for r in results if r["carrier"] in usable}
         assert expected in statuses
         assert not assign_buckets(results)["unrecognised"]
 
@@ -5706,3 +5710,171 @@ class TestOptionalIntakeFields:
         real = Document(page_content="Coverage A Limit | $200,000 to $1,250,000 maximum")
         noise = Document(page_content=text)
         assert _coverage_a_priority_key(real) < _coverage_a_priority_key(noise)
+
+
+# ---------------------------------------------------------------------------
+# Round 19, Step 2 (Liam, 2026-09-30): the Sage ADDRESS rule. County blank ->
+# INSUFFICIENT_INFORMATION with County named; in territory -> the model's
+# verdict stands; outside -> INELIGIBLE quoting the guide. Keyed on carrier
+# identity and the County field only. All zero-API: the model answer is a
+# fixture, and the real FPC upgrade runs on it first.
+# ---------------------------------------------------------------------------
+
+import chat as _chat
+import guides as _guides
+from structured_rules import sage_county_in_territory, SAGE_EAST_TEXAS_COUNTIES
+from eligibility_check import _SAGE_LOCATION_RULE
+
+_SAGE_WITH_ADDRESS_RULE_HO = [
+    "Sage_-_Auros_HO3", "Sage_-_SURE_HO-3_-_01.31.2026", "Sage_-_SafePort_HO-3_-_01.31.2026",
+    "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026", "Sage_-_Wilshire_HO3_-_12.02.2025",
+]
+_SAGE_UNRESTRICTED = ["Sage_-_Markel_HO3", "Sage_-_Vave_HO3_-_07.01.2026"]
+
+# Liam's live profile: PPC 3, so the Sage FPC table resolves ELIGIBLE and the
+# upgrade fires.
+_LIAM_PPC3 = dict(_LIVE_BUG_PROFILE, ppc="3", swimming_pool="No Pool", solar_panels="No")
+
+
+def _sage_answer(status="INSUFFICIENT_INFORMATION", notes="FPC 3 is eligible regardless of driving distance."):
+    """Every usable carrier answered; the Sage ones in the exact live shape --
+    the model holds on something, and its text mentions FPC, so the Sage FPC
+    upgrade flips it to ELIGIBLE."""
+    import json
+    recs = json.loads(_answer_for(_usable("Owner Occupied")))
+    for r in recs:
+        if r["carrier"] in _SAGE_WITH_ADDRESS_RULE_HO + _SAGE_UNRESTRICTED:
+            r.update(status=status, notes=notes,
+                     missing_info=["Whether the property's county is within the eligible area"])
+    return json.dumps(recs)
+
+
+def _by_carrier(results):
+    return {r["carrier"]: r for r in results}
+
+
+@pytest.mark.retrieval
+class TestSageCountyHold:
+
+    def test_the_guides_carry_the_rule_exactly_where_the_table_says(self):
+        """Read from every Sage guide 2026-09-30. Markel and Vave only require
+        Texas; everyone in the table carries the county sentence verbatim."""
+        for carrier, (_, sentence) in _SAGE_LOCATION_RULE.items():
+            text = _guides.guide_text(carrier)
+            assert _chat._compare_key(sentence) in _chat._compare_key(text), carrier
+            assert _chat._appears_in(sentence, text), carrier
+        for carrier in _SAGE_UNRESTRICTED:
+            text = _guides.guide_text(carrier).lower()
+            assert "31 degrees" not in text and "state of texas" in text
+
+    def test_the_trium_sentence_has_no_nueces_exception_and_the_others_do(self):
+        assert _SAGE_LOCATION_RULE["Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026"][0] is False
+        assert "Nueces" not in _SAGE_LOCATION_RULE["Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026"][1]
+        for c in _SAGE_WITH_ADDRESS_RULE_HO:
+            if "Trium" not in c:
+                assert _SAGE_LOCATION_RULE[c][0] is True
+
+    @pytest.mark.parametrize("county, expected", [
+        ("Harris", "IN"), ("Bexar", "IN"), ("Travis", "IN"), ("Hidalgo", "IN"),
+        ("Dallas", "OUT"), ("Tarrant", "OUT"), ("Lubbock", "OUT"),
+        ("Nueces", "OUT"),                          # the guide's own exception
+        ("", "UNKNOWN"), ("Atlantis", "UNKNOWN"),
+    ])
+    def test_territory_sanity_table(self, county, expected):
+        assert sage_county_in_territory(county, intake_fields.COUNTY_MAX_LATITUDE) == expected
+
+    @pytest.mark.parametrize("county", SAGE_EAST_TEXAS_COUNTIES)
+    def test_the_eight_east_texas_counties_are_in_by_name(self, county):
+        """All eight reach north of 31 degrees -- in only because the guide names them."""
+        assert intake_fields.COUNTY_MAX_LATITUDE[county] >= 31.0
+        assert sage_county_in_territory(county, intake_fields.COUNTY_MAX_LATITUDE) == "IN"
+
+    def test_nueces_is_in_for_trium_only(self):
+        assert sage_county_in_territory("Nueces", intake_fields.COUNTY_MAX_LATITUDE, False) == "IN"
+
+    def test_county_blank_holds_all_five_even_after_the_fpc_upgrade(self):
+        """THE LIVE BUG."""
+        by = _by_carrier(_replayed_run(_LIAM_PPC3, _sage_answer()))
+        for c in _SAGE_WITH_ADDRESS_RULE_HO:
+            r = by[c]
+            assert r["status"] == "INSUFFICIENT_INFORMATION", (c, r["status"])
+            assert "Structured FPC check" in r["notes"], "premise: the FPC upgrade fired first"
+            assert r["missing_info"][0].startswith("County -- this guide only writes in specific counties")
+
+    @pytest.mark.parametrize("status", ["ELIGIBLE", "REFER"])
+    def test_county_blank_holds_a_model_eligible_or_refer_too(self, status):
+        by = _by_carrier(_replayed_run(_LIAM_PPC3, _sage_answer(status=status, notes="x")))
+        for c in _SAGE_WITH_ADDRESS_RULE_HO:
+            assert by[c]["status"] == "INSUFFICIENT_INFORMATION", c
+
+    def test_the_hold_does_not_depend_on_any_model_wording(self):
+        """No location, county, FPC or PPC words anywhere in the record."""
+        import json
+        recs = json.loads(_answer_for(_usable("Owner Occupied")))
+        for r in recs:
+            r.update(reasons=["Looks fine."], notes="", missing_info=[], citations=[])
+        by = _by_carrier(_replayed_run(_LIAM_PPC3, json.dumps(recs)))
+        for c in _SAGE_WITH_ADDRESS_RULE_HO:
+            assert by[c]["status"] == "INSUFFICIENT_INFORMATION", c
+            assert _county_item_present(by[c]["missing_info"])
+
+    def test_county_harris_leaves_the_verdict_alone(self):
+        by = _by_carrier(_replayed_run(dict(_LIAM_PPC3, county="Harris"), _sage_answer()))
+        for c in _SAGE_WITH_ADDRESS_RULE_HO:
+            assert by[c]["status"] == "ELIGIBLE", c        # the FPC upgrade's verdict stands
+            assert not _county_item_present(by[c]["missing_info"])
+
+    def test_county_dallas_is_ineligible_quoting_the_guide(self):
+        by = _by_carrier(_replayed_run(dict(_LIAM_PPC3, county="Dallas"), _sage_answer()))
+        for c in _SAGE_WITH_ADDRESS_RULE_HO:
+            r = by[c]
+            sentence = _SAGE_LOCATION_RULE[c][1]
+            assert r["status"] == "INELIGIBLE" and r["flaw_count"] == 1, c
+            assert f"{c}: '{sentence}'" in r["citations"]
+            assert _chat._appears_in(sentence, _guides.guide_text(c)), c   # quote-in-own-guide
+
+    def test_nueces_splits_the_family(self):
+        by = _by_carrier(_replayed_run(dict(_LIAM_PPC3, county="Nueces"), _sage_answer()))
+        assert by["Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026"]["status"] == "ELIGIBLE"
+        assert by["Sage_-_Auros_HO3"]["status"] == "INELIGIBLE"
+
+    @pytest.mark.parametrize("county", ["", "Dallas", "Nueces"])
+    @pytest.mark.parametrize("status", ["ELIGIBLE", "INSUFFICIENT_INFORMATION"])
+    def test_markel_and_vave_are_untouched(self, county, status):
+        """The County field has no effect on them at all: same record as
+        with a county that every rule accepts."""
+        answer = _sage_answer(status=status)
+        got = _by_carrier(_replayed_run(dict(_LIAM_PPC3, county=county), answer))
+        ref = _by_carrier(_replayed_run(dict(_LIAM_PPC3, county="Harris"), answer))
+        for c in _SAGE_UNRESTRICTED:
+            assert got[c] == ref[c], (c, county)
+            assert not _county_item_present(got[c]["missing_info"])
+            assert "County hold" not in got[c]["notes"]
+
+    def test_an_already_ineligible_record_keeps_its_verdict(self):
+        by = _by_carrier(_replayed_run(_LIAM_PPC3, _sage_answer(status="INELIGIBLE", notes="x")))
+        for c in _SAGE_WITH_ADDRESS_RULE_HO:
+            assert by[c]["status"] == "INELIGIBLE", c
+
+
+def _held_only_on_county(r):
+    """An ALT (PPC 1, no County) Sage record the FPC table did not hold: either
+    not INSUFFICIENT at all, or INSUFFICIENT with the County hold applied and
+    no fire-station distance question (the FPC hold's own item)."""
+    if r.get("status") != "INSUFFICIENT_INFORMATION":
+        return True
+    mi = r.get("missing_info", [])
+    return (_county_item_present(mi) and "County hold" in (r.get("notes") or "")
+            and not any("fire station" in m.lower() and "fpc 9" in m.lower() for m in mi))
+
+
+@pytest.mark.retrieval
+@pytest.mark.parametrize("carrier", ["Sage_-_Auros_HO3", "Sage_-_Wilshire_HO3_-_12.02.2025"])
+def test_the_updated_alt_baseline_check_accepts_a_county_hold(carrier):
+    """Pins _held_only_on_county, the zero-API half of the ALT baseline
+    change above, on the exact shape the pipeline now produces for PPC 1."""
+    by = _by_carrier(_replayed_run(ALT_PROFILE, _sage_answer(notes="FPC 1 is eligible regardless.")))
+    assert by[carrier]["status"] == "INSUFFICIENT_INFORMATION"
+    assert _held_only_on_county(by[carrier])
+    assert not _held_only_on_county(dict(by[carrier], notes="", missing_info=[
+        "Driving distance to the responding fire station (needed to determine FPC 9+ eligibility)."]))

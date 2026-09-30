@@ -106,6 +106,35 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     - The county list and each county's northernmost latitude live in
       `texas_counties.csv` (Census 2023 boundaries). Parsing lives in
       `intake_fields.py`.
+  - **Sage address rule: a Sage carrier with no County is
+    INSUFFICIENT_INFORMATION, not "Eligible with a warning".**
+    - **Which guides.** Auros, SURE HO-3, SafePort HO-3 and Wilshire say:
+      "South Texas (a county entirely south of 31 degrees North) except
+      Nueces county, or Bell, Falls, Robertson, Leon, Madison, Houston,
+      Trinity and Polk". Trium has the same rule with **no Nueces
+      exception**. The SURE/SafePort/Occidental DP3 guides carry it too.
+      Markel and Vave only require Texas, and are untouched.
+    - **How it's decided.** Carrier identity plus the County field, never
+      the model's wording.
+      - In territory: the model's verdict stands.
+      - Outside: INELIGIBLE, quoting the guide's own sentence.
+      - "Entirely south of 31 degrees" comes from each county's northernmost
+        latitude, since the guide names only the eight East Texas counties.
+    - **The cause was our code:** the Sage FPC upgrade turns INSUFFICIENT
+      into ELIGIBLE without asking whether anything else is open. Recorded
+      Sonnet runs show the same thing: 131 of 140 ELIGIBLE records for these
+      five carriers, across 48 runs, were flipped by the upgrade.
+    - **Not done:** dropping the "moot" fire-distance, visibility, alarm and
+      access items. Rows 2-5 of the Sage FPC table attach those conditions
+      depending on the distance and hydrant facts, so they are not moot.
+      The FPC upgrade's own "ELIGIBLE regardless" glosses over the same
+      conditions; that is open.
+    - **Baselines changed deliberately:**
+      `TestBaselineAltProfile.test_sage_family_ppc1_is_eligible_not_insufficient`
+      and `test_sage_family_ppc1_pass_rate`. Both now accept a County-only
+      hold, not an FPC one. Occidental was dropped from both: it has been a
+      wrong-guide row since 2026-09-29, so it was passing without testing
+      anything.
 
 ## Open work, in priority order (2026-09-29)
 

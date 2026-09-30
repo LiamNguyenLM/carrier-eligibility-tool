@@ -35,6 +35,7 @@ from structured_rules import (
     twico_roof_subtype_is_ambiguous,
     sage_roofer_statement_required,
     centauri_dp3_flat_roof,
+    sage_county_in_territory,
 )
 
 
@@ -1155,6 +1156,30 @@ _SAGE_FPC_CARRIERS = {
     "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026",
     "Sage_-_SURE_HO-3_-_01.31.2026",
     "Sage_-_SafePort_HO-3_-_01.31.2026",
+}
+# Sage ADDRESS rule (Liam, 2026-09-30): carrier -> (Nueces excluded?, the
+# guide's own sentence, verbatim apart from its bullet glyphs). Keyed on
+# carrier identity plus the County field -- never on the model's wording.
+# See structured_rules.sage_county_in_territory for the rule and its data.
+_SAGE_ADDRESS_HO = (
+    "Property must be located in: South Texas (meaning a county located entirely south of 31 "
+    "degrees North) except Nueces county, or One of the following counties in East Texas: Bell, "
+    "Falls, Robertson, Leon, Madison, Houston, Trinity, and Polk.")
+_SAGE_ADDRESS_DP = _SAGE_ADDRESS_HO.replace("except Nueces county", "except in Nueces county")
+_SAGE_ADDRESS_TRIUM = (
+    "Property must be located in: South Texas (meaning a county located entirely south of 31 "
+    "degrees North), or One of the following counties in East Texas: Bell, Falls, Robertson, "
+    "Leon, Madison, Houston, Trinity, and Polk.")
+_SAGE_LOCATION_RULE = {
+    "Sage_-_Auros_HO3": (True, _SAGE_ADDRESS_HO),
+    "Sage_-_SURE_HO-3_-_01.31.2026": (True, _SAGE_ADDRESS_HO),
+    "Sage_-_SafePort_HO-3_-_01.31.2026": (True, _SAGE_ADDRESS_HO),
+    "Sage_-_Wilshire_HO3_-_12.02.2025": (True, _SAGE_ADDRESS_HO),
+    "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026": (False, _SAGE_ADDRESS_TRIUM),
+    "Sage_-_SURE_DP-3_-_01.31.2026": (True, _SAGE_ADDRESS_DP),
+    "Sage_-_SafePort_DP-3_-_01.31.2026": (True, _SAGE_ADDRESS_DP),
+    "Sage_-_Occidental_DP3": (True, _SAGE_ADDRESS_DP),
+    "Sage_-_Occidental_HO3": (True, _SAGE_ADDRESS_DP),
 }
 _MERCURY_CARRIERS = {"Mercury_HO3_-_01.01.2026"}
 _SAGE_MARKEL_CARRIERS = {"Sage_-_Markel_HO3"}
@@ -2968,6 +2993,11 @@ CARRIER DOCUMENTS:
             filtered, relevant_carriers, property_details, solar_classes
         )
 
+        # Runs after every other check, the FPC upgrade included: these
+        # holds exist because that upgrade turned INSUFFICIENT into ELIGIBLE
+        # without asking whether any OTHER question was still open.
+        _apply_location_holds(filtered, relevant_carriers, property_details)
+
         final = _add_fixed_rows(filtered, relevant_carriers, unavailable, defects, unrecognised)
         if unrecognised or usable_answer_count(final) == 0:
             _print_raw_diagnostics(
@@ -3025,6 +3055,55 @@ CARRIER DOCUMENTS:
             "notes": "",
             "flaw_count": 0
         }] + [_guide_unavailable_row(p, defects[p]) for p in unavailable]
+
+def _county_item_present(missing_info):
+    return any(re.match(r"\s*county\b", m, re.I) for m in missing_info)
+
+
+def _apply_location_holds(results, relevant_carriers, property_details):
+    """Sage ADDRESS rule (Liam, 2026-09-30), decided from carrier identity and
+    the optional County field alone:
+
+      County blank   ELIGIBLE / REFER -> INSUFFICIENT_INFORMATION, with County
+                     named in missing_info. Live 2026-09-30 and in recorded
+                     Sonnet runs (131 of 140 ELIGIBLE records for these five
+                     carriers across 48 runs), the Sage FPC upgrade had turned
+                     the model's own INSUFFICIENT into ELIGIBLE while the card
+                     still said the location could not be resolved.
+      In territory   the model's verdict stands.
+      Outside        INELIGIBLE (one more flaw), citing the guide's own
+                     sentence.
+    """
+    county = _county(property_details)
+    for r in results:
+        canon = _resolve_structured_carrier(r.get("carrier", ""), relevant_carriers)
+        rule = _SAGE_LOCATION_RULE.get(canon)
+        if rule is None:
+            continue
+        nueces_excluded, sentence = rule
+        territory = sage_county_in_territory(county, intake_fields.COUNTY_MAX_LATITUDE,
+                                             nueces_excluded)
+        if territory == "UNKNOWN":
+            if r.get("status") in ("ELIGIBLE", "REFER"):
+                r["status"] = "INSUFFICIENT_INFORMATION"
+                r["flaw_count"] = 0
+                _append_note(r, "County hold: this carrier only writes in specific counties, "
+                                "and no County was given, so it cannot be Eligible yet.")
+            if r.get("status") == "INSUFFICIENT_INFORMATION":
+                mi = r.setdefault("missing_info", [])
+                if not _county_item_present(mi):
+                    mi.insert(0, "County -- this guide only writes in specific counties: " + sentence)
+        elif territory == "OUT":
+            reason = ("{} County is outside this carrier's territory. The guide says: \"{}\""
+                      .format(county, sentence))
+            if r.get("status") == "INELIGIBLE":
+                r["flaw_count"] = int(r.get("flaw_count") or 0) + 1
+            else:
+                r["status"] = "INELIGIBLE"
+                r["flaw_count"] = 1
+            r.setdefault("reasons", []).append(reason)
+            r.setdefault("citations", []).append(f"{canon}: '{sentence}'")
+
 
 # Two statuses the PIPELINE writes -- never the model -- for carriers it could
 # not check. Liam's decisions, 2026-09-28/29. Each has its own UI bucket.
