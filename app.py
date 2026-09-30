@@ -11,6 +11,7 @@ except Exception:
     pass
 
 from eligibility_check import check_eligibility, assign_buckets, usable_answer_count
+import intake_fields
 from upload_carrier import (
     add_carrier_to_database,
     remove_carrier_from_database,
@@ -164,6 +165,30 @@ with tab1:
 
     st.divider()
 
+    # Optional (Liam, 2026-09-30). Blank means UNKNOWN: nothing here has a
+    # default that could be mistaken for an answer, and a blank field adds
+    # nothing to the check.
+    st.subheader("📝 Optional — leave blank if unknown")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        county = st.selectbox(
+            "County", [""] + intake_fields.TEXAS_COUNTIES, key="county",
+            format_func=lambda v: v or "— not given —",
+            help="Some carriers only write in certain counties.")
+    with col2:
+        dwelling_amount_text = st.text_input(
+            "Dwelling amount (Coverage A, $)", value="", key="dwelling_amount",
+            placeholder="e.g. 450,000 — leave blank if unknown")
+        dwelling_amount = intake_fields.parse_dwelling_amount(dwelling_amount_text)
+        if dwelling_amount_text.strip() and dwelling_amount is None:
+            st.warning("Couldn't read that amount, so it will be treated as not given.")
+    with col3:
+        dwelling_type = st.selectbox(
+            "Dwelling type", list(intake_fields.DWELLING_TYPES), key="dwelling_type",
+            format_func=lambda v: v or "— not given —")
+
+    st.divider()
+
     submitted = st.button("Check Carrier Eligibility", type="primary",
                           use_container_width=True, key="submit")
 
@@ -184,7 +209,11 @@ with tab1:
             "has_dogs": "Yes" if has_dogs else "No",
             "aggressive_breed": "Yes" if aggressive_breed else "No",
             "solar_panels": "Yes" if solar_panels else "No",
-            "ppc": ppc
+            "ppc": ppc,
+            # optional: "" / None mean unknown
+            "county": county,
+            "dwelling_amount": dwelling_amount,
+            "dwelling_type": dwelling_type,
         }
 
         with st.spinner("Analyzing carrier eligibility..."):

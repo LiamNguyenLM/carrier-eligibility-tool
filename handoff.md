@@ -91,6 +91,22 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     OWNERSHIP_BASE/LLC, one chat-tab question. See the report for this
     round for the result.
 
+- **2026-09-30 — Round 19 (Liam).** A live check put five Sage carriers and
+  CHUBB under Eligible when their guides say the form can't answer yet.
+  - **Three OPTIONAL intake fields: County, Dwelling amount (Coverage A),
+    Dwelling type.** Blank always means unknown.
+    - With all three blank, the prompt is byte-identical to 31abddc's on
+      STANDARD, ALT, COASTAL_PPC4 and OWNERSHIP_BASE.
+    - A filled field goes into PROPERTY DETAILS as a stated fact.
+    - House routes the HO6 condo programs out. Townhome and Condo change no
+      routing.
+    - A filled Dwelling amount adds one Coverage A limit chunk per carrier
+      (cap 1). Measured with count_tokens: +3.3K tokens (+8.4%) on STANDARD
+      and +4.2K (+14.2%) on OWNERSHIP_BASE -- only when filled.
+    - The county list and each county's northernmost latitude live in
+      `texas_counties.csv` (Census 2023 boundaries). Parsing lives in
+      `intake_fields.py`.
+
 ## Open work, in priority order (2026-09-29)
 
 0. **Smoke test finding, not yet root-caused: the NOT_EVALUATED safety net

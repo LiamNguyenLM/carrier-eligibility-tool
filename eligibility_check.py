@@ -25,6 +25,7 @@ except Exception:
 
 from shared_resources import get_embeddings, get_vectorstore
 import data_defects
+import intake_fields
 from structured_rules import (
     sage_family_fpc_eligibility,
     mercury_roof_eligibility,
@@ -709,6 +710,83 @@ _OWNERSHIP_STRUCTURES_WITH_ENTITY_RULES = {"Trust", "LLC"}
 # 19 citations for zero extra cost and zero new regressions: their prompt is
 # byte-identical to 72e34db's. The occupancy-only predicate and its cap stay;
 # second homes will use them.
+# --- the three OPTIONAL intake fields (Liam, 2026-09-30) -------------------
+# County, Dwelling amount (Coverage A), Dwelling type. Blank = unknown. A
+# blank field must leave the prompt BYTE-IDENTICAL to what it was before the
+# fields existed (Liam has objected to prompt growth twice), so each fact
+# line, the House routing and the Coverage A guarantee act only when filled.
+
+def _county(property_details):
+    return intake_fields.normalize_county(property_details.get("county"))
+
+
+def _dwelling_amount(property_details):
+    return intake_fields.parse_dwelling_amount(property_details.get("dwelling_amount"))
+
+
+def _dwelling_type(property_details):
+    return intake_fields.normalize_dwelling_type(property_details.get("dwelling_type"))
+
+
+def _is_condo_program(carrier):
+    """HO6 is the condominium unit-owners form (Progressive HO6, Liberty
+    Mutual HO6)."""
+    return "HO6" in _strip_to_alnum(carrier or "")
+
+
+def _optional_fact_lines(property_details):
+    """Extra PROPERTY DETAILS lines, one per FILLED optional field, each
+    starting with a newline; "" when all three are blank."""
+    lines = []
+    county = _county(property_details)
+    if county:
+        lines.append(f"County: {county}")
+    amount = _dwelling_amount(property_details)
+    if amount:
+        lines.append(f"Dwelling Amount (Coverage A): ${amount:,}")
+    dtype = _dwelling_type(property_details)
+    if dtype:
+        lines.append(f"Dwelling Type: {dtype}")
+    return "".join("\n" + line for line in lines)
+
+
+# A carrier's own Coverage A / dwelling LIMIT rule: a minimum, maximum or
+# binding authority with a dollar figure. Swept 2026-09-30 over the 25 usable
+# owner-occupied carriers: the top-ranked match is the real limit for 21
+# (e.g. Allied Trust "$200,000 to $1,250,000", HOAIC "$150,000 minimum, up to
+# $2,000,000", Progressive "maximum Coverage A - Dwelling Binding Authority is
+# $1,500,000"). Known misses: Swyfft Benchmark (Admitted) picks a percentage
+# row, Swyfft Topa/Lloyds a total-insured-value cap, CHUBB its water-shutoff
+# table; ARI (HOA+) has none.
+_COV_A_MONEY = r"\$\s?\d[\d,.]*\s*(?:k\b|m\b|mm\b|million)?"
+_COV_A_LIMIT = (r"(?:minimum|maximum|max\.?|min\.?|binding\s+authority|limit(?:s)?\s+(?:above|over|up\s+to)"
+                r"|up\s+to|less\s+than|greater\s+than|over|above|in\s+excess\s+of)")
+_COV_A_NAME = (r"(?:coverage\s*a\b|cov\.?\s*a\b|dwelling\s+(?:coverage|limit|value)s?"
+               r"|coverage\s*a\s*[-–]\s*dwelling)")
+_COVERAGE_A_LIMIT_RE = re.compile(
+    _COV_A_LIMIT + r"[^.|]{0,40}?" + _COV_A_NAME + r"[^.|]{0,80}?" + _COV_A_MONEY
+    + r"|" + _COV_A_NAME + r"[^.]{0,60}?" + _COV_A_LIMIT + r"[^.]{0,40}?" + _COV_A_MONEY
+    + r"|" + _COV_A_LIMIT + r"[\s|]{0,6}" + _COV_A_MONEY + r"[^.|]{0,12}?" + _COV_A_NAME
+    + r"|" + _COV_A_NAME + r"\s*(?:\([^)]*\))?\s*:\s*(?:maximum\s+)?" + _COV_A_MONEY
+    + r"|" + _COV_A_MONEY + r"[^.|]{0,20}?(?:minimum|maximum)?\s*" + _COV_A_NAME + r"\s*(?:minimum|maximum)",
+    re.I)
+_PERCENT_OF_COV_A_RE = re.compile(r"%\s+of\s+(?:the\s+)?(?:policy.s\s+)?coverage\s*a", re.I)
+MAX_COVERAGE_A_CHUNKS_PER_CARRIER = 1
+
+
+def _mentions_coverage_a_limit(content):
+    return bool(_COVERAGE_A_LIMIT_RE.search(content))
+
+
+def _coverage_a_priority_key(doc):
+    t = doc.page_content
+    s = 3 * len(re.findall(r"(?i)maximum|minimum|binding authority", t)[:2])
+    s += min(3, len(re.findall(_COV_A_MONEY, t)))
+    s -= 4 * bool(_PERCENT_OF_COV_A_RE.search(t))
+    s -= 3 * bool(re.search(r"(?i)flood policy|nfip|wave ?wash|ordinance and law", t))
+    return -s
+
+
 def _occupancy_guarantee_applies(property_details):
     return property_details.get("ownership_type", "") in _OWNERSHIP_STRUCTURES_WITH_ENTITY_RULES
 
@@ -2453,6 +2531,13 @@ def check_eligibility(property_details, carrier_subset=None):
         relevant_carriers = [c for c in relevant_carriers if c in subset]
         unavailable = [p for p in unavailable if p in subset]
     relevant_carriers = [c for c in relevant_carriers if c not in defects]
+    # Dwelling type (optional, Liam 2026-09-30). House routes the condo
+    # programs out, the same way occupancy routes DP/HO programs: they never
+    # enter the check, and a defective one gets no warning row either.
+    # Townhome and Condo change no routing -- they go in as a stated fact.
+    if _dwelling_type(property_details) == "House":
+        relevant_carriers = [c for c in relevant_carriers if not _is_condo_program(c)]
+        unavailable = [p for p in unavailable if not _is_condo_program(p)]
     vectorstore = get_vectorstore()
 
     seen = set()
@@ -2650,6 +2735,23 @@ def check_eligibility(property_details, carrier_subset=None):
                 seen.add(key)
                 chunks.append(chunk)
 
+    # Coverage A guarantee (Liam, 2026-09-30): ONLY when the optional
+    # Dwelling amount is filled -- the same gating pattern as the ownership
+    # guarantee, so a blank field adds nothing to the prompt. One chunk per
+    # carrier: its own minimum / maximum / binding-authority dwelling limit.
+    for carrier in (relevant_carriers if _dwelling_amount(property_details) else []):
+        found = guaranteed_carrier_lookup(
+            collection, carrier,
+            predicate=_mentions_coverage_a_limit,
+            keep=MAX_COVERAGE_A_CHUNKS_PER_CARRIER,
+            priority_key=_coverage_a_priority_key,
+        )
+        for chunk in found:
+            key = (carrier, chunk.page_content)
+            if key not in seen:
+                seen.add(key)
+                chunks.append(chunk)
+
     risk_factors = build_risk_factors(property_details, occupancy)
 
     if risk_factors:
@@ -2719,7 +2821,7 @@ Pool Accessories: {property_details['pool_accessories']}
 Dogs on Premises: {property_details['has_dogs']}
 Aggressive Breed Dogs: {property_details['aggressive_breed']}
 Solar Panels: {property_details['solar_panels']}
-PPC Number: {property_details['ppc']}
+PPC Number: {property_details['ppc']}{_optional_fact_lines(property_details)}
 
 CARRIER DOCUMENTS:
 {context}

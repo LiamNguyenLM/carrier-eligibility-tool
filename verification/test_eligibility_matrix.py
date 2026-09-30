@@ -100,6 +100,8 @@ from eligibility_check import (
     _is_openai_model,
     UNRECOGNISED_VERDICT,
     usable_answer_count,
+    _mentions_coverage_a_limit,
+    _coverage_a_priority_key,
 )
 from shared_resources import get_vectorstore
 from profiles import (STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE,
@@ -5594,3 +5596,113 @@ def test_every_record_lands_in_exactly_one_bucket_whatever_its_status(seed):
     buckets = assign_buckets(results)
     placed = [id(r) for b in buckets.values() for r in b]
     assert sorted(placed) == sorted(id(r) for r in results)
+
+
+# ---------------------------------------------------------------------------
+# Round 19, Step 1 (Liam, 2026-09-30): three OPTIONAL intake fields -- County,
+# Dwelling amount (Coverage A), Dwelling type. Blank = unknown, and a blank
+# field must leave the prompt byte-identical (proved once against 31abddc
+# itself on STANDARD, ALT, COASTAL_PPC4 and OWNERSHIP_BASE; pinned here in a
+# DB-independent form). All zero-API.
+# ---------------------------------------------------------------------------
+
+import intake_fields
+
+_BLANK_OPTIONALS = {"county": "", "dwelling_amount": None, "dwelling_type": ""}
+
+
+@pytest.mark.retrieval
+class TestOptionalIntakeFields:
+
+    def test_texas_has_254_counties_in_the_committed_list(self):
+        assert len(intake_fields.TEXAS_COUNTIES) == 254
+        assert len(set(intake_fields.TEXAS_COUNTIES)) == 254
+        for name in ("Harris", "Bexar", "Travis", "Hidalgo", "Dallas", "Nueces", "Polk"):
+            assert name in intake_fields.TEXAS_COUNTIES
+
+    @pytest.mark.parametrize("written, expected", [
+        ("Harris", "Harris"), ("harris county", "Harris"), ("  BEXAR ", "Bexar"),
+        ("", ""), (None, ""), ("Atlantis", ""), ("Harris, TX", ""),
+    ])
+    def test_county_is_one_of_the_254_or_unknown(self, written, expected):
+        assert intake_fields.normalize_county(written) == expected
+
+    @pytest.mark.parametrize("written, expected", [
+        ("450000", 450000), ("450,000", 450000), ("$450,000", 450000), ("$450,000.00", 450000),
+        ("450k", 450000), ("1.2m", 1200000), (" 1,000,000 ", 1000000), (325000, 325000),
+        ("", None), (None, None), ("   ", None), ("four hundred", None), ("-5000", None),
+        ("0", None), ("45O,000", None),
+    ])
+    def test_dwelling_amount_parses_or_is_unknown(self, written, expected):
+        assert intake_fields.parse_dwelling_amount(written) == expected
+
+    def test_app_offers_blank_first_and_never_a_default_answer(self):
+        src = open(os.path.join(os.path.dirname(__file__), "..", "app.py"), encoding="utf-8").read()
+        assert '[""] + intake_fields.TEXAS_COUNTIES' in src
+        assert 'list(intake_fields.DWELLING_TYPES)' in src and intake_fields.DWELLING_TYPES[0] == ""
+        assert '"Dwelling amount (Coverage A, $)", value=""' in src
+        for key in ('"county": county', '"dwelling_amount": dwelling_amount', '"dwelling_type": dwelling_type'):
+            assert key in src
+
+    @pytest.mark.parametrize("profile", [STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE,
+                                         OWNERSHIP_BASE_PROFILE],
+                             ids=["STANDARD", "ALT", "COASTAL_PPC4", "OWNERSHIP_BASE"])
+    def test_blank_optional_fields_leave_the_prompt_byte_identical(self, profile):
+        assert _captured_prompt(dict(profile, **_BLANK_OPTIONALS)) == _captured_prompt(dict(profile))
+
+    def test_each_filled_field_is_stated_once_and_only_when_filled(self):
+        blank = _captured_prompt(dict(STANDARD_PROFILE, **_BLANK_OPTIONALS))
+        for absent in ("county:", "dwelling amount (coverage a):", "dwelling type:"):
+            assert absent not in blank
+        filled = _captured_prompt(dict(STANDARD_PROFILE, county="harris county",
+                                       dwelling_amount="$450,000", dwelling_type="Townhome"))
+        for line in ("county: harris", "dwelling amount (coverage a): $450,000", "dwelling type: townhome"):
+            assert filled.count(line) == 1, line
+
+    def test_house_routes_the_condo_programs_out(self):
+        house = dict(OWNERSHIP_BASE_PROFILE, dwelling_type="House")
+        per, _ = _captured_sections(house)
+        assert "Progressive_HO6_-_10.01.2025" not in per
+        # the defective Liberty Mutual HO6 record gets no warning row either
+        results = _replayed_run(house, _answer_for([c for c in _usable("Owner Occupied")
+                                                    if "HO6" not in c]))
+        assert not [r for r in results if "HO6" in r["carrier"]]
+
+    @pytest.mark.parametrize("dtype", ["Townhome", "Condo", ""])
+    def test_townhome_and_condo_change_no_routing(self, dtype):
+        per, _ = _captured_sections(dict(OWNERSHIP_BASE_PROFILE, dwelling_type=dtype))
+        assert "Progressive_HO6_-_10.01.2025" in per
+
+    @pytest.mark.parametrize("carrier, rule", [
+        ("Progressive_HO3_-_04.01.2026", "maximum coverage a – dwelling binding authority is $1,500,000"),
+        ("Mercury_HO3_-_01.01.2026", "homeowners (coverage a) n/a $ 1,500,000"),
+    ])
+    def test_the_coverage_a_guarantee_runs_only_when_the_amount_is_filled(self, carrier, rule):
+        """Measured 2026-09-30: with an amount filled, 19 of 25 carriers gain
+        a chunk; these two only get their limit rule through the guarantee
+        (Allied Trust's already arrives by ordinary retrieval)."""
+        blank, _ = _captured_sections(dict(OWNERSHIP_BASE_PROFILE, **_BLANK_OPTIONALS))
+        filled, _ = _captured_sections(dict(OWNERSHIP_BASE_PROFILE, dwelling_amount=450000))
+        assert rule not in blank.get(carrier, "")
+        assert rule in filled[carrier]
+
+    @pytest.mark.parametrize("text", [
+        "Coverage A Limit | $200,000 to $1,250,000 (Over $1,250,000 submit to underwriting.)",
+        "For all eligible risks, the maximum Coverage A – Dwelling Binding Authority is $1,500,000.",
+        "Dwelling Coverage | | $150,000 minimum, up to $2,000,000.",
+        "Coverage A: Maximum $2 million",
+        "| Minimum | $100,000 Coverage A |",
+    ], ids=["allied", "progressive", "hoaic", "twico", "vave-table"])
+    def test_coverage_a_limit_phrasings_match(self, text):
+        assert _mentions_coverage_a_limit(text)
+
+    @pytest.mark.parametrize("text", [
+        "The base policy automatically provides up to 10% of the Coverage A Limit.",
+        "A renovation is having a total budget of 10% or more of the current coverage A limit.",
+        "Personal Injury - Optional $10K, $25K and $50K",
+    ])
+    def test_coverage_a_noise_does_not_rank_first(self, text):
+        """Percent-of references may match, but must rank below a real limit."""
+        real = Document(page_content="Coverage A Limit | $200,000 to $1,250,000 maximum")
+        noise = Document(page_content=text)
+        assert _coverage_a_priority_key(real) < _coverage_a_priority_key(noise)
