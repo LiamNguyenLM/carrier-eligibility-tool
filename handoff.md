@@ -135,6 +135,29 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       hold, not an FPC one. Occidental was dropped from both: it has been a
       wrong-guide row since 2026-09-29, so it was passing without testing
       anything.
+  - **CHUBB Coverage A hold.** With Dwelling amount blank, CHUBB's
+    ELIGIBLE or REFER becomes INSUFFICIENT_INFORMATION, with Coverage A
+    named. With it filled, the model's verdict stands, plus a note of what
+    the guide says for that amount.
+    - **What a CHUBB verdict needs** (sections I-III and VIII):
+      - Coverage A. For a primary house, the Preferred Tier has a
+        "Minimum: $1,000,000"; the Standard Tier reads "Subject to
+        pre-approval*", and "Coverage will not be declined solely based on
+        the minimum of value of the property".
+      - Wildfire classification: 24-50 is "unacceptable in any Tier".
+      - Flood Zone: A is "subject to pre-approval"; V is acceptable only
+        for tenants and condos on the 3rd floor or higher.
+      - Three-year loss history: any loss history "will require
+        underwriter approval".
+      - The county region: the tier tables differ for Dallas/Fort Worth
+        and the Northern counties vs Harris County.
+    - **Open for Liam:** below $1,000,000 the guide reads like REFER, but
+      that is not built. This round only adds the note.
+    - **Test changed deliberately:** round 17's
+      `test_chubb_is_not_insufficient_on_guide_silence_alone` xfail is now
+      the baseline
+      `test_chubb_without_coverage_a_is_insufficient_and_says_why`. Its
+      premise ("tiers only set pricing") was incomplete.
 
 ## Open work, in priority order (2026-09-29)
 

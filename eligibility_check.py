@@ -2997,6 +2997,7 @@ CARRIER DOCUMENTS:
         # holds exist because that upgrade turned INSUFFICIENT into ELIGIBLE
         # without asking whether any OTHER question was still open.
         _apply_location_holds(filtered, relevant_carriers, property_details)
+        _apply_chubb_hold(filtered, relevant_carriers, property_details)
 
         final = _add_fixed_rows(filtered, relevant_carriers, unavailable, defects, unrecognised)
         if unrecognised or usable_answer_count(final) == 0:
@@ -3055,6 +3056,68 @@ CARRIER DOCUMENTS:
             "notes": "",
             "flaw_count": 0
         }] + [_guide_unavailable_row(p, defects[p]) for p in unavailable]
+
+_CHUBB = "CHUBB_HO_-_05.22.2026"
+
+# CHUBB, read 2026-09-30 (sections I-III and VIII). Risks that qualify under
+# I-III "become eligible for placement in our Standard Tier"; the tier table
+# then decides, per REGION (the page-10 table is headed "Dallas/Fort Worth,
+# Collin County & Rest of Northern counties"; Harris County has its own):
+#   - Minimum coverages, Primary Houses: Preferred "Minimum: $1,000,000";
+#     Standard "Subject to pre-approval*", footnoted "Coverage will not be
+#     declined solely based on the minimum of value of the property."
+#   - Wildfire classification 24-50 is "unacceptable in any Tier".
+#   - Flood Zone A is "subject to pre-approval"; Flood Zone V is acceptable
+#     only for tenants and condominiums on the 3rd floor or higher.
+#   - "Risks or applicants with a loss history will require underwriter
+#     approval."
+# The form asks for none of those except, now, Coverage A.
+_CHUBB_COVERAGE_A_ITEM = (
+    "Dwelling amount (Coverage A) -- Chubb's discounted tiers start at $1,000,000 Coverage A; "
+    "below that the Standard Tier is \"Subject to pre-approval\". The guide also needs the "
+    "wildfire classification (24-50 is unacceptable in any tier), the Flood Zone, and 3-year "
+    "loss history, which this form does not ask for.")
+
+
+def _chubb_amount_note(amount):
+    if amount < 1_000_000:
+        return ("Chubb guide, section VIII, for this amount (${:,}): below the $1,000,000 minimum "
+                "of the discounted tiers, a primary house can only be placed in the Standard Tier, "
+                "whose minimum-coverages row reads \"Subject to pre-approval\" -- \"Coverage will not "
+                "be declined solely based on the minimum of value of the property.\"".format(amount))
+    return ("Chubb guide, section VIII, for this amount (${:,}): at or above the $1,000,000 "
+            "minimum for a primary house in the Preferred Tier (maximum up to $30,000,000 in the "
+            "Dallas/Fort Worth and Northern counties table; other regions differ). Wildfire "
+            "classification, Flood Zone and loss history still decide the tier.".format(amount))
+
+
+def _apply_chubb_hold(results, relevant_carriers, property_details):
+    """CHUBB Coverage A hold (Liam, 2026-09-30). Deterministic, keyed on
+    carrier identity and the optional Dwelling amount:
+      blank   ELIGIBLE / REFER -> INSUFFICIENT_INFORMATION, Coverage A named.
+              Live 2026-09-30 CHUBB was Eligible from one sentence; recorded
+              Sonnet runs said INSUFFICIENT_INFORMATION 3/3.
+      filled  the model's verdict stands, with a note of what the guide says
+              for that amount. No new status rule -- whether "Subject to
+              pre-approval" below $1,000,000 should become REFER is Liam's call.
+    """
+    amount = _dwelling_amount(property_details)
+    for r in results:
+        if _resolve_structured_carrier(r.get("carrier", ""), relevant_carriers) != _CHUBB:
+            continue
+        if amount:
+            _append_note(r, _chubb_amount_note(amount))
+            continue
+        if r.get("status") in ("ELIGIBLE", "REFER"):
+            r["status"] = "INSUFFICIENT_INFORMATION"
+            r["flaw_count"] = 0
+            _append_note(r, "Coverage A hold: Chubb's tier placement depends on the dwelling "
+                            "amount, and none was given, so it cannot be Eligible yet.")
+        if r.get("status") == "INSUFFICIENT_INFORMATION":
+            mi = r.setdefault("missing_info", [])
+            if not any(m.startswith("Dwelling amount (Coverage A)") for m in mi):
+                mi.insert(0, _CHUBB_COVERAGE_A_ITEM)
+
 
 def _county_item_present(missing_info):
     return any(re.match(r"\s*county\b", m, re.I) for m in missing_info)

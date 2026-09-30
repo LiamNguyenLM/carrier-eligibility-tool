@@ -4094,21 +4094,23 @@ def test_chubb_cites_the_clause_matching_the_dwelling_type(chubb_standard_runs):
 
 
 @pytest.mark.baseline
-@pytest.mark.xfail(
-    reason="SEPARATE, PRE-EXISTING, LIKELY VERDICT-CHANGING (found round 17, not fixed). CHUBB "
-    "came back INSUFFICIENT_INFORMATION in 3/3 STANDARD runs (19/20 in round 15), and every "
-    "stated reason is the guide's SILENCE -- 'do not provide specific eligibility criteria for "
-    "PPC, roof age, home age, or swimming pool requirements'. CHUBB's guide contains no PPC, "
-    "roof-age or pool rule at all (see test_chubb_guide_has_no_ppc_roof_age_or_pool_rule), and "
-    "SYSTEM_INSTRUCTIONS says a topic a carrier's document is silent on is UNRESTRICTED. Its "
-    "tiers are not an eligibility question either: section VIII says risks that qualify under "
-    "sections I-III 'become eligible for placement in our Standard Tier', and the tier rules place "
-    "them for pricing. Nothing to do with eligible persons.",
-    strict=False,
-)
-def test_chubb_is_not_insufficient_on_guide_silence_alone(chubb_standard_runs):
+def test_chubb_without_coverage_a_is_insufficient_and_says_why(chubb_standard_runs):
+    """CHANGED DELIBERATELY (Liam, 2026-09-30). This was an xfail asserting
+    CHUBB should NOT be INSUFFICIENT_INFORMATION on STANDARD, on the reading
+    that its tiers only set pricing. That reading was incomplete: for a
+    primary house the Standard Tier's minimum-coverages row reads "Subject to
+    pre-approval" below the $1,000,000 minimum of the discounted tiers, and
+    wildfire class, Flood Zone and loss history also decide placement -- none
+    of which the form asks for. With Dwelling amount blank, INSUFFICIENT
+    with Coverage A named is now the pipeline's deterministic answer
+    (_apply_chubb_hold). Under REUSE_DUMPS the recorded pre-hold runs are
+    re-scored, so this checks the status only there."""
+    import os as _os
     for run in chubb_standard_runs:
-        assert _chubb(run).get("status") != "INSUFFICIENT_INFORMATION"
+        r = _chubb(run)
+        assert r.get("status") == "INSUFFICIENT_INFORMATION", r.get("status")
+        if not _os.environ.get("REUSE_DUMPS"):
+            assert _CHUBB_COVERAGE_A_ITEM in r.get("missing_info", [])
 
 
 @pytest.mark.retrieval
@@ -5878,3 +5880,86 @@ def test_the_updated_alt_baseline_check_accepts_a_county_hold(carrier):
     assert _held_only_on_county(by[carrier])
     assert not _held_only_on_county(dict(by[carrier], notes="", missing_info=[
         "Driving distance to the responding fire station (needed to determine FPC 9+ eligibility)."]))
+
+
+# ---------------------------------------------------------------------------
+# Round 19, Step 3 (Liam, 2026-09-30): the CHUBB Coverage A hold. Dwelling
+# amount blank -> ELIGIBLE / REFER become INSUFFICIENT_INFORMATION with
+# Coverage A named; filled -> the model's verdict stands, with a note of what
+# the guide says for that amount. Keyed on carrier identity and the field
+# only. All zero-API.
+# ---------------------------------------------------------------------------
+
+from eligibility_check import _CHUBB, _CHUBB_COVERAGE_A_ITEM, _chubb_amount_note
+
+
+def _chubb_answer(status="ELIGIBLE", reasons=None, notes=""):
+    """The live 2026-09-30 shape: Eligible from one sentence."""
+    import json
+    recs = json.loads(_answer_for(_usable("Owner Occupied")))
+    for r in recs:
+        if r["carrier"] == _CHUBB:
+            r.update(status=status, notes=notes, reasons=reasons or [
+                "The owner-occupant of a house is an eligible person."], missing_info=[])
+    return json.dumps(recs)
+
+
+@pytest.mark.retrieval
+class TestChubbCoverageAHold:
+
+    @pytest.mark.parametrize("status", ["ELIGIBLE", "REFER"])
+    def test_amount_blank_holds_eligible_and_refer(self, status):
+        r = _by_carrier(_replayed_run(_LIAM_PPC3, _chubb_answer(status)))[_CHUBB]
+        assert r["status"] == "INSUFFICIENT_INFORMATION"
+        assert r["missing_info"][0] == _CHUBB_COVERAGE_A_ITEM
+        assert "$1,000,000" in r["missing_info"][0] and "pre-approval" in r["missing_info"][0]
+
+    def test_amount_blank_names_coverage_a_on_an_already_insufficient_record(self):
+        r = _by_carrier(_replayed_run(_LIAM_PPC3, _chubb_answer("INSUFFICIENT_INFORMATION")))[_CHUBB]
+        assert r["status"] == "INSUFFICIENT_INFORMATION"
+        assert _CHUBB_COVERAGE_A_ITEM in r["missing_info"]
+
+    def test_amount_blank_leaves_ineligible_alone(self):
+        r = _by_carrier(_replayed_run(_LIAM_PPC3, _chubb_answer("INELIGIBLE")))[_CHUBB]
+        assert r["status"] == "INELIGIBLE"
+
+    def test_the_hold_does_not_depend_on_any_model_wording(self):
+        r = _by_carrier(_replayed_run(_LIAM_PPC3, _chubb_answer(reasons=["Looks fine."])))[_CHUBB]
+        assert r["status"] == "INSUFFICIENT_INFORMATION"
+
+    @pytest.mark.parametrize("amount, phrase", [
+        (450000, "Subject to pre-approval"),
+        (999999, "Subject to pre-approval"),
+        (1000000, "Preferred Tier"),
+        (2500000, "Preferred Tier"),
+    ])
+    def test_amount_filled_keeps_the_verdict_and_notes_the_guide(self, amount, phrase):
+        r = _by_carrier(_replayed_run(dict(_LIAM_PPC3, dwelling_amount=amount), _chubb_answer()))[_CHUBB]
+        assert r["status"] == "ELIGIBLE"
+        assert phrase in r["notes"] and f"${amount:,}" in r["notes"]
+        assert _CHUBB_COVERAGE_A_ITEM not in r["missing_info"]
+
+    @pytest.mark.parametrize("fragment", [
+        "Subject to pre-approval",
+        "Coverage will not be declined solely based on the minimum of value of the property",
+        "Minimum: $1,000,000",
+        "risks are unacceptable in any Tier",
+        "Risks in Flood Zone A are subject to pre-approval",
+        "Risks or applicants with a loss history will require underwriter approval",
+        "become eligible for placement in our Standard Tier",
+    ])
+    def test_every_guide_phrase_the_hold_quotes_is_in_chubbs_guide(self, fragment):
+        assert _chat._compare_key(fragment) in _chat._compare_key(_guides.guide_text(_CHUBB))
+
+    def test_the_notes_quote_only_what_the_guide_says(self):
+        for amount in (450000, 1500000):
+            note = _chubb_amount_note(amount)
+            for quoted in re.findall(r'"([^"]+)"', note):
+                assert _chat._compare_key(quoted) in _chat._compare_key(_guides.guide_text(_CHUBB)), quoted
+
+    def test_no_other_carrier_is_touched(self):
+        blank = _by_carrier(_replayed_run(_LIAM_PPC3, _chubb_answer()))
+        filled = _by_carrier(_replayed_run(dict(_LIAM_PPC3, dwelling_amount=450000), _chubb_answer()))
+        for c in blank:
+            if c != _CHUBB:
+                assert blank[c] == filled[c], c
