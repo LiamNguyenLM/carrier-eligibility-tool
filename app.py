@@ -10,7 +10,7 @@ try:
 except Exception:
     pass
 
-from eligibility_check import check_eligibility, assign_buckets
+from eligibility_check import check_eligibility, assign_buckets, usable_answer_count
 from upload_carrier import (
     add_carrier_to_database,
     remove_carrier_from_database,
@@ -193,6 +193,12 @@ with tab1:
         st.markdown("---")
         st.subheader("CARRIER ELIGIBILITY ANALYSIS")
 
+        # 2026-09-30: a live check returned records with no verdict at all,
+        # and four empty columns were the only thing on screen. Never again
+        # let "no carriers" read as an answer.
+        if usable_answer_count(results) == 0:
+            st.error("The check did not return usable answers. Run it again; if it repeats, tell Liam.")
+
         buckets = assign_buckets(results)
         eligible = buckets["eligible"]
         one_issue = buckets["one_issue"]
@@ -258,7 +264,8 @@ with tab1:
 
         # Rows the pipeline writes for carriers it could not check -- a
         # wrong or unreadable guide on file, or no answer from the model.
-        could_not_check = buckets["guide_unavailable"] + buckets["not_evaluated"]
+        could_not_check = (buckets["unrecognised"] + buckets["guide_unavailable"]
+                           + buckets["not_evaluated"])
         if could_not_check:
             st.markdown("### Could Not Be Checked")
             for carrier in could_not_check:

@@ -98,6 +98,8 @@ from eligibility_check import (
     GUIDE_UNAVAILABLE,
     NOT_EVALUATED,
     _is_openai_model,
+    UNRECOGNISED_VERDICT,
+    usable_answer_count,
 )
 from shared_resources import get_vectorstore
 from profiles import (STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE,
@@ -953,18 +955,17 @@ class TestBucketAssignment:
         assert len(placed) == len(results), "a result was placed in more than one bucket"
 
     def test_unrecognized_status_does_not_silently_vanish(self):
-        # Documents current behavior honestly: an unknown status is dropped
-        # from every bucket. Not a bug today (the model is constrained to
-        # the four documented statuses and the prompt enforces it), but if
-        # a fifth status is ever introduced, this test fails loudly at that
-        # moment instead of silently hiding carriers from the UI.
+        # This used to document that an unknown status was DROPPED from every
+        # bucket, on the premise that "the model is constrained to the four
+        # documented statuses". 2026-09-30 disproved the premise live:
+        # gpt-6-luna returned 23 records with no status key at all and the
+        # screen showed four empty columns. An unknown status now lands in
+        # the catch-all "unrecognised" bucket, rendered under Could Not Be
+        # Checked.
         results = [self._make("SOME_NEW_STATUS", carrier="x")]
         buckets = assign_buckets(results)
-        placed = [r for b in buckets.values() for r in b]
-        assert not placed, (
-            "assign_buckets currently drops unrecognized statuses. If a new status was "
-            "just added, give it a bucket -- otherwise those carriers disappear from the UI."
-        )
+        assert buckets["unrecognised"] == results
+        assert sum(len(b) for b in buckets.values()) == 1
 
     def test_reproduces_the_exact_audit_finding_shape(self):
         """5 carriers tagged INELIGIBLE with flaw_count=1, 9 carriers tagged
@@ -2670,9 +2671,10 @@ def test_insufficient_information_bucket_label_is_not_truncated():
     # under "Could Not Be Checked".
     assert set(assign_buckets([]).keys()) == {
         "eligible", "one_issue", "insufficient_info", "not_eligible",
-        "guide_unavailable", "not_evaluated",
+        "guide_unavailable", "not_evaluated", "unrecognised",
     }
-    assert 'buckets["guide_unavailable"] + buckets["not_evaluated"]' in app_src
+    for bucket in ("unrecognised", "guide_unavailable", "not_evaluated"):
+        assert f'buckets["{bucket}"]' in app_src
 
 
 # ---------------------------------------------------------------------------
@@ -5441,3 +5443,154 @@ def test_complete_anthropic_shape_is_unchanged():
                                    "cache_control": {"type": "ephemeral"}}]
     assert captured["messages"] == [{"role": "user", "content": "USER TEXT"}]
     assert captured["temperature"] == 0
+
+
+# ---------------------------------------------------------------------------
+# 2026-09-30 LIVE BUG: all four result columns empty on an ordinary profile.
+# Captured, one real gpt-6-luna call: finish_reason "stop", 23 well-formed
+# records, and NOT ONE had a "status" or "flaw_count" key (the verdict words
+# appear 0 times in 28,561 characters). assign_buckets placed none of them;
+# _add_fixed_rows counted coverage by NAME, so no NOT_EVALUATED row appeared
+# either. All zero-API: the model call is answered from a fixture.
+# ---------------------------------------------------------------------------
+
+_LIVE_BUG_PROFILE = {
+    "year_built": 2000, "roof_age": 10, "roof_type": "Composition Shingle",
+    "roof_shape": "Gable", "construction_type": "Frame", "plumbing_type": "Copper",
+    "occupancy_type": "Owner Occupied", "ownership_type": "Individual Owner",
+    "coastal_tier": "Not Coastal", "swimming_pool": "Above Ground - Fenced",
+    "pool_accessories": "None", "has_dogs": "No", "aggressive_breed": "No",
+    "solar_panels": "Yes", "ppc": "2"}
+
+# Two records from the live capture, verbatim apart from trimming -- no
+# status, no flaw_count.
+_LIVE_STATUSLESS_RECORDS = [
+    {"carrier": "ARI_(HOA+)",
+     "reasons": ["This HOA+ program requires an owner-occupied residence, and the property is owner occupied."],
+     "citations": ["ARI_(HOA+): “An inspection is required on homes over 5 years old.”"],
+     "missing_info": ["Whether the pool fence is at least 6 feet high and has a locked or self-locking gate."],
+     "notes": "HOA Coverage A is ACV by default; replacement cost on Coverage A or B, or both, may be purchased."},
+    {"carrier": "ARI_(HOB)",
+     "reasons": ["This HOB program requires an owner-occupied residence, and the property is owner occupied."],
+     "citations": ["ARI_(HOB): “Homes 0-20 years old are eligible for this program.”"],
+     "missing_info": ["Whether the pool fence is at least 6 feet high and has a locked or self-locking gate."],
+     "notes": "The excerpt states that roofs 15 years or older are covered on an ACV basis."},
+]
+
+
+def _replay_live(raw):
+    return _replayed_run(_LIVE_BUG_PROFILE, raw)
+
+
+def _all_placed_once(results):
+    buckets = assign_buckets(results)
+    placed = [id(r) for b in buckets.values() for r in b]
+    return len(placed) == len(results) == len(set(placed))
+
+
+def _with_status(status, flaw="0"):
+    """A full answer with every record's status and flaw_count replaced."""
+    import json
+    recs = json.loads(_answer_for(_usable("Owner Occupied")))
+    raw = json.dumps(recs)
+    return raw.replace('"status": "ELIGIBLE", "flaw_count": 0',
+                       '"status": %s, "flaw_count": %s' % (json.dumps(status), flaw))
+
+
+@pytest.mark.retrieval
+class TestNoSilentlyEmptyResult:
+
+    def test_the_exact_live_shape_now_shows_a_row_for_every_carrier(self):
+        """THE LIVE BUG: status-less records must not vanish."""
+        import json
+        results = _replay_live(json.dumps(_LIVE_STATUSLESS_RECORDS))
+        b = assign_buckets(results)
+        unrec = {r["carrier"] for r in b["unrecognised"]}
+        assert unrec == {"ARI_(HOA+)", "ARI_(HOB)"}
+        assert all("('no status given')" in r["reasons"][0] for r in b["unrecognised"])
+        # the carriers the model did not answer at all still get a row
+        assert {r["carrier"] for r in b["not_evaluated"]} == set(_usable("Owner Occupied")) - unrec
+        assert usable_answer_count(results) == 0
+        assert _all_placed_once(results)
+
+    @pytest.mark.parametrize("raw", ["[]", "", "I'm sorry, but I can't help with that request.",
+                                     '{"note": "no list here"}'],
+                             ids=["empty-list", "empty-string", "refusal", "wrapper-without-list"])
+    def test_no_usable_answer_is_reported_as_such(self, raw):
+        results = _replay_live(raw)
+        assert usable_answer_count(results) == 0
+        assert _all_placed_once(results)
+        if raw in ("[]", '{"note": "no list here"}'):
+            assert len(assign_buckets(results)["not_evaluated"]) == len(_usable("Owner Occupied"))
+
+    @pytest.mark.parametrize("written, expected", [
+        ("eligible", "ELIGIBLE"), (" Ineligible ", "INELIGIBLE"), ("refer", "REFER"),
+        ("insufficient information", "INSUFFICIENT_INFORMATION"),
+        ("Insufficient-Information", "INSUFFICIENT_INFORMATION"),
+    ])
+    def test_status_is_normalised_by_case_space_and_hyphen_only(self, written, expected):
+        results = _replay_live(_with_status(written))
+        statuses = {r["status"] for r in results if r["carrier"] in _usable("Owner Occupied")}
+        assert expected in statuses
+        assert not assign_buckets(results)["unrecognised"]
+
+    @pytest.mark.parametrize("made_up", ["NOT_ELIGIBLE", "APPROVED", "Maybe", "PASS"])
+    def test_a_made_up_status_is_never_mapped_to_a_real_one(self, made_up):
+        """No synonyms: 'NOT_ELIGIBLE' is not 'INELIGIBLE'."""
+        results = _replay_live(_with_status(made_up))
+        b = assign_buckets(results)
+        assert len(b["unrecognised"]) == len(_usable("Owner Occupied"))
+        assert all(made_up in r["reasons"][0] and repr(made_up) in r["notes"] for r in b["unrecognised"])
+        assert usable_answer_count(results) == 0
+        assert _all_placed_once(results)
+
+    @pytest.mark.parametrize("flaw, one_issue", [('"1"', True), ('"2"', False), ('"one"', False),
+                                                 ("null", False), ("1.0", True)])
+    def test_flaw_count_is_coerced_to_an_int(self, flaw, one_issue):
+        results = _replay_live(_with_status("INELIGIBLE", flaw))
+        model = [r for r in results if r["status"] == "INELIGIBLE"]
+        assert model and all(isinstance(r["flaw_count"], int) for r in model)
+        assert (len(assign_buckets(results)["one_issue"]) == len(model)) is one_issue
+        assert _all_placed_once(results)
+
+    def test_an_unrecognised_record_does_not_cover_a_real_carrier(self):
+        """It shares its name with a real carrier: that carrier gets exactly
+        one row, the unrecognised-verdict one -- never nothing, never two."""
+        import json
+        answered = [c for c in _usable("Owner Occupied") if c != "Allied_Trust_HO3"]
+        recs = json.loads(_answer_for(answered))
+        recs.append(dict(recs[0], carrier="Allied_Trust_HO3", status="SOMETHING_ELSE"))
+        results = _replay_live(json.dumps(recs))
+        allied = [r for r in results if r["carrier"] == "Allied_Trust_HO3"]
+        assert [r["status"] for r in allied] == [UNRECOGNISED_VERDICT]
+        assert not assign_buckets(results)["not_evaluated"]
+        assert usable_answer_count(results) == len(answered)
+
+    def test_the_diagnostics_are_printed_when_the_answer_is_unusable(self, capsys):
+        import json
+        _replay_live(json.dumps(_LIVE_STATUSLESS_RECORDS))
+        out = capsys.readouterr().out
+        assert "UNUSABLE MODEL ANSWER" in out
+        assert "RAW RESPONSE HEAD:" in out and "RAW RESPONSE TAIL:" in out
+
+    def test_app_shows_the_error_banner_and_the_new_bucket(self):
+        app_src = open(os.path.join(os.path.dirname(__file__), "..", "app.py"), encoding="utf-8").read()
+        assert "The check did not return usable answers. Run it again; if it repeats, tell Liam." in app_src
+        assert "usable_answer_count(results) == 0" in app_src
+        assert 'buckets["unrecognised"]' in app_src
+
+
+@pytest.mark.retrieval
+@pytest.mark.parametrize("seed", range(20))
+def test_every_record_lands_in_exactly_one_bucket_whatever_its_status(seed):
+    """The invariant, on random and garbage statuses and flaw counts."""
+    import random
+    rng = random.Random(seed)
+    pool = ["ELIGIBLE", "INELIGIBLE", "REFER", "INSUFFICIENT_INFORMATION", GUIDE_UNAVAILABLE,
+            NOT_EVALUATED, UNRECOGNISED_VERDICT, "eligible", "NOT_ELIGIBLE", "", None, 7,
+            "Insufficient Information", "—", ["ELIGIBLE"]]
+    results = [{"carrier": "c%d" % i, "status": rng.choice(pool),
+                "flaw_count": rng.choice([0, 1, 2, "1", None, "x"])} for i in range(rng.randint(0, 40))]
+    buckets = assign_buckets(results)
+    placed = [id(r) for b in buckets.values() for r in b]
+    assert sorted(placed) == sorted(id(r) for r in results)

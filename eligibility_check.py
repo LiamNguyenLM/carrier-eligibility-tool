@@ -2789,6 +2789,12 @@ CARRIER DOCUMENTS:
                 f"in the model's response -- recovered {len(parsed)} carrier record(s) "
                 f"that would otherwise have been discarded."
             )
+        # A wrapper object with no list, or non-object items, is not an
+        # answer; treat it as none (NOT_EVALUATED rows + the banner) rather
+        # than crash on r.get().
+        if not isinstance(parsed, list):
+            parsed = []
+        parsed = [_normalize_record(r) for r in parsed if isinstance(r, dict)]
 
         # CHANGED: the model's own restated carrier name can drop a token
         # from an ambiguous combined-program name (e.g. return "Foremost"
@@ -2830,6 +2836,16 @@ CARRIER DOCUMENTS:
                 continue
             filtered.append(r)
 
+        # A record whose status is not one the model may write is held out
+        # of every post-parse check (none of them should act on a verdict
+        # that does not exist) and shown as its own "Could Not Be Checked"
+        # row. 2026-09-30, live: gpt-6-luna returned 23 records with NO
+        # status or flaw_count key at all; assign_buckets placed none of
+        # them, and because _add_fixed_rows counted coverage by NAME, no
+        # NOT_EVALUATED row appeared either -- four empty columns.
+        unrecognised = [r for r in filtered if r.get("status") not in MODEL_STATUSES]
+        filtered = [r for r in filtered if r.get("status") in MODEL_STATUSES]
+
         # Attribution check runs BEFORE the structured overrides: it can
         # downgrade an unsupported adverse verdict, and the structured
         # overrides should then see (and be able to act on) that corrected
@@ -2850,7 +2866,14 @@ CARRIER DOCUMENTS:
             filtered, relevant_carriers, property_details, solar_classes
         )
 
-        return _add_fixed_rows(filtered, relevant_carriers, unavailable, defects)
+        final = _add_fixed_rows(filtered, relevant_carriers, unavailable, defects, unrecognised)
+        if unrecognised or usable_answer_count(final) == 0:
+            _print_raw_diagnostics(
+                "UNUSABLE MODEL ANSWER: {} usable record(s), {} with an unrecognised status "
+                "{}".format(usable_answer_count(final), len(unrecognised),
+                            sorted({repr(r.get('_raw_status')) for r in unrecognised})),
+                raw, usage)
+        return final
 
     except json.JSONDecodeError as e:
         # CHANGED (round 12): print length + the tail, not just the first
@@ -2905,6 +2928,70 @@ CARRIER DOCUMENTS:
 # not check. Liam's decisions, 2026-09-28/29. Each has its own UI bucket.
 GUIDE_UNAVAILABLE = "GUIDE_UNAVAILABLE"
 NOT_EVALUATED = "NOT_EVALUATED"
+UNRECOGNISED_VERDICT = "UNRECOGNISED_VERDICT"
+
+# The four statuses SYSTEM_INSTRUCTIONS lets the model write.
+MODEL_STATUSES = ("ELIGIBLE", "INELIGIBLE", "REFER", "INSUFFICIENT_INFORMATION")
+
+
+def _normalize_status(value):
+    """Trim, uppercase, spaces and hyphens to underscores -- and nothing
+    else. No synonyms: "NOT_ELIGIBLE" is NOT mapped to "INELIGIBLE"; a word
+    the model was never asked for is unrecognised, not guessed at."""
+    if not isinstance(value, str):
+        return None
+    return re.sub(r"[\s\-]+", "_", value.strip()).upper() or None
+
+
+def _coerce_flaw_count(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return 0
+
+
+def _normalize_record(r):
+    """Normalise one parsed model record in place; the raw status is kept
+    as _raw_status so an unrecognised one can be shown as written."""
+    r["_raw_status"] = r.get("status")
+    r["status"] = _normalize_status(r.get("status"))
+    r["flaw_count"] = _coerce_flaw_count(r.get("flaw_count", 0))
+    return r
+
+
+def _unrecognised_row(record, carrier):
+    raw = record.get("_raw_status")
+    shown = "no status given" if raw is None or raw == "" else str(raw)
+    return {
+        "carrier": carrier,
+        "status": UNRECOGNISED_VERDICT,
+        "flaw_count": 0,
+        "reasons": ["The model gave a verdict this tool doesn't recognise ('{}') -- run the "
+                    "check again.".format(shown)],
+        "citations": [],
+        "missing_info": [],
+        "notes": "Raw status value from the model: {!r}. Its reasoning, not acted on: {}".format(
+            raw, " ".join(record.get("reasons") or [])[:1500]),
+    }
+
+
+def usable_answer_count(results):
+    """Records the model actually decided -- one of the four statuses, and
+    not the pipeline's own Parse Error stand-in. Zero means the check did not
+    return usable answers, whatever else is on screen."""
+    return sum(1 for r in results
+               if r.get("status") in MODEL_STATUSES and r.get("carrier") != "Parse Error")
+
+
+def _print_raw_diagnostics(headline, raw, usage):
+    """Railway captures stdout. Same shape as the JSON PARSE ERROR path."""
+    print(headline)
+    print("RAW RESPONSE LENGTH:", len(raw), "stop_reason:", (usage or {}).get("stop_reason", "n/a"))
+    print("RAW RESPONSE HEAD:", raw[:500])
+    print("RAW RESPONSE TAIL:", raw[-500:])
 
 _GUIDE_UNAVAILABLE_TEXT = {
     data_defects.NO_TEXT: "The guide on file has no readable text -- check with the carrier directly.",
@@ -2943,7 +3030,7 @@ def _not_evaluated_row(program):
     }
 
 
-def _add_fixed_rows(results, relevant_carriers, unavailable, defects):
+def _add_fixed_rows(results, relevant_carriers, unavailable, defects, unrecognised=()):
     """Append the rows the pipeline owns, so no carrier ever silently
     disappears from the results:
 
@@ -2975,8 +3062,25 @@ def _add_fixed_rows(results, relevant_carriers, unavailable, defects):
     kept = [r for r in results if not (unavailable and is_unavailable(r))]
     covered = {_resolve_structured_carrier(r.get("carrier", ""), relevant_carriers) for r in kept}
     missing = [c for c in relevant_carriers if c not in covered]
+
+    # UNRECOGNISED_VERDICT: a record whose status is not one the model may
+    # write never counts as covering its carrier (2026-09-30: coverage by
+    # NAME alone let 23 status-less Luna records vanish with no row). The
+    # carrier gets exactly one row -- the unrecognised-verdict one, which says
+    # more than "no answer" -- instead of a NOT_EVALUATED beside it. A record
+    # that fits no usable carrier, or duplicates one that has a real answer,
+    # still gets its own row: nothing the model wrote disappears.
+    unrec_rows, explained = [], set()
+    for r in unrecognised:
+        if unavailable and is_unavailable(r):
+            continue
+        canon = _resolve_structured_carrier(r.get("carrier", ""), relevant_carriers)
+        if canon in missing and canon not in explained:
+            explained.add(canon)
+        unrec_rows.append(_unrecognised_row(r, canon or r.get("carrier", "(unnamed)")))
     return (kept
-            + [_not_evaluated_row(c) for c in missing]
+            + unrec_rows
+            + [_not_evaluated_row(c) for c in missing if c not in explained]
             + [_guide_unavailable_row(p, defects[p]) for p in unavailable])
 
 
@@ -3017,4 +3121,12 @@ def assign_buckets(results):
         "not_eligible": not_eligible,
         "guide_unavailable": [r for r in results if r.get("status") == GUIDE_UNAVAILABLE],
         "not_evaluated": [r for r in results if r.get("status") == NOT_EVALUATED],
+        # Catch-all, so every record lands in exactly one bucket whatever its
+        # status (2026-09-30: an unplaceable status used to fall out of every
+        # bucket, and four empty columns were all that showed). The pipeline
+        # writes UNRECOGNISED_VERDICT; anything else here arrived raw.
+        "unrecognised": [r for r in results if r.get("status") not in _PLACED_STATUSES],
     }
+
+
+_PLACED_STATUSES = MODEL_STATUSES + (GUIDE_UNAVAILABLE, NOT_EVALUATED)
