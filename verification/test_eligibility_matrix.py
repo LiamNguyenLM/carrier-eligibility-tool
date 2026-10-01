@@ -5927,15 +5927,17 @@ class TestChubbCoverageAHold:
         r = _by_carrier(_replayed_run(_LIAM_PPC3, _chubb_answer(reasons=["Looks fine."])))[_CHUBB]
         assert r["status"] == "INSUFFICIENT_INFORMATION"
 
-    @pytest.mark.parametrize("amount, phrase", [
-        (450000, "Subject to pre-approval"),
-        (999999, "Subject to pre-approval"),
-        (1000000, "Preferred Tier"),
-        (2500000, "Preferred Tier"),
+    # Changed deliberately 2026-10-01 (round 20, Liam): below $1,000,000 an
+    # ELIGIBLE now becomes REFER (TestChubbBelowMinimumRefer); the note stays.
+    @pytest.mark.parametrize("amount, phrase, status", [
+        (450000, "Subject to pre-approval", "REFER"),
+        (999999, "Subject to pre-approval", "REFER"),
+        (1000000, "Preferred Tier", "ELIGIBLE"),
+        (2500000, "Preferred Tier", "ELIGIBLE"),
     ])
-    def test_amount_filled_keeps_the_verdict_and_notes_the_guide(self, amount, phrase):
+    def test_amount_filled_notes_the_guide(self, amount, phrase, status):
         r = _by_carrier(_replayed_run(dict(_LIAM_PPC3, dwelling_amount=amount), _chubb_answer()))[_CHUBB]
-        assert r["status"] == "ELIGIBLE"
+        assert r["status"] == status
         assert phrase in r["notes"] and f"${amount:,}" in r["notes"]
         assert _CHUBB_COVERAGE_A_ITEM not in r["missing_info"]
 
@@ -5963,6 +5965,83 @@ class TestChubbCoverageAHold:
         for c in blank:
             if c != _CHUBB:
                 assert blank[c] == filled[c], c
+
+
+# ---------------------------------------------------------------------------
+# Round 20, Step 1 (Liam, 2026-10-01): CHUBB below $1,000,000 Coverage A is a
+# referral. Keyed on carrier identity and the parsed amount only.
+# ---------------------------------------------------------------------------
+
+from eligibility_check import _CHUBB_BELOW_MINIMUM_REFER_NOTE
+
+
+def _chubb_record(status, missing_info=(), amount=None, reasons=None):
+    import json
+    answer = json.loads(_chubb_answer(status, reasons=reasons))
+    for rec in answer:
+        if rec["carrier"] == _CHUBB:
+            rec["missing_info"] = list(missing_info)
+            if status == "INELIGIBLE":
+                rec["flaw_count"] = 1
+    profile = dict(_LIAM_PPC3) if amount is None else dict(_LIAM_PPC3, dwelling_amount=amount)
+    return _by_carrier(_replayed_run(profile, json.dumps(answer)))
+
+
+@pytest.mark.retrieval
+class TestChubbBelowMinimumRefer:
+
+    @pytest.mark.parametrize("amount", [999999, "$950,000", "950000", "450k", "$999,999.00"])
+    def test_eligible_below_one_million_becomes_refer(self, amount):
+        r = _chubb_record("ELIGIBLE", amount=amount)[_CHUBB]
+        assert r["status"] == "REFER" and r["flaw_count"] == 0
+        assert _CHUBB_BELOW_MINIMUM_REFER_NOTE in r["notes"]
+
+    @pytest.mark.parametrize("amount", [1000000, "1,000,000", "$1,000,000", "1m", "$2.5m"])
+    def test_one_million_and_up_is_unchanged(self, amount):
+        r = _chubb_record("ELIGIBLE", amount=amount)[_CHUBB]
+        assert r["status"] == "ELIGIBLE"
+        assert _CHUBB_BELOW_MINIMUM_REFER_NOTE not in r["notes"]
+
+    def test_ineligible_below_one_million_is_untouched(self):
+        r = _chubb_record("INELIGIBLE", amount=450000,
+                          reasons=["Wildfire classification 24-50 is unacceptable in any Tier."])[_CHUBB]
+        assert r["status"] == "INELIGIBLE"
+        assert _CHUBB_BELOW_MINIMUM_REFER_NOTE not in r["notes"]
+
+    def test_insufficient_open_for_another_fact_is_untouched(self):
+        r = _chubb_record("INSUFFICIENT_INFORMATION", amount=450000,
+                          missing_info=["Flood Zone -- Zone A is subject to pre-approval."])[_CHUBB]
+        assert r["status"] == "INSUFFICIENT_INFORMATION"
+        assert r["missing_info"] == ["Flood Zone -- Zone A is subject to pre-approval."]
+        assert _CHUBB_BELOW_MINIMUM_REFER_NOTE not in r["notes"]
+
+    def test_refer_from_the_model_stays_refer(self):
+        r = _chubb_record("REFER", amount=450000)[_CHUBB]
+        assert r["status"] == "REFER"
+
+    @pytest.mark.parametrize("amount", [None, "", "abc", "0", "-5"])
+    def test_blank_or_unparseable_stays_insufficient(self, amount):
+        r = _chubb_record("ELIGIBLE", amount=amount)[_CHUBB]
+        assert r["status"] == "INSUFFICIENT_INFORMATION"
+        assert r["missing_info"][0] == _CHUBB_COVERAGE_A_ITEM
+
+    def test_no_other_carrier_is_touched_by_a_low_amount(self):
+        low = _chubb_record("ELIGIBLE", amount=450000)
+        high = _chubb_record("ELIGIBLE", amount=2500000)
+        others = [c for c in low if c != _CHUBB]
+        assert others
+        for c in others:
+            assert low[c] == high[c], c
+        assert any(low[c]["status"] == "ELIGIBLE" for c in others)
+
+    def test_the_refer_note_quotes_pass_the_quote_check_in_chubbs_guide(self):
+        quotes = re.findall(r'"([^"]+)"', _CHUBB_BELOW_MINIMUM_REFER_NOTE)
+        assert quotes == ["Subject to pre-approval*",
+                          "Coverage will not be declined solely based on the minimum of value of the property."]
+        text = _guides.guide_text(_CHUBB)
+        for q in quotes:
+            assert _chat._appears_in(_chat._compare_key(q), _chat._compare_key(text)), q
+            assert q in text, q                                # exact, not just after folding
 
 
 # ---------------------------------------------------------------------------

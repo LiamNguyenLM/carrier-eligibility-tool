@@ -186,6 +186,21 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       - Townhome: Progressive HO6 stays INSUFFICIENT.
       - One call each is an observation, not a rate.
 
+- **2026-10-01 — Round 20 (Liam).**
+  - **CHUBB below $1,000,000 Coverage A is REFER.** With Dwelling amount
+    filled and below $1,000,000, a CHUBB ELIGIBLE becomes REFER (flaw 0).
+    The rule keys on carrier identity and the parsed amount. The note quotes
+    the guide: "Subject to pre-approval*" and "Coverage will not be declined
+    solely based on the minimum of value of the property." Both quotes pass
+    the chat tab's quote check.
+    - INELIGIBLE, REFER and an INSUFFICIENT_INFORMATION open for another fact
+      are untouched.
+    - $1,000,000 and up: the model's verdict stands, with the existing note.
+      Blank still means INSUFFICIENT.
+    - Parsing (unchanged from round 19): "$950,000" and "950000" are 950,000
+      (REFER). "1,000,000" is exactly 1,000,000 (not below). Cents round, so
+      "$999,999.50" rounds to 1,000,000.
+
 ## Open work, in priority order (updated 2026-09-30)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
@@ -210,8 +225,8 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
   regardless of driving distance", but rows 2-5 of the table attach
   conditions (visibility from the road, central-station alarm, year-round
   access) that depend on the distance and hydrant facts.
-- **CHUBB below $1,000,000 Coverage A:** the Standard Tier reads "Subject to
-  pre-approval". Should that become REFER? Liam's call.
+- **CHUBB below $1,000,000 Coverage A:** DECIDED and built 2026-10-01
+  (round 20): it is REFER.
 - **Other guides with COUNTY rules.** Listed here, not built:
   - Foremost: a "Restricted Areas -- Coastal" list of counties that are
     "entirely restricted", including Aransas, Bee, Brazoria, Cameron,

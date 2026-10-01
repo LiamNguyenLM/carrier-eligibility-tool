@@ -3134,6 +3134,14 @@ _CHUBB_COVERAGE_A_ITEM = (
     "loss history, which this form does not ask for.")
 
 
+# The two phrases are copied from the guide's text (page-10 table and its
+# footnote); a test checks they pass the chat tab's quote verifier.
+_CHUBB_BELOW_MINIMUM_REFER_NOTE = (
+    "Status set to REFER: below $1,000,000 Coverage A a primary house goes to Chubb's Standard "
+    "Tier, which the guide marks \"Subject to pre-approval*\" -- \"Coverage will not be declined "
+    "solely based on the minimum of value of the property.\" That is a referral to underwriting.")
+
+
 def _chubb_amount_note(amount):
     if amount < 1_000_000:
         return ("Chubb guide, section VIII, for this amount (${:,}): below the $1,000,000 minimum "
@@ -3152,9 +3160,13 @@ def _apply_chubb_hold(results, relevant_carriers, property_details):
       blank   ELIGIBLE / REFER -> INSUFFICIENT_INFORMATION, Coverage A named.
               Live 2026-09-30 CHUBB was Eligible from one sentence; recorded
               Sonnet runs said INSUFFICIENT_INFORMATION 3/3.
-      filled  the model's verdict stands, with a note of what the guide says
-              for that amount. No new status rule -- whether "Subject to
-              pre-approval" below $1,000,000 should become REFER is Liam's call.
+      filled  a note of what the guide says for that amount, and:
+              below $1,000,000  ELIGIBLE -> REFER, flaw 0 (Liam, 2026-10-01:
+                                "Subject to pre-approval" is a referral to
+                                underwriting). INELIGIBLE and an
+                                INSUFFICIENT_INFORMATION open for another fact
+                                are left alone -- another rule may be why.
+              $1,000,000 and up the model's verdict stands.
     """
     amount = _dwelling_amount(property_details)
     for r in results:
@@ -3162,6 +3174,10 @@ def _apply_chubb_hold(results, relevant_carriers, property_details):
             continue
         if amount:
             _append_note(r, _chubb_amount_note(amount))
+            if amount < 1_000_000 and r.get("status") == "ELIGIBLE":
+                r["status"] = "REFER"
+                r["flaw_count"] = 0
+                _append_note(r, _CHUBB_BELOW_MINIMUM_REFER_NOTE)
             continue
         if r.get("status") in ("ELIGIBLE", "REFER"):
             r["status"] = "INSUFFICIENT_INFORMATION"
