@@ -790,6 +790,25 @@ def _is_condo_program(carrier):
     return "HO6" in _strip_to_alnum(carrier or "")
 
 
+def _pool_fence_4ft(property_details):
+    return intake_fields.pool_box(property_details, "pool_fence_4ft")
+
+
+def _pool_gate_locking(property_details):
+    return intake_fields.pool_box(property_details, "pool_gate_locking")
+
+
+def _pool_fact_lines(property_details):
+    """PROPERTY DETAILS lines for a TICKED pool box, each starting with a
+    newline; "" when neither is ticked (unchecked means unknown)."""
+    lines = []
+    if _pool_fence_4ft(property_details):
+        lines.append("Pool Fence Height: confirmed 4 feet or higher")
+    if _pool_gate_locking(property_details):
+        lines.append("Pool Gate: confirmed self-closing / locking")
+    return "".join("\n" + line for line in lines)
+
+
 def _optional_fact_lines(property_details):
     """Extra PROPERTY DETAILS lines, one per FILLED optional field, each
     starting with a newline; "" when all three are blank."""
@@ -1556,6 +1575,82 @@ def _describe_unconfirmed_pool_spec(spec):
     return " and ".join(wants)
 
 
+# What the "Gate confirmed self-closing / locking" box settles, per carrier,
+# read from each guide 2026-10-01 (the phrase is verbatim; a test checks it is
+# in that carrier's own guide). True: the guide accepts a locking / locked /
+# lockable gate, or (Sage) lists a padlocked gate among the acceptable ones.
+# False: the guide names a specific mechanism -- "self-locking" or
+# "self-latching" -- that a locking gate does not establish; the gate question
+# stays open there until Liam decides otherwise. A carrier not listed is never
+# settled by the box. Travelers is deliberately absent: the "locking" in its
+# pool rule is a "retractable locking ladder", not a gate.
+_SAGE_GATE = "combination or padlocked gate or self-locking or self-latching mechanism"
+_POOL_GATE_RULE = {
+    "ARI_(HOA+)": (True, "Pools secured by a 6' high fence with locked or self locking gates are acceptable"),
+    "ARI_(HOB)": (True, "Pools secured by a 6' high fence with locked or self locking gates are acceptable"),
+    "Allied_Trust_HO3": (True, "a fence at least 4-foot-high with a locking gate"),
+    "Centauri_-_DP3_-_11.16.2022": (True, "a minimum 4-foot high locking fence or alternate approved enclosure"),
+    "NatGen_Premier_OneChoice_DP3_-_02.26.2025": (True, "A height of at least four feet and locking gates are required"),
+    "NatGen_Premier_OneChoice_HO3_-_02.26.2025": (True, "A height of at least four feet and locking gates are required"),
+    "Progressive_DP3_-_10.01.2024": (True, "Must be protected by a locking fence at least 4-feet high, or alternate approved enclosure"),
+    "Progressive_HO3_-_04.01.2026": (True, "a minimum of a four-foot fence and locking gate or approved alternate enclosure"),
+    "Sage_-_Markel_DP3": (True, "Lockable gate"),
+    "Sage_-_Markel_HO3": (True, "Lockable gate"),
+    "Sage_-_Auros_HO3": (True, _SAGE_GATE),
+    "Sage_-_Occidental_DP3": (True, _SAGE_GATE),
+    "Sage_-_SURE_DP-3_-_01.31.2026": (True, _SAGE_GATE),
+    "Sage_-_SURE_HO-3_-_01.31.2026": (True, _SAGE_GATE),
+    "Sage_-_SafePort_DP-3_-_01.31.2026": (True, _SAGE_GATE),
+    "Sage_-_SafePort_HO-3_-_01.31.2026": (True, _SAGE_GATE),
+    "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026": (True, _SAGE_GATE),
+    "Sage_-_Wilshire_HO3_-_12.02.2025": (True, _SAGE_GATE),
+    "Steadily_Underwriting_Guidelines_DP3": (True, "4 ft. high permanently installed, locking fence"),
+    "Foremost_DP3_and_HO3_-_07.01.2026": (False, "a fence minimum four feet high (fully enclosing the pool) AND a self-locking gate"),
+    "NatGen_Custom360_DP3_-_06.25.2026": (False, "Pools are fenced in with self-locking gate"),
+    "Swyfft_-_Benchmark_(Admitted)_HO3": (False, "self-latching gate"),
+    "Swyfft_-_Benchmark_(Surplus)_HO3": (False, "self-latching gate"),
+    "Swyfft_-_Lloyds_(Surplus)_HO3": (False, "self-latching gate"),
+    "Swyfft_-_Topa_(Surplus)_HO3": (False, "self-latching gate"),
+}
+
+_POOL_HEIGHT_WORDS_RE = re.compile(r"height|high|tall|\bfeet\b|\bfoot\b|\bft\b|\d\s*(?:'|\u2019|-?foot|-?feet|ft)", re.I)
+_POOL_GATE_WORDS_RE = re.compile(r"gate|latch|lock", re.I)
+
+
+def _pool_boxes_settle(spec, canon, property_details):
+    """(height settled, gate settled) by the agent's ticked boxes for this
+    carrier. Height: ticked AND every height the carrier states is 4 ft or
+    less. Gate: ticked AND _POOL_GATE_RULE says a locking gate meets it."""
+    heights = spec["heights"] if spec else set()
+    height_ok = _pool_fence_4ft(property_details) and bool(heights) and max(int(h) for h in heights) <= 4
+    gate_ok = _pool_gate_locking(property_details) and _POOL_GATE_RULE.get(canon, (False, ""))[0]
+    return height_ok, gate_ok
+
+
+def _drop_answered_pool_questions(r, height_ok, gate_ok):
+    """Remove the model's own pool fence-height / gate questions that a
+    ticked box has answered for this carrier. An item about both is removed
+    only when both are answered. Returns the removed items."""
+    if not (height_ok or gate_ok):
+        return []
+    dropped = []
+    for m in r.get("missing_info", []):
+        if not _is_manufactured_pool_question(m):
+            continue
+        asks_height = bool(_POOL_HEIGHT_WORDS_RE.search(m))
+        asks_gate = bool(_POOL_GATE_WORDS_RE.search(m))
+        if not (asks_height or asks_gate):
+            continue
+        if (not asks_height or height_ok) and (not asks_gate or gate_ok):
+            dropped.append(m)
+    if dropped:
+        r["missing_info"] = [m for m in r["missing_info"] if m not in dropped]
+        _append_note(r, "[Pool spec check] Removed {n} question(s) answered by the agent's "
+                        "confirmed pool facts: {items}".format(
+                            n=len(dropped), items="; ".join(d[:120] for d in dropped)))
+    return dropped
+
+
 def _enforce_pool_spec_support(results, relevant_carriers, property_details, pool_specs):
     """Guarantee that a carrier stating specific pool-enclosure
     requirements records them as UNCONFIRMED rather than assumed met.
@@ -1576,6 +1671,7 @@ def _enforce_pool_spec_support(results, relevant_carriers, property_details, poo
     if _intake_states_pool_specifics(pool_value):
         return
 
+    any_box = _pool_fence_4ft(property_details) or _pool_gate_locking(property_details)
     for r in results:
         canon = _resolve_structured_carrier(r.get("carrier", ""), relevant_carriers)
         if canon is None:
@@ -1584,21 +1680,40 @@ def _enforce_pool_spec_support(results, relevant_carriers, property_details, poo
         if not spec or not (spec["heights"] or spec["gates"]):
             continue
 
-        described = _describe_unconfirmed_pool_spec(spec)
-        item = (
-            f"Pool enclosure specifics are not confirmed by the intake value "
-            f"\"{pool_value}\": {described}."
-        )
-        mi = r.setdefault("missing_info", [])
-        if not any("pool enclosure specifics" in m.lower() for m in mi):
-            mi.append(item)
+        # Round 20: a ticked box answers what it can for THIS carrier; the
+        # rest stays unconfirmed. Both unticked = exactly the old behaviour.
+        height_ok, gate_ok = _pool_boxes_settle(spec, canon, property_details)
+        dropped = _drop_answered_pool_questions(r, height_ok, gate_ok)
+        still_open = {"heights": set() if height_ok else spec["heights"],
+                      "gates": set() if gate_ok else spec["gates"]}
+        if still_open["heights"] or still_open["gates"]:
+            described = _describe_unconfirmed_pool_spec(still_open)
+            item = (
+                f"Pool enclosure specifics are not confirmed by the intake value "
+                f"\"{pool_value}\": {described}."
+            )
+            mi = r.setdefault("missing_info", [])
+            if not any("pool enclosure specifics" in m.lower() for m in mi):
+                mi.append(item)
 
-        _append_note(
-            r,
-            f"[Pool spec check] The intake value \"{pool_value}\" states neither a fence "
-            f"height nor a gate mechanism, so this carrier's specific pool requirement "
-            f"cannot be treated as met -- it is unconfirmed, not satisfied.",
-        )
+            if any_box:
+                _append_note(
+                    r,
+                    "[Pool spec check] The confirmed pool facts do not settle this carrier's "
+                    f"stated {described}, so that part is unconfirmed, not satisfied.",
+                )
+            else:
+                _append_note(
+                    r,
+                    f"[Pool spec check] The intake value \"{pool_value}\" states neither a fence "
+                    f"height nor a gate mechanism, so this carrier's specific pool requirement "
+                    f"cannot be treated as met -- it is unconfirmed, not satisfied.",
+                )
+        elif dropped and r.get("status") == "INSUFFICIENT_INFORMATION" and not r.get("missing_info"):
+            r["status"] = "ELIGIBLE"
+            r["flaw_count"] = 0
+            _append_note(r, "Status corrected to ELIGIBLE: the only open facts were this "
+                            "carrier's pool fence height / gate, and the agent confirmed both.")
 
     _drop_manufactured_pool_questions(results, relevant_carriers, property_details, pool_specs)
 
@@ -2897,7 +3012,7 @@ Occupancy Type: {occupancy}
 Ownership Structure: {ownership}
 Coastal Tier: {property_details['coastal_tier']}
 Swimming Pool: {property_details['swimming_pool']}
-Pool Accessories: {property_details['pool_accessories']}
+Pool Accessories: {property_details['pool_accessories']}{_pool_fact_lines(property_details)}
 Dogs on Premises: {property_details['has_dogs']}
 Aggressive Breed Dogs: {property_details['aggressive_breed']}
 Solar Panels: {property_details['solar_panels']}

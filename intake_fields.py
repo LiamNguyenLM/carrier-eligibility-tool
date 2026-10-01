@@ -61,5 +61,18 @@ def parse_dwelling_amount(value):
     return int(round(amount)) if amount > 0 else None
 
 
+# Round 20 (Liam, 2026-10-01): the two pool checkboxes exist only for these
+# answers. Unchecked means UNKNOWN, never "no".
+FENCED_POOL_VALUES = ("Above Ground - Fenced", "In Ground - Fenced")
+
+
+def pool_box(property_details, key):
+    """True only when the pool answer is a fenced one AND the box was ticked.
+    Anything else -- no pool, unfenced, a stale tick left over from an
+    earlier pool answer, a truthy string -- is unknown."""
+    return (property_details.get("swimming_pool") in FENCED_POOL_VALUES
+            and property_details.get(key) is True)
+
+
 def normalize_dwelling_type(value):
     return value if value in DWELLING_TYPES else ""

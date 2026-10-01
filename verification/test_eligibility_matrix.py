@@ -6132,3 +6132,230 @@ def test_structured_output_defaults_on():
     import eligibility_check as ec
     if os.environ.get("ELIGIBILITY_STRUCTURED") is None:
         assert ec.ELIGIBILITY_STRUCTURED is True
+
+
+# ---------------------------------------------------------------------------
+# Round 20, Step 2 (Liam, 2026-10-01): pool fence-height and gate checkboxes.
+# Unchecked means UNKNOWN. Zero API throughout.
+# ---------------------------------------------------------------------------
+
+from eligibility_check import _POOL_GATE_RULE, _enforce_pool_spec_support
+
+_FENCED_ALT = dict(ALT_PROFILE, swimming_pool="Above Ground - Fenced")
+_BOX_KEYS = ("pool_fence_4ft", "pool_gate_locking")
+
+
+def _raw_prompt(profile):
+    """The exact system + user text sent to the model, byte for byte."""
+    import eligibility_check as ec
+    captured = {}
+    real = ec._complete
+
+    def fake(system_text, user_content, max_tokens):
+        captured["text"] = (system_text if isinstance(system_text, str) else repr(system_text)) + \
+            "\x00" + (user_content if isinstance(user_content, str) else repr(user_content))
+        raise _PromptCaptured()
+
+    ec._complete = fake
+    try:
+        check_eligibility(dict(profile))
+    except _PromptCaptured:
+        pass
+    finally:
+        ec._complete = real
+    return captured["text"]
+
+
+def _boxes(profile, fence, gate):
+    return dict(profile, pool_fence_4ft=fence, pool_gate_locking=gate)
+
+
+def _pool_answer(carrier, status="INSUFFICIENT_INFORMATION", missing_info=()):
+    import json
+    recs = json.loads(_answer_for(_usable("Owner Occupied")))
+    for r in recs:
+        if r["carrier"] == carrier:
+            r.update(status=status, missing_info=list(missing_info))
+    return json.dumps(recs)
+
+
+_ALLIED = "Allied_Trust_HO3"                    # 4 ft, "locking gate"
+_FOREMOST = "Foremost_DP3_and_HO3_-_07.01.2026"  # 4 ft, "self-locking gate"
+_ARI = "ARI_(HOA+)"                              # 6 ft
+_MODEL_POOL_ITEM = "Confirm the pool fence is at least 4 feet high with a locking gate."
+
+
+@pytest.mark.retrieval
+class TestPoolBoxes:
+
+    @pytest.mark.parametrize("profile", [STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE,
+                                         OWNERSHIP_BASE_PROFILE, _FENCED_ALT],
+                             ids=["STANDARD", "ALT", "COASTAL_PPC4", "OWNERSHIP_BASE", "fenced-ALT"])
+    def test_unticked_boxes_leave_the_prompt_byte_identical(self, profile):
+        plain = _raw_prompt(profile)
+        assert _raw_prompt(_boxes(profile, False, False)) == plain
+        assert "Pool Fence Height:" not in plain and "Pool Gate:" not in plain
+
+    @pytest.mark.parametrize("fence, gate", [(True, False), (False, True), (True, True)])
+    def test_a_ticked_box_enters_property_details_as_a_stated_fact(self, fence, gate):
+        plain = _raw_prompt(STANDARD_PROFILE)
+        ticked = _raw_prompt(_boxes(STANDARD_PROFILE, fence, gate))
+        added = [l for l in ticked.splitlines() if l not in plain.splitlines()]
+        expect = (["Pool Fence Height: confirmed 4 feet or higher"] if fence else []) + \
+                 (["Pool Gate: confirmed self-closing / locking"] if gate else [])
+        assert added == expect
+        accessories = STANDARD_PROFILE["pool_accessories"]
+        assert f"Pool Accessories: {accessories}\n" + "\n".join(expect) + "\n" in ticked
+
+    @pytest.mark.parametrize("pool", ["No Pool", "Above Ground - Unfenced", "In Ground - Unfenced"])
+    def test_boxes_are_ignored_unless_the_pool_is_fenced(self, pool):
+        """A stale tick (the boxes are hidden for these answers) never reaches
+        the prompt or the checks."""
+        base = dict(STANDARD_PROFILE, swimming_pool=pool)
+        assert _raw_prompt(_boxes(base, True, True)) == _raw_prompt(base)
+        assert _by_carrier(_replayed_run(_boxes(base, True, True), _pool_answer(_ALLIED))) == \
+            _by_carrier(_replayed_run(base, _pool_answer(_ALLIED)))
+
+    @pytest.mark.parametrize("truthy", ["yes", "True", 1])
+    def test_only_a_real_tick_counts(self, truthy):
+        assert _raw_prompt(_boxes(STANDARD_PROFILE, truthy, truthy)) == _raw_prompt(STANDARD_PROFILE)
+
+    # -- each combination against a 4-ft, locking-gate carrier ---------------
+    @pytest.mark.parametrize("fence, gate, wants", [
+        (False, False, ["fence height", "gate mechanism"]),
+        (True, False, ["gate mechanism"]),
+        (False, True, ["fence height"]),
+        (True, True, []),
+    ])
+    def test_each_combination_against_a_4ft_carrier(self, fence, gate, wants):
+        r = _by_carrier(_replayed_run(_boxes(STANDARD_PROFILE, fence, gate), _pool_answer(_ALLIED)))[_ALLIED]
+        ours = [m for m in r["missing_info"] if m.startswith("Pool enclosure specifics")]
+        if not wants:
+            assert ours == []
+        else:
+            assert len(ours) == 1
+            for w in ("fence height", "gate mechanism"):
+                assert (w in ours[0]) == (w in wants), (w, ours[0])
+
+    def test_both_ticked_removes_the_models_own_question_and_frees_the_verdict(self):
+        answer = _pool_answer(_ALLIED, missing_info=[_MODEL_POOL_ITEM])
+        before = _by_carrier(_replayed_run(STANDARD_PROFILE, answer))[_ALLIED]
+        after = _by_carrier(_replayed_run(_boxes(STANDARD_PROFILE, True, True), answer))[_ALLIED]
+        assert _MODEL_POOL_ITEM in before["missing_info"] and before["status"] == "INSUFFICIENT_INFORMATION"
+        assert after["missing_info"] == [] and after["status"] == "ELIGIBLE"
+
+    def test_one_box_does_not_remove_a_question_about_both(self):
+        answer = _pool_answer(_ALLIED, missing_info=[_MODEL_POOL_ITEM])
+        r = _by_carrier(_replayed_run(_boxes(STANDARD_PROFILE, True, False), answer))[_ALLIED]
+        assert _MODEL_POOL_ITEM in r["missing_info"] and r["status"] == "INSUFFICIENT_INFORMATION"
+
+    def test_a_second_phrasing_of_the_height_question_is_answered_too(self):
+        item = "Pool fence height not stated (Allied requires 4-foot-high)."
+        r = _by_carrier(_replayed_run(_boxes(STANDARD_PROFILE, True, False),
+                                      _pool_answer(_ALLIED, missing_info=[item])))[_ALLIED]
+        assert item not in r["missing_info"]
+
+    def test_an_unrelated_open_fact_keeps_the_record_insufficient(self):
+        other = "Roof condition -- 5+ years of remaining life must be confirmed."
+        r = _by_carrier(_replayed_run(_boxes(STANDARD_PROFILE, True, True),
+                                      _pool_answer(_ALLIED, missing_info=[_MODEL_POOL_ITEM, other])))[_ALLIED]
+        assert r["missing_info"] == [other] and r["status"] == "INSUFFICIENT_INFORMATION"
+
+    # -- carriers the boxes cannot settle -------------------------------------
+    def test_a_stated_height_above_4_stays_open(self):
+        """Synthetic spec: a 6-ft carrier with a locking gate."""
+        recs = [{"carrier": "Allied_Trust_HO3", "status": "INSUFFICIENT_INFORMATION", "flaw_count": 0,
+                 "reasons": [], "citations": [], "missing_info": [_MODEL_POOL_ITEM], "notes": ""}]
+        _enforce_pool_spec_support(recs, ["Allied_Trust_HO3"], _boxes(STANDARD_PROFILE, True, True),
+                                   {"Allied_Trust_HO3": {"heights": {"6"}, "gates": {"locking"}}})
+        ours = [m for m in recs[0]["missing_info"] if m.startswith("Pool enclosure specifics")]
+        assert len(ours) == 1 and "fence height" in ours[0] and "6'" in ours[0]
+        assert "gate mechanism" not in ours[0]
+        assert _MODEL_POOL_ITEM in recs[0]["missing_info"]      # asks about height too
+        assert recs[0]["status"] == "INSUFFICIENT_INFORMATION"
+
+    def test_ari_states_6ft_so_a_4ft_box_does_not_settle_it(self):
+        r = _by_carrier(_replayed_run(_boxes(STANDARD_PROFILE, True, True), _pool_answer(_ARI)))[_ARI]
+        ours = [m for m in r["missing_info"] if m.startswith("Pool enclosure specifics")]
+        assert len(ours) == 1 and "6'" in ours[0] and "gate mechanism" not in ours[0]
+
+    def test_a_self_locking_carrier_keeps_its_gate_question(self):
+        """Foremost names "a self-locking gate"; a locking gate does not
+        establish that. Left open for Liam (handoff.md, 2026-10-01)."""
+        r = _by_carrier(_replayed_run(_boxes(STANDARD_PROFILE, True, True), _pool_answer(_FOREMOST)))[_FOREMOST]
+        ours = [m for m in r["missing_info"] if m.startswith("Pool enclosure specifics")]
+        assert len(ours) == 1 and "gate mechanism" in ours[0] and "fence height" not in ours[0]
+
+    def test_nothing_here_makes_a_carrier_ineligible(self):
+        for fence, gate in [(False, False), (True, False), (False, True), (True, True)]:
+            for r in _replayed_run(_boxes(STANDARD_PROFILE, fence, gate), _answer_for(_usable("Owner Occupied"))):
+                assert r["status"] != "INELIGIBLE", (r["carrier"], fence, gate)
+
+    def test_the_gate_table_quotes_each_carriers_own_guide(self):
+        for carrier, (_, phrase) in _POOL_GATE_RULE.items():
+            text = _guides.guide_text(carrier)
+            assert _chat._appears_in(_chat._compare_key(phrase), _chat._compare_key(text)), carrier
+
+    def test_the_gate_table_agrees_with_its_own_wording(self):
+        for carrier, (settles, phrase) in _POOL_GATE_RULE.items():
+            specific_only = re.search(r"self-?\s?(locking|latching) gate", phrase, re.I) and \
+                not re.search(r"\block(ing|ed|able)\b(?! gate)|padlocked|locked or", phrase, re.I)
+            assert settles == (not specific_only), carrier
+
+
+@pytest.mark.retrieval
+class TestPoolBoxesInTheApp:
+    """Streamlit keeps widget state: a box ticked under one pool answer must
+    not reach the check after the pool answer changes."""
+
+    def _run(self, monkeypatch, steps):
+        import eligibility_check as ec
+        seen = []
+        monkeypatch.setattr(ec, "check_eligibility", lambda pd: seen.append(dict(pd)) or [])
+        at = self._app()
+        for step in steps:
+            step(at)
+            at.run()
+        at.button(key="submit").click().run()
+        return at, seen[-1]
+
+    @staticmethod
+    def _app():
+        from streamlit.testing.v1 import AppTest
+        at = AppTest.from_file(os.path.join(os.path.dirname(__file__), "..", "app.py"), default_timeout=60)
+        at.session_state["authenticated"] = True        # past the password page
+        at.run()
+        assert not at.exception
+        return at
+
+    @staticmethod
+    def _boxes_of(at):
+        return [c for c in at.checkbox if str(c.key).startswith(("pool_fence_4ft", "pool_gate_locking"))]
+
+    def test_boxes_appear_only_for_a_fenced_pool(self, monkeypatch):
+        at = self._app()
+        for pool, n in [("No Pool", 0), ("Above Ground - Unfenced", 0), ("In Ground - Unfenced", 0),
+                        ("Above Ground - Fenced", 2), ("In Ground - Fenced", 2)]:
+            at.selectbox(key="pool").select(pool).run()
+            boxes = self._boxes_of(at)
+            assert len(boxes) == n, pool
+            for b in boxes:
+                assert b.value is False and "UNKNOWN" in (b.help or "")
+
+    def test_ticked_boxes_reach_the_check(self, monkeypatch):
+        def tick(at):
+            for b in self._boxes_of(at):
+                b.check()
+        _, pd = self._run(monkeypatch, [lambda at: at.selectbox(key="pool").select("In Ground - Fenced"), tick])
+        assert pd["pool_fence_4ft"] is True and pd["pool_gate_locking"] is True
+
+    @pytest.mark.parametrize("then", ["No Pool", "In Ground - Unfenced", "Above Ground - Fenced"])
+    def test_a_stale_tick_does_not_survive_a_pool_change(self, monkeypatch, then):
+        def tick(at):
+            for b in self._boxes_of(at):
+                b.check()
+        _, pd = self._run(monkeypatch, [
+            lambda at: at.selectbox(key="pool").select("In Ground - Fenced"), tick,
+            lambda at: at.selectbox(key="pool").select(then)])
+        assert pd["pool_fence_4ft"] is False and pd["pool_gate_locking"] is False
+        assert pd["swimming_pool"] == then

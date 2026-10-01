@@ -160,6 +160,17 @@ with tab1:
             ], key="poolacc")
         else:
             pool_accessories = "None"
+        # Round 20 (Liam, 2026-10-01). Shown only for a fenced pool; the key
+        # includes the pool answer, so changing that answer starts the boxes
+        # unticked again instead of carrying a stale tick across.
+        pool_fence_4ft = pool_gate_locking = False
+        if swimming_pool in intake_fields.FENCED_POOL_VALUES:
+            pool_fence_4ft = st.checkbox(
+                "Fence confirmed 4 ft or higher", key=f"pool_fence_4ft::{swimming_pool}",
+                help="Tick only if confirmed. Unchecked means UNKNOWN, not \"no\".")
+            pool_gate_locking = st.checkbox(
+                "Gate confirmed self-closing / locking", key=f"pool_gate_locking::{swimming_pool}",
+                help="Tick only if confirmed. Unchecked means UNKNOWN, not \"no\".")
         solar_panels = st.toggle("Solar Panels", key="solar",
             help="Does the property have solar panels installed?")
 
@@ -206,6 +217,9 @@ with tab1:
             "coastal_tier": coastal_clean,
             "swimming_pool": swimming_pool,
             "pool_accessories": pool_accessories,
+            # ticked = a stated fact; unticked = unknown
+            "pool_fence_4ft": pool_fence_4ft,
+            "pool_gate_locking": pool_gate_locking,
             "has_dogs": "Yes" if has_dogs else "No",
             "aggressive_breed": "Yes" if aggressive_breed else "No",
             "solar_panels": "Yes" if solar_panels else "No",

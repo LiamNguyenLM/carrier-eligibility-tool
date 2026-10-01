@@ -201,6 +201,49 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       (REFER). "1,000,000" is exactly 1,000,000 (not below). Cents round, so
       "$999,999.50" rounds to 1,000,000.
 
+  - **Pool fence and gate checkboxes.** Two boxes, shown only for "Above
+    Ground - Fenced" or "In Ground - Fenced": "Fence confirmed 4 ft or
+    higher" and "Gate confirmed self-closing / locking". UNCHECKED MEANS
+    UNKNOWN. There is no 6 ft box (declined).
+    - With both unticked, the prompt is byte-identical to 7519a6b on
+      STANDARD, ALT, COASTAL_PPC4, OWNERSHIP_BASE and a fenced-pool ALT.
+    - A ticked box enters PROPERTY DETAILS as a stated fact.
+    - Each box's widget key includes the pool answer, so changing that
+      answer starts the boxes unticked again. A tick is also ignored unless
+      the pool answer is a fenced one.
+    - **Fence box:** settles the height for a carrier only when every height
+      it states is 4 ft or less (from `pool_specs`).
+    - **ARI (HOA+) and ARI (HOB) state 6 ft:** "Pools secured by a 6' high
+      fence with locked or self locking gates are acceptable". The 4 ft box
+      does not settle them.
+    - **Gate box:** settled per carrier by `_POOL_GATE_RULE`, which has each
+      guide's verbatim phrase. It settles the gate for carriers that accept a
+      locking / locked / lockable gate (Allied, Centauri DP3, NatGen Premier,
+      Progressive, Markel, Steadily, ARI). It also settles the Sage family,
+      which accepts "combination or padlocked gate or self-locking or
+      self-latching mechanism".
+    - **NOT settled, for Liam to decide:**
+      - Foremost: "a self-locking gate".
+      - NatGen Custom360 DP3: "Pools are fenced in with self-locking gate".
+      - Swyfft x4: "self-latching gate".
+      - A locking gate does not establish either mechanism. Should the box
+        count, or should it be split into two boxes?
+    - **Travelers' "locking"** in `pool_specs` comes from a "retractable
+      locking ladder", not a gate. It was already in `pool_specs` before; the
+      box does not settle it.
+    - Orion, Allied, Progressive and Centauri accept an approved alternate
+      enclosure. Nothing here makes any carrier ineligible.
+    - **Measured, one Luna run each on STANDARD (In Ground - Fenced):**
+
+      | | Insufficient | carriers with any pool item in missing_info | output tokens |
+      |---|---|---|---|
+      | Unticked | 20 | 18 | 5,904 |
+      | Both ticked | 12 | 9 | 5,777 |
+
+      The 9 left are ARI x2 (6 ft), Foremost, Swyfft x4 and Travelers (gate
+      not settled), and one Markel slide question. One run each is an
+      observation, not a rate.
+
 ## Open work, in priority order (updated 2026-09-30)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
