@@ -6502,3 +6502,173 @@ class TestInspectionNotChecked:
 
 def _captured_prompt_system(profile):
     return _raw_prompt(profile).split("\x00")[0].lower()
+
+
+# ---------------------------------------------------------------------------
+# Round 21, Step 1 (Liam, 2026-10-02): one registry of checkable topics.
+# These tests keep it honest: every input key is owned once, and every
+# guarantee / override / check carries a topic tag -- a new one added
+# without a tag fails here.
+# ---------------------------------------------------------------------------
+
+import ast as _ast
+import inspect as _inspect
+import topics as _topics
+
+
+def _src_of(fn):
+    import textwrap
+    return _ast.parse(textwrap.dedent(_inspect.getsource(fn)))
+
+
+def _on_calls(node):
+    """The step names of every _on("...") call under node."""
+    return {c.args[0].value for c in _ast.walk(node)
+            if isinstance(c, _ast.Call) and getattr(c.func, "id", None) == "_on"
+            and c.args and isinstance(c.args[0], _ast.Constant)}
+
+
+def _parents(tree):
+    par = {}
+    for n in _ast.walk(tree):
+        for ch in _ast.iter_child_nodes(n):
+            par[ch] = n
+    return par
+
+
+def _gating_tags(node, par):
+    """Tags of the _on() calls in every enclosing if / for / comprehension /
+    and-expression test, walking up from node."""
+    tags = set()
+    while node in par:
+        p = par[node]
+        if isinstance(p, (_ast.If, _ast.IfExp)) and node is not p.test:
+            tags |= _on_calls(p.test)
+        if isinstance(p, _ast.For) and node is not p.iter:
+            tags |= _on_calls(p.iter)
+        node = p
+    return tags
+
+
+def _ungated_lookups(tree):
+    par = _parents(tree)
+    return [c.lineno for c in _ast.walk(tree)
+            if isinstance(c, _ast.Call) and getattr(c.func, "id", None) == "guaranteed_carrier_lookup"
+            and not any(t.startswith("guarantee:") for t in _gating_tags(c, par))]
+
+
+def _untagged_override_branches(tree):
+    """`canon in _SET` tests not paired with _on("override:_SET")."""
+    bad = []
+    for n in _ast.walk(tree):
+        if isinstance(n, (_ast.If,)):
+            test = n.test
+            members = [c for c in _ast.walk(test) if isinstance(c, _ast.Compare)
+                       and isinstance(c.ops[0], _ast.In) and getattr(c.left, "id", None) == "canon"]
+            for m in members:
+                name = getattr(m.comparators[0], "id", None)
+                if f"override:{name}" not in _on_calls(test):
+                    bad.append(name)
+    return bad
+
+
+_CHECK_NAME = re.compile(r"^_(apply|strip|enforce|note|drop|hold|add)_")
+
+
+def _untagged_checks(tree):
+    par = _parents(tree)
+    bad = []
+    for c in _ast.walk(tree):
+        name = getattr(getattr(c, "func", None), "id", None) if isinstance(c, _ast.Call) else None
+        if not name or not _CHECK_NAME.match(name) or name in _topics.CORE_STEPS:
+            continue
+        if f"check:{name}" not in _gating_tags(c, par):
+            bad.append(name)
+    return bad
+
+
+@pytest.mark.retrieval
+class TestTopicRegistry:
+
+    def test_every_input_key_is_owned_exactly_once(self):
+        owners = {}
+        for t in _topics.TOPICS + _topics.ALWAYS_ON:
+            for k in t.owns:
+                owners.setdefault(k, []).append(t.key)
+        assert all(len(v) == 1 for v in owners.values()), owners
+        keys = set()
+        for p in (STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE, OWNERSHIP_BASE_PROFILE,
+                  AUDIT_R13_PROFILE, AUDIT_R14_DP3_PROFILE):
+            keys |= set(p)
+        keys |= {"county", "dwelling_amount", "dwelling_type", "pool_fence_4ft", "pool_gate_locking"}
+        assert keys - set(owners) == set(), keys - set(owners)
+
+    def test_the_app_sends_only_owned_keys(self, monkeypatch):
+        import eligibility_check as ec
+        seen = []
+        monkeypatch.setattr(ec, "check_eligibility", lambda pd, **kw: seen.append(dict(pd)) or [])
+        at = TestPoolBoxesInTheApp._app()
+        at.button(key="submit").click().run()
+        if not seen:
+            pytest.skip("the form did not submit with its defaults (Dwelling type is required)")
+        owned = {k for t in _topics.TOPICS + _topics.ALWAYS_ON for k in t.owns}
+        assert set(seen[-1]) - owned == set()
+
+    def test_steps_name_only_known_topics_and_modes(self):
+        known = set(_topics.TOPIC_KEYS)
+        for step, (needed, mode) in _topics.STEPS.items():
+            assert set(needed) <= known and needed, step
+            assert mode in ("all", "any"), step
+        for t in _topics.TOPICS:
+            assert t.strip and _topics.STRIP_RES[t.key].pattern
+
+    def test_every_tag_used_in_code_is_registered(self):
+        import eligibility_check as ec
+        used = _on_calls(_ast.parse(_inspect.getsource(ec)))
+        assert used and used - set(_topics.STEPS) - set(_topics.ALWAYS_ON_STEPS) == set()
+        for check in ec._CONTRADICTION_CHECKS:
+            assert "guard:" + check["field"] in _topics.STEPS, check["field"]
+
+    def test_every_guaranteed_lookup_is_gated_by_a_guarantee_tag(self):
+        import eligibility_check as ec
+        assert _ungated_lookups(_src_of(ec.check_eligibility)) == []
+
+    def test_every_structured_override_branch_is_tagged(self):
+        import eligibility_check as ec
+        tree = _src_of(ec._apply_structured_overrides)
+        assert _untagged_override_branches(tree) == []
+        names = {getattr(c.comparators[0], "id", None) for c in _ast.walk(tree)
+                 if isinstance(c, _ast.Compare) and getattr(c.left, "id", None) == "canon"
+                 and isinstance(c.ops[0], _ast.In)}
+        assert len(names) == 7, names
+
+    def test_every_post_parse_check_is_tagged_or_core(self):
+        import eligibility_check as ec
+        assert _untagged_checks(_src_of(ec.check_eligibility)) == []
+
+    def test_an_untagged_override_added_later_fails_these_checks(self):
+        """The guards themselves, on a synthetic function."""
+        src = _ast.parse(
+            "def f(results, checked):\n"
+            "    for r in results:\n"
+            "        if canon in _NEW_CARRIERS:\n"
+            "            pass\n"
+            "    guaranteed_carrier_lookup(c, x, predicate=p, keep=1)\n"
+            "    _apply_new_hold(results)\n")
+        assert _untagged_override_branches(src) == ["_NEW_CARRIERS"]
+        assert _ungated_lookups(src) == [5]
+        assert _untagged_checks(src) == ["_apply_new_hold"]
+
+    def test_the_elif_chain_carrier_sets_are_disjoint(self):
+        import eligibility_check as ec
+        sets = [ec._SAGE_FPC_CARRIERS, ec._MERCURY_CARRIERS, ec._SAGE_MARKEL_CARRIERS,
+                ec._SWYFFT_MAX30_CARRIERS, ec._TWICO_CARRIERS]
+        for i, a in enumerate(sets):
+            for b in sets[i + 1:]:
+                assert not (set(a) & set(b))
+
+    def test_rules_needing_two_topics_are_all_mode(self):
+        """Liam: a rule needing an unchecked topic is skipped."""
+        two = {s: v for s, v in _topics.STEPS.items() if len(v[0]) > 1}
+        for step, (_, mode) in two.items():
+            assert mode == ("any" if step.split(":")[0] in ("guarantee", "risk", "query") else "all"), step

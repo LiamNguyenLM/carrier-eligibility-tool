@@ -26,6 +26,7 @@ except Exception:
 from shared_resources import get_embeddings, get_vectorstore
 import data_defects
 import intake_fields
+import topics
 from structured_rules import (
     sage_family_fpc_eligibility,
     mercury_roof_eligibility,
@@ -1068,35 +1069,48 @@ def get_carriers_for_occupancy(occupancy):
     return [c for c in sorted(get_all_carriers()) if _fits_occupancy(c, occupancy, combined)]
 
 
-def build_retrieval_query(property_details, home_age):
+def _on(step, checked):
+    """Is this gated step on for the selection? See topics.STEPS. An untagged
+    step name is a KeyError, so a new step cannot slip in ungated."""
+    return topics.step_on(step, checked)
+
+
+def build_retrieval_query(property_details, home_age, checked=None):
     """The similarity-search query used for the per-carrier retrieval pass
     in check_eligibility(). Factored out so verification/diagnose_carrier.py
     can run the identical query against a single carrier -- duplicating
-    this inline would drift out of sync with the real prompt over time."""
-    occupancy = property_details['occupancy_type']
-    return f"""
-    homeowners insurance eligibility requirements:
-    state TX
-    year built {property_details['year_built']}
-    home age {home_age} years
-    roof age {property_details['roof_age']} years
-    roof type {property_details['roof_type']}
-    roof shape {property_details['roof_shape']}
-    construction type {property_details['construction_type']}
-    plumbing type {property_details['plumbing_type']}
-    occupancy {occupancy}
-    ownership {property_details.get('ownership_type', 'Individual Owner')}
-    coastal {property_details['coastal_tier']}
-    swimming pool {property_details['swimming_pool']}
-    pool accessories {property_details['pool_accessories']}
-    dogs on premises {property_details['has_dogs']}
-    aggressive breed dogs {property_details['aggressive_breed']}
-    solar panels {property_details['solar_panels']}
-    protection class PPC {property_details['ppc']}
-    """
+    this inline would drift out of sync with the real prompt over time.
+
+    checked: the selected topics (None = all). A line about an unchecked
+    topic is left out; with everything checked the text is unchanged."""
+    checked = topics.normalize(checked)
+    pd = property_details
+    occupancy = pd['occupancy_type']
+    rows = [
+        (None, "homeowners insurance eligibility requirements:"),
+        (None, "state TX"),
+        ("query:year_built", f"year built {pd.get('year_built')}"),
+        ("query:year_built", f"home age {home_age} years"),
+        ("query:roof_age", f"roof age {pd.get('roof_age')} years"),
+        ("query:roof_type", f"roof type {pd.get('roof_type')}"),
+        ("query:roof_shape", f"roof shape {pd.get('roof_shape')}"),
+        ("query:construction_type", f"construction type {pd.get('construction_type')}"),
+        ("query:plumbing_type", f"plumbing type {pd.get('plumbing_type')}"),
+        (None, f"occupancy {occupancy}"),
+        (None, f"ownership {pd.get('ownership_type', 'Individual Owner')}"),
+        ("query:coastal_tier", f"coastal {pd.get('coastal_tier')}"),
+        ("query:swimming_pool", f"swimming pool {pd.get('swimming_pool')}"),
+        ("query:swimming_pool", f"pool accessories {pd.get('pool_accessories')}"),
+        ("query:dogs", f"dogs on premises {pd.get('has_dogs')}"),
+        ("query:dogs", f"aggressive breed dogs {pd.get('aggressive_breed')}"),
+        ("query:solar_panels", f"solar panels {pd.get('solar_panels')}"),
+        ("query:ppc", f"protection class PPC {pd.get('ppc')}"),
+    ]
+    return "\n" + "".join(f"    {line}\n" for step, line in rows
+                           if step is None or _on(step, checked)) + "    "
 
 
-def build_risk_factors(property_details, occupancy):
+def build_risk_factors(property_details, occupancy, checked=None):
     """The targeted risk-factor retrieval terms appended to the main query
     (see check_eligibility()). Factored out so it's directly testable
     without a live LLM call -- round 12 found this list's coastal-tier
@@ -1111,24 +1125,25 @@ def build_risk_factors(property_details, occupancy):
     than over-triggering it: a query that surfaces possibly-inapplicable
     content still lets the model's own reasoning dismiss it, while a query
     that never fires means the content was never in the running at all."""
+    checked = topics.normalize(checked)
     risk_factors = []
 
-    if property_details['plumbing_type'] in ['Galvanized', 'Polybutylene']:
+    if _on("risk:plumbing", checked) and property_details['plumbing_type'] in ['Galvanized', 'Polybutylene']:
         risk_factors.append("galvanized polybutylene plumbing ineligible requirements")
 
-    if 'Unfenced' in property_details['swimming_pool']:
+    if _on("risk:pool", checked) and 'Unfenced' in property_details['swimming_pool']:
         risk_factors.append("swimming pool fence requirement ineligible unfenced")
 
-    if property_details['pool_accessories'] != 'None':
+    if _on("risk:pool", checked) and property_details['pool_accessories'] != 'None':
         risk_factors.append("diving board slide pool liability ineligible")
 
-    if property_details['coastal_tier'] in ['Tier 1', 'Tier 2', 'Tier 3']:
+    if _on("risk:coastal", checked) and property_details['coastal_tier'] in ['Tier 1', 'Tier 2', 'Tier 3']:
         risk_factors.append(
             "coastal tier wind coverage restrictions wind pool zone "
             "base flood elevation ineligible"
         )
 
-    if property_details['aggressive_breed'] == 'Yes':
+    if _on("risk:dogs", checked) and property_details['aggressive_breed'] == 'Yes':
         risk_factors.append("aggressive dog breed ineligible prohibited liability")
 
     if property_details.get('ownership_type') == 'LLC':
@@ -1137,7 +1152,7 @@ def build_risk_factors(property_details, occupancy):
     if property_details.get('ownership_type') == 'Trust':
         risk_factors.append("trust owned property eligibility requirements named insured grantor")
 
-    if property_details['ppc'] != 'N/A':
+    if _on("risk:ppc", checked) and property_details['ppc'] != 'N/A':
         risk_factors.append(
             f"protection class PPC {property_details['ppc']} fire district eligibility requirements"
         )
@@ -1147,14 +1162,16 @@ def build_risk_factors(property_details, occupancy):
         risk_factors.append("DP3 dwelling policy tenant rental occupancy eligibility")
         risk_factors.append("HO3 owner occupancy requirement restriction")
 
-    risk_factors.append(
-        f"{property_details['roof_type']} roof {property_details['roof_age']} years old eligibility requirements"
-    )
-    if property_details['swimming_pool'] != 'No Pool':
+    if _on("risk:roof", checked):
+        # A part about an unchecked roof topic is left out of the term.
+        roof_type = property_details['roof_type'] if "roof_type" in checked else ""
+        roof_age = f" {property_details['roof_age']} years old" if "roof_age" in checked else ""
+        risk_factors.append(f"{roof_type} roof{roof_age} eligibility requirements".strip())
+    if _on("risk:pool", checked) and property_details['swimming_pool'] != 'No Pool':
         risk_factors.append(
             f"swimming pool {property_details['swimming_pool']} eligibility requirements"
         )
-    if property_details['solar_panels'] == 'Yes':
+    if _on("risk:solar", checked) and property_details['solar_panels'] == 'Yes':
         risk_factors.append("solar panels roof eligibility requirements")
 
     return risk_factors
@@ -2149,14 +2166,18 @@ def _states_absence(value, absent_values):
     return str(value).strip().lower() in absent_values
 
 
-def _strip_contradicted_property_claims(results, property_details):
+def _strip_contradicted_property_claims(results, property_details, checked=None):
     """Remove claims that a feature exists when the intake says it does not,
     and undo any adverse verdict that rested solely on such a claim.
+    A field whose topic is unchecked states nothing, so it is skipped.
 
     Returns the number of results corrected (for logging/tests).
     """
+    checked = topics.normalize(checked)
     corrected = 0
     for check in _CONTRADICTION_CHECKS:
+        if not _on("guard:" + check["field"], checked):
+            continue
         value = property_details.get(check["field"])
         if value is None or not _states_absence(value, check["absent_values"]):
             continue  # feature may be present, or unknown -- nothing decidable
@@ -2341,7 +2362,12 @@ def _strip_misattributed_citations(results, relevant_carriers):
             )
 
 
-def _apply_structured_overrides(results, relevant_carriers, property_details):
+def _apply_structured_overrides(results, relevant_carriers, property_details, checked=None):
+    """Each branch is gated by its topic tag (topics.STEPS["override:<set>"]);
+    a rule needing an unchecked topic is skipped. The carrier sets of the
+    elif chain are disjoint (a test checks it), so skipping one branch never
+    hands its carrier to another."""
+    checked = topics.normalize(checked)
     for r in results:
         canon = _resolve_structured_carrier(r.get("carrier", ""), relevant_carriers)
         if canon is None:
@@ -2355,7 +2381,7 @@ def _apply_structured_overrides(results, relevant_carriers, property_details):
             r.get("reasons", []) + r.get("citations", []) + [r.get("notes", "")]
         ).lower()
 
-        if canon in _SAGE_FPC_CARRIERS:
+        if canon in _SAGE_FPC_CARRIERS and _on("override:_SAGE_FPC_CARRIERS", checked):
             s_status, s_reasons = sage_family_fpc_eligibility(
                 property_details['ppc'], carrier=canon,
             )
@@ -2401,7 +2427,7 @@ def _apply_structured_overrides(results, relevant_carriers, property_details):
                     model_text,
                 )
 
-        elif canon in _MERCURY_CARRIERS:
+        elif canon in _MERCURY_CARRIERS and _on("override:_MERCURY_CARRIERS", checked):
             s_status, s_reasons = mercury_roof_eligibility(
                 property_details['roof_type'], property_details['roof_age'],
             )
@@ -2419,7 +2445,7 @@ def _apply_structured_overrides(results, relevant_carriers, property_details):
                     f"replacement-cost threshold for this roof type.",
                 )
 
-        elif canon in _SAGE_MARKEL_CARRIERS:
+        elif canon in _SAGE_MARKEL_CARRIERS and _on("override:_SAGE_MARKEL_CARRIERS", checked):
             s_status, s_reasons = sage_markel_roof_exclusion(
                 property_details['roof_type'], property_details['roof_age'],
             )
@@ -2432,14 +2458,14 @@ def _apply_structured_overrides(results, relevant_carriers, property_details):
                     f"form's age threshold for this roof type -- roof coverage applies normally.",
                 )
 
-        elif canon in _SWYFFT_MAX30_CARRIERS:
+        elif canon in _SWYFFT_MAX30_CARRIERS and _on("override:_SWYFFT_MAX30_CARRIERS", checked):
             s_status, s_reasons = swyfft_max_roof_age_30(property_details['roof_age'])
             if s_status == "INELIGIBLE":
                 _force_ineligible(r, s_reasons[0])
             else:
                 _append_note(r, f"Roof age {property_details['roof_age']} is within the 30-year maximum.")
 
-        elif canon in _TWICO_CARRIERS:
+        elif canon in _TWICO_CARRIERS and _on("override:_TWICO_CARRIERS", checked):
             s_status, s_reasons = twico_roof_settlement(
                 property_details['roof_type'], property_details['roof_age'],
             )
@@ -2522,7 +2548,7 @@ def _apply_structured_overrides(results, relevant_carriers, property_details):
         # flagged. This is the same wiring mistake round 12 made with the
         # Sage FPC check itself -- a correct conclusion that never reaches
         # the output because an earlier branch consumed the carrier.
-        if canon in _SAGE_ROOFER_STATEMENT_CARRIERS:
+        if canon in _SAGE_ROOFER_STATEMENT_CARRIERS and _on("override:_SAGE_ROOFER_STATEMENT_CARRIERS", checked):
             s_status, s_reasons = sage_roofer_statement_required(
                 property_details['roof_type'], property_details['roof_age'],
             )
@@ -2570,7 +2596,7 @@ def _apply_structured_overrides(results, relevant_carriers, property_details):
         # measured on 12 runs, surfacing it alone dropped Centauri from
         # 12/12 INELIGIBLE to 5/12, with 7 runs treating "is it poured
         # concrete?" as unknown when the intake already answers it.
-        if canon in _CENTAURI_DP3_CARRIERS:
+        if canon in _CENTAURI_DP3_CARRIERS and _on("override:_CENTAURI_DP3_CARRIERS", checked):
             s_status, s_reasons = centauri_dp3_flat_roof(
                 property_details.get('roof_shape'), property_details.get('roof_type'),
             )
@@ -2702,13 +2728,15 @@ def check_eligibility(property_details, carrier_subset=None):
     per-group calls without touching the default single-call behavior when
     omitted."""
     occupancy = property_details['occupancy_type']
+    # Round 21: every gated step below asks _on(step, checked); see topics.py.
+    checked = topics.normalize(None)
 
     # CHANGED: home age computed here instead of leaving the model to infer
     # the current year -- it was previously off by one year when the model
     # assumed the wrong current year.
     home_age = date.today().year - property_details['year_built']
 
-    query = build_retrieval_query(property_details, home_age)
+    query = build_retrieval_query(property_details, home_age, checked)
 
     relevant_carriers = get_carriers_for_occupancy(occupancy)
     # Carriers whose guide on file is unusable (data_defects: wrong document,
@@ -2778,7 +2806,7 @@ def check_eligibility(property_details, carrier_subset=None):
     collection = vectorstore._collection
 
     MAX_PPC_CHUNKS_PER_CARRIER = 2
-    if property_details['ppc'] != 'N/A':
+    if _on("guarantee:ppc", checked) and property_details['ppc'] != 'N/A':
         ppc_value = str(property_details['ppc'])
         for carrier in relevant_carriers:
             # prefer chunks that name this exact PPC value over generic ones
@@ -2805,7 +2833,7 @@ def check_eligibility(property_details, carrier_subset=None):
     # model's answer against the carrier's actual requirement rather than
     # trusting it to have read the number correctly.
     pool_specs = {}
-    if property_details['swimming_pool'] != 'No Pool':
+    if _on("guarantee:pool", checked) and property_details['swimming_pool'] != 'No Pool':
         for carrier in relevant_carriers:
             # prefer chunks that pair "pool" with fence/gate language over
             # incidental pool mentions (acreage referrals, construction
@@ -2838,7 +2866,7 @@ def check_eligibility(property_details, carrier_subset=None):
     # instead of going silent. The classification reads the carrier's WHOLE
     # document, not the chunks kept below -- see classify_carrier_solar_text.
     solar_classes = {}
-    if property_details['solar_panels'] == 'Yes':
+    if _on("guarantee:solar", checked) and property_details['solar_panels'] == 'Yes':
         for carrier in relevant_carriers:
             found = guaranteed_carrier_lookup(
                 collection, carrier, predicate=_mentions_solar, keep=MAX_SOLAR_CHUNKS_PER_CARRIER,
@@ -2862,7 +2890,7 @@ def check_eligibility(property_details, carrier_subset=None):
     shape_keywords = _RESTRICTED_ROOF_SHAPES.get(
         str(property_details.get("roof_shape", "")).strip().lower()
     )
-    if shape_keywords:
+    if _on("guarantee:roof_shape", checked) and shape_keywords:
         for carrier in relevant_carriers:
             found = guaranteed_carrier_lookup(
                 collection, carrier,
@@ -2886,7 +2914,7 @@ def check_eligibility(property_details, carrier_subset=None):
     # embedding-rank lottery affected at least one common roof-type phrasing
     # on Allied Trust HO3, after two prior prompt-only fix attempts).
     MAX_ROOF_LIFE_CHUNKS_PER_CARRIER = 3
-    for carrier in relevant_carriers:
+    for carrier in (relevant_carriers if _on("guarantee:roof_life", checked) else []):
         # prefer chunks that actually name a roofing/shingle category over
         # incidental "life expectancy is 5 or more years" boilerplate that
         # appears in this same carrier's plumbing/heating/electrical rules
@@ -2919,7 +2947,8 @@ def check_eligibility(property_details, carrier_subset=None):
     occupancy_key = _occupancy_priority_key(ownership)
     occupancy_predicate = _occupancy_predicate_for(ownership)
     occupancy_cap = _occupancy_cap_for(ownership)
-    for carrier in (relevant_carriers if _occupancy_guarantee_applies(property_details) else []):
+    for carrier in (relevant_carriers if _on("guarantee:occupancy", checked)
+                    and _occupancy_guarantee_applies(property_details) else []):
         found = guaranteed_carrier_lookup(
             collection, carrier,
             predicate=occupancy_predicate,
@@ -2936,7 +2965,8 @@ def check_eligibility(property_details, carrier_subset=None):
     # Dwelling amount is filled -- the same gating pattern as the ownership
     # guarantee, so a blank field adds nothing to the prompt. One chunk per
     # carrier: its own minimum / maximum / binding-authority dwelling limit.
-    for carrier in (relevant_carriers if _dwelling_amount(property_details) else []):
+    for carrier in (relevant_carriers if _on("guarantee:coverage_a", checked)
+                    and _dwelling_amount(property_details) else []):
         found = guaranteed_carrier_lookup(
             collection, carrier,
             predicate=_mentions_coverage_a_limit,
@@ -2949,7 +2979,7 @@ def check_eligibility(property_details, carrier_subset=None):
                 seen.add(key)
                 chunks.append(chunk)
 
-    risk_factors = build_risk_factors(property_details, occupancy)
+    risk_factors = build_risk_factors(property_details, occupancy, checked)
 
     if risk_factors:
         risk_chunks = retriever.invoke(" ".join(risk_factors))
@@ -3152,18 +3182,20 @@ CARRIER DOCUMENTS:
         # Runs before everything else: a claim contradicting the intake is
         # the most fundamental error there is, and the checks below should
         # act on a corrected status rather than a fabricated one.
-        _strip_contradicted_property_claims(filtered, property_details)
+        _strip_contradicted_property_claims(filtered, property_details, checked)
         _strip_misattributed_citations(filtered, relevant_carriers)
-        _apply_structured_overrides(filtered, relevant_carriers, property_details)
+        _apply_structured_overrides(filtered, relevant_carriers, property_details, checked)
         # Runs last: it only ever ADDS a missing_info item and a note, so it
         # cannot be undone by an override, and it must see the final set of
         # carriers rather than a pre-override one.
-        _enforce_pool_spec_support(
-            filtered, relevant_carriers, property_details, pool_specs
-        )
-        _note_solar_roofing_does_not_apply(
-            filtered, relevant_carriers, property_details, solar_classes
-        )
+        if _on("check:_enforce_pool_spec_support", checked):
+            _enforce_pool_spec_support(
+                filtered, relevant_carriers, property_details, pool_specs
+            )
+        if _on("check:_note_solar_roofing_does_not_apply", checked):
+            _note_solar_roofing_does_not_apply(
+                filtered, relevant_carriers, property_details, solar_classes
+            )
 
         # Runs after every other check, the FPC upgrade included: these
         # holds exist because that upgrade turned INSUFFICIENT into ELIGIBLE
@@ -3171,8 +3203,10 @@ CARRIER DOCUMENTS:
         # Before the holds, so a carrier freed here is still held on County /
         # Coverage A.
         _strip_inspection_requests(filtered)
-        _apply_location_holds(filtered, relevant_carriers, property_details)
-        _apply_chubb_hold(filtered, relevant_carriers, property_details)
+        if _on("check:_apply_location_holds", checked):
+            _apply_location_holds(filtered, relevant_carriers, property_details)
+        if _on("check:_apply_chubb_hold", checked):
+            _apply_chubb_hold(filtered, relevant_carriers, property_details)
 
         final = _add_fixed_rows(filtered, relevant_carriers, unavailable, defects, unrecognised)
         if unrecognised or usable_answer_count(final) == 0:
