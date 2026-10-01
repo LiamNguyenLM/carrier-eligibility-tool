@@ -288,6 +288,8 @@ SWIMMING POOL RULES SPECIFICALLY: a pool fence height or gate-mechanism requirem
 
 BASE ELIGIBILITY vs. OPTIONAL ENDORSEMENT/COVERAGE: some requirements you'll see (a fence height, a specific material, a distance figure) are conditions of an OPTIONAL endorsement or coverage add-on, not of base policy eligibility -- look for language like "this endorsement," "to qualify for this coverage," or "optional." A condition scoped to an optional endorsement does NOT make the carrier ineligible or create a missing_info blocker if that specific coverage isn't otherwise at issue -- note it in notes as a coverage consideration if relevant, but do not let it drive status or missing_info the way a base eligibility requirement would.
 
+INSPECTION REQUIREMENTS ARE NOT CHECKED BY THIS TOOL. Do not list in missing_info, or base a status on, a requirement that an inspection, photos, a survey, or a 4-point or wind-mitigation report be obtained or submitted. Still apply every rule about the property itself even when an inspection is how it gets verified (e.g. no galvanized plumbing, roof in good condition, no more than one overlay), and keep roofer letters and roof certifications as the guide states them.
+
 PROPERTY DETAILS IS THE ONLY SOURCE OF FACTS ABOUT THIS CUSTOMER. Every characteristic of the property -- whether it has solar panels, a pool, dogs, its roof type, its construction, its PPC -- comes from the PROPERTY DETAILS block in this message and from nowhere else. Do not carry a property fact in from a carrier's document, from an example used in these instructions, or from what a typical property might have. In particular, a field whose value is "No"/"None"/"No Pool" is a POSITIVE STATEMENT THAT THE FEATURE IS ABSENT -- it is not a gap to be filled and not an unknown. Before writing any sentence that asserts something about this property, check that PROPERTY DETAILS actually says it. Asserting a feature the intake says the property does not have is a hard error, and an adverse verdict resting on such a feature is the worst kind: it tells an agent a real applicant does not qualify for a carrier they do qualify for.
 
 ROOFING MATERIAL TERMINOLOGY: "Composition Shingle," "Composite Shingle," "Architectural Shingle," "3-tab shingle," and "asphalt shingle" all refer to the SAME underlying family of asphalt-based shingle roofing, and carriers use these terms inconsistently -- one carrier's document may use only one of these phrases, or bundle several together (e.g. "Composite or Architectural Shingle"), to mean the same roofing category the customer's own Roof Type value falls under. If a carrier's document states a rule using ANY of these terms and never uses the customer's EXACT given Roof Type wording, apply that rule to the customer's roof anyway -- do not treat the rule as inapplicable, and do not invent an undefined separate category or lifespan figure "for" the customer's exact wording. Only treat two of these terms as genuinely different categories with different rules if the SAME document explicitly gives them different numeric thresholds.
@@ -3166,6 +3168,9 @@ CARRIER DOCUMENTS:
         # Runs after every other check, the FPC upgrade included: these
         # holds exist because that upgrade turned INSUFFICIENT into ELIGIBLE
         # without asking whether any OTHER question was still open.
+        # Before the holds, so a carrier freed here is still held on County /
+        # Coverage A.
+        _strip_inspection_requests(filtered)
         _apply_location_holds(filtered, relevant_carriers, property_details)
         _apply_chubb_hold(filtered, relevant_carriers, property_details)
 
@@ -3307,6 +3312,57 @@ def _apply_chubb_hold(results, relevant_carriers, property_details):
 
 def _county_item_present(missing_info):
     return any(re.match(r"\s*county\b", m, re.I) for m in missing_info)
+
+
+# Inspection requirements are not checked (Liam, 2026-10-01). An item is an
+# inspection REQUEST when it asks for an inspection / photos / pictures /
+# survey / 4-point / wind-mitigation report, and is NOT also about a fact of
+# the property. Tested 2026-10-01 against the 96 inspection-flavoured items in
+# the 3,895 recorded Sonnet records. KEEP wins: Centauri's "4-point inspection
+# confirming all updates ... in past 20 years" is a rule about the updates,
+# NatGen's "photos showing completely renovated kitchens" one about the
+# renovation, Sage's furnace items and Markel's Coverage A items are facts.
+# Roofer letters and roof certifications are kept until Liam decides.
+_INSPECTION_ASK_RE = re.compile(
+    r"inspect|\bphotos?\b|photograph|\bpictures?\b|\bsurvey\b|\b4[- ]?point\b|four[- ]point|"
+    r"wind[- ]?mitigation|\bwind[- ]mit\b", re.I)
+_INSPECTION_KEEP_RE = re.compile(
+    r"roofer|roof(?:ing)?\s+(?:cert|letter|statement)|certif|letter|update|renovat|"
+    r"\bcondition\b(?!\s+(?:questionnaire|form))|furnace|burner|hvac|plumb|wiring|electric|"
+    r"galvaniz|polybut|overlay|replac|coverage a|threshold|timeframe|solar|photovolt|"
+    r"useful life", re.I)
+INSPECTION_NOT_CHECKED_NOTE = "(inspection requirements are not checked)"
+
+
+def _is_inspection_request(item):
+    return (isinstance(item, str) and bool(_INSPECTION_ASK_RE.search(item))
+            and not _INSPECTION_KEEP_RE.search(item))
+
+
+def _strip_inspection_requests(results):
+    """Layer 2: remove missing_info items that only ask for an inspection,
+    photos or a report. Layer 3: an INSUFFICIENT_INFORMATION record left with
+    nothing open BECAUSE of that becomes ELIGIBLE. INELIGIBLE and REFER keep
+    their status; reasons and citations are never touched. Returns the
+    number of items removed."""
+    removed = 0
+    for r in results:
+        mi = r.get("missing_info") or []
+        dropped = [m for m in mi if _is_inspection_request(m)]
+        if not dropped:
+            continue
+        removed += len(dropped)
+        r["missing_info"] = [m for m in mi if m not in dropped]
+        _append_note(r, "[Inspection check] Removed {n} inspection / photo request(s) {tag}: {items}".format(
+            n=len(dropped), tag=INSPECTION_NOT_CHECKED_NOTE, items="; ".join(d[:120] for d in dropped)))
+        if r.get("status") == "INSUFFICIENT_INFORMATION" and not r["missing_info"]:
+            r["status"] = "ELIGIBLE"
+            r["flaw_count"] = 0
+            _append_note(r, "Status set to ELIGIBLE: the only open items were inspection / photo "
+                            "requests " + INSPECTION_NOT_CHECKED_NOTE + ".")
+    if removed:
+        print("INSPECTION STRIP: removed=%d item(s)" % removed)
+    return removed
 
 
 def _apply_location_holds(results, relevant_carriers, property_details):

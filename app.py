@@ -235,6 +235,8 @@ with tab1:
 
         st.markdown("---")
         st.subheader("CARRIER ELIGIBILITY ANALYSIS")
+        # Liam, 2026-10-01: ELIGIBLE must never read as "no inspection needed".
+        st.caption("Inspection requirements are not checked.")
 
         # 2026-09-30: a live check returned records with no verdict at all,
         # and four empty columns were the only thing on screen. Never again

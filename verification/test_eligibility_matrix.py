@@ -6359,3 +6359,130 @@ class TestPoolBoxesInTheApp:
             lambda at: at.selectbox(key="pool").select(then)])
         assert pd["pool_fence_4ft"] is False and pd["pool_gate_locking"] is False
         assert pd["swimming_pool"] == then
+
+
+# ---------------------------------------------------------------------------
+# Round 20, Step 3 (Liam, 2026-10-01): inspection requirements are not
+# checked. Three layers; zero API.
+# ---------------------------------------------------------------------------
+
+from eligibility_check import (SYSTEM_INSTRUCTIONS, INSPECTION_NOT_CHECKED_NOTE,
+                               _is_inspection_request, _strip_inspection_requests)
+
+_INSPECTION_ASKS = [
+    # recorded Sonnet wording
+    "Whether the property will pass the required inspection within 30 days of the policy effective date",
+    "Exterior and interior inspection photos as required for homes over 40 years old",
+    "Inspection from agency including exterior pictures of front and back, and interior pictures of all rooms",
+    "Whether a Roof Condition Questionnaire and photos have been or can be provided",
+    # other phrasings of the same requirement
+    "Interior inspection required for homes 10+ years old",
+    "Exterior inspection (required for all homes)",
+    "Photos of each side of the dwelling",
+    "4-point inspection report",
+    "Wind mitigation report",
+    "A current survey of the property",
+    "Photographs of the roof",
+]
+_PROPERTY_RULES = [
+    "Plumbing type -- no galvanized plumbing is permitted (verified at inspection)",
+    "Roof in good condition with no visible damage (confirmed by inspection)",
+    "No more than one overlay on the roof (inspection will verify)",
+    "4-point inspection confirming all updates (electrical, plumbing, HVAC, roof) completed in past 20 years",
+    "Inspection photos showing completely renovated kitchens and bathrooms with updated plumbing, cabinetry, appliances and floors",
+    "Whether the furnace or burner has been replaced within the past 30 years (required unless inspected by licensed HVAC contractor)",
+    "Coverage A amount to determine applicable water damage minimum coverage requirements and inspection requirements",
+]
+_ROOFER = [
+    "Letter from a licensed roofer stating the roof has 5+ years of useful life remaining",
+    "Roofer's statement attesting the roof is in good condition and does not require replacement",
+    "Roof certification from a licensed roofer, with photos",
+]
+
+
+def _rec(status, missing_info, reasons=("fixture",)):
+    return {"carrier": "X", "status": status, "flaw_count": 1 if status == "INELIGIBLE" else 0,
+            "reasons": list(reasons), "citations": [], "missing_info": list(missing_info), "notes": ""}
+
+
+@pytest.mark.retrieval
+class TestInspectionNotChecked:
+
+    # -- layer 1 -------------------------------------------------------------
+    def test_the_instruction_is_in_the_system_prompt_with_its_scope(self):
+        s = SYSTEM_INSTRUCTIONS
+        assert "INSPECTION REQUIREMENTS ARE NOT CHECKED BY THIS TOOL." in s
+        for kept in ("no galvanized plumbing", "roof in good condition", "no more than one overlay",
+                     "roofer letters and roof certifications"):
+            assert kept in s
+
+    def test_the_instruction_reaches_the_model(self):
+        assert "inspection requirements are not checked by this tool." in _captured_prompt_system(STANDARD_PROFILE)
+
+    # -- layer 2 -------------------------------------------------------------
+    @pytest.mark.parametrize("item", _INSPECTION_ASKS)
+    def test_an_inspection_request_is_recognised(self, item):
+        assert _is_inspection_request(item)
+
+    @pytest.mark.parametrize("item", _PROPERTY_RULES + _ROOFER)
+    def test_property_rules_and_roofer_letters_are_kept(self, item):
+        assert not _is_inspection_request(item)
+
+    def test_the_strip_counts_and_notes_what_it_removed(self):
+        recs = [_rec("ELIGIBLE", [_INSPECTION_ASKS[0], _PROPERTY_RULES[0]]),
+                _rec("REFER", [_INSPECTION_ASKS[1], _INSPECTION_ASKS[2]])]
+        assert _strip_inspection_requests(recs) == 3
+        assert recs[0]["missing_info"] == [_PROPERTY_RULES[0]]
+        assert recs[1]["missing_info"] == []
+        assert INSPECTION_NOT_CHECKED_NOTE in recs[0]["notes"]
+
+    # -- layer 3 -------------------------------------------------------------
+    def test_insufficient_only_for_an_inspection_becomes_eligible(self):
+        recs = [_rec("INSUFFICIENT_INFORMATION", [_INSPECTION_ASKS[0]])]
+        _strip_inspection_requests(recs)
+        assert recs[0]["status"] == "ELIGIBLE" and recs[0]["flaw_count"] == 0
+        assert INSPECTION_NOT_CHECKED_NOTE in recs[0]["notes"]
+
+    def test_insufficient_with_anything_else_open_stays(self):
+        recs = [_rec("INSUFFICIENT_INFORMATION", [_INSPECTION_ASKS[0], _ROOFER[0]])]
+        _strip_inspection_requests(recs)
+        assert recs[0]["status"] == "INSUFFICIENT_INFORMATION" and recs[0]["missing_info"] == [_ROOFER[0]]
+
+    def test_insufficient_with_no_inspection_item_is_not_freed(self):
+        """Only the strip can free a record -- an INSUFFICIENT that already
+        had nothing open is not this layer's business."""
+        recs = [_rec("INSUFFICIENT_INFORMATION", [])]
+        _strip_inspection_requests(recs)
+        assert recs[0]["status"] == "INSUFFICIENT_INFORMATION"
+
+    @pytest.mark.parametrize("status", ["INELIGIBLE", "REFER"])
+    def test_ineligible_and_refer_keep_their_status_and_reasons(self, status):
+        reasons = ["Exterior and interior inspection photos are required and were not provided."]
+        recs = [_rec(status, [_INSPECTION_ASKS[1]], reasons=reasons)]
+        _strip_inspection_requests(recs)
+        assert recs[0]["status"] == status and recs[0]["reasons"] == reasons
+
+    def test_through_the_real_pipeline_and_the_county_hold_still_applies(self):
+        import json
+        recs = json.loads(_answer_for(_usable("Owner Occupied")))
+        for r in recs:
+            r.update(status="INSUFFICIENT_INFORMATION", missing_info=[_INSPECTION_ASKS[0]])
+        out = _by_carrier(_replayed_run(_LIAM_PPC3, json.dumps(recs)))
+        assert out["Allied_Trust_HO3"]["status"] == "ELIGIBLE"
+        assert out["TWICO_HO3"]["status"] == "INSUFFICIENT_INFORMATION"             # its own sub-type hold
+        assert out["Sage_-_Auros_HO3"]["status"] == "INSUFFICIENT_INFORMATION"      # County hold
+        assert out[_CHUBB]["status"] == "INSUFFICIENT_INFORMATION"                  # Coverage A hold
+        for r in out.values():
+            assert _INSPECTION_ASKS[0] not in r.get("missing_info", [])
+
+    # -- the caption ---------------------------------------------------------
+    def test_the_results_carry_the_caption(self, monkeypatch):
+        import eligibility_check as ec
+        monkeypatch.setattr(ec, "check_eligibility", lambda pd: [])
+        at = TestPoolBoxesInTheApp._app()
+        at.button(key="submit").click().run()
+        assert "Inspection requirements are not checked." in [c.value for c in at.caption]
+
+
+def _captured_prompt_system(profile):
+    return _raw_prompt(profile).split("\x00")[0].lower()

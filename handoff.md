@@ -244,7 +244,58 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       not settled), and one Markel slide question. One run each is an
       observation, not a rate.
 
-## Open work, in priority order (updated 2026-09-30)
+  - **Inspection requirements are not checked.** IGNORED: a requirement
+    that an inspection, photos, survey, 4-point or wind-mitigation report be
+    obtained or submitted. KEPT: every rule about the property itself, even
+    when an inspection verifies it, and roofer letters / roof certifications
+    (Liam has not decided on those). There are three layers, plus a caption
+    near the results: "Inspection requirements are not checked."
+    1. One paragraph in SYSTEM_INSTRUCTIONS.
+    2. `_strip_inspection_requests` removes missing_info items that ask for
+       an inspection or photos and do not also name a property fact, and
+       counts them (stdout "INSPECTION STRIP").
+       - KEEP wins: Centauri DP3's "4-point inspection confirming all
+         updates ... in past 20 years", NatGen's "photos showing completely
+         renovated kitchens", Sage SURE/SafePort's furnace items and
+         Markel's Coverage A items stay.
+       - **On the 3,895 recorded Sonnet records:** my keyword set finds 96
+         inspection-flavoured items (55 distinct). I could not reproduce
+         the 113 in the round 20 prompt. The strip catches 20, including 7
+         "pictures" items outside that set, with no false hits by reading:
+         NatGen photo/picture requests x15, Travelers "Roof Condition
+         Questionnaire and photos" x4, TWICO "pass the required inspection
+         within 30 days" x1. The other 83 are kept as property rules.
+    3. An INSUFFICIENT_INFORMATION left with nothing open by layer 2 becomes
+       ELIGIBLE, noted "(inspection requirements are not checked)". It
+       never touches INELIGIBLE or REFER. It runs before the County and
+       CHUBB holds, so those still apply.
+       - **Would flip 0 of the 1,978 recorded Insufficient records**: each
+         one with a stripped item had something else open.
+       - The round 20 estimate of about 17 matches stripping roofer letters
+         too (16: SURE DP-3 x6, SafePort DP-3 x5, Travelers x4, Markel x1).
+    - **Luna, 2 runs before vs 2 after the instruction:**
+      - STANDARD: Insufficient 19/17 -> 17/16. Changed: Travelers (before
+        INSUFFICIENT once, with "photos" in its items; after ELIGIBLE
+        twice). Noise: HOAIC, Orion, TWICO.
+      - Liam's profile: Insufficient 13/10 -> 10/19. No before-record had
+        an inspection item, so all 10 movements are noise. The 19-run held
+        carriers on generic "criteria not in the excerpts" items.
+      - Two runs per side cannot tell an effect from variance.
+    - **Where the code treats roofer statements specially (for Liam):**
+      - `structured_rules.sage_roofer_statement_required` (thresholds: over
+        15 years for 3-tab, over 25 for architectural).
+      - `_SAGE_ROOFER_STATEMENT_CARRIERS` (nine Sage guides) in
+        `_apply_structured_overrides`, with three outcomes:
+        - sub-type unknown: a "Roof shingle sub-type" missing_info item plus
+          `_hold_for_unresolved_topic`;
+        - REQUIRED: a "Roofer's statement attesting the roof is in good
+          condition" item;
+        - otherwise: a "No roofer's statement required" note.
+      - Nothing in code handles Allied's roofer letter or Travelers' Roof
+        Condition Questionnaire; those come from the model only. No code
+        keys on "inspection" apart from the new strip.
+
+## Open work, in priority order (updated 2026-10-01)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
    finding.** A record whose status is missing or unrecognised used to count
@@ -256,6 +307,31 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
    was left out in 3 of 10 runs, but each now gets a NOT_EVALUATED row.
    Duplicates (earlier: Vave, Wilshire twice): none in round 19's 10 runs.
    No policy is decided for them.
+
+**Round 20, not done (2026-10-01):**
+- **ZIP code:** Liam and Jonathan are still discussing it. Not built.
+- **Per-input checkboxes ("test only these inputs") and Select All:**
+  waiting on Liam's answers. They will touch:
+  - every place a property fact reaches the prompt: the PROPERTY DETAILS
+    block, `_optional_fact_lines`, `_pool_fact_lines`, and the risk-factor
+    query terms built from the intake;
+  - the retrieval guarantees: PPC, pool, solar, roof, occupancy,
+    trust/LLC and Coverage A;
+  - every deterministic hold and override: Sage county, CHUBB Coverage A
+    and below-$1M REFER, the Sage FPC upgrade, Sage roofer statement,
+    TWICO sub-type, Centauri flat roof, the pool spec checks, the solar
+    note and the OQ-1 intake-contradiction guard.
+- **Roof sub-type and fire-station / hydrant fields.** Roof is 17% of
+  Insufficient on its own; fire distance appears in 28% of Insufficient
+  records.
+- **Coastal tier definitions.**
+- **6 ft fence box:** declined. ARI (HOA+)/(HOB) state 6 ft, so they stay
+  open.
+- **Gate wording (decide):** should "Gate confirmed self-closing / locking"
+  count for Foremost and NatGen Custom360 ("self-locking") and Swyfft x4
+  ("self-latching")? Today it does not.
+- **Roofer letters / roof certifications:** do they count as inspection
+  requirements? Today they are kept.
 
 **Round 19, not done (Liam, 2026-09-30):**
 - **Allied Trust's card reads as if the roof failed.** Its ¾-of-life rule
