@@ -6202,7 +6202,7 @@ class TestPoolBoxes:
         ticked = _raw_prompt(_boxes(STANDARD_PROFILE, fence, gate))
         added = [l for l in ticked.splitlines() if l not in plain.splitlines()]
         expect = (["Pool Fence Height: confirmed 4 feet or higher"] if fence else []) + \
-                 (["Pool Gate: confirmed self-closing / locking"] if gate else [])
+                 (["Pool Gate: confirmed self-latching and can be locked"] if gate else [])
         assert added == expect
         accessories = STANDARD_PROFILE["pool_accessories"]
         assert f"Pool Accessories: {accessories}\n" + "\n".join(expect) + "\n" in ticked
@@ -6279,12 +6279,31 @@ class TestPoolBoxes:
         ours = [m for m in r["missing_info"] if m.startswith("Pool enclosure specifics")]
         assert len(ours) == 1 and "6'" in ours[0] and "gate mechanism" not in ours[0]
 
-    def test_a_self_locking_carrier_keeps_its_gate_question(self):
-        """Foremost names "a self-locking gate"; a locking gate does not
-        establish that. Left open for Liam (handoff.md, 2026-10-01)."""
-        r = _by_carrier(_replayed_run(_boxes(STANDARD_PROFILE, True, True), _pool_answer(_FOREMOST)))[_FOREMOST]
+    # Round 21 (Liam, 2026-10-02): the one strict box settles every wording
+    # family. One test per family, each with the carrier's own gate wording.
+    @pytest.mark.parametrize("carrier, family", [
+        ("Allied_Trust_HO3", "locking gate"),
+        ("Foremost_DP3_and_HO3_-_07.01.2026", "self-locking gate"),
+        ("Swyfft_-_Benchmark_(Admitted)_HO3", "self-latching gate"),
+        ("Sage_-_Auros_HO3", "combination or padlocked gate or self-locking or self-latching mechanism"),
+        ("Sage_-_Markel_HO3", "Lockable gate"),
+    ])
+    def test_the_strict_gate_box_settles_each_wording_family(self, carrier, family):
+        assert family.lower() in _POOL_GATE_RULE[carrier][1].lower()
+        item = f"Confirm the pool gate meets the carrier's requirement ({family})."
+        gate_only = _pool_answer(carrier, missing_info=[item])
+        unticked = _by_carrier(_replayed_run(_boxes(STANDARD_PROFILE, True, False), gate_only))[carrier]
+        ticked = _by_carrier(_replayed_run(_boxes(STANDARD_PROFILE, True, True), gate_only))[carrier]
+        assert item in unticked["missing_info"]
+        assert item not in ticked["missing_info"]
+        assert not any(m.startswith("Pool enclosure specifics") for m in ticked["missing_info"])
+
+    def test_travelers_ladder_lock_is_not_settled_by_the_gate_box(self):
+        tr = "Travelers_HO3_-_06.12.2026"
+        assert tr not in _POOL_GATE_RULE
+        r = _by_carrier(_replayed_run(_boxes(STANDARD_PROFILE, True, True), _pool_answer(tr)))[tr]
         ours = [m for m in r["missing_info"] if m.startswith("Pool enclosure specifics")]
-        assert len(ours) == 1 and "gate mechanism" in ours[0] and "fence height" not in ours[0]
+        assert len(ours) == 1 and "gate mechanism" in ours[0]
 
     def test_nothing_here_makes_a_carrier_ineligible(self):
         for fence, gate in [(False, False), (True, False), (False, True), (True, True)]:
@@ -6296,11 +6315,8 @@ class TestPoolBoxes:
             text = _guides.guide_text(carrier)
             assert _chat._appears_in(_chat._compare_key(phrase), _chat._compare_key(text)), carrier
 
-    def test_the_gate_table_agrees_with_its_own_wording(self):
-        for carrier, (settles, phrase) in _POOL_GATE_RULE.items():
-            specific_only = re.search(r"self-?\s?(locking|latching) gate", phrase, re.I) and \
-                not re.search(r"\block(ing|ed|able)\b(?! gate)|padlocked|locked or", phrase, re.I)
-            assert settles == (not specific_only), carrier
+    def test_the_strict_box_settles_every_listed_carrier(self):
+        assert all(settles for settles, _ in _POOL_GATE_RULE.values())
 
 
 @pytest.mark.retrieval

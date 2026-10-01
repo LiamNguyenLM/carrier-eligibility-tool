@@ -295,6 +295,20 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
         Condition Questionnaire; those come from the model only. No code
         keys on "inspection" apart from the new strip.
 
+- **2026-10-02 — Round 21 (Liam).**
+  - **Gate box, one strict box.** The label is now "Gate confirmed
+    self-latching AND can be locked". Ticking it settles every guide's gate
+    wording: locking / locked / lockable (Allied, Progressive, NatGen
+    Premier, Centauri DP3, Steadily, ARI, Markel's "Lockable gate"),
+    self-locking (Foremost, NatGen Custom360), self-latching (Swyfft x4), and
+    Sage's "combination or padlocked gate or self-locking or self-latching
+    mechanism".
+    - Unticked still means unknown.
+    - Travelers stays unsettled: its "locking" is a ladder.
+    - ARI's 6 ft height stays open.
+    - With both boxes unticked, the prompt is byte-identical to 6362dac on
+      STANDARD, ALT, COASTAL_PPC4, OWNERSHIP_BASE and fenced-ALT.
+
 ## Open work, in priority order (updated 2026-10-01)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
@@ -327,9 +341,9 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
 - **Coastal tier definitions.**
 - **6 ft fence box:** declined. ARI (HOA+)/(HOB) state 6 ft, so they stay
   open.
-- **Gate wording (decide):** should "Gate confirmed self-closing / locking"
-  count for Foremost and NatGen Custom360 ("self-locking") and Swyfft x4
-  ("self-latching")? Today it does not.
+- **Gate wording:** DECIDED 2026-10-02 (round 21): there is one strict box,
+  "Gate confirmed self-latching AND can be locked", and it settles every
+  wording family.
 - **Roofer letters / roof certifications:** do they count as inspection
   requirements? Today they are kept.
 

@@ -169,8 +169,9 @@ with tab1:
                 "Fence confirmed 4 ft or higher", key=f"pool_fence_4ft::{swimming_pool}",
                 help="Tick only if confirmed. Unchecked means UNKNOWN, not \"no\".")
             pool_gate_locking = st.checkbox(
-                "Gate confirmed self-closing / locking", key=f"pool_gate_locking::{swimming_pool}",
-                help="Tick only if confirmed. Unchecked means UNKNOWN, not \"no\".")
+                "Gate confirmed self-latching AND can be locked", key=f"pool_gate_locking::{swimming_pool}",
+                help="Tick only if the gate both latches by itself and can be locked. "
+                     "Unchecked means UNKNOWN, not \"no\".")
         solar_panels = st.toggle("Solar Panels", key="solar",
             help="Does the property have solar panels installed?")
 

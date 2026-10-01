@@ -807,7 +807,7 @@ def _pool_fact_lines(property_details):
     if _pool_fence_4ft(property_details):
         lines.append("Pool Fence Height: confirmed 4 feet or higher")
     if _pool_gate_locking(property_details):
-        lines.append("Pool Gate: confirmed self-closing / locking")
+        lines.append("Pool Gate: confirmed self-latching and can be locked")
     return "".join("\n" + line for line in lines)
 
 
@@ -1577,13 +1577,13 @@ def _describe_unconfirmed_pool_spec(spec):
     return " and ".join(wants)
 
 
-# What the "Gate confirmed self-closing / locking" box settles, per carrier,
-# read from each guide 2026-10-01 (the phrase is verbatim; a test checks it is
-# in that carrier's own guide). True: the guide accepts a locking / locked /
-# lockable gate, or (Sage) lists a padlocked gate among the acceptable ones.
-# False: the guide names a specific mechanism -- "self-locking" or
-# "self-latching" -- that a locking gate does not establish; the gate question
-# stays open there until Liam decides otherwise. A carrier not listed is never
+# What the gate box settles, per carrier, read from each guide 2026-10-01
+# (the phrase is verbatim; a test checks it is in that carrier's own guide).
+# Round 21 (Liam, 2026-10-02): ONE strict box, "Gate confirmed self-latching
+# AND can be locked", settles every wording family -- locking / locked /
+# lockable (Allied, Progressive, Markel, ...), self-locking (Foremost, NatGen
+# Custom360), self-latching (Swyfft), and Sage's list. Round 20's narrower
+# box left self-locking and self-latching open. A carrier not listed is never
 # settled by the box. Travelers is deliberately absent: the "locking" in its
 # pool rule is a "retractable locking ladder", not a gate.
 _SAGE_GATE = "combination or padlocked gate or self-locking or self-latching mechanism"
@@ -1607,12 +1607,12 @@ _POOL_GATE_RULE = {
     "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026": (True, _SAGE_GATE),
     "Sage_-_Wilshire_HO3_-_12.02.2025": (True, _SAGE_GATE),
     "Steadily_Underwriting_Guidelines_DP3": (True, "4 ft. high permanently installed, locking fence"),
-    "Foremost_DP3_and_HO3_-_07.01.2026": (False, "a fence minimum four feet high (fully enclosing the pool) AND a self-locking gate"),
-    "NatGen_Custom360_DP3_-_06.25.2026": (False, "Pools are fenced in with self-locking gate"),
-    "Swyfft_-_Benchmark_(Admitted)_HO3": (False, "self-latching gate"),
-    "Swyfft_-_Benchmark_(Surplus)_HO3": (False, "self-latching gate"),
-    "Swyfft_-_Lloyds_(Surplus)_HO3": (False, "self-latching gate"),
-    "Swyfft_-_Topa_(Surplus)_HO3": (False, "self-latching gate"),
+    "Foremost_DP3_and_HO3_-_07.01.2026": (True, "a fence minimum four feet high (fully enclosing the pool) AND a self-locking gate"),
+    "NatGen_Custom360_DP3_-_06.25.2026": (True, "Pools are fenced in with self-locking gate"),
+    "Swyfft_-_Benchmark_(Admitted)_HO3": (True, "self-latching gate"),
+    "Swyfft_-_Benchmark_(Surplus)_HO3": (True, "self-latching gate"),
+    "Swyfft_-_Lloyds_(Surplus)_HO3": (True, "self-latching gate"),
+    "Swyfft_-_Topa_(Surplus)_HO3": (True, "self-latching gate"),
 }
 
 _POOL_HEIGHT_WORDS_RE = re.compile(r"height|high|tall|\bfeet\b|\bfoot\b|\bft\b|\d\s*(?:'|\u2019|-?foot|-?feet|ft)", re.I)
@@ -1622,7 +1622,7 @@ _POOL_GATE_WORDS_RE = re.compile(r"gate|latch|lock", re.I)
 def _pool_boxes_settle(spec, canon, property_details):
     """(height settled, gate settled) by the agent's ticked boxes for this
     carrier. Height: ticked AND every height the carrier states is 4 ft or
-    less. Gate: ticked AND _POOL_GATE_RULE says a locking gate meets it."""
+    less. Gate: ticked AND the carrier is in _POOL_GATE_RULE."""
     heights = spec["heights"] if spec else set()
     height_ok = _pool_fence_4ft(property_details) and bool(heights) and max(int(h) for h in heights) <= 4
     gate_ok = _pool_gate_locking(property_details) and _POOL_GATE_RULE.get(canon, (False, ""))[0]
