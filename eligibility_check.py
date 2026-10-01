@@ -79,6 +79,50 @@ ELIGIBILITY_MODEL = os.environ.get("ELIGIBILITY_MODEL", "gpt-6-luna")
 # the API there).
 ELIGIBILITY_REASONING_EFFORT = os.environ.get("ELIGIBILITY_REASONING_EFFORT", "low")
 
+# Enforced output structure on the OpenAI path (Liam, 2026-09-30). Live
+# failure the same day: Luna wrote 23 complete records and left off status and
+# flaw_count on every one. A strict json_schema makes the API itself refuse to
+# emit a record without them. The API needs an OBJECT at the root, so the
+# array is wrapped as {"carriers": [...]}; the bracket extraction in
+# check_eligibility already pulls the array out of that. Field order matches
+# SYSTEM_INSTRUCTIONS: reasoning first, verdict last.
+#
+# Default ON, because the acceptance test passed: 10 of 10 real gpt-6-luna
+# checks (5 on Liam's PPC-3 profile, 5 on STANDARD) with every record carrying
+# a valid status and an integer flaw_count, where 3 of 8 unstructured calls
+# the same day had returned no status at all. The schema does NOT prevent
+# omissions: Foremost was left out in 3 of the 10 (they get NOT_EVALUATED
+# rows). Turn off with ELIGIBILITY_STRUCTURED=0. Ignored on the Anthropic path.
+ELIGIBILITY_STRUCTURED = os.environ.get("ELIGIBILITY_STRUCTURED", "1") == "1"
+
+_STRING_LIST = {"type": "array", "items": {"type": "string"}}
+CARRIER_RESULTS_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["carriers"],
+    "properties": {
+        "carriers": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["carrier", "reasons", "citations", "missing_info", "notes",
+                             "status", "flaw_count"],
+                "properties": {
+                    "carrier": {"type": "string"},
+                    "reasons": _STRING_LIST,
+                    "citations": _STRING_LIST,
+                    "missing_info": _STRING_LIST,
+                    "notes": {"type": "string"},
+                    "status": {"type": "string",
+                               "enum": ["ELIGIBLE", "INELIGIBLE", "REFER", "INSUFFICIENT_INFORMATION"]},
+                    "flaw_count": {"type": "integer"},
+                },
+            },
+        },
+    },
+}
+
 _openai_client = None
 
 
@@ -140,7 +184,7 @@ def _complete_openai(system_text, user_content, max_tokens):
     see chat.py's _complete_openai for the measured findings (Luna's cache
     keys on the WHOLE prompt, so this pipeline's single-call-per-check shape
     never benefits from it either way)."""
-    response = _get_openai_client().chat.completions.create(
+    kwargs = dict(
         model=ELIGIBILITY_MODEL,
         messages=[
             {"role": "system", "content": system_text},
@@ -156,17 +200,28 @@ def _complete_openai(system_text, user_content, max_tokens):
         seed=0,
         timeout=900.0,
     )
+    if ELIGIBILITY_STRUCTURED:
+        kwargs["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {"name": "carrier_results", "strict": True,
+                            "schema": CARRIER_RESULTS_SCHEMA},
+        }
+    response = _get_openai_client().chat.completions.create(**kwargs)
     usage = response.usage
     cached = 0
     if getattr(usage, "prompt_tokens_details", None) is not None:
         cached = getattr(usage.prompt_tokens_details, "cached_tokens", 0) or 0
-    text = response.choices[0].message.content or ""
+    message = response.choices[0].message
+    text = message.content or ""
+    stop_reason = response.choices[0].finish_reason
+    if getattr(message, "refusal", None):
+        stop_reason = "refusal: " + str(message.refusal)[:200]
     return text, {
         "input_tokens": usage.prompt_tokens - cached,
         "output_tokens": usage.completion_tokens,
         "cache_read_input_tokens": cached,
         "cache_creation_input_tokens": 0,
-        "stop_reason": response.choices[0].finish_reason,
+        "stop_reason": stop_reason,
     }
 
 

@@ -5963,3 +5963,93 @@ class TestChubbCoverageAHold:
         for c in blank:
             if c != _CHUBB:
                 assert blank[c] == filled[c], c
+
+
+# ---------------------------------------------------------------------------
+# Round 19, Step 4 (Liam, 2026-09-30): enforced output structure on the
+# OpenAI path. Zero-API: the OpenAI client is replaced by a recorder.
+# ---------------------------------------------------------------------------
+
+from eligibility_check import CARRIER_RESULTS_SCHEMA, MODEL_STATUSES
+
+
+def _fake_openai_response(content, refusal=None, finish="stop"):
+    import types
+    return types.SimpleNamespace(
+        choices=[types.SimpleNamespace(
+            message=types.SimpleNamespace(content=content, refusal=refusal), finish_reason=finish)],
+        usage=types.SimpleNamespace(prompt_tokens=10, completion_tokens=5,
+                                    prompt_tokens_details=None, completion_tokens_details=None))
+
+
+@pytest.mark.retrieval
+class TestStructuredOutput:
+
+    def test_schema_fields_are_in_order_all_required_no_extras(self):
+        item = CARRIER_RESULTS_SCHEMA["properties"]["carriers"]["items"]
+        order = ["carrier", "reasons", "citations", "missing_info", "notes", "status", "flaw_count"]
+        assert list(item["properties"]) == order            # verdict LAST
+        assert item["required"] == order
+        assert item["additionalProperties"] is False
+        assert CARRIER_RESULTS_SCHEMA["additionalProperties"] is False
+        assert CARRIER_RESULTS_SCHEMA["required"] == ["carriers"]
+        assert item["properties"]["status"]["enum"] == list(MODEL_STATUSES)
+        assert item["properties"]["flaw_count"]["type"] == "integer"
+
+    @pytest.mark.parametrize("on", [True, False])
+    def test_response_format_is_sent_only_when_the_flag_is_on(self, on, monkeypatch):
+        import eligibility_check as ec
+        sent = {}
+
+        class Client:
+            class chat:
+                class completions:
+                    @staticmethod
+                    def create(**kw):
+                        sent.update(kw)
+                        return _fake_openai_response('{"carriers": []}')
+        monkeypatch.setattr(ec, "ELIGIBILITY_MODEL", "gpt-6-luna")
+        monkeypatch.setattr(ec, "ELIGIBILITY_STRUCTURED", on)
+        monkeypatch.setattr(ec, "_get_openai_client", lambda: Client)
+        ec._complete("sys", "user", 100)
+        if on:
+            rf = sent["response_format"]
+            assert rf["type"] == "json_schema"
+            assert rf["json_schema"]["strict"] is True
+            assert rf["json_schema"]["schema"] is CARRIER_RESULTS_SCHEMA
+            assert sent["reasoning_effort"]            # still sent alongside
+        else:
+            assert "response_format" not in sent
+
+    def test_a_refusal_is_reported_in_the_stop_reason(self, monkeypatch):
+        import eligibility_check as ec
+
+        class Client:
+            class chat:
+                class completions:
+                    @staticmethod
+                    def create(**kw):
+                        return _fake_openai_response(None, refusal="I can't help with that.")
+        monkeypatch.setattr(ec, "ELIGIBILITY_MODEL", "gpt-6-luna")
+        monkeypatch.setattr(ec, "_get_openai_client", lambda: Client)
+        text, usage = ec._complete("sys", "user", 100)
+        assert text == "" and usage["stop_reason"].startswith("refusal:")
+
+    def test_the_wrapped_answer_parses_through_the_real_pipeline(self):
+        """{"carriers": [...]} is what strict json_schema returns; the
+        existing extraction must place every record."""
+        import json
+        wrapped = json.dumps({"carriers": json.loads(_answer_for(_usable("Owner Occupied")))})
+        results = _replayed_run(OWNERSHIP_BASE_PROFILE, wrapped)
+        assert usable_answer_count(results) == len(_usable("Owner Occupied"))
+        assert not assign_buckets(results)["unrecognised"]
+        assert not assign_buckets(results)["not_evaluated"]
+
+
+@pytest.mark.retrieval
+def test_structured_output_defaults_on():
+    """Liam, 2026-09-30: ON by default because 10 of 10 real structured Luna
+    checks returned a valid status and integer flaw_count on every record."""
+    import eligibility_check as ec
+    if os.environ.get("ELIGIBILITY_STRUCTURED") is None:
+        assert ec.ELIGIBILITY_STRUCTURED is True

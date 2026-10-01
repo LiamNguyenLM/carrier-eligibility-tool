@@ -158,31 +158,91 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       the baseline
       `test_chubb_without_coverage_a_is_insufficient_and_says_why`. Its
       premise ("tiers only set pricing") was incomplete.
+  - **Luna with enforced output structure: ON by default.**
+    `ELIGIBILITY_STRUCTURED` (unset or 1 = on; 0 = off) sends a strict
+    json_schema: `{"carriers": [...]}`, every field required, status an
+    enum of the four, flaw_count an integer.
+    - gpt-6-luna accepts it together with `reasoning_effort`.
+    - **The pass test:** 10 of 10 real checks (5 on Liam's PPC-3 profile, 5
+      on STANDARD) had a valid status and an integer flaw_count on every
+      record. Unstructured calls the same day: 3 of 8 had no status at all.
+    - Each check took 41-49 s and cost $0.003-0.006.
+    - The schema does not prevent omissions: Foremost was left out in 3 of
+      10, and Progressive HO6 in 1. No duplicates.
+    - **Luna vs Sonnet, same commit** (Sonnet run twice per profile):
+      - Sonnet disagreed with itself on 5 carriers (Liam's profile) and 12
+        (STANDARD).
+      - Where Sonnet agreed with itself, Luna's majority differed on 4
+        carriers per profile: Foremost, Progressive HO6, Vave and TWICO;
+        and Mercury, Progressive HO6, TWICO and Travelers. In most of
+        these Luna is the more conservative.
+      - The Step 2 and 3 holds make the six held carriers identical on both
+        models. Without them, CHUBB on Liam's profile would have been a
+        real difference: Luna raw ELIGIBLE 4 of 5, Sonnet INSUFFICIENT 2
+        of 2.
+    - **Dwelling type, one Luna call each:**
+      - Condo: Progressive HO6 goes to ELIGIBLE (INSUFFICIENT 5 of 5 when
+        blank), and several HO3s move to INSUFFICIENT.
+      - Townhome: Progressive HO6 stays INSUFFICIENT.
+      - One call each is an observation, not a rate.
 
-## Open work, in priority order (2026-09-29)
+## Open work, in priority order (updated 2026-09-30)
 
-0. **Smoke test finding, not yet root-caused: the NOT_EVALUATED safety net
-   may not catch every way Luna drops a carrier.** Two back-to-back real
-   Luna runs of OWNERSHIP_BASE/LLC (no code change between them):
-   - Run 1: 25 model records for 23 distinct carriers -- Sage SURE HO-3 and
-     Sage SafePort HO-3 absent, and **no NOT_EVALUATED row appeared for
-     either**, which `_add_fixed_rows`'s coverage check should have caught
-     (any `relevant_carrier` not in the resolved set of `kept` carriers gets
-     one). Not yet explained: whether some other pair of carriers was
-     silently DUPLICATED in that run's raw JSON (consuming 2 slots invisibly
-     because the resolver's `covered` set collapses duplicates), which would
-     explain the record count without a code bug, or whether the coverage
-     check itself has a gap this smoke test wasn't built to catch.
-   - Run 2 (same profile, same code): all 26 usable carriers present, but
-     Sage Vave HO3 and Sage Wilshire HO3 EACH appear twice (30 total
-     records for 26 distinct carriers) -- no omission this time.
-   - Both runs' JSON parsed without error; this is a completeness issue, not
-     a parseability one. Before this prototype goes past internal testing,
-     capture a failing run's raw JSON (not just the post-parse `results`)
-     and confirm whether `_add_fixed_rows` is actually blind to duplicate-
-     masking-an-omission, or whether run 1's specific raw output had some
-     other shape. Zero-API once a raw sample is in hand -- reuse the replay
-     harness in verification/test_eligibility_matrix.py.
+0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
+   finding.** A record whose status is missing or unrecognised used to count
+   as covering its carrier by NAME, so its carrier vanished with no row.
+   The live bug the same day was 23 Luna records with no status at all.
+   Fixed in 31abddc: such a record is now its own "Could Not Be Checked"
+   row. Round 19 turned on enforced structure for Luna, which gave 10 of 10
+   runs a valid status on every record. Omissions still happen: Foremost
+   was left out in 3 of 10 runs, but each now gets a NOT_EVALUATED row.
+   Duplicates (earlier: Vave, Wilshire twice): none in round 19's 10 runs.
+   No policy is decided for them.
+
+**Round 19, not done (Liam, 2026-09-30):**
+- **Allied Trust's card reads as if the roof failed.** Its ¾-of-life rule
+  only decides replacement cost vs actual cash value; eligibility needs 5+
+  years of life left. This is a prompt wording fix, so it needs a Tier 2
+  baseline.
+- **Travelers lands in Insufficient over a paperwork item:** the
+  Renovations Section, required for homes 25+ years old.
+- **Sage FPC upgrade glosses over its own conditions.** It says "ELIGIBLE
+  regardless of driving distance", but rows 2-5 of the table attach
+  conditions (visibility from the road, central-station alarm, year-round
+  access) that depend on the distance and hydrant facts.
+- **CHUBB below $1,000,000 Coverage A:** the Standard Tier reads "Subject to
+  pre-approval". Should that become REFER? Liam's call.
+- **Other guides with COUNTY rules.** Listed here, not built:
+  - Foremost: a "Restricted Areas -- Coastal" list of counties that are
+    "entirely restricted", including Aransas, Bee, Brazoria, Cameron,
+    Chambers, Fort Bend, Harris, Hardin, Jim Wells, Kenedy, Montgomery,
+    Nueces, Victoria and Wharton. There are exceptions for some programs,
+    and only TWIA-served areas are accepted.
+  - CHUBB: tier tables differ by region (Dallas/Fort Worth, Collin and the
+    Northern counties; Austin, San Antonio and surrounding, East and South;
+    Harris County territories). No wind coverage in a First Tier County or
+    Harris Territory 1A.
+  - Progressive HO3/HO6/DP3: "We are not accepting new business in Hidalgo
+    or Webb county". Wind-pool-zone homes are written ex-wind.
+  - Mercury: coastal county/ZIP table (Tier I/II counties, "Refer all to
+    Underwriting", a $1,000,000 Coverage A maximum, deductibles) and an
+    inland-counties table.
+  - ARI HOB: homes where TWIA wind coverage is available (Tier 1 counties,
+    Harris east of Highway 146) are ineligible.
+  - NatGen Premier and Custom360: Tier 1 coastal counties need a signed
+    windstorm exclusion; Custom360 has coastal zones.
+  - HOAIC: Tier 1/Tier 2 county lists, for deductibles only.
+  - Centauri DP3: listed coastal counties are ineligible for wind coverage.
+  - Travelers: NO county list. Its coastal rules key on a Hurricane
+    Underwriting Classification (Extreme is ineligible; High 2 "Refer all to
+    Underwriting"), which is a different fact.
+  - Orion: "All counties within Texas are eligible". Allied Trust reserves
+    the right to restrict counties, with no list.
+  - Liberty Mutual, Swyfft and TWICO: no county mentions.
+- Still open from earlier: the Step 3 quote guard and Vave "Exclusion";
+  compact output; second homes; pool and fire-distance fields; the Step 2
+  baseline tier; the full Luna-vs-Sonnet comparison beyond what round 19
+  measured.
 
 1. **What's unvalidated on Luna.** Every Tier 2 baseline in this suite (the
    pipeline's and the chat tab's) was measured against Sonnet's output, not
