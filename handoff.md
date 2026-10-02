@@ -348,6 +348,35 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
         outputs replayed, so this is an upper bound, not a forecast.
     - The model can still cite a rule about an unchecked topic (the
       "leak"). It is not hidden; see the round 21 Step 4 measurement.
+  - **The form** (round 21 step 3): a "Check this" box per topic, ticked
+    automatically when its input moves off the default. Select All and
+    Clear; Dwelling type is required. Partial mode shows "Partial check:
+    ..." and, under Eligible, "No problem found on the checked items."
+  - **Measured, real gpt-6-luna, STANDARD** (round 21 step 4). Partial =
+    roof age + home age + solar, plus the always-on three:
+
+    | Run | Input tokens (cached) | Output | Wall clock | Cost | Eligible / One issue / Insufficient / Not eligible |
+    |---|---|---|---|---|---|
+    | All checked | 34,093 (0) | 6,030 | 53.7 s | $0.0064 | 2 / 2 / 21 / 0 |
+    | Partial 1 | 19,435 (5,343) | 4,565 | 47.0 s | $0.0037 | 19 / 1 / 5 / 0 |
+    | Partial 2 | 19,435 (19,432) | 4,771 | 61.2 s | $0.0026 | 19 / 1 / 5 / 0 |
+
+    Plus 4 GUIDE_UNAVAILABLE rows each.
+    - **Leak:** model records whose reasons or citations mention an
+      unchecked topic: 6 of 25 (partial 1) and 5 of 25 (partial 2).
+      - All were ELIGIBLE records: roof-age reasoning that names the
+        shingle types in an age-by-type rule (Foremost, Mercury, Sage
+        x3, Orion, TWICO), and HOAIC saying its PPC condition does not
+        apply.
+      - No INELIGIBLE or REFER rested on an unchecked topic, and no
+        missing_info item about one survived the strip.
+      - Twice Orion and TWICO said their roof table "cannot be evaluated
+        without considering roof type, which is expressly outside this
+        partial check", and stayed ELIGIBLE.
+    - The 5 Insufficient in the partial runs held on roof life (ARI x2,
+      Allied, Progressive HO3: "5 years of remaining useful life"), on the
+      HO6 condo question (STANDARD has no Dwelling type), on Liberty
+      Mutual's generic "criteria" item and on Travelers' roof timeframes.
 
 ## Open work, in priority order (updated 2026-10-01)
 
