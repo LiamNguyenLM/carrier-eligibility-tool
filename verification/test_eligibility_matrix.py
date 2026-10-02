@@ -6624,7 +6624,10 @@ class TestTopicRegistry:
 
     def test_every_tag_used_in_code_is_registered(self):
         import eligibility_check as ec
-        used = _on_calls(_ast.parse(_inspect.getsource(ec)))
+        tree = _ast.parse(_inspect.getsource(ec))
+        used = _on_calls(tree) | {n.value for n in _ast.walk(tree) if isinstance(n, _ast.Constant)
+                                  and isinstance(n.value, str)
+                                  and re.match(r"^(fact|query|risk|guarantee|guard|override|check):.", n.value)}
         assert used and used - set(_topics.STEPS) - set(_topics.ALWAYS_ON_STEPS) == set()
         for check in ec._CONTRADICTION_CHECKS:
             assert "guard:" + check["field"] in _topics.STEPS, check["field"]
@@ -6672,3 +6675,254 @@ class TestTopicRegistry:
         two = {s: v for s, v in _topics.STEPS.items() if len(v[0]) > 1}
         for step, (_, mode) in two.items():
             assert mode == ("any" if step.split(":")[0] in ("guarantee", "risk", "query") else "all"), step
+
+
+# ---------------------------------------------------------------------------
+# Round 21, Step 2 (Liam, 2026-10-01/02): the check honours checked_topics.
+# Zero API.
+# ---------------------------------------------------------------------------
+
+from collections import Counter
+from eligibility_check import (UNCHECKED_NOT_CONSIDERED_NOTE, _strip_unchecked_topics,
+                               _is_about_unchecked_only)
+
+_THREE = ["roof_age", "home_age", "solar"]
+
+
+def _raw_prompt_kw(profile, **kw):
+    import eligibility_check as ec
+    got = {}
+    real = ec._complete
+
+    def fake(s, u, m):
+        got["s"], got["u"] = s, u
+        raise _PromptCaptured()
+    ec._complete = fake
+    try:
+        check_eligibility(dict(profile), **kw)
+    except _PromptCaptured:
+        pass
+    finally:
+        ec._complete = real
+    return got["s"], got["u"]
+
+
+def _lookups(profile, **kw):
+    """The predicate of every guaranteed lookup the check makes."""
+    import eligibility_check as ec
+    seen = []
+    real = ec.guaranteed_carrier_lookup
+
+    def spy(collection, carrier, predicate, keep, priority_key=None):
+        name = getattr(predicate, "__name__", "")
+        if name == "<lambda>":
+            name = "+".join(predicate.__code__.co_names)
+        seen.append(name)
+        return real(collection, carrier, predicate, keep, priority_key)
+    ec.guaranteed_carrier_lookup = spy
+    try:
+        _raw_prompt_kw(profile, **kw)
+    finally:
+        ec.guaranteed_carrier_lookup = real
+    return Counter(seen)
+
+
+def _replayed_run_kw(profile, raw_text, **kw):
+    import types
+    import eligibility_check as ec
+    original = ec.client.messages.create
+
+    def fake(**kwargs):
+        return types.SimpleNamespace(
+            content=[types.SimpleNamespace(type="text", text=raw_text)], stop_reason="end_turn",
+            usage=types.SimpleNamespace(input_tokens=0, output_tokens=0,
+                                        cache_read_input_tokens=0, cache_creation_input_tokens=0))
+    ec.client.messages.create = fake
+    try:
+        return check_eligibility(dict(profile), **kw)
+    finally:
+        ec.client.messages.create = original
+
+
+def _answer_with(carrier, **fields):
+    import json
+    recs = json.loads(_answer_for(_usable("Owner Occupied")))
+    for r in recs:
+        if r["carrier"] == carrier:
+            r.update(fields)
+    return json.dumps(recs)
+
+
+@pytest.mark.retrieval
+class TestCheckedTopics:
+
+    @pytest.mark.parametrize("profile", [STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE,
+                                         OWNERSHIP_BASE_PROFILE],
+                             ids=["STANDARD", "ALT", "COASTAL_PPC4", "OWNERSHIP_BASE"])
+    def test_select_all_is_byte_identical_to_no_selection(self, profile):
+        assert _raw_prompt_kw(profile, checked_topics=list(_topics.TOPIC_KEYS)) == _raw_prompt_kw(profile)
+
+    def test_the_system_prompt_never_changes(self):
+        assert _raw_prompt_kw(STANDARD_PROFILE, checked_topics=_THREE)[0] == _raw_prompt_kw(STANDARD_PROFILE)[0]
+
+    def test_partial_lists_only_checked_and_always_on_facts(self):
+        _, u = _raw_prompt_kw(dict(STANDARD_PROFILE, county="Harris", dwelling_amount=450000,
+                                   dwelling_type="House"), checked_topics=_THREE)
+        facts = u.split("\n\n")[0].splitlines()
+        assert facts == ["PROPERTY DETAILS:", "State: TX", f"Year Built: {STANDARD_PROFILE['year_built']}",
+                         facts[3], f"Roof Age: {STANDARD_PROFILE['roof_age']} years",
+                         "Occupancy Type: Owner Occupied", "Ownership Structure: Individual Owner",
+                         f"Solar Panels: {STANDARD_PROFILE['solar_panels']}", "Dwelling Type: House"]
+        assert facts[3].startswith("Home Age: ")
+
+    def test_the_instruction_appears_only_when_partial_and_names_the_unchecked(self):
+        _, full = _raw_prompt_kw(STANDARD_PROFILE)
+        _, part = _raw_prompt_kw(STANDARD_PROFILE, checked_topics=_THREE)
+        assert "PARTIAL CHECK" not in full
+        line = [l for l in part.splitlines() if l.startswith("PARTIAL CHECK")][0]
+        for label in ("PPC", "Swimming pool", "Plumbing", "Roof type", "County"):
+            assert label in line
+        for label in ("Roof age", "Solar panels", "Year built"):
+            assert label not in line
+        assert "missing_info" in line
+
+    def test_unchecked_topics_skip_their_guaranteed_lookups(self):
+        full = _lookups(STANDARD_PROFILE)
+        part = _lookups(STANDARD_PROFILE, checked_topics=["roof_age"])
+        assert any("_mentions_protection_class" in k for k in full)
+        assert not any("_mentions_protection_class" in k for k in part)      # PPC unchecked
+        assert full["_mentions_pool_rule"] and not part["_mentions_pool_rule"]
+        assert part["_mentions_roof_life_expectancy"] == full["_mentions_roof_life_expectancy"]  # "any"
+        none = _lookups(STANDARD_PROFILE, checked_topics=["solar"])
+        assert not none["_mentions_roof_life_expectancy"]                     # neither roof topic
+
+    def test_unchecked_topics_leave_the_query_and_risk_terms(self):
+        from eligibility_check import build_retrieval_query, build_risk_factors
+        q = build_retrieval_query(STANDARD_PROFILE, 10, _topics.normalize(["roof_age"]))
+        assert "roof age" in q and "protection class" not in q and "swimming pool" not in q
+        assert "occupancy Owner Occupied" in q
+        rf = build_risk_factors(dict(STANDARD_PROFILE, plumbing_type="Galvanized"), "Owner Occupied",
+                                _topics.normalize(["roof_age"]))
+        assert not any("plumbing" in t or "PPC" in t for t in rf)
+        assert any("roof" in t and "years old" in t for t in rf)
+        assert all(STANDARD_PROFILE["roof_type"] not in t for t in rf)
+
+    # -- overrides and holds run only for checked topics ---------------------
+    def test_no_sage_county_hold_with_county_unchecked(self):
+        auros = "Sage_-_Auros_HO3"
+        ans = _answer_for(_usable("Owner Occupied"))
+        held = _by_carrier(_replayed_run_kw(_LIAM_PPC3, ans))[auros]
+        free = _by_carrier(_replayed_run_kw(_LIAM_PPC3, ans, checked_topics=["ppc"]))[auros]
+        assert held["status"] == "INSUFFICIENT_INFORMATION" and free["status"] == "ELIGIBLE"
+
+    def test_no_chubb_hold_or_refer_with_dwelling_amount_unchecked(self):
+        prof = dict(_LIAM_PPC3, dwelling_amount=450000)
+        on = _by_carrier(_replayed_run_kw(prof, _chubb_answer()))[_CHUBB]
+        off = _by_carrier(_replayed_run_kw(prof, _chubb_answer(), checked_topics=["ppc"]))[_CHUBB]
+        blank_off = _by_carrier(_replayed_run_kw(_LIAM_PPC3, _chubb_answer(), checked_topics=["ppc"]))[_CHUBB]
+        assert on["status"] == "REFER" and off["status"] == "ELIGIBLE" and blank_off["status"] == "ELIGIBLE"
+
+    def test_no_fpc_override_with_ppc_unchecked(self):
+        sure = "Sage_-_SURE_HO-3_-_01.31.2026"
+        ans = _answer_with(sure, status="INSUFFICIENT_INFORMATION",
+                           reasons=["FPC 3 is within the acceptable range."], missing_info=[])
+        prof = dict(_LIAM_PPC3, county="Harris")
+        on = _by_carrier(_replayed_run_kw(prof, ans))[sure]
+        off = _by_carrier(_replayed_run_kw(prof, ans, checked_topics=["county"]))[sure]
+        assert "Structured FPC check" in on["notes"] and "Structured FPC check" not in off["notes"]
+
+    def test_a_rule_needing_two_topics_runs_only_when_both_are_checked(self):
+        twico, swyfft = "TWICO_HO3", "Swyfft_-_Topa_(Surplus)_HO3"
+        ans = _answer_for(_usable("Owner Occupied"))
+        both = _by_carrier(_replayed_run_kw(STANDARD_PROFILE, ans, checked_topics=["roof_age", "roof_type"]))
+        age = _by_carrier(_replayed_run_kw(STANDARD_PROFILE, ans, checked_topics=["roof_age"]))
+        tw = lambda r: any("TWICO distinguishes" in m for m in r[twico]["missing_info"])
+        assert tw(both) and not tw(age)                                 # TWICO table needs both
+        assert "30-year maximum" in age[swyfft]["notes"]                # Swyfft needs roof age only
+
+    def test_no_pool_checks_and_no_pool_box_with_pool_unchecked(self):
+        allied = "Allied_Trust_HO3"
+        prof = dict(STANDARD_PROFILE, pool_fence_4ft=True)
+        r = _by_carrier(_replayed_run_kw(prof, _pool_answer(allied), checked_topics=["roof_age"]))[allied]
+        assert not any(m.startswith("Pool enclosure specifics") for m in r["missing_info"])
+        _, u = _raw_prompt_kw(prof, checked_topics=["roof_age"])
+        assert "Pool Fence Height" not in u and "Swimming Pool:" not in u
+
+    def test_no_contradiction_guard_for_an_unchecked_field(self):
+        claim = "The property has solar panels installed, which this carrier excludes."
+        ans = _answer_with("Allied_Trust_HO3", status="INELIGIBLE", flaw_count=1, reasons=[claim])
+        prof = dict(STANDARD_PROFILE, solar_panels="No")
+        on = _by_carrier(_replayed_run_kw(prof, ans))["Allied_Trust_HO3"]
+        off = _by_carrier(_replayed_run_kw(prof, ans, checked_topics=["roof_age"]))["Allied_Trust_HO3"]
+        assert claim not in on["reasons"] and claim in off["reasons"]   # off: not hidden, see Step 4
+
+    # -- the strip -----------------------------------------------------------
+    @pytest.mark.parametrize("topic, item", [
+        ("ppc", "Driving distance to the responding fire station (FPC 9+)"),
+        ("ppc", "Whether PPC 8A falls within the acceptable protection class range"),
+        ("pool", "Swimming pool fence height (must be minimum 4 feet)"),
+        ("pool", "Lockable gate confirmation"),
+        ("plumbing", "Whether galvanized or polybutylene plumbing is present"),
+        ("plumbing", "Whether the pipes have been replaced"),
+        ("county", "County (to determine if in Hidalgo or Webb county)"),
+        ("county", "Property location in Texas territory south of 31 degrees"),
+        ("dwelling_amount", "Coverage A dwelling limit"),
+        ("dwelling_amount", "Dwelling coverage amount to confirm it does not exceed $300,000"),
+        ("roof_type", "Whether the composition shingle is architectural or 3-tab type"),
+        ("roof_type", "Roof covering material"),
+        ("coastal", "Coastal Tier 2 eligibility and any associated restrictions"),
+        ("coastal", "Whether the property is in the TWIA wind pool"),
+        ("home_age", "Proof of updates for home older than 50 years"),
+        ("home_age", "Year built requirement for homes over 40 years"),
+        ("solar", "Whether the solar panels are roof-mounted"),
+        ("solar", "Photovoltaic system details"),
+        ("dogs", "Whether any dogs on premises are a prohibited breed"),
+        ("dogs", "Animal liability exposure"),
+    ])
+    def test_each_topics_keywords_catch_two_phrasings(self, topic, item):
+        assert topic in _topics.item_topics(item)
+        assert _is_about_unchecked_only(item, frozenset(_topics.TOPIC_KEYS) - _topics.item_topics(item))
+
+    def test_an_item_also_about_a_checked_topic_is_kept(self):
+        item = "Roof age requirements for composition shingle roofs"
+        assert not _is_about_unchecked_only(item, frozenset({"roof_age"}))
+        assert _is_about_unchecked_only(item, frozenset({"solar"}))
+
+    def test_proof_is_not_roof(self):
+        assert "roof_age" not in _topics.item_topics("Proof of updates for dwelling over 50 years old")
+
+    def test_wind_pool_is_coastal_not_pool(self):
+        assert _topics.item_topics("Whether the property is in the wind pool") == {"coastal"}
+
+    def test_strip_frees_only_insufficient_and_says_so(self):
+        recs = [{"carrier": "X", "status": s, "flaw_count": 0, "reasons": ["r"], "citations": [],
+                 "missing_info": ["Swimming pool fence height (must be minimum 4 feet)"], "notes": ""}
+                for s in ("INSUFFICIENT_INFORMATION", "INELIGIBLE", "REFER", "ELIGIBLE")]
+        assert _strip_unchecked_topics(recs, frozenset({"roof_age"})) == 4
+        assert [r["status"] for r in recs] == ["ELIGIBLE", "INELIGIBLE", "REFER", "ELIGIBLE"]
+        assert UNCHECKED_NOT_CONSIDERED_NOTE in recs[0]["notes"]
+        assert all(r["missing_info"] == [] for r in recs)
+
+    def test_strip_does_nothing_when_everything_is_checked(self):
+        recs = [{"carrier": "X", "status": "INSUFFICIENT_INFORMATION", "flaw_count": 0, "reasons": [],
+                 "citations": [], "missing_info": ["Swimming pool fence height"], "notes": ""}]
+        assert _strip_unchecked_topics(recs, _topics.normalize(None)) == 0
+        assert recs[0]["status"] == "INSUFFICIENT_INFORMATION"
+
+    def test_strip_through_the_pipeline(self):
+        allied = "Allied_Trust_HO3"
+        ans = _answer_with(allied, status="INSUFFICIENT_INFORMATION",
+                           missing_info=["Distance to the responding fire station"])
+        r = _by_carrier(_replayed_run_kw(STANDARD_PROFILE, ans, checked_topics=_THREE))[allied]
+        assert r["status"] == "ELIGIBLE" and UNCHECKED_NOT_CONSIDERED_NOTE in r["notes"]
+
+    def test_unknown_topic_is_an_error(self):
+        with pytest.raises(ValueError):
+            _topics.normalize(["ppc", "zipcode"])
+
+    def test_every_registered_step_is_used_in_code(self):
+        import eligibility_check as ec
+        consts = {n.value for n in _ast.walk(_ast.parse(_inspect.getsource(ec)))
+                  if isinstance(n, _ast.Constant) and isinstance(n.value, str)}
+        consts |= {"guard:" + c["field"] for c in ec._CONTRADICTION_CHECKS}
+        assert set(_topics.STEPS) - consts == set()

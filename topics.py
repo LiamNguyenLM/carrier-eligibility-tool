@@ -40,7 +40,7 @@ TOPICS = (
           r"coastal|wind ?pool|\btwia\b|first tier|tier [123]\b|windstorm|named storm|seaward|"
           r"distance to (?:the )?(?:coast|gulf|water)"),
     Topic("home_age", "Year built (home age)", "Home age", ("year_built",),
-          r"year built|home age|age of (?:the )?(?:home|dwelling|house|property)|"
+          r"year built|home age|\bage of (?:the )?(?:home|dwelling|house|property)|"
           r"(?:home|dwelling|house)s? (?:built|older)|built (?:before|after|prior|in \d{4})|"
           r"(?:home|dwelling|house)s? (?:over|more than) \d+ years|(?:home|dwelling|house) is \d+ years|"
           r"pre-19\d\d"),
@@ -56,7 +56,10 @@ TOPICS = (
           r"construction type|type of construction|\bframe\b|masonry|brick|veneer|manufactured|"
           r"mobile home|log home|\beifs\b|stucco"),
     Topic("plumbing", "Plumbing", "Plumbing", ("plumbing_type",),
-          r"plumb|galvaniz|polybutylene|\bpex\b|cast iron|\bpipes?\b|piping"),
+          # The plumbing MATERIAL. "Renovated ... including plumbing" and
+          # "plumbing updated within 30 years" are home-age rules, not this.
+          r"plumbing type|type of plumbing|galvaniz|polybutylene|\bpex\b|cast iron|\bpipes?\b|piping|"
+          r"(?:steel|iron|copper|pvc|cpvc) plumbing|plumbing (?:material|system)s?\b"),
     Topic("pool", "Swimming pool", "Pool",
           ("swimming_pool", "pool_accessories", "pool_fence_4ft", "pool_gate_locking"),
           r"(?<!wind )\bpools?\b|swimming|\bfenc|\bgates?\b|diving|\bslides?\b|hot tub|\bspa\b"),

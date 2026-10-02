@@ -308,6 +308,46 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     - ARI's 6 ft height stays open.
     - With both boxes unticked, the prompt is byte-identical to 6362dac on
       STANDARD, ALT, COASTAL_PPC4, OWNERSHIP_BASE and fenced-ALT.
+  - **Per-input checkboxes ("Check this").** UNCHECKED means not
+    considered at all, so ELIGIBLE means "no problem found on what was
+    checked". `topics.py` is the registry of 13 topics plus 3 always-on
+    ones (Occupancy, Ownership, Dwelling type); the full inventory is in
+    verification/TOPICS_INVENTORY.md.
+    - `check_eligibility(..., checked_topics=None)`: None means everything,
+      and Select All gives a prompt byte-identical to before (STANDARD, ALT,
+      COASTAL_PPC4, OWNERSHIP_BASE).
+    - **Partial selection:**
+      - PROPERTY DETAILS lists only the checked topics' facts plus the
+        always-on ones.
+      - Unchecked topics' guaranteed lookups, query lines and risk terms are
+        skipped.
+      - A PARTIAL CHECK instruction names the unchecked topics. It goes in
+        the user message, so the system prompt never changes.
+      - Every rule runs only when all its topics are checked.
+    - **Rules needing two topics** (Mercury, Markel, TWICO, Sage roofer's
+      statement: roof age AND roof type; Centauri flat roof: roof shape AND
+      roof type) are skipped unless both are checked. With only Roof age
+      ticked, Swyfft's 30-year maximum still runs. The roof
+      life-expectancy chunks (age-by-type tables) still reach the model, so
+      it may answer "depends on roof type"; an item that also matches roof
+      age is kept.
+    - **The strip:** a missing_info item that matches an UNCHECKED topic's
+      keywords and no checked topic's is removed. A record left with
+      nothing open becomes ELIGIBLE "(unchecked topics were not
+      considered)". It never touches INELIGIBLE or REFER.
+      - Keyword false hits, from samples of 15 recorded items per topic: 0
+        for PPC, pool, roof shape and Coverage A; roof type 2/15 (roof
+        condition items naming shingles).
+      - Plumbing was 11/15 (update / renovation rules for older homes)
+        before it was narrowed to the material.
+      - "Acreage of the property" matched home age; fixed.
+      - There are no dog items in the recorded data.
+      - On the recorded data, a roof age + home age + solar selection
+        strips 5,305 of 6,883 items and frees 1,112 of 1,978 Insufficient
+        records (round 20's inspection strip freed 0). Those are full-check
+        outputs replayed, so this is an upper bound, not a forecast.
+    - The model can still cite a rule about an unchecked topic (the
+      "leak"). It is not hidden; see the round 21 Step 4 measurement.
 
 ## Open work, in priority order (updated 2026-10-01)
 

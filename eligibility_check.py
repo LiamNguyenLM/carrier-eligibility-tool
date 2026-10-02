@@ -812,6 +812,53 @@ def _pool_fact_lines(property_details):
     return "".join("\n" + line for line in lines)
 
 
+def _property_details_text(pd, home_age, occupancy, ownership, checked):
+    """The PROPERTY DETAILS block. A line whose topic is unchecked is left
+    out (Liam: not considered at all); with everything checked the text is
+    byte-identical to the round 20 template."""
+    rows = [
+        (None, "State: TX"),
+        ("fact:year_built", f"Year Built: {pd['year_built']}"),
+        ("fact:home_age", f"Home Age: {home_age} years"),
+        ("fact:roof_age", f"Roof Age: {pd['roof_age']} years"),
+        ("fact:roof_type", f"Roof Type: {pd['roof_type']}"),
+        ("fact:roof_shape", f"Roof Shape: {pd['roof_shape']}"),
+        ("fact:construction_type", f"Construction Type: {pd['construction_type']}"),
+        ("fact:plumbing_type", f"Plumbing Type: {pd['plumbing_type']}"),
+        (None, f"Occupancy Type: {occupancy}"),
+        (None, f"Ownership Structure: {ownership}"),
+        ("fact:coastal_tier", f"Coastal Tier: {pd['coastal_tier']}"),
+        ("fact:swimming_pool", f"Swimming Pool: {pd['swimming_pool']}"),
+        ("fact:pool_accessories", f"Pool Accessories: {pd['pool_accessories']}"),
+    ]
+    rows += [("fact:pool_boxes", line) for line in _pool_fact_lines(pd).split("\n")[1:]]
+    rows += [
+        ("fact:has_dogs", f"Dogs on Premises: {pd['has_dogs']}"),
+        ("fact:aggressive_breed", f"Aggressive Breed Dogs: {pd['aggressive_breed']}"),
+        ("fact:solar_panels", f"Solar Panels: {pd['solar_panels']}"),
+        ("fact:ppc", f"PPC Number: {pd['ppc']}"),
+    ]
+    county, amount, dtype = _county(pd), _dwelling_amount(pd), _dwelling_type(pd)
+    if county:
+        rows.append(("fact:county", f"County: {county}"))
+    if amount:
+        rows.append(("fact:dwelling_amount", f"Dwelling Amount (Coverage A): ${amount:,}"))
+    if dtype:
+        rows.append(("fact:dwelling_type", f"Dwelling Type: {dtype}"))
+    return "PROPERTY DETAILS:\n" + "\n".join(
+        line for step, line in rows if step is None or _on(step, checked))
+
+
+def _partial_check_instruction(checked):
+    """Only for a partial selection (decision 1); "" when everything is checked."""
+    if not topics.is_partial(checked):
+        return ""
+    others = ", ".join(t.label for t in topics.unchecked(checked))
+    return ("\n\nPARTIAL CHECK: only the facts listed in PROPERTY DETAILS are being checked. "
+            f"Ignore every rule about any other topic ({others}). Never list one of those "
+            "topics in missing_info or reasons.")
+
+
 def _optional_fact_lines(property_details):
     """Extra PROPERTY DETAILS lines, one per FILLED optional field, each
     starting with a newline; "" when all three are blank."""
@@ -2721,15 +2768,20 @@ def parse_carrier_json(json_str):
         raise original
 
 
-def check_eligibility(property_details, carrier_subset=None):
+def check_eligibility(property_details, carrier_subset=None, checked_topics=None):
     """carrier_subset: optional iterable of carrier names to restrict
     evaluation to (intersected with the normal occupancy filter). Used to
     pilot splitting the combined multi-carrier completion into smaller
     per-group calls without touching the default single-call behavior when
-    omitted."""
+    omitted.
+
+    checked_topics: the topic keys the agent ticked (topics.TOPIC_KEYS).
+    None means everything, exactly as before. An unchecked topic is not
+    considered at all (Liam, 2026-10-01): its facts, lookups, query terms
+    and rules are skipped, and missing_info items about it are stripped."""
     occupancy = property_details['occupancy_type']
     # Round 21: every gated step below asks _on(step, checked); see topics.py.
-    checked = topics.normalize(None)
+    checked = topics.normalize(checked_topics)
 
     # CHANGED: home age computed here instead of leaving the model to infer
     # the current year -- it was previously off by one year when the model
@@ -3031,28 +3083,9 @@ def check_eligibility(property_details, carrier_subset=None):
     # CHANGED: this is now just the dynamic per-property content. The
     # instructions/schema/output-format text that used to live in this
     # same f-string moved to SYSTEM_INSTRUCTIONS above so it can be cached.
-    user_content = f"""PROPERTY DETAILS:
-State: TX
-Year Built: {property_details['year_built']}
-Home Age: {home_age} years
-Roof Age: {property_details['roof_age']} years
-Roof Type: {property_details['roof_type']}
-Roof Shape: {property_details['roof_shape']}
-Construction Type: {property_details['construction_type']}
-Plumbing Type: {property_details['plumbing_type']}
-Occupancy Type: {occupancy}
-Ownership Structure: {ownership}
-Coastal Tier: {property_details['coastal_tier']}
-Swimming Pool: {property_details['swimming_pool']}
-Pool Accessories: {property_details['pool_accessories']}{_pool_fact_lines(property_details)}
-Dogs on Premises: {property_details['has_dogs']}
-Aggressive Breed Dogs: {property_details['aggressive_breed']}
-Solar Panels: {property_details['solar_panels']}
-PPC Number: {property_details['ppc']}{_optional_fact_lines(property_details)}
-
-CARRIER DOCUMENTS:
-{context}
-"""
+    user_content = (_property_details_text(property_details, home_age, occupancy, ownership, checked)
+                    + _partial_check_instruction(checked)
+                    + "\n\nCARRIER DOCUMENTS:\n" + context + "\n")
 
     if no_chunk_carriers:
         user_content += "\nCARRIERS WITH NO RETRIEVED INFORMATION:\n"
@@ -3193,8 +3226,11 @@ CARRIER DOCUMENTS:
                 filtered, relevant_carriers, property_details, pool_specs
             )
         if _on("check:_note_solar_roofing_does_not_apply", checked):
+            # An unchecked roof type is not repeated back in the note.
+            solar_pd = property_details if "roof_type" in checked else {
+                k: v for k, v in property_details.items() if k != "roof_type"}
             _note_solar_roofing_does_not_apply(
-                filtered, relevant_carriers, property_details, solar_classes
+                filtered, relevant_carriers, solar_pd, solar_classes
             )
 
         # Runs after every other check, the FPC upgrade included: these
@@ -3203,6 +3239,7 @@ CARRIER DOCUMENTS:
         # Before the holds, so a carrier freed here is still held on County /
         # Coverage A.
         _strip_inspection_requests(filtered)
+        _strip_unchecked_topics(filtered, checked)
         if _on("check:_apply_location_holds", checked):
             _apply_location_holds(filtered, relevant_carriers, property_details)
         if _on("check:_apply_chubb_hold", checked):
@@ -3373,30 +3410,64 @@ def _is_inspection_request(item):
             and not _INSPECTION_KEEP_RE.search(item))
 
 
-def _strip_inspection_requests(results):
-    """Layer 2: remove missing_info items that only ask for an inspection,
-    photos or a report. Layer 3: an INSUFFICIENT_INFORMATION record left with
-    nothing open BECAUSE of that becomes ELIGIBLE. INELIGIBLE and REFER keep
-    their status; reasons and citations are never touched. Returns the
-    number of items removed."""
+def _strip_missing_info(results, is_match, removed_note, freed_note, log_label):
+    """Remove missing_info items for which is_match(item) is true. An
+    INSUFFICIENT_INFORMATION record left with nothing open BECAUSE of that
+    becomes ELIGIBLE. INELIGIBLE and REFER keep their status; reasons and
+    citations are never touched. Returns the number of items removed."""
     removed = 0
     for r in results:
         mi = r.get("missing_info") or []
-        dropped = [m for m in mi if _is_inspection_request(m)]
+        dropped = [m for m in mi if is_match(m)]
         if not dropped:
             continue
         removed += len(dropped)
         r["missing_info"] = [m for m in mi if m not in dropped]
-        _append_note(r, "[Inspection check] Removed {n} inspection / photo request(s) {tag}: {items}".format(
-            n=len(dropped), tag=INSPECTION_NOT_CHECKED_NOTE, items="; ".join(d[:120] for d in dropped)))
+        _append_note(r, removed_note.format(n=len(dropped), items="; ".join(d[:120] for d in dropped)))
         if r.get("status") == "INSUFFICIENT_INFORMATION" and not r["missing_info"]:
             r["status"] = "ELIGIBLE"
             r["flaw_count"] = 0
-            _append_note(r, "Status set to ELIGIBLE: the only open items were inspection / photo "
-                            "requests " + INSPECTION_NOT_CHECKED_NOTE + ".")
+            _append_note(r, freed_note)
     if removed:
-        print("INSPECTION STRIP: removed=%d item(s)" % removed)
+        print("%s: removed=%d item(s)" % (log_label, removed))
     return removed
+
+
+def _strip_inspection_requests(results):
+    """Layer 2: remove missing_info items that only ask for an inspection,
+    photos or a report. Layer 3: an INSUFFICIENT_INFORMATION record left with
+    nothing open BECAUSE of that becomes ELIGIBLE."""
+    return _strip_missing_info(
+        results, _is_inspection_request,
+        "[Inspection check] Removed {n} inspection / photo request(s) "
+        + INSPECTION_NOT_CHECKED_NOTE.replace("{", "{{").replace("}", "}}") + ": {items}",
+        "Status set to ELIGIBLE: the only open items were inspection / photo "
+        "requests " + INSPECTION_NOT_CHECKED_NOTE + ".",
+        "INSPECTION STRIP")
+
+
+UNCHECKED_NOT_CONSIDERED_NOTE = "(unchecked topics were not considered)"
+
+
+def _is_about_unchecked_only(item, checked):
+    """The item matches some UNCHECKED topic's keywords and no checked one's.
+    An item that also matches a checked topic stays: it may be about that."""
+    hit = topics.item_topics(item)
+    return bool(hit) and not (hit & set(checked))
+
+
+def _strip_unchecked_topics(results, checked):
+    """Partial selection only (decision 1, Step 2e): remove missing_info items
+    about unchecked topics, with the same mechanism as the inspection strip."""
+    if not topics.is_partial(checked):
+        return 0
+    return _strip_missing_info(
+        results, lambda m: _is_about_unchecked_only(m, checked),
+        "[Partial check] Removed {n} item(s) about unchecked topics "
+        + UNCHECKED_NOT_CONSIDERED_NOTE + ": {items}",
+        "Status set to ELIGIBLE: the only open items were about unchecked topics "
+        + UNCHECKED_NOT_CONSIDERED_NOTE + ".",
+        "UNCHECKED-TOPIC STRIP")
 
 
 def _apply_location_holds(results, relevant_carriers, property_details):
