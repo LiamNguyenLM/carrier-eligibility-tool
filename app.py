@@ -82,6 +82,15 @@ with tab1:
         if st.session_state.get(widget_key) != default:
             st.session_state[f"chk_{topic}"] = True
 
+    def _zip_changed():
+        """A ZIP sets County to the picked county and ticks the County box.
+        Changing the ZIP clears any manual county pick and re-derives; a ZIP
+        that does not resolve leaves County blank (unknown), never a guess."""
+        zip_text = st.session_state.get("zip", "")
+        st.session_state["county"] = intake_fields.county_for_zip(zip_text)[0]
+        if str(zip_text).strip():
+            st.session_state["chk_county"] = True
+
     def _set_all(value):
         for t in topics.TOPIC_KEYS:
             st.session_state[f"chk_{t}"] = value
@@ -232,11 +241,23 @@ with tab1:
     st.subheader("📝 Optional — leave blank if unknown")
     col1, col2, col3 = st.columns(3)
     with col1:
+        # Round 21 (Liam, 2026-10-02): agents almost always have the ZIP. The
+        # ZIP never reaches the model -- only the county it is checked as.
+        zip_text = st.text_input("ZIP", value="", key="zip", placeholder="e.g. 77002",
+                                 on_change=_zip_changed,
+                                 help="Sets County below. A ZIP in two counties is checked as the "
+                                      "county with the larger share; change County if you know it.")
+        zip_county, zip_message = intake_fields.county_for_zip(zip_text)
         county = st.selectbox(
             "County", [""] + intake_fields.TEXAS_COUNTIES, key="county",
             format_func=lambda v: v or "— not given —",
             help="Some carriers only write in certain counties.",
             on_change=_autotick, args=("county", "county", ""))
+        if zip_message and (county == zip_county or not zip_county):
+            st.caption(zip_message)
+        elif zip_county and county != zip_county:
+            st.caption(f"Checked as {county or 'no county'} (set by hand; ZIP {zip_text.strip()[:5]} "
+                       f"suggests {zip_county}).")
         _check_box("county")
     with col2:
         dwelling_amount_text = st.text_input(
@@ -284,7 +305,8 @@ with tab1:
             "aggressive_breed": "Yes" if aggressive_breed else "No",
             "solar_panels": "Yes" if solar_panels else "No",
             "ppc": ppc,
-            # optional: "" / None mean unknown
+            # optional: "" / None mean unknown. The ZIP never reaches the prompt.
+            "zip": intake_fields.parse_zip(zip_text)[0] or "",
             "county": county,
             "dwelling_amount": dwelling_amount,
             "dwelling_type": dwelling_type,

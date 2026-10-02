@@ -7149,3 +7149,81 @@ class TestZipLookup:
         for z, v in intake_fields.ZIP_COUNTIES.items():
             assert all(0 < s <= 1.000001 for _, s in v), z
             assert sum(s for _, s in v) <= 1 + 1e-5, z      # six-decimal rounding
+
+
+# ---------------------------------------------------------------------------
+# Round 21, Step 6 (Liam, 2026-10-02): the ZIP box. Zero API.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.retrieval
+class TestZipBox:
+
+    # -- the prompt ------------------------------------------------------------
+    def test_zip_and_county_blank_change_nothing(self):
+        assert _raw_prompt_kw(dict(STANDARD_PROFILE, zip="", county="")) == _raw_prompt_kw(STANDARD_PROFILE)
+
+    @pytest.mark.parametrize("zip_, county", [("77002", "Harris"), ("75201", "Dallas")])
+    def test_a_zip_gives_the_same_prompt_as_the_county_typed_by_hand(self, zip_, county):
+        by_zip = _raw_prompt_kw(dict(_LIAM_PPC3, zip=zip_, county=intake_fields.county_for_zip(zip_)[0]))
+        by_hand = _raw_prompt_kw(dict(_LIAM_PPC3, county=county))
+        assert by_zip == by_hand
+        assert zip_ not in by_zip[1] and f"County: {county}" in by_zip[1]
+
+    def test_the_zip_never_appears_in_any_prompt(self):
+        for checked in (None, ["county"], ["ppc"]):
+            _, u = _raw_prompt_kw(dict(_LIAM_PPC3, zip="77002", county="Harris"), checked_topics=checked)
+            assert "77002" not in u
+
+    # -- the form --------------------------------------------------------------
+    def test_a_zip_fills_county_and_ticks_the_box(self, monkeypatch):
+        at, _ = _form(monkeypatch)
+        at.text_input(key="zip").input("77002").run()
+        assert at.selectbox(key="county").value == "Harris"
+        assert _boxes_state(at)["county"] is True
+        assert "Checked as Harris County (from ZIP 77002)." in [c.value for c in at.caption]
+
+    def test_a_split_zip_shows_the_two_county_line(self, monkeypatch):
+        at, _ = _form(monkeypatch)
+        at.text_input(key="zip").input("76801").run()
+        assert at.selectbox(key="county").value == "Brown"
+        assert any(c.value.startswith("ZIP 76801 spans Brown (95%)") for c in at.caption)
+
+    def test_a_manual_pick_survives_a_rerun_and_a_zip_change_resets_it(self, monkeypatch):
+        at, _ = _form(monkeypatch)
+        at.text_input(key="zip").input("76801").run()
+        at.selectbox(key="county").select("Coleman").run()
+        at.run()
+        assert at.selectbox(key="county").value == "Coleman"
+        at.text_input(key="zip").input("77002").run()
+        assert at.selectbox(key="county").value == "Harris"
+
+    @pytest.mark.parametrize("zip_, says", [("7700", "five digits"), ("90210", "not a Texas ZIP"),
+                                            ("77001", "not in the ZIP-to-county table")])
+    def test_invalid_non_texas_and_missing_zips_leave_county_blank(self, monkeypatch, zip_, says):
+        at, _ = _form(monkeypatch)
+        at.text_input(key="zip").input(zip_).run()
+        assert at.selectbox(key="county").value == ""
+        assert any(says in c.value for c in at.caption)
+
+    def test_county_unchecked_means_the_zip_does_nothing(self, monkeypatch):
+        at, calls = _form(monkeypatch)
+        at.text_input(key="zip").input("75201").run()
+        at.checkbox(key="chk_county").uncheck().run()
+        _submit(at)
+        pd, checked = calls[-1]
+        assert "county" not in checked and pd["county"] == "Dallas" and pd["zip"] == "75201"
+        auros = "Sage_-_Auros_HO3"
+        r = _by_carrier(_replayed_run_kw(dict(_LIAM_PPC3, county=pd["county"], zip=pd["zip"]),
+                                         _answer_for(_usable("Owner Occupied")),
+                                         checked_topics=checked + ["ppc"]))[auros]
+        assert r["status"] == "ELIGIBLE"            # no Sage hold, no out-of-territory decline
+
+    def test_county_checked_by_zip_runs_the_sage_rule(self, monkeypatch):
+        at, calls = _form(monkeypatch)
+        at.text_input(key="zip").input("75201").run()
+        _submit(at)
+        pd, checked = calls[-1]
+        r = _by_carrier(_replayed_run_kw(dict(_LIAM_PPC3, county=pd["county"], zip=pd["zip"]),
+                                         _answer_for(_usable("Owner Occupied")),
+                                         checked_topics=checked + ["ppc"]))["Sage_-_Auros_HO3"]
+        assert r["status"] == "INELIGIBLE"          # Dallas is north of 31 degrees

@@ -402,6 +402,17 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       (Liam's token) would close that gap and switch the share to
       residential addresses. To rebuild: `HUD_API_TOKEN=... python
       build_zip_county.py hud`.
+  - **ZIP box** (round 21 step 6), next to County.
+    - A valid ZIP sets County to the picked county and ticks the County box.
+    - One line under the box always says what was used: "Checked as Harris
+      County (from ZIP 77002)." or "ZIP 76801 spans Brown (95%), Coleman
+      (3%) and Mills (2%). Checked as Brown; change the county below if you
+      know it."
+    - A manual county pick wins until the ZIP changes; changing the ZIP
+      re-derives the county.
+    - The ZIP never reaches the prompt. A ZIP gives the same prompt as the
+      same county typed by hand (tested, zero API). With County unchecked
+      the ZIP does nothing: no Sage hold, no decline.
 
 ## Open work, in priority order (updated 2026-10-01)
 
