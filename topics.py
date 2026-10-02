@@ -103,6 +103,7 @@ STEPS = {
     "fact:solar_panels": (("solar",), "all"),
     "fact:ppc": (("ppc",), "all"),
     "fact:county": (("county",), "all"),
+    "fact:county_territory": (("county",), "all"),
     "fact:dwelling_amount": (("dwelling_amount",), "all"),
     # -- build_retrieval_query lines (retrieval) --------------------------
     "query:year_built": (("home_age",), "any"),

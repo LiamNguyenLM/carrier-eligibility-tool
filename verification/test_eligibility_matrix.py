@@ -7227,3 +7227,153 @@ class TestZipBox:
                                          _answer_for(_usable("Owner Occupied")),
                                          checked_topics=checked + ["ppc"]))["Sage_-_Auros_HO3"]
         assert r["status"] == "INELIGIBLE"          # Dallas is north of 31 degrees
+
+
+# ---------------------------------------------------------------------------
+# Round 22, Step 1 (Liam, 2026-10-02): state the Sage territory result in the
+# prompt, and undo a wrong location decline in code. Zero API.
+# ---------------------------------------------------------------------------
+
+from eligibility_check import LOCATION_DECLINE_NOTE, _territory_fact_line
+from structured_rules import SAGE_EAST_TEXAS_COUNTIES as _EAST_TX
+
+# Real gpt-6-luna, round 21 step 8, ZIP 77002 (Harris), verbatim.
+_LUNA_HARRIS_DECLINE = ("Harris County is not among the listed eligible East Texas counties, and the "
+                        "South Texas definition is limited to counties entirely south of 31 degrees North; "
+                        "the stated location requirement is not met.")
+_NON_LOCATION_OK = "The property is owner occupied and individually owned, consistent with the named-insured rule."
+_SECOND_FLAW = "The roof is a wood shake roof, which this carrier lists as ineligible."
+_AUROS, _TRIUM = "Sage_-_Auros_HO3", "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026"
+
+
+def _decline(carrier, county, reasons=(_LUNA_HARRIS_DECLINE, _NON_LOCATION_OK), flaws=1,
+             status="INELIGIBLE", citations=None):
+    cites = citations if citations is not None else [
+        f"{carrier}: “One of the following counties in East Texas: Bell, Falls, Robertson, Leon, "
+        f"Madison, Houston, Trinity, and Polk.”"]
+    ans = _answer_with(carrier, status=status, flaw_count=flaws, reasons=list(reasons),
+                       citations=cites, missing_info=[])
+    prof = dict(_LIAM_PPC3, county=county) if county else dict(_LIAM_PPC3)
+    return _by_carrier(_replayed_run_kw(prof, ans))[carrier]
+
+
+@pytest.mark.retrieval
+class TestSageTerritoryGuard:
+
+    # -- layer 1: the prompt line ----------------------------------------------
+    @pytest.mark.parametrize("county, path", [("Harris", "South Texas (entirely south of 31 N)"),
+                                              ("Bexar", "South Texas (entirely south of 31 N)"),
+                                              ("Bell", "named East Texas county"),
+                                              ("Polk", "named East Texas county")])
+    def test_an_inside_county_gets_one_computed_line(self, county, path):
+        _, u = _raw_prompt_kw(dict(_LIAM_PPC3, county=county))
+        lines = [l for l in u.splitlines() if l.startswith("Territory (computed):")]
+        assert len(lines) == 1
+        assert lines[0].startswith(f"Territory (computed): {county} County is inside this guide's territory -- {path}")
+        assert u.index(f"County: {county}\n") < u.index(lines[0])
+        for c in (_AUROS, _TRIUM, "Sage_-_Wilshire_HO3_-_12.02.2025"):
+            assert c in lines[0]
+        for c in ("Sage_-_Markel_HO3", "Sage_-_Vave_HO3_-_07.01.2026", "Sage_-_Occidental_HO3"):
+            assert c not in lines[0]                                   # no rule / not in the prompt
+
+    @pytest.mark.parametrize("county", ["Dallas", "Tarrant", ""])
+    def test_outside_or_blank_gets_no_line(self, county):
+        _, u = _raw_prompt_kw(dict(_LIAM_PPC3, county=county))
+        assert "Territory (computed)" not in u
+
+    def test_nueces_is_inside_only_for_trium(self):
+        line = _territory_fact_line("Nueces", [_AUROS, _TRIUM])
+        assert _TRIUM in line and _AUROS not in line
+
+    def test_no_line_when_county_is_unchecked(self):
+        _, u = _raw_prompt_kw(dict(_LIAM_PPC3, county="Harris"), checked_topics=["ppc"])
+        assert "Territory (computed)" not in u and "County: Harris" not in u
+
+    def test_county_blank_prompt_is_unchanged_by_the_line_code(self):
+        assert _territory_fact_line("", [_AUROS]) == ""
+
+    # -- layer 2: the guard ------------------------------------------------------
+    def test_harris_luna_decline_becomes_refer_with_the_note(self):
+        r = _decline(_AUROS, "Harris")
+        assert r["status"] == "REFER" and r["flaw_count"] == 0
+        assert LOCATION_DECLINE_NOTE in r["notes"]
+        assert _LUNA_HARRIS_DECLINE not in r["reasons"] and _NON_LOCATION_OK in r["reasons"]
+        assert not any("East Texas" in c for c in r["citations"])
+
+    def test_a_second_non_location_flaw_keeps_it_ineligible(self):
+        r = _decline(_AUROS, "Harris", reasons=(_LUNA_HARRIS_DECLINE, _SECOND_FLAW), flaws=2)
+        assert r["status"] == "INELIGIBLE" and r["flaw_count"] == 1
+        assert r["reasons"] == [_SECOND_FLAW]
+        assert LOCATION_DECLINE_NOTE not in r["notes"]
+
+    def test_never_eligible(self):
+        r = _decline(_AUROS, "Harris", reasons=(_LUNA_HARRIS_DECLINE,), flaws=1)
+        assert r["status"] == "REFER"
+
+    def test_dallas_outside_is_unchanged(self):
+        r = _decline(_AUROS, "Dallas", reasons=("Dallas County is north of 31 degrees.",))
+        assert r["status"] == "INELIGIBLE" and r["flaw_count"] == 2
+        assert any("Property must be located in" in c for c in r["citations"])
+        assert LOCATION_DECLINE_NOTE not in r["notes"]
+
+    def test_nueces_excluded_by_name_stays_outside(self):
+        nueces = "The property is in Nueces County, which the carrier expressly excludes."
+        r = _decline(_AUROS, "Nueces", reasons=(nueces,))
+        assert r["status"] == "INELIGIBLE" and nueces in r["reasons"]
+
+    def test_nueces_is_inside_for_trium_so_its_location_decline_is_undone(self):
+        r = _decline(_TRIUM, "Nueces", reasons=("Nueces County is outside the South Texas territory.",))
+        assert r["status"] == "REFER"
+
+    @pytest.mark.parametrize("county", list(_EAST_TX))
+    def test_the_eight_named_east_texas_counties_are_inside(self, county):
+        assert sorted(_EAST_TX) == sorted(["Bell", "Falls", "Robertson", "Leon", "Madison", "Houston",
+                                           "Trinity", "Polk"])
+        r = _decline(_AUROS, county, reasons=(f"{county} County is north of 31 degrees North.",))
+        assert r["status"] == "REFER"
+
+    def test_county_blank_is_untouched(self):
+        r = _decline(_AUROS, "", reasons=(_LUNA_HARRIS_DECLINE,))
+        assert r["status"] == "INELIGIBLE" and _LUNA_HARRIS_DECLINE in r["reasons"]
+
+    @pytest.mark.parametrize("carrier", ["Sage_-_Markel_HO3", "Sage_-_Vave_HO3_-_07.01.2026"])
+    def test_markel_and_vave_are_untouched(self, carrier):
+        r = _decline(carrier, "Harris", reasons=(_LUNA_HARRIS_DECLINE,))
+        assert r["status"] == "INELIGIBLE" and _LUNA_HARRIS_DECLINE in r["reasons"]
+
+    @pytest.mark.parametrize("status", ["ELIGIBLE", "REFER", "INSUFFICIENT_INFORMATION"])
+    def test_other_statuses_are_untouched(self, status):
+        r = _decline(_AUROS, "Harris", reasons=(_LUNA_HARRIS_DECLINE,), status=status, flaws=0)
+        assert r["status"] == status and LOCATION_DECLINE_NOTE not in r["notes"]
+
+    def test_a_decline_on_something_else_is_untouched(self):
+        r = _decline(_AUROS, "Harris", reasons=(_SECOND_FLAW,), citations=[])
+        assert r["status"] == "INELIGIBLE" and r["reasons"] == [_SECOND_FLAW]
+
+    def test_the_territory_decision_does_not_read_the_model(self):
+        """A reason that falsely claims Harris is north of 31 is still undone:
+        the territory comes from the county table, not the model's words."""
+        r = _decline(_AUROS, "Harris", reasons=("Harris County lies north of 31 degrees North.",))
+        assert r["status"] == "REFER"
+
+    def test_keyword_set_on_real_outputs(self):
+        from eligibility_check import _LOCATION_FLAW_RE as rx
+        caught = [_LUNA_HARRIS_DECLINE,
+                  "The property is in Nueces County, which the carrier expressly excludes from its South Texas location category."]
+        not_caught = [_NON_LOCATION_OK,
+                      "HO-3 policies are not appropriate for rental or tenant-occupied properties regardless of other property characteristics.",
+                      "Property is Tenant Occupied, which makes it ineligible for HO3 (Homeowners 3) coverage."]
+        assert all(rx.search(s) for s in caught) and not any(rx.search(s) for s in not_caught)
+
+    def test_the_real_round21_luna_output_is_corrected(self):
+        """The recorded failure itself: Luna declined Auros and Trium for
+        Harris on location. Replayed now, both are REFER with the note."""
+        import json
+        path = os.path.join(os.path.dirname(__file__), "fixtures", "luna_r21_harris_location_decline.json")
+        raw = json.load(open(path, encoding="utf-8"))["raw"]
+        out = _by_carrier(_replayed_run_kw(dict(STANDARD_PROFILE, county="Harris", zip="77002",
+                                                dwelling_type="House"), raw))
+        for c in (_AUROS, _TRIUM):
+            assert out[c]["status"] == "REFER" and LOCATION_DECLINE_NOTE in out[c]["notes"], c
+        assert not any(out[c]["status"] == "INELIGIBLE" for c in out if c.startswith("Sage_-_")
+                       and "Markel" not in c and "Vave" not in c)

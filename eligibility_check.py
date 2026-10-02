@@ -37,6 +37,7 @@ from structured_rules import (
     sage_roofer_statement_required,
     centauri_dp3_flat_roof,
     sage_county_in_territory,
+    SAGE_EAST_TEXAS_COUNTIES,
 )
 
 
@@ -812,7 +813,25 @@ def _pool_fact_lines(property_details):
     return "".join("\n" + line for line in lines)
 
 
-def _property_details_text(pd, home_age, occupancy, ownership, checked):
+def _territory_fact_line(county, carriers):
+    """Round 22 (Liam, 2026-10-02). One computed line for the carriers in
+    this prompt that have the Sage ADDRESS rule and whose territory the
+    County is INSIDE; "" when the County is blank or no such carrier is in
+    the prompt. Outside counties are decided in code (_apply_location_holds)
+    and get no line. The path depends only on the county, so it is one line."""
+    if not county:
+        return ""
+    inside = [c for c in carriers if c in _SAGE_LOCATION_RULE and sage_county_in_territory(
+        county, intake_fields.COUNTY_MAX_LATITUDE, _SAGE_LOCATION_RULE[c][0]) == "IN"]
+    if not inside:
+        return ""
+    path = ("named East Texas county" if county in SAGE_EAST_TEXAS_COUNTIES
+            else "South Texas (entirely south of 31 N)")
+    return (f"Territory (computed): {county} County is inside this guide's territory -- {path} "
+            f"-- for {', '.join(inside)}.")
+
+
+def _property_details_text(pd, home_age, occupancy, ownership, checked, carriers=()):
     """The PROPERTY DETAILS block. A line whose topic is unchecked is left
     out (Liam: not considered at all); with everything checked the text is
     byte-identical to the round 20 template."""
@@ -841,6 +860,9 @@ def _property_details_text(pd, home_age, occupancy, ownership, checked):
     county, amount, dtype = _county(pd), _dwelling_amount(pd), _dwelling_type(pd)
     if county:
         rows.append(("fact:county", f"County: {county}"))
+        territory = _territory_fact_line(county, carriers)
+        if territory:
+            rows.append(("fact:county_territory", territory))
     if amount:
         rows.append(("fact:dwelling_amount", f"Dwelling Amount (Coverage A): ${amount:,}"))
     if dtype:
@@ -3083,7 +3105,8 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
     # CHANGED: this is now just the dynamic per-property content. The
     # instructions/schema/output-format text that used to live in this
     # same f-string moved to SYSTEM_INSTRUCTIONS above so it can be cached.
-    user_content = (_property_details_text(property_details, home_age, occupancy, ownership, checked)
+    user_content = (_property_details_text(property_details, home_age, occupancy, ownership, checked,
+                                           relevant_carriers)
                     + _partial_check_instruction(checked)
                     + "\n\nCARRIER DOCUMENTS:\n" + context + "\n")
 
@@ -3470,6 +3493,43 @@ def _strip_unchecked_topics(results, checked):
         "UNCHECKED-TOPIC STRIP")
 
 
+# Round 22 (Liam, 2026-10-02). A reason or citation that rests on the Sage
+# location rule. Tested on the real Luna outputs (round 21 step 8: the five
+# wrong Harris declines; round 22: the correct Nueces declines) and on the 83
+# reasons of the 43 recorded Sonnet Sage INELIGIBLE records (all occupancy
+# declines -- no false hit).
+_LOCATION_FLAW_RE = re.compile(r"south texas|\b31\b|territory|\bcounty\b|\bcounties\b|\blocation\b", re.I)
+LOCATION_DECLINE_NOTE = ("The county is inside this guide's territory. The model declined on "
+                         "location only; re-run to confirm.")
+
+
+def _undo_location_decline(r, canon, county):
+    """County INSIDE the territory (computed from the county table, never the
+    model's wording) and the model said INELIGIBLE: remove the reasons and
+    citations that rest on location. The location rule is one flaw. Other
+    flaws left -> INELIGIBLE with the rest; none left -> REFER, never
+    ELIGIBLE (the model did not evaluate the other items properly in that
+    run). Returns True when it changed the record."""
+    reasons = r.get("reasons") or []
+    loc = [x for x in reasons if _LOCATION_FLAW_RE.search(x)]
+    if not loc:
+        return False
+    r["reasons"] = [x for x in reasons if x not in loc]
+    r["citations"] = [c for c in (r.get("citations") or []) if not _LOCATION_FLAW_RE.search(c)]
+    remaining = max(0, int(r.get("flaw_count") or 0) - 1)
+    print("LOCATION DECLINE CORRECTED: carrier=%r county=%r removed=%d remaining_flaws=%d"
+          % (canon, county, len(loc), remaining))
+    if remaining:
+        r["flaw_count"] = remaining
+        _append_note(r, f"{county} County is inside this guide's territory; the location "
+                        f"reason was removed and the other flaw(s) stand.")
+    else:
+        r["status"] = "REFER"
+        r["flaw_count"] = 0
+        _append_note(r, LOCATION_DECLINE_NOTE)
+    return True
+
+
 def _apply_location_holds(results, relevant_carriers, property_details):
     """Sage ADDRESS rule (Liam, 2026-09-30), decided from carrier identity and
     the optional County field alone:
@@ -3480,7 +3540,8 @@ def _apply_location_holds(results, relevant_carriers, property_details):
                      carriers across 48 runs), the Sage FPC upgrade had turned
                      the model's own INSUFFICIENT into ELIGIBLE while the card
                      still said the location could not be resolved.
-      In territory   the model's verdict stands.
+      In territory   the model's verdict stands -- except an INELIGIBLE resting
+                     on location (round 22, _undo_location_decline).
       Outside        INELIGIBLE (one more flaw), citing the guide's own
                      sentence.
     """
@@ -3503,6 +3564,8 @@ def _apply_location_holds(results, relevant_carriers, property_details):
                 mi = r.setdefault("missing_info", [])
                 if not _county_item_present(mi):
                     mi.insert(0, "County -- this guide only writes in specific counties: " + sentence)
+        elif territory == "IN" and r.get("status") == "INELIGIBLE":
+            _undo_location_decline(r, canon, county)
         elif territory == "OUT":
             reason = ("{} County is outside this carrier's territory. The guide says: \"{}\""
                       .format(county, sentence))

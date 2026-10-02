@@ -481,6 +481,55 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       hand (zero-API test), so the tokens match by construction.
     - Cost $0.0061 + $0.0059.
 
+- **2026-10-02 — Round 22 (Liam).**
+  - **Sage location: state the territory, and undo a wrong location
+    decline.** Why: in round 21 Step 8, real Luna declined Sage Auros and
+    Trium for Harris ("not South Texas"), although Harris is entirely south
+    of 31 N.
+    - **Layer 1, prompt.** With County filled and checked, one computed line
+      follows the County line in PROPERTY DETAILS (the prompt is shared):
+      "Territory (computed): Harris County is inside this guide's territory
+      -- South Texas (entirely south of 31 N) -- for <the prompt's Sage
+      carriers with the rule>". The path for the eight named counties is
+      "named East Texas county".
+      - Outside counties get no line; code already declines them with the
+        guide's quote.
+      - Nueces lists only Trium, which has no Nueces exception.
+      - County blank: byte-identical to 0db52e4 on STANDARD, ALT,
+        COASTAL_PPC4 and OWNERSHIP_BASE, both with no selection and with a
+        partial selection.
+      - Growth with County filled: +117 input tokens on the full STANDARD
+        prompt (33,283 -> 33,400, +0.35%); +109 to +121 on a Sage-only
+        prompt.
+    - **Layer 2, code** (`_undo_location_decline`). It needs all of: a
+      carrier with the rule, County inside (from the county table, never
+      the model's words), status INELIGIBLE, and a reason matching
+      south texas / 31 / territory / county / location.
+      - Those reasons and the matching citations are removed. The location
+        rule counts as one flaw.
+      - If other flaws remain, INELIGIBLE stands with the rest. If none
+        remain, the status becomes REFER (never ELIGIBLE), with the note
+        "The county is inside this guide's territory. The model declined on
+        location only; re-run to confirm."
+      - It logs LOCATION DECLINE CORRECTED. ELIGIBLE, REFER and
+        INSUFFICIENT are untouched, and so are Markel and Vave.
+      - **The keyword set:** on real Luna it caught the 5 wrong Harris
+        reasons and the 4 (correct) Nueces ones, and 0 of 13 other Sage
+        decline reasons. On recorded Sonnet it caught 0 of 83 reasons in
+        43 Sage declines, all occupancy-based, so no false hit.
+    - **Measured, real Luna, Liam's profile + House, Sage HO only:** Harris,
+      Bexar, Hidalgo, Bell and Polk (inside) and Nueces (outside), plus 2
+      full STANDARD + Harris runs, before (main) and after.
+      - Wrong location declines: 0 of 40 inside records before and 0 of 40
+        after. Layer 2 caught 0 after Layer 1. Nueces stayed INELIGIBLE x4
+        (Trium ELIGIBLE) both times.
+      - The only observed failure is the round 21 run (1 of 3 full Harris
+        runs at that prompt, 5 of 5 Sage records). Replayed through the new
+        code, its two final declines (Auros, Trium) become REFER; it is
+        kept as a regression fixture.
+      - The wrong decline is occasional, so 8 runs per side cannot show a
+        rate.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
