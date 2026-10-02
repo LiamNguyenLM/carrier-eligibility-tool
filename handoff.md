@@ -413,6 +413,48 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     - The ZIP never reaches the prompt. A ZIP gives the same prompt as the
       same county typed by hand (tested, zero API). With County unchecked
       the ZIP does nothing: no Sage hold, no decline.
+  - **How often the ZIP pick matters** (round 21 step 7; Census table,
+    land share; `verification/analyze_zip_county_disagreement.py`).
+    - **685 of 1,992 Texas ZIPs (34%) span more than one county.** The top
+      county's share for those: 95%+ in 147, 80-95% in 226, 60-80% in 218,
+      under 60% in 94.
+    - **217 ZIPs (10.9% of all) have counties that DISAGREE on at least one
+      county-keyed rule**; in 96 of those the top county holds under 80% of
+      the land. By rule:
+      - Chubb region tables: 108
+      - Sage territory: 62 (Trium variant 58)
+      - NatGen Custom360 coastal zones: 57
+      - Foremost Choice Homeowners restricted counties: 53
+      - Foremost TDP1/TDP3 owner-occupied restricted counties: 47
+      - Foremost coastal restricted counties: 34
+      - Progressive Hidalgo/Webb: 4
+    - **Only the Sage rule is decided by code today: 62 ZIPs (3.1%) can
+      flip Sage IN/OUT** depending on the pick. In 29 of them the top
+      county holds under 80% of the land, and in 10 under 60% (e.g. 75855
+      Leon 58% / Freestone 42%). The other rules are applied by the model
+      from the county it is told.
+    - No hold or warning was added; that is Liam's decision.
+    - **Guides that list ZIPs themselves** (read-only):
+      - Mercury's coastal table is keyed by county AND ZIP (78 ZIP-like
+        numbers, "Refer all to Underwriting", $1,000,000 Coverage A max).
+      - NatGen Custom360 puts Harris in Coastal Zone 1 only for ZIPs 77571
+        and 77586 (east of Highway 146).
+      - Chubb's "Territory 1A in Harris County" has NO ZIP list in the
+        guide, and Harris is split between regions by territory
+        (01A/B/C/E coastal, 01D south). So neither a county nor a ZIP from
+        our table settles Chubb in Harris.
+      - ARI and Allied only reserve the right to close ZIPs; the Sage
+        guides only say "Zip codes may be added" for sinkholes.
+    - **How each guide defines "coastal":**
+      - By named counties, which a county settles (Harris is the
+        exception: split by territory, Highway 146 or ZIP): Chubb,
+        Centauri DP3, Foremost, HOAIC, Mercury, NatGen Premier and
+        Custom360, and the Sage family.
+      - By distance from the coast, which a county cannot settle: Orion,
+        Swyfft Lloyds, and Progressive's wind rules.
+      - By Hurricane Underwriting Classification, which a county cannot
+        settle: Travelers.
+      - By tier name only, with no definition in the guide: ARI, Steadily.
 
 ## Open work, in priority order (updated 2026-10-01)
 
