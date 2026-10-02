@@ -12,6 +12,7 @@ except Exception:
 
 from eligibility_check import check_eligibility, assign_buckets, usable_answer_count
 import intake_fields
+import topics
 from upload_carrier import (
     add_carrier_to_database,
     remove_carrier_from_database,
@@ -68,6 +69,35 @@ with tab1:
     st.title("🏠 Property Details")
     st.caption("Enter your property information to check carrier eligibility")
 
+    # Round 21 (Liam, 2026-10-01/02): a "Check this" box beside each topic.
+    # UNCHECKED means the topic is not considered at all. A box ticks itself
+    # when its input is changed from the default; a deliberate default answer
+    # ("No Pool", "Not Coastal") is made by ticking the box by hand.
+    for _t in topics.TOPIC_KEYS:
+        st.session_state.setdefault(f"chk_{_t}", False)
+
+    def _autotick(topic, widget_key, default):
+        """on_change: tick the topic's box when the value differs from the
+        widget's default. Changing it back never unticks by itself."""
+        if st.session_state.get(widget_key) != default:
+            st.session_state[f"chk_{topic}"] = True
+
+    def _set_all(value):
+        for t in topics.TOPIC_KEYS:
+            st.session_state[f"chk_{t}"] = value
+
+    def _check_box(topic):
+        st.checkbox("Check this", key=f"chk_{topic}",
+                    help="Unchecked = not considered at all. It ticks itself when you change "
+                         "the value; tick it by hand to check a default answer such as "
+                         "\"No Pool\" or \"Not Coastal\".")
+        if not st.session_state[f"chk_{topic}"]:
+            st.caption("Not checked — ignored by this check.")
+
+    sel1, sel2, _ = st.columns([1, 1, 4])
+    sel1.button("Select All", key="select_all", on_click=_set_all, args=(True,))
+    sel2.button("Clear", key="clear_all", on_click=_set_all, args=(False,))
+
     st.subheader("📍 Location")
     col1, col2 = st.columns(2)
 
@@ -75,7 +105,8 @@ with tab1:
         ppc = st.selectbox("PPC Number", [
             "N/A", "1", "2", "3", "4", "5",
             "6", "7", "8", "8A", "8B", "9", "10"
-        ], key="ppc")
+        ], key="ppc", on_change=_autotick, args=("ppc", "ppc", "N/A"))
+        _check_box("ppc")
 
     with col2:
         coastal_tier = st.selectbox(
@@ -87,8 +118,10 @@ with tab1:
                 "Tier 3 - Outer coastal zone"
             ],
             help="Tier 1 is highest wind risk, typically within 1 mile of Gulf or bay waters.",
-            key="coastal"
+            key="coastal", on_change=_autotick, args=("coastal", "coastal", "Not Coastal")
         )
+        _check_box("coastal")
+        # Always on: Occupancy, Ownership, Dwelling type.
         occupancy_type = st.selectbox("Occupancy Type", [
             "Owner Occupied", "Tenant Occupied", "Seasonal",
             "Vacant", "Secondary Home"
@@ -104,7 +137,8 @@ with tab1:
         else:
             ownership_type = "Individual Owner"
 
-    has_dogs = st.toggle("Dogs on Premises", key="dogs")
+    has_dogs = st.toggle("Dogs on Premises", key="dogs",
+                         on_change=_autotick, args=("dogs", "dogs", False))
     if has_dogs:
         aggressive_breed = st.toggle(
             "Aggressive Breed?",
@@ -114,10 +148,11 @@ with tab1:
                 "Fila Brasileiro, American Bandogge, Belgian Shepherd, German Shepherd, "
                 "Beauceron, Akita, Doberman Pinscher, Chow Chow, Rottweiler, Wolf Hybrid."
             ),
-            key="aggressive"
+            key="aggressive", on_change=_autotick, args=("dogs", "aggressive", False)
         )
     else:
         aggressive_breed = False
+    _check_box("dogs")
 
     st.divider()
 
@@ -125,10 +160,14 @@ with tab1:
     col1, col2 = st.columns(2)
     with col1:
         year_built = st.number_input("Year Built", min_value=1800,
-            max_value=2026, value=2000, key="year")
+            max_value=2026, value=2000, key="year",
+            on_change=_autotick, args=("home_age", "year", 2000))
+        _check_box("home_age")
     with col2:
         roof_age = st.number_input("Roof Age (years)", min_value=0,
-            max_value=100, value=10, key="roofage")
+            max_value=100, value=10, key="roofage",
+            on_change=_autotick, args=("roof_age", "roofage", 10))
+        _check_box("roof_age")
 
     st.divider()
 
@@ -138,26 +177,30 @@ with tab1:
         roof_type = st.selectbox("Roof Type", [
             "Composition Shingle", "Architectural Shingle", "Metal",
             "Tile", "Slate", "Wood Shake", "Flat/Built-Up", "Other"
-        ], key="rooftype")
+        ], key="rooftype", on_change=_autotick, args=("roof_type", "rooftype", "Composition Shingle"))
+        _check_box("roof_type")
         construction_type = st.selectbox("Construction Type", [
             "Frame", "Masonry", "Masonry Veneer", "Superior", "Manufactured/Mobile"
-        ], key="construction")
+        ], key="construction", on_change=_autotick, args=("construction", "construction", "Frame"))
+        _check_box("construction")
         plumbing_type = st.selectbox("Plumbing Type", [
             "Copper", "PVC", "PEX", "Galvanized", "Polybutylene", "Unknown", "Other"
-        ], key="plumbing")
+        ], key="plumbing", on_change=_autotick, args=("plumbing", "plumbing", "Copper"))
+        _check_box("plumbing")
     with col2:
         roof_shape = st.selectbox("Roof Shape", [
             "Gable", "Hip", "Flat", "Gambrel", "Mansard", "Other"
-        ], key="roofshape")
+        ], key="roofshape", on_change=_autotick, args=("roof_shape", "roofshape", "Gable"))
+        _check_box("roof_shape")
         swimming_pool = st.selectbox("Swimming Pool", [
             "No Pool", "Above Ground - Fenced", "Above Ground - Unfenced",
             "In Ground - Fenced", "In Ground - Unfenced"
-        ], key="pool")
+        ], key="pool", on_change=_autotick, args=("pool", "pool", "No Pool"))
         if swimming_pool != "No Pool":
             pool_accessories = st.selectbox("Pool Accessories", [
                 "None", "Slide only", "Diving board only",
                 "Both slide and diving board"
-            ], key="poolacc")
+            ], key="poolacc", on_change=_autotick, args=("pool", "poolacc", "None"))
         else:
             pool_accessories = "None"
         # Round 20 (Liam, 2026-10-01). Shown only for a fenced pool; the key
@@ -165,15 +208,21 @@ with tab1:
         # unticked again instead of carrying a stale tick across.
         pool_fence_4ft = pool_gate_locking = False
         if swimming_pool in intake_fields.FENCED_POOL_VALUES:
+            _fk, _gk = f"pool_fence_4ft::{swimming_pool}", f"pool_gate_locking::{swimming_pool}"
             pool_fence_4ft = st.checkbox(
-                "Fence confirmed 4 ft or higher", key=f"pool_fence_4ft::{swimming_pool}",
+                "Fence confirmed 4 ft or higher", key=_fk,
+                on_change=_autotick, args=("pool", _fk, False),
                 help="Tick only if confirmed. Unchecked means UNKNOWN, not \"no\".")
             pool_gate_locking = st.checkbox(
-                "Gate confirmed self-latching AND can be locked", key=f"pool_gate_locking::{swimming_pool}",
+                "Gate confirmed self-latching AND can be locked", key=_gk,
+                on_change=_autotick, args=("pool", _gk, False),
                 help="Tick only if the gate both latches by itself and can be locked. "
                      "Unchecked means UNKNOWN, not \"no\".")
+        _check_box("pool")
         solar_panels = st.toggle("Solar Panels", key="solar",
-            help="Does the property have solar panels installed?")
+            help="Does the property have solar panels installed?",
+            on_change=_autotick, args=("solar", "solar", False))
+        _check_box("solar")
 
     st.divider()
 
@@ -186,23 +235,33 @@ with tab1:
         county = st.selectbox(
             "County", [""] + intake_fields.TEXAS_COUNTIES, key="county",
             format_func=lambda v: v or "— not given —",
-            help="Some carriers only write in certain counties.")
+            help="Some carriers only write in certain counties.",
+            on_change=_autotick, args=("county", "county", ""))
+        _check_box("county")
     with col2:
         dwelling_amount_text = st.text_input(
             "Dwelling amount (Coverage A, $)", value="", key="dwelling_amount",
-            placeholder="e.g. 450,000 — leave blank if unknown")
+            placeholder="e.g. 450,000 — leave blank if unknown",
+            on_change=_autotick, args=("dwelling_amount", "dwelling_amount", ""))
         dwelling_amount = intake_fields.parse_dwelling_amount(dwelling_amount_text)
         if dwelling_amount_text.strip() and dwelling_amount is None:
             st.warning("Couldn't read that amount, so it will be treated as not given.")
+        _check_box("dwelling_amount")
     with col3:
+        # Required (Liam, 2026-10-02): always on, and the agent must pick one.
         dwelling_type = st.selectbox(
-            "Dwelling type", list(intake_fields.DWELLING_TYPES), key="dwelling_type",
-            format_func=lambda v: v or "— not given —")
+            "Dwelling type (required)", list(intake_fields.DWELLING_TYPES), key="dwelling_type",
+            format_func=lambda v: v or "— pick one —")
 
     st.divider()
 
     submitted = st.button("Check Carrier Eligibility", type="primary",
                           use_container_width=True, key="submit")
+    checked_topics = [t for t in topics.TOPIC_KEYS if st.session_state.get(f"chk_{t}")]
+
+    if submitted and not dwelling_type:
+        st.error("Pick a Dwelling type (House, Townhome or Condo) before running the check.")
+        submitted = False
 
     if submitted:
         coastal_clean = coastal_tier.split(" - ")[0]
@@ -232,12 +291,16 @@ with tab1:
         }
 
         with st.spinner("Analyzing carrier eligibility..."):
-            results = check_eligibility(property_details)
+            results = check_eligibility(property_details, checked_topics=checked_topics)
+        partial = topics.is_partial(topics.normalize(checked_topics))
 
         st.markdown("---")
         st.subheader("CARRIER ELIGIBILITY ANALYSIS")
         # Liam, 2026-10-01: ELIGIBLE must never read as "no inspection needed".
         st.caption("Inspection requirements are not checked.")
+        # Round 21 (Liam, 2026-10-02): say what was checked, partial mode only.
+        if partial:
+            st.info(topics.partial_check_line(topics.normalize(checked_topics)))
 
         # 2026-09-30: a live check returned records with no verdict at all,
         # and four empty columns were the only thing on screen. Never again
@@ -272,6 +335,8 @@ with tab1:
 
         with col_yes:
             st.markdown("### Eligible")
+            if partial:
+                st.caption("No problem found on the checked items.")
             if eligible:
                 for carrier in eligible:
                     with st.expander(carrier["carrier"]):

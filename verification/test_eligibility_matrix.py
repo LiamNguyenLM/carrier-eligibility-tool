@@ -6327,11 +6327,12 @@ class TestPoolBoxesInTheApp:
     def _run(self, monkeypatch, steps):
         import eligibility_check as ec
         seen = []
-        monkeypatch.setattr(ec, "check_eligibility", lambda pd: seen.append(dict(pd)) or [])
+        monkeypatch.setattr(ec, "check_eligibility", lambda pd, **kw: seen.append(dict(pd)) or [])
         at = self._app()
         for step in steps:
             step(at)
             at.run()
+        at.selectbox(key="dwelling_type").select("House").run()     # required since round 21
         at.button(key="submit").click().run()
         return at, seen[-1]
 
@@ -6494,8 +6495,9 @@ class TestInspectionNotChecked:
     # -- the caption ---------------------------------------------------------
     def test_the_results_carry_the_caption(self, monkeypatch):
         import eligibility_check as ec
-        monkeypatch.setattr(ec, "check_eligibility", lambda pd: [])
+        monkeypatch.setattr(ec, "check_eligibility", lambda pd, **kw: [])
         at = TestPoolBoxesInTheApp._app()
+        at.selectbox(key="dwelling_type").select("House").run()
         at.button(key="submit").click().run()
         assert "Inspection requirements are not checked." in [c.value for c in at.caption]
 
@@ -6608,9 +6610,8 @@ class TestTopicRegistry:
         seen = []
         monkeypatch.setattr(ec, "check_eligibility", lambda pd, **kw: seen.append(dict(pd)) or [])
         at = TestPoolBoxesInTheApp._app()
+        at.selectbox(key="dwelling_type").select("House").run()
         at.button(key="submit").click().run()
-        if not seen:
-            pytest.skip("the form did not submit with its defaults (Dwelling type is required)")
         owned = {k for t in _topics.TOPICS + _topics.ALWAYS_ON for k in t.owns}
         assert set(seen[-1]) - owned == set()
 
@@ -6926,3 +6927,143 @@ class TestCheckedTopics:
                   if isinstance(n, _ast.Constant) and isinstance(n.value, str)}
         consts |= {"guard:" + c["field"] for c in ec._CONTRADICTION_CHECKS}
         assert set(_topics.STEPS) - consts == set()
+
+
+# ---------------------------------------------------------------------------
+# Round 21, Step 3 (Liam, 2026-10-02): the form. AppTest, no browser, zero API.
+# ---------------------------------------------------------------------------
+
+def _form(monkeypatch):
+    """The app past the password page, with check_eligibility recorded."""
+    import eligibility_check as ec
+    calls = []
+    monkeypatch.setattr(ec, "check_eligibility",
+                        lambda pd, **kw: calls.append((dict(pd), kw.get("checked_topics"))) or [])
+    return TestPoolBoxesInTheApp._app(), calls
+
+
+def _boxes_state(at):
+    return {t: at.session_state[f"chk_{t}"] for t in _topics.TOPIC_KEYS}
+
+
+def _submit(at, dwelling="House"):
+    if dwelling is not None:
+        at.selectbox(key="dwelling_type").select(dwelling).run()
+    at.button(key="submit").click().run()
+
+
+@pytest.mark.retrieval
+class TestTopicForm:
+
+    def test_default_state_everything_unchecked_and_dwelling_type_blank(self, monkeypatch):
+        at, _ = _form(monkeypatch)
+        assert not any(_boxes_state(at).values())
+        assert at.selectbox(key="dwelling_type").value == ""
+        labels = [c.label for c in at.checkbox if str(c.key).startswith("chk_")]
+        assert len(labels) == len(_topics.TOPIC_KEYS) and set(labels) == {"Check this"}
+
+    @pytest.mark.parametrize("widget, value, topic", [
+        ("ppc", "3", "ppc"), ("coastal", "Tier 2 - Moderate coastal area", "coastal"),
+        ("rooftype", "Metal", "roof_type"), ("roofshape", "Hip", "roof_shape"),
+        ("construction", "Masonry", "construction"), ("plumbing", "PEX", "plumbing"),
+        ("pool", "In Ground - Fenced", "pool"), ("county", "Harris", "county"),
+    ])
+    def test_changing_a_selectbox_ticks_only_its_box(self, monkeypatch, widget, value, topic):
+        at, _ = _form(monkeypatch)
+        at.selectbox(key=widget).select(value).run()
+        state = _boxes_state(at)
+        assert state[topic] is True
+        assert [t for t, v in state.items() if v] == [topic]
+
+    def test_number_text_and_toggle_inputs_tick_their_boxes(self, monkeypatch):
+        at, _ = _form(monkeypatch)
+        at.number_input(key="year").set_value(1985).run()
+        at.number_input(key="roofage").set_value(22).run()
+        at.text_input(key="dwelling_amount").input("450,000").run()
+        at.toggle(key="solar").set_value(True).run()
+        at.toggle(key="dogs").set_value(True).run()
+        state = _boxes_state(at)
+        for t in ("home_age", "roof_age", "dwelling_amount", "solar", "dogs"):
+            assert state[t] is True, t
+
+    def test_changing_back_to_default_does_not_untick(self, monkeypatch):
+        at, _ = _form(monkeypatch)
+        at.selectbox(key="ppc").select("3").run()
+        at.selectbox(key="ppc").select("N/A").run()
+        assert _boxes_state(at)["ppc"] is True
+
+    def test_untick_by_hand_then_change_again_reticks(self, monkeypatch):
+        at, _ = _form(monkeypatch)
+        at.selectbox(key="ppc").select("3").run()
+        at.checkbox(key="chk_ppc").uncheck().run()
+        assert _boxes_state(at)["ppc"] is False
+        at.selectbox(key="ppc").select("4").run()
+        assert _boxes_state(at)["ppc"] is True
+
+    def test_a_default_answer_is_checked_by_ticking_by_hand(self, monkeypatch):
+        at, calls = _form(monkeypatch)
+        at.checkbox(key="chk_pool").check().run()
+        _submit(at)
+        assert calls[-1][0]["swimming_pool"] == "No Pool" and "pool" in calls[-1][1]
+
+    def test_select_all_and_clear(self, monkeypatch):
+        at, _ = _form(monkeypatch)
+        at.button(key="select_all").click().run()
+        assert all(_boxes_state(at).values())
+        at.button(key="clear_all").click().run()
+        assert not any(_boxes_state(at).values())
+        assert at.selectbox(key="occupancy").value == "Owner Occupied"     # always-on untouched
+
+    def test_values_survive_unticking_and_reticking(self, monkeypatch):
+        at, _ = _form(monkeypatch)
+        at.selectbox(key="ppc").select("7").run()
+        at.button(key="clear_all").click().run()
+        assert at.selectbox(key="ppc").value == "7"
+        at.checkbox(key="chk_ppc").check().run()
+        assert at.selectbox(key="ppc").value == "7"
+
+    def test_blank_dwelling_type_blocks_the_run(self, monkeypatch):
+        at, calls = _form(monkeypatch)
+        _submit(at, dwelling=None)
+        assert calls == []
+        assert any("Dwelling type" in e.value for e in at.error)
+
+    def test_the_selection_reaches_the_check(self, monkeypatch):
+        at, calls = _form(monkeypatch)
+        at.number_input(key="roofage").set_value(22).run()
+        _submit(at)
+        pd, checked = calls[-1]
+        assert checked == ["roof_age"] and pd["roof_age"] == 22 and pd["dwelling_type"] == "House"
+
+    def test_partial_check_line_and_eligible_caption(self, monkeypatch):
+        at, _ = _form(monkeypatch)
+        at.number_input(key="roofage").set_value(22).run()
+        at.toggle(key="solar").set_value(True).run()
+        _submit(at)
+        info = [i.value for i in at.info if str(i.value).startswith("Partial check:")]
+        assert info == ["Partial check: Roof age, Solar panels, Occupancy, Ownership, Dwelling type"]
+        assert "No problem found on the checked items." in [c.value for c in at.caption]
+        assert "Inspection requirements are not checked." in [c.value for c in at.caption]
+
+    def test_everything_checked_shows_neither_line(self, monkeypatch):
+        at, _ = _form(monkeypatch)
+        at.button(key="select_all").click().run()
+        _submit(at)
+        assert not [i for i in at.info if str(i.value).startswith("Partial check:")]
+        assert "No problem found on the checked items." not in [c.value for c in at.caption]
+
+    def test_a_stale_pool_box_under_no_pool_does_not_reach_the_prompt(self, monkeypatch):
+        at, calls = _form(monkeypatch)
+        at.selectbox(key="pool").select("In Ground - Fenced").run()
+        for b in TestPoolBoxesInTheApp._boxes_of(at):
+            b.check()
+        at.run()
+        at.selectbox(key="pool").select("No Pool").run()
+        _submit(at)
+        pd, checked = calls[-1]
+        assert "pool" in checked
+        _, u = _raw_prompt_kw(dict(STANDARD_PROFILE, **{k: pd[k] for k in (
+            "swimming_pool", "pool_accessories", "pool_fence_4ft", "pool_gate_locking")}),
+            checked_topics=checked)
+        assert "Pool Fence Height" not in u and "Pool Gate:" not in u
+        assert "Swimming Pool: No Pool" in u
