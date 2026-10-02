@@ -290,7 +290,7 @@ SWIMMING POOL RULES SPECIFICALLY: a pool fence height or gate-mechanism requirem
 
 BASE ELIGIBILITY vs. OPTIONAL ENDORSEMENT/COVERAGE: some requirements you'll see (a fence height, a specific material, a distance figure) are conditions of an OPTIONAL endorsement or coverage add-on, not of base policy eligibility -- look for language like "this endorsement," "to qualify for this coverage," or "optional." A condition scoped to an optional endorsement does NOT make the carrier ineligible or create a missing_info blocker if that specific coverage isn't otherwise at issue -- note it in notes as a coverage consideration if relevant, but do not let it drive status or missing_info the way a base eligibility requirement would.
 
-INSPECTION REQUIREMENTS ARE NOT CHECKED BY THIS TOOL. Do not list in missing_info, or base a status on, a requirement that an inspection, photos, a survey, or a 4-point or wind-mitigation report be obtained or submitted. Still apply every rule about the property itself even when an inspection is how it gets verified (e.g. no galvanized plumbing, roof in good condition, no more than one overlay), and keep roofer letters and roof certifications as the guide states them.
+INSPECTION REQUIREMENTS ARE NOT CHECKED BY THIS TOOL. Do not list in missing_info, or base a status on, a requirement that an inspection, photos, a survey, a 4-point or wind-mitigation report, a roofer's letter or Roof Condition Form, a plumber's, electrician's or HVAC contractor's signed statement, or a roof certification be obtained or submitted, including where such a document is what cures a rule. Still apply every rule about the property itself even when an inspection is how it gets verified (e.g. no galvanized plumbing, roof in good condition, no more than one overlay).
 
 PROPERTY DETAILS IS THE ONLY SOURCE OF FACTS ABOUT THIS CUSTOMER. Every characteristic of the property -- whether it has solar panels, a pool, dogs, its roof type, its construction, its PPC -- comes from the PROPERTY DETAILS block in this message and from nowhere else. Do not carry a property fact in from a carrier's document, from an example used in these instructions, or from what a typical property might have. In particular, a field whose value is "No"/"None"/"No Pool" is a POSITIVE STATEMENT THAT THE FEATURE IS ABSENT -- it is not a gap to be filled and not an unknown. Before writing any sentence that asserts something about this property, check that PROPERTY DETAILS actually says it. Asserting a feature the intake says the property does not have is a hard error, and an adverse verdict resting on such a feature is the worst kind: it tells an agent a real applicant does not qualify for a carrier they do qualify for.
 
@@ -1360,6 +1360,9 @@ _TWICO_CARRIERS = {"TWICO_HO3"}
 # DP3 variants -- round 14's audit surfaced it on DP3, and three of the nine
 # had never been exercised by any test before that.
 _CENTAURI_DP3_CARRIERS = {"Centauri_-_DP3_-_11.16.2022"}
+
+ROOFER_STATEMENT_NOT_CHECKED = ("If it applies, the guide asks for a roofer's statement on its Roof "
+                                "Condition Form (not checked).")
 
 _SAGE_ROOFER_STATEMENT_CARRIERS = {
     "Sage_-_Auros_HO3",
@@ -2621,39 +2624,19 @@ def _apply_structured_overrides(results, relevant_carriers, property_details, ch
             s_status, s_reasons = sage_roofer_statement_required(
                 property_details['roof_type'], property_details['roof_age'],
             )
+            # Round 24 (Liam, 2026-10-02): the roofer's statement is an
+            # inspection, so it is not checked. Both branches only NOTE it;
+            # neither adds a missing_info item or holds a verdict. Before
+            # round 24 the sub-type case added a "Roof shingle sub-type"
+            # item plus _hold_for_unresolved_topic, and REQUIRED added a
+            # "Roofer's statement attesting ..." item.
             if s_status == "INSUFFICIENT_INFORMATION":
-                # Both sides get stated. Round 14's audit found Occidental,
-                # SURE and SafePort all reasoning correctly that an
-                # ARCHITECTURAL roof at 25 is not "over 25" -- and none of
-                # them mentioning that a 3-tab reading is ten years past ITS
-                # threshold. Picking the favourable sub-type silently is the
-                # same defect TWICO had, in a different carrier's rule.
-                _append_note(r, s_reasons[0])
-                mi = r.setdefault("missing_info", [])
-                if not any("sub-type" in m.lower() or "subtype" in m.lower() for m in mi):
-                    mi.append(
-                        "Roof shingle sub-type (3-tab vs. Architectural) -- it decides whether "
-                        "this carrier requires a roofer's statement at this roof age."
-                    )
-                # A roofer's statement is a DOCUMENTATION condition, not an
-                # eligibility bar, so this must never create a decline. It
-                # only undoes one that was already asserted on this ground.
-                _hold_for_unresolved_topic(
-                    r, "roof",
-                    f"Sage's roofer's-statement requirement at "
-                    f"{property_details['roof_age']} years depends on the shingle sub-type, "
-                    f"which the intake does not collect.",
-                    model_text,
-                )
+                # Both sides still get stated (round 14): which side applies
+                # depends on the unstated 3-tab / architectural sub-type.
+                _append_note(r, s_reasons[0] + " " + ROOFER_STATEMENT_NOT_CHECKED)
             elif s_status == "REQUIRED":
-                _append_note(r, "Roofer's statement required: " + s_reasons[0])
-                mi = r.setdefault("missing_info", [])
-                if not any("roofer" in m.lower() for m in mi):
-                    mi.append(
-                        "Roofer's statement attesting the roof is in good condition and does "
-                        "not require replacement (on the Roof Condition Form or the roofer's "
-                        "own letterhead)."
-                    )
+                _append_note(r, "Roof is over the guide's age line; the guide asks for a roofer's "
+                                "statement on its Roof Condition Form (not checked). " + s_reasons[0])
             else:
                 _append_note(r, "No roofer's statement required: " + s_reasons[0])
 
@@ -3416,12 +3399,26 @@ def _county_item_present(missing_info):
 # confirming all updates ... in past 20 years" is a rule about the updates,
 # NatGen's "photos showing completely renovated kitchens" one about the
 # renovation, Sage's furnace items and Markel's Coverage A items are facts.
-# Roofer letters and roof certifications are kept until Liam decides.
+# Round 24 (Liam, 2026-10-02): a roofer's letter, a plumber's / electrician's /
+# HVAC signed statement, a roof certification or Roof Condition Form is an
+# inspection too -- and so is a rule whose CURE is one of them. Those items are
+# stripped even when they also name a property fact (_LETTER_RE wins over KEEP).
 _INSPECTION_ASK_RE = re.compile(
     r"inspect|\bphotos?\b|photograph|\bpictures?\b|\bsurvey\b|\b4[- ]?point\b|four[- ]point|"
     r"wind[- ]?mitigation|\bwind[- ]mit\b", re.I)
+_LETTER_RE = re.compile(
+    r"roofer'?s?\b[^.;]{0,40}\b(?:letter|statement|certif\w*|documentation|questionnaire)|"
+    r"(?:plumber|electrician|hvac(?: contractor)?|contractor)'?s?\s+(?:signed\s+)?"
+    r"(?:statement|letter|attestation|certif\w*)|"
+    r"(?:hvac|electrical|plumbing) contractor inspection|inspected by (?:a )?licensed|"
+    r"signed statement|attestation|roof(?:ing)?\s+certif\w*|roof condition (?:form|questionnaire)|"
+    r"(?:letter|statement) from (?:a |the )?(?:licensed|qualified|certified)|"
+    # Round 24 live Luna wording: "Roof condition statement from a roofer ..."
+    r"(?:letter|statement|attestation|certif\w*|form|documentation)\s+(?:from|by|signed by|completed by)\s+"
+    r"(?:a |an |the )?(?:licensed |qualified |certified )?(?:roofer|plumber|electrician|hvac|contractor)",
+    re.I)
 _INSPECTION_KEEP_RE = re.compile(
-    r"roofer|roof(?:ing)?\s+(?:cert|letter|statement)|certif|letter|update|renovat|"
+    r"update|renovat|"
     r"\bcondition\b(?!\s+(?:questionnaire|form))|furnace|burner|hvac|plumb|wiring|electric|"
     r"galvaniz|polybut|overlay|replac|coverage a|threshold|timeframe|solar|photovolt|"
     r"useful life", re.I)
@@ -3429,8 +3426,11 @@ INSPECTION_NOT_CHECKED_NOTE = "(inspection requirements are not checked)"
 
 
 def _is_inspection_request(item):
-    return (isinstance(item, str) and bool(_INSPECTION_ASK_RE.search(item))
-            and not _INSPECTION_KEEP_RE.search(item))
+    if not isinstance(item, str):
+        return False
+    if _LETTER_RE.search(item):
+        return True
+    return bool(_INSPECTION_ASK_RE.search(item)) and not _INSPECTION_KEEP_RE.search(item)
 
 
 def _strip_missing_info(results, is_match, removed_note, freed_note, log_label):

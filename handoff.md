@@ -291,7 +291,10 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
         - REQUIRED: a "Roofer's statement attesting the roof is in good
           condition" item;
         - otherwise: a "No roofer's statement required" note.
-      - Nothing in code handles Allied's roofer letter or Travelers' Roof
+      - (Corrected 2026-10-02: the Allied HO3 guide in this repo has NO
+        roofer's-letter rule; its roof rule is that a roof with "less than
+        5 years of useful life expectancy" is ineligible.) Nothing in code
+        handles Travelers' Roof
         Condition Questionnaire; those come from the model only. No code
         keys on "inspection" apart from the new strip.
 
@@ -543,6 +546,64 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     - The round 21 "Checked as ... (from ZIP ...)" caption was replaced; its
       two tests were updated deliberately.
 
+- **2026-10-02 — Round 24 (Liam).**
+  - **A roofer's letter or a plumber's statement counts as an inspection,
+    so the tool does not check it.** This covers every signed statement or
+    certificate of the same kind: electrician, HVAC, roof certification,
+    the Roof Condition Form. It also covers a rule whose CURE is such a
+    document, which must never become a hold or a decline.
+    - **SYSTEM_INSTRUCTIONS:** the inspection sentence now names roofer's
+      letters / Roof Condition Forms, plumber's / electrician's / HVAC
+      contractor's signed statements and roof certifications, "including
+      where such a document is what cures a rule". Round 20's "keep roofer
+      letters" clause is gone.
+    - **Strip:** `_LETTER_RE` wins over the KEEP list.
+      - On the 6,883 recorded Sonnet items it now catches 428 (round 20:
+        20). The 412 new ones are 393 Sage sub-type / roofer-statement
+        items, 10 Travelers roof questionnaire / "roofer documentation"
+        items and 9 Sage DP-3 furnace items cured by an HVAC contractor's
+        attestation.
+      - No false hits by reading. Markel's "signed no known loss letter"
+        (prior insurance, not an inspection) is NOT caught, and a test
+        holds it.
+      - It would flip 18 of 1,978 recorded Insufficient records to
+        ELIGIBLE: SURE DP-3 x6, SafePort DP-3 x5, Travelers x6, Markel x1.
+    - **Where the code keys on "roofer" now:**
+      - `structured_rules.sage_roofer_statement_required` is unchanged: it
+        still computes the age line (over 15 for 3-tab, over 25 for
+        architectural).
+      - The `_SAGE_ROOFER_STATEMENT_CARRIERS` branch of
+        `_apply_structured_overrides` is now **note only** in both cases.
+        - REQUIRED: "Roof is over the guide's age line; the guide asks for
+          a roofer's statement on its Roof Condition Form (not checked)."
+        - Sub-type unknown: both readings, plus the same "(not checked)"
+          sentence.
+        - It no longer adds the "Roof shingle sub-type" or "Roofer's
+          statement attesting ..." items, and no longer calls
+          `_hold_for_unresolved_topic` (the sub-type now decides nothing).
+      - `_INSPECTION_KEEP_RE` no longer protects "roofer", "certif" or
+        "letter"; `_LETTER_RE` holds them instead.
+      - Nothing else keys on "roofer".
+    - **Measured, one real Luna run before and after** (STANDARD + House,
+      roof 27, Architectural Shingle):
+      - Before: Allied and the five Sage HO carriers carried a "Roofer's
+        statement confirming good roof condition" item; Travelers carried
+        a roofer questionnaire item.
+      - After: Luna still wrote "Roof condition statement from a roofer
+        ..." for the five Sage carriers. That phrasing (from / by / signed
+        by a roofer, plumber, ...) and "roofer questionnaire" were added
+        to `_LETTER_RE`; both runs replayed with the final code leave no
+        roofer or statement item.
+      - The Sage carriers stay Insufficient on their other items (FPC 9
+        distance, pool), each with the "(not checked)" note.
+      - Other carriers moved both ways between the two runs (Mercury,
+        Orion, Vave to Insufficient; Swyfft Surplus and Topa to Eligible;
+        Foremost not evaluated), with none of it on roof letters. One run
+        each is an observation, not a rate.
+    - **Correction to round 20:** the Allied HO3 guide in this repo has no
+      roofer's-letter rule. Its roof rule is that a roof with "less than 5
+      years of useful life expectancy" is ineligible.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
@@ -563,7 +624,7 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
 - **Chubb Harris Territory 1A has no ZIP list** in the guide, and Harris is
   split between regions by territory. Neither the county nor the ZIP
   settles it: a known gap.
-- **Roofer letters as inspections:** Liam has not decided. They are kept.
+- **Roofer letters as inspections:** DECIDED 2026-10-02 (round 24): they are inspections, not checked.
 - **The Sage wrong location decline** is guarded but occasional: 1 of 11
   real runs so far, 0 of 8 in round 22. A rate needs more runs.
 
@@ -575,8 +636,7 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
   options are above.
 - **Coastal tier from ZIP; roof sub-type and fire-station / hydrant
   fields.**
-- **Roofer letters:** still undecided whether they count as inspections.
-  Kept.
+- **Roofer letters:** DECIDED 2026-10-02 (round 24): inspections, not checked.
 - **HUD-USPS crosswalk:** the table is the Census ZCTA fallback (land
   share, no PO-box ZIPs). Liam creates the HUD token, then run
   `python build_zip_county.py hud`.
@@ -612,8 +672,7 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
 - **Gate wording:** DECIDED 2026-10-02 (round 21): there is one strict box,
   "Gate confirmed self-latching AND can be locked", and it settles every
   wording family.
-- **Roofer letters / roof certifications:** do they count as inspection
-  requirements? Today they are kept.
+- **Roofer letters / roof certifications:** DECIDED 2026-10-02 (round 24): inspections, not checked.
 
 **Round 19, not done (Liam, 2026-09-30):**
 - **Allied Trust's card reads as if the roof failed.** Its ¾-of-life rule

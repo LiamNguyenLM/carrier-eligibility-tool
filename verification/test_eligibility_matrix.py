@@ -3091,7 +3091,10 @@ class TestRound14SageRooferStatementSubtype:
             _apply_structured_overrides([r], carriers, AUDIT_R14_DP3_PROFILE)
             assert "3-tab" in r["notes"], f"{carrier}: 3-tab reading not disclosed"
             assert "Architectural" in r["notes"], f"{carrier}: architectural reading not disclosed"
-            assert any("sub-type" in m.lower() for m in r["missing_info"]), carrier
+            # Changed deliberately 2026-10-02 (round 24, Liam): the statement
+            # is an inspection, so the sub-type is no longer an open item.
+            assert "(not checked)" in r["notes"], carrier
+            assert not any("roofer" in m.lower() or "sub-type" in m.lower() for m in r["missing_info"]), carrier
 
     def test_rule_still_applies_to_carriers_that_also_match_the_fpc_branch(self):
         """Six of the nine are also in _SAGE_FPC_CARRIERS. The roof check is
@@ -6407,13 +6410,29 @@ _PROPERTY_RULES = [
     "No more than one overlay on the roof (inspection will verify)",
     "4-point inspection confirming all updates (electrical, plumbing, HVAC, roof) completed in past 20 years",
     "Inspection photos showing completely renovated kitchens and bathrooms with updated plumbing, cabinetry, appliances and floors",
-    "Whether the furnace or burner has been replaced within the past 30 years (required unless inspected by licensed HVAC contractor)",
     "Coverage A amount to determine applicable water damage minimum coverage requirements and inspection requirements",
+    "Prior insurance information and any lapse period (if lapse exceeds 90 days, a signed 'no known loss letter' is required)",
 ]
+# Round 24 (Liam, 2026-10-02): letters and signed statements ARE inspections
+# now, including where one is the cure. Two phrasings per kind.
 _ROOFER = [
     "Letter from a licensed roofer stating the roof has 5+ years of useful life remaining",
     "Roofer's statement attesting the roof is in good condition and does not require replacement",
     "Roof certification from a licensed roofer, with photos",
+    "Roof certification for the 27-year-old roof",
+    "Roof Condition Form completed by a roofer",
+    "Roof age timeframes for composition shingle roofs (to determine if a 10-year-old roof requires roofer documentation)",
+    "A licensed plumber's signed statement that the plumbing is 100% copper, PVC or PEX",
+    "Plumber's statement for the plumbing system over 50 years old",
+    "Electrician's signed statement certifying 100% circuit breakers",
+    "Statement from a licensed electrician confirming the panel",
+    "Whether the furnace or burner has been replaced within the past 30 years (required unless inspected by licensed HVAC contractor)",
+    "Heating system age or HVAC contractor attestation",
+    "Specific composition shingle sub-type (Architectural vs. 3-tab) to determine if a roofer's statement is required",
+    # real gpt-6-luna, round 24 after-run (STANDARD, roof 27, Architectural):
+    "Roof condition statement from a roofer confirming good condition and no replacement need (required for roofs over 25 years)",
+    "Signed statement by a licensed plumber that the system is in good condition",
+    "Applicable architectural-shingle roof-age timeframe and, if the roof exceeds it, the required roofer questionnaire and roof photos.",
 ]
 
 
@@ -6429,9 +6448,14 @@ class TestInspectionNotChecked:
     def test_the_instruction_is_in_the_system_prompt_with_its_scope(self):
         s = SYSTEM_INSTRUCTIONS
         assert "INSPECTION REQUIREMENTS ARE NOT CHECKED BY THIS TOOL." in s
-        for kept in ("no galvanized plumbing", "roof in good condition", "no more than one overlay",
-                     "roofer letters and roof certifications"):
+        for kept in ("no galvanized plumbing", "roof in good condition", "no more than one overlay"):
             assert kept in s
+        # Round 24 (Liam, 2026-10-02): letters and statements are inspections.
+        for named in ("a roofer's letter or Roof Condition Form",
+                      "a plumber's, electrician's or HVAC contractor's signed statement",
+                      "a roof certification", "including where such a document is what cures a rule"):
+            assert named in s
+        assert "keep roofer letters" not in s
 
     def test_the_instruction_reaches_the_model(self):
         assert "inspection requirements are not checked by this tool." in _captured_prompt_system(STANDARD_PROFILE)
@@ -6441,9 +6465,14 @@ class TestInspectionNotChecked:
     def test_an_inspection_request_is_recognised(self, item):
         assert _is_inspection_request(item)
 
-    @pytest.mark.parametrize("item", _PROPERTY_RULES + _ROOFER)
-    def test_property_rules_and_roofer_letters_are_kept(self, item):
+    @pytest.mark.parametrize("item", _PROPERTY_RULES)
+    def test_property_rules_are_kept(self, item):
         assert not _is_inspection_request(item)
+
+    # Changed deliberately 2026-10-02 (round 24, Liam): round 20 KEPT these.
+    @pytest.mark.parametrize("item", _ROOFER)
+    def test_letters_statements_and_certifications_are_stripped(self, item):
+        assert _is_inspection_request(item)
 
     def test_the_strip_counts_and_notes_what_it_removed(self):
         recs = [_rec("ELIGIBLE", [_INSPECTION_ASKS[0], _PROPERTY_RULES[0]]),
@@ -6461,9 +6490,14 @@ class TestInspectionNotChecked:
         assert INSPECTION_NOT_CHECKED_NOTE in recs[0]["notes"]
 
     def test_insufficient_with_anything_else_open_stays(self):
-        recs = [_rec("INSUFFICIENT_INFORMATION", [_INSPECTION_ASKS[0], _ROOFER[0]])]
+        recs = [_rec("INSUFFICIENT_INFORMATION", [_INSPECTION_ASKS[0], _PROPERTY_RULES[1]])]
         _strip_inspection_requests(recs)
-        assert recs[0]["status"] == "INSUFFICIENT_INFORMATION" and recs[0]["missing_info"] == [_ROOFER[0]]
+        assert recs[0]["status"] == "INSUFFICIENT_INFORMATION" and recs[0]["missing_info"] == [_PROPERTY_RULES[1]]
+
+    def test_insufficient_only_for_a_roofer_statement_becomes_eligible(self):
+        recs = [_rec("INSUFFICIENT_INFORMATION", [_ROOFER[1], _ROOFER[6]])]
+        _strip_inspection_requests(recs)
+        assert recs[0]["status"] == "ELIGIBLE" and recs[0]["missing_info"] == []
 
     def test_insufficient_with_no_inspection_item_is_not_freed(self):
         """Only the strip can free a record -- an INSUFFICIENT that already
@@ -7445,3 +7479,48 @@ class TestZipPickDisplay:
             if text.startswith("ZIP ") or "Sage results" in text:
                 assert text not in by_zip[1] and "spans" not in by_zip[1]
         assert zip_ not in by_zip[1]
+
+
+# ---------------------------------------------------------------------------
+# Round 24, Step 1 (Liam, 2026-10-02): a roofer's statement is an inspection.
+# Where the statement is the CURE, it never becomes a hold. Zero API.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.retrieval
+class TestRooferStatementNotChecked:
+
+    @pytest.mark.parametrize("roof_type, age", [("Architectural Shingle", 27), ("Composition Shingle", 27)])
+    def test_sage_over_the_age_line_is_a_note_never_a_hold(self, roof_type, age):
+        from eligibility_check import _SAGE_ROOFER_STATEMENT_CARRIERS
+        carriers = sorted(_SAGE_ROOFER_STATEMENT_CARRIERS)
+        for carrier in carriers:
+            r = {"carrier": carrier, "status": "ELIGIBLE", "reasons": ["fixture"], "citations": [],
+                 "missing_info": [], "notes": "", "flaw_count": 0}
+            _apply_structured_overrides([r], carriers, dict(AUDIT_R14_DP3_PROFILE, roof_type=roof_type,
+                                                            roof_age=age))
+            assert r["status"] == "ELIGIBLE", carrier
+            assert not any("roofer" in m.lower() or "sub-type" in m.lower() for m in r["missing_info"]), carrier
+            assert "roofer's statement" in r["notes"] and "(not checked)" in r["notes"], carrier
+
+    def test_the_required_note_wording(self):
+        from eligibility_check import _SAGE_ROOFER_STATEMENT_CARRIERS
+        carriers = sorted(_SAGE_ROOFER_STATEMENT_CARRIERS)
+        r = {"carrier": carriers[0], "status": "ELIGIBLE", "reasons": [], "citations": [],
+             "missing_info": [], "notes": "", "flaw_count": 0}
+        _apply_structured_overrides([r], carriers, dict(AUDIT_R14_DP3_PROFILE,
+                                                        roof_type="Architectural Shingle", roof_age=27))
+        assert ("Roof is over the guide's age line; the guide asks for a roofer's statement on its "
+                "Roof Condition Form (not checked).") in r["notes"]
+
+    def test_a_model_hold_on_the_statement_alone_is_freed_through_the_pipeline(self):
+        auros = "Sage_-_Auros_HO3"
+        ans = _answer_with(auros, status="INSUFFICIENT_INFORMATION",
+                           missing_info=["Roofer's statement attesting the 27-year-old architectural roof "
+                                         "is in good condition (Roof Condition Form)."])
+        prof = dict(_LIAM_PPC3, county="Harris", roof_type="Architectural Shingle", roof_age=27)
+        r = _by_carrier(_replayed_run_kw(prof, ans))[auros]
+        assert r["status"] == "ELIGIBLE" and r["missing_info"] == []
+
+    def test_markels_no_known_loss_letter_is_not_an_inspection(self):
+        assert not _is_inspection_request(
+            "Lapses in coverage (up to 90 days allowed, requires signed no known loss letter)")
