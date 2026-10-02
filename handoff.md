@@ -377,6 +377,31 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       Allied, Progressive HO3: "5 years of remaining useful life"), on the
       HO6 condo question (STANDARD has no Dwelling type), on Liberty
       Mutual's generic "criteria" item and on Travelers' roof timeframes.
+  - **ZIP to County table** (round 21 step 5). Built from **source B**,
+    the Census 2020 ZCTA-to-county file, because HUD_API_TOKEN was not set.
+    - Share = AREALAND_PART / AREALAND_ZCTA5_20 (the share of the ZCTA's
+      land in each county).
+    - The table is `zip_counties.csv`, built by `build_zip_county.py`,
+      which supports HUD (`hud`) and Census (`census`); its header names
+      the source, the build date and the share. No network call at
+      runtime.
+    - Size: 1,992 Texas ZIPs (2,893 rows). 685 span more than one county,
+      and all 254 counties appear.
+    - Three border ZCTAs (73949, 73960, 88430) sit outside Texas's ZIP
+      ranges. Their Texas land is under half of the ZCTA for 73949, 79837
+      and 88430.
+    - **The pick:** largest share, ties alphabetical, never random. The
+      real table has no exact tie. Determinism is tested over 1,000 lookups
+      and in a fresh interpreter.
+    - **Unresolved:** a Texas-range ZIP with no ZCTA (PO-box-only and
+      unique ZIPs: 77001, 78711, 73301, 88510 ...) gives a blank County and
+      a one-line message. A non-Texas ZIP (90210) does the same.
+    - How many USPS ZIPs HUD would add cannot be told from the ranges:
+      Texas's ranges hold about 5,000 numbers, the table has 1,989 of
+      them, and the missing USPS ZIPs are mostly PO-box / unique ZIPs. HUD
+      (Liam's token) would close that gap and switch the share to
+      residential addresses. To rebuild: `HUD_API_TOKEN=... python
+      build_zip_county.py hud`.
 
 ## Open work, in priority order (updated 2026-10-01)
 

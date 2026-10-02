@@ -7067,3 +7067,85 @@ class TestTopicForm:
             checked_topics=checked)
         assert "Pool Fence Height" not in u and "Pool Gate:" not in u
         assert "Swimming Pool: No Pool" in u
+
+
+# ---------------------------------------------------------------------------
+# Round 21, Step 5 (Liam, 2026-10-02): ZIP -> County, table in code. Zero API.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.retrieval
+class TestZipLookup:
+
+    @pytest.mark.parametrize("zip_, county", [
+        ("77002", "Harris"), ("75201", "Dallas"), ("78701", "Travis"),
+        ("78501", "Hidalgo"), ("78401", "Nueces"),
+        ("76801", "Brown"),        # genuinely split: Brown 95%, Coleman 3%, Mills 2%
+    ])
+    def test_sanity_values(self, zip_, county):
+        assert intake_fields.county_for_zip(zip_)[0] == county
+
+    def test_a_split_zip_names_every_county_with_its_share(self):
+        county, msg = intake_fields.county_for_zip("76801")
+        assert county == "Brown"
+        assert msg == ("ZIP 76801 spans Brown (95%), Coleman (3%) and Mills (2%). Checked as Brown; "
+                       "change the county below if you know it.")
+
+    def test_a_single_county_zip_says_what_was_used(self):
+        assert intake_fields.county_for_zip("77002") == ("Harris", "Checked as Harris County (from ZIP 77002).")
+
+    def test_a_tie_goes_alphabetical(self, monkeypatch):
+        """The real table has no exact tie (checked 2026-10-02); synthetic."""
+        monkeypatch.setitem(intake_fields.ZIP_COUNTIES, "79999", [("Zavala", 0.5), ("Andrews", 0.5)])
+        assert intake_fields.county_for_zip("79999")[0] == "Andrews"
+
+    def test_the_pick_is_deterministic(self):
+        multi = [z for z, v in intake_fields.ZIP_COUNTIES.items() if len(v) > 1][:50]
+        first = {z: intake_fields.county_for_zip(z)[0] for z in multi}
+        for _ in range(1000 // len(multi) + 1):
+            assert {z: intake_fields.county_for_zip(z)[0] for z in multi} == first
+
+    def test_a_fresh_interpreter_gives_the_same_answers(self):
+        import subprocess, json
+        multi = [z for z, v in intake_fields.ZIP_COUNTIES.items() if len(v) > 1][:50]
+        code = ("import json,sys,intake_fields as f;"
+                "print(json.dumps({z: f.county_for_zip(z)[0] for z in json.loads(sys.argv[1])}))")
+        root = os.path.join(os.path.dirname(__file__), "..")
+        out = subprocess.run([sys.executable, "-c", code, json.dumps(multi)], cwd=root,
+                             capture_output=True, text=True, check=True).stdout
+        assert json.loads(out.strip().splitlines()[-1]) == {z: intake_fields.county_for_zip(z)[0] for z in multi}
+
+    @pytest.mark.parametrize("raw, zip_", [(" 77002 ", "77002"), ("77002-1234", "77002"),
+                                           ("770021234", "77002"), ("7 7 0 0 2", "77002")])
+    def test_input_handling_accepts(self, raw, zip_):
+        assert intake_fields.parse_zip(raw) == (zip_, None)
+
+    @pytest.mark.parametrize("raw", ["7700", "770022", "abcde", "77002-12", "77-002"])
+    def test_input_handling_rejects_with_one_line(self, raw):
+        z, msg = intake_fields.parse_zip(raw)
+        assert z is None and msg and "\n" not in msg
+        assert intake_fields.county_for_zip(raw)[0] == ""
+
+    def test_blank_is_unknown_and_silent(self):
+        assert intake_fields.county_for_zip("") == ("", None)
+
+    def test_a_texas_zip_missing_from_the_table_is_blank_and_said(self):
+        county, msg = intake_fields.county_for_zip("77001")      # Houston PO boxes: no ZCTA
+        assert county == "" and "not in the ZIP-to-county table" in msg
+
+    def test_a_non_texas_zip_is_blank_and_said(self):
+        assert intake_fields.county_for_zip("90210") == ("", "ZIP 90210 is not a Texas ZIP, so County is left blank.")
+
+    def test_every_county_in_the_table_is_one_of_texas_254(self):
+        counties = {c for v in intake_fields.ZIP_COUNTIES.values() for c, _ in v}
+        assert counties <= set(intake_fields.TEXAS_COUNTIES)
+        assert len(intake_fields.TEXAS_COUNTIES) == 254
+
+    def test_the_table_header_names_source_date_and_share(self):
+        h = " ".join(intake_fields.ZIP_TABLE_HEADER)
+        assert "source:" in h and "built:" in h and "share:" in h
+        assert "Census 2020 ZCTA" in h and "AREALAND_PART" in h          # source B, not mixed with A
+
+    def test_shares_are_fractions_and_sorted(self):
+        for z, v in intake_fields.ZIP_COUNTIES.items():
+            assert all(0 < s <= 1.000001 for _, s in v), z
+            assert sum(s for _, s in v) <= 1 + 1e-5, z      # six-decimal rounding

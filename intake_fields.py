@@ -28,6 +28,75 @@ COUNTY_MAX_LATITUDE = _load_counties()
 TEXAS_COUNTIES = sorted(COUNTY_MAX_LATITUDE)
 
 
+# ---------------------------------------------------------------------------
+# ZIP -> County (round 21, Liam 2026-10-02). The table lives in code; the model
+# never sees it or the ZIP -- only "County: <name>", and only when the County
+# topic is checked. Built by build_zip_county.py; its header names the source,
+# the build date and the share definition.
+# ---------------------------------------------------------------------------
+ZIP_COUNTIES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "zip_counties.csv")
+# Texas's USPS ZIP ranges: 733xx (Austin IRS / state), 750xx-799xx, 885xx (El Paso).
+TEXAS_ZIP_RANGES = ((73301, 73399), (75000, 79999), (88500, 88599))
+
+
+def _load_zip_counties():
+    table, header = {}, []
+    with open(ZIP_COUNTIES_FILE, encoding="utf-8") as fh:
+        lines = list(fh)
+    header = [l[1:].strip() for l in lines if l.startswith("#")]
+    for r in csv.DictReader(l for l in lines if not l.startswith("#")):
+        table.setdefault(r["zip"], []).append((r["county"], float(r["share"])))
+    return table, header
+
+
+ZIP_COUNTIES, ZIP_TABLE_HEADER = _load_zip_counties()
+
+
+def parse_zip(value):
+    """(five-digit ZIP, None) or (None, one-line message). Spaces are
+    stripped; ZIP+4 uses its first five digits; blank is (None, None)."""
+    text = re.sub(r"\s+", "", str(value or ""))
+    if not text:
+        return None, None
+    m = re.fullmatch(r"(\d{5})(?:-?\d{4})?", text)
+    if not m:
+        return None, "A ZIP is five digits (ZIP+4 is fine); this one was not used."
+    return m.group(1), None
+
+
+def is_texas_zip_range(zip5):
+    n = int(zip5)
+    return any(lo <= n <= hi for lo, hi in TEXAS_ZIP_RANGES)
+
+
+def counties_for_zip(zip5):
+    """[(county, share)] largest share first, ties alphabetical -- the same
+    order every time, in every process."""
+    return sorted(ZIP_COUNTIES.get(zip5, ()), key=lambda cs: (-cs[1], cs[0]))
+
+
+def county_for_zip(value):
+    """The county a ZIP is checked as. Returns (county or "", message).
+    One county: that county. Several: the largest share, tie alphabetical,
+    never random. Unknown or non-Texas: "" (unknown) and a line saying so."""
+    zip5, err = parse_zip(value)
+    if err or zip5 is None:
+        return "", err
+    found = counties_for_zip(zip5)
+    if not found:
+        if is_texas_zip_range(zip5):
+            return "", (f"ZIP {zip5} is not in the ZIP-to-county table (PO-box-only and some "
+                        "special ZIPs are missing), so County is left blank.")
+        return "", f"ZIP {zip5} is not a Texas ZIP, so County is left blank."
+    county = found[0][0]
+    if len(found) == 1:
+        return county, f"Checked as {county} County (from ZIP {zip5})."
+    named = [f"{c} ({s:.0%})" for c, s in found]
+    parts = named[0] + " and " + named[1] if len(named) == 2 else ", ".join(named[:-1]) + " and " + named[-1]
+    return county, (f"ZIP {zip5} spans {parts}. Checked as {county}; change the county "
+                    "below if you know it.")
+
+
 def normalize_county(value):
     """The canonical county name, or "" for blank/unknown. Accepts any case
     and a trailing " County"; anything not one of Texas's 254 is "" -- an
