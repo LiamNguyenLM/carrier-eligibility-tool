@@ -455,8 +455,33 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       - By Hurricane Underwriting Classification, which a county cannot
         settle: Travelers.
       - By tier name only, with no definition in the guide: ARI, Steadily.
+  - **ZIP end to end** (round 21 step 8). Real gpt-6-luna, STANDARD plus
+    Dwelling type House, everything checked, County set from the ZIP.
+    - **75201 (Dallas):** all five Sage HO carriers INELIGIBLE, citing the
+      guide's location sentence ("Property must be located in: South Texas
+      ... or ... Bell, Falls, Robertson, Leon, Madison, Houston, Trinity,
+      and Polk.").
+    - **77002 (Harris):** the round 19 County hold cleared, as expected
+      (Harris is entirely south of 31 N, so IN). **But Luna then declined
+      Auros and Trium itself**, writing "Harris County is not ... within
+      the stated South Texas definition". That is wrong.
+      - SURE, SafePort and Wilshire wrote the same reason. They ended
+        INSUFFICIENT only because the FPC 9 distance hold downgraded them.
+      - Round 19's rule lets the model's verdict stand when the county is
+        IN, so a wrong location decline reaches the agent. **Open, for
+        Liam.** Options:
+        (a) State the territory as a fact in the prompt, e.g. "County:
+            Harris (entirely south of 31 degrees N)", when the County topic
+            is checked.
+        (b) A deterministic correction: when the county is IN and an
+            INELIGIBLE rests only on location, re-hold or upgrade it.
+        (c) Both.
+    - Input tokens: 33,283 for each run (the second run 27,940 + 5,343
+      cached). The prompt is byte-identical to the same county typed by
+      hand (zero-API test), so the tokens match by construction.
+    - Cost $0.0061 + $0.0059.
 
-## Open work, in priority order (updated 2026-10-01)
+## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
    finding.** A record whose status is missing or unrecognised used to count
@@ -468,6 +493,29 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
    was left out in 3 of 10 runs, but each now gets a NOT_EVALUATED row.
    Duplicates (earlier: Vave, Wilshire twice): none in round 19's 10 runs.
    No policy is decided for them.
+
+**Round 21, not done (2026-10-02):**
+- **A hold or warning for ZIPs whose counties disagree** waits for Liam and
+  the round 21 Step 7 number: 217 ZIPs on any county rule, 62 on the Sage
+  rule the code decides.
+- **Luna's wrong Sage location decline for Harris** (round 21 Step 8). The
+  options are above.
+- **Coastal tier from ZIP; roof sub-type and fire-station / hydrant
+  fields.**
+- **Roofer letters:** still undecided whether they count as inspections.
+  Kept.
+- **HUD-USPS crosswalk:** the table is the Census ZCTA fallback (land
+  share, no PO-box ZIPs). Liam creates the HUD token, then run
+  `python build_zip_county.py hud`.
+- **Tier 2 baseline:** none ran in rounds 19, 20 or 21.
+- **NEW: silence in the retrieved text treated as missing information.**
+  - Recorded Sonnet: 57 of 1,978 Insufficient records (2.9%) hold ONLY on
+    generic items ("criteria not in the excerpts", "table not included in
+    the retrieved excerpts").
+  - Luna runs: 0-2 per run (the most was 2 of 19, in round 20's
+    10-vs-19 run).
+  - Counted with a narrow pattern, so it is a lower bound. Nothing has
+    changed yet; it is worth its own round.
 
 **Round 20, not done (2026-10-01):**
 - **ZIP code:** Liam and Jonathan are still discussing it. Not built.
