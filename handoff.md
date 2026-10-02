@@ -529,6 +529,19 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
         kept as a regression fixture.
       - The wrong decline is occasional, so 8 runs per side cannot show a
         rate.
+  - **The ZIP pick is shown** (display only). Under the ZIP box: "ZIP 77002
+    -> Harris County (100% of the ZIP)".
+    - Under 80% it adds "This ZIP spans more than one county."
+    - For the 62 ZIPs whose counties give different Sage results (round 21
+      Step 7) a warning adds: "This ZIP spans counties with different Sage
+      results. Select the County directly to be sure."
+    - A county picked by hand replaces these lines with the "set by hand"
+      line.
+    - None of it reaches the prompt: the prompt for a ZIP is byte-identical
+      to the same county typed by hand (tested for a clean, an under-80%
+      and a flip ZIP).
+    - The round 21 "Checked as ... (from ZIP ...)" caption was replaced; its
+      two tests were updated deliberately.
 
 ## Open work, in priority order (updated 2026-10-02)
 
@@ -542,6 +555,17 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
    was left out in 3 of 10 runs, but each now gets a NOT_EVALUATED row.
    Duplicates (earlier: Vave, Wilshire twice): none in round 19's 10 runs.
    No policy is decided for them.
+
+**Round 22, not done (2026-10-02):**
+- **The "not in the excerpts" hold.** 57 of 1,978 recorded Insufficient
+  records (2.9%) hold only on such items; Luna 0-2 per run. It waits for
+  the structured-rules test.
+- **Chubb Harris Territory 1A has no ZIP list** in the guide, and Harris is
+  split between regions by territory. Neither the county nor the ZIP
+  settles it: a known gap.
+- **Roofer letters as inspections:** Liam has not decided. They are kept.
+- **The Sage wrong location decline** is guarded but occasional: 1 of 11
+  real runs so far, 0 of 8 in round 22. A rate needs more runs.
 
 **Round 21, not done (2026-10-02):**
 - **A hold or warning for ZIPs whose counties disagree** waits for Liam and

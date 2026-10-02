@@ -97,6 +97,36 @@ def county_for_zip(value):
                     "below if you know it.")
 
 
+def zip_spans_sage_split(zip5):
+    """True when the ZIP's counties disagree on the Sage ADDRESS rule (either
+    variant: with the Nueces exception, or Trium's without), so the pick can
+    flip a Sage verdict. Round 21 step 7 counted 62 such ZIPs."""
+    from structured_rules import sage_county_in_territory
+    counties = [c for c, _ in counties_for_zip(zip5)]
+    return len(counties) > 1 and any(
+        len({sage_county_in_territory(c, COUNTY_MAX_LATITUDE, excl) for c in counties}) > 1
+        for excl in (True, False))
+
+
+def zip_pick_lines(value):
+    """Display only (round 22, Liam 2026-10-02) -- never reaches the prompt.
+    (caption, warning) for a ZIP that resolves; (None, None) otherwise.
+      caption  "ZIP 77002 -> Harris County (100% of the ZIP)", plus "This ZIP
+               spans more than one county." when the share is under 80%
+      warning  for a ZIP whose counties give different Sage results"""
+    zip5, _ = parse_zip(value)
+    found = counties_for_zip(zip5) if zip5 else []
+    if not found:
+        return None, None
+    county, share = found[0]
+    caption = f"ZIP {zip5} -> {county} County ({share:.0%} of the ZIP)"
+    if share < 0.80:
+        caption += ". This ZIP spans more than one county."
+    warning = ("This ZIP spans counties with different Sage results. Select the County "
+               "directly to be sure.") if zip_spans_sage_split(zip5) else None
+    return caption, warning
+
+
 def normalize_county(value):
     """The canonical county name, or "" for blank/unknown. Accepts any case
     and a trailing " County"; anything not one of Texas's 254 is "" -- an

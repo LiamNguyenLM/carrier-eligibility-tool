@@ -253,7 +253,14 @@ with tab1:
             format_func=lambda v: v or "— not given —",
             help="Some carriers only write in certain counties.",
             on_change=_autotick, args=("county", "county", ""))
-        if zip_message and (county == zip_county or not zip_county):
+        if zip_county and county == zip_county:
+            # Round 22 (Liam, 2026-10-02): show the pick so an agent can
+            # overrule it. Display only -- none of this reaches the prompt.
+            pick_caption, pick_warning = intake_fields.zip_pick_lines(zip_text)
+            st.caption(pick_caption)
+            if pick_warning:
+                st.warning(pick_warning)
+        elif zip_message and not zip_county:
             st.caption(zip_message)
         elif zip_county and county != zip_county:
             st.caption(f"Checked as {county or 'no county'} (set by hand; ZIP {zip_text.strip()[:5]} "

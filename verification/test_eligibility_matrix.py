@@ -7180,13 +7180,15 @@ class TestZipBox:
         at.text_input(key="zip").input("77002").run()
         assert at.selectbox(key="county").value == "Harris"
         assert _boxes_state(at)["county"] is True
-        assert "Checked as Harris County (from ZIP 77002)." in [c.value for c in at.caption]
+        # Caption changed deliberately 2026-10-02 (round 22, Liam): show the pick.
+        assert "ZIP 77002 -> Harris County (100% of the ZIP)" in [c.value for c in at.caption]
 
     def test_a_split_zip_shows_the_two_county_line(self, monkeypatch):
         at, _ = _form(monkeypatch)
         at.text_input(key="zip").input("76801").run()
         assert at.selectbox(key="county").value == "Brown"
-        assert any(c.value.startswith("ZIP 76801 spans Brown (95%)") for c in at.caption)
+        # Caption changed deliberately 2026-10-02 (round 22): the pick and its share.
+        assert "ZIP 76801 -> Brown County (95% of the ZIP)" in [c.value for c in at.caption]
 
     def test_a_manual_pick_survives_a_rerun_and_a_zip_change_resets_it(self, monkeypatch):
         at, _ = _form(monkeypatch)
@@ -7377,3 +7379,69 @@ class TestSageTerritoryGuard:
             assert out[c]["status"] == "REFER" and LOCATION_DECLINE_NOTE in out[c]["notes"], c
         assert not any(out[c]["status"] == "INELIGIBLE" for c in out if c.startswith("Sage_-_")
                        and "Markel" not in c and "Vave" not in c)
+
+
+# ---------------------------------------------------------------------------
+# Round 22, Step 2 (Liam, 2026-10-02): show the ZIP pick. Display only.
+# ---------------------------------------------------------------------------
+
+_SAGE_WARNING = "This ZIP spans counties with different Sage results. Select the County directly to be sure."
+
+
+@pytest.mark.retrieval
+class TestZipPickDisplay:
+
+    def test_the_flip_list_is_the_62_from_round21_step7(self):
+        flips = [z for z in intake_fields.ZIP_COUNTIES if intake_fields.zip_spans_sage_split(z)]
+        assert len(flips) == 62
+        assert "75855" in flips and "75839" in flips and "77002" not in flips
+
+    def test_lines_for_each_kind_of_zip(self):
+        assert intake_fields.zip_pick_lines("77002") == ("ZIP 77002 -> Harris County (100% of the ZIP)", None)
+        cap, warn = intake_fields.zip_pick_lines("75143")              # Kaufman 54%, Henderson 46%
+        assert cap == "ZIP 75143 -> Kaufman County (54% of the ZIP). This ZIP spans more than one county."
+        assert warn is None
+        cap, warn = intake_fields.zip_pick_lines("75839")              # Anderson 96%, Houston 4%
+        assert cap == "ZIP 75839 -> Anderson County (96% of the ZIP)" and warn == _SAGE_WARNING
+        assert intake_fields.zip_pick_lines("90210") == (None, None)
+
+    def _captions_after_zip(self, monkeypatch, zip_):
+        at, calls = _form(monkeypatch)
+        at.text_input(key="zip").input(zip_).run()
+        return at, calls, [c.value for c in at.caption], [w.value for w in at.warning]
+
+    def test_app_clean_zip(self, monkeypatch):
+        _, _, caps, warns = self._captions_after_zip(monkeypatch, "77002")
+        assert "ZIP 77002 -> Harris County (100% of the ZIP)" in caps
+        assert not any("spans" in c for c in caps) and _SAGE_WARNING not in warns
+
+    def test_app_zip_under_80_percent(self, monkeypatch):
+        _, _, caps, warns = self._captions_after_zip(monkeypatch, "75143")
+        assert "ZIP 75143 -> Kaufman County (54% of the ZIP). This ZIP spans more than one county." in caps
+        assert _SAGE_WARNING not in warns
+
+    def test_app_sage_flip_zip(self, monkeypatch):
+        at, calls, caps, warns = self._captions_after_zip(monkeypatch, "75855")   # Leon 58% / Freestone 42%
+        assert any(c.startswith("ZIP 75855 -> Leon County (58% of the ZIP)") for c in caps)
+        assert _SAGE_WARNING in warns
+
+    def test_a_manual_pick_replaces_the_pick_lines(self, monkeypatch):
+        at, _, _, _ = self._captions_after_zip(monkeypatch, "75855")
+        at.selectbox(key="county").select("Freestone").run()
+        caps = [c.value for c in at.caption]
+        assert not any(c.startswith("ZIP 75855 ->") for c in caps)
+        assert any("set by hand" in c for c in caps)
+
+    @pytest.mark.parametrize("zip_", ["77002", "75143", "75855"])
+    def test_the_pick_lines_never_reach_the_prompt(self, monkeypatch, zip_):
+        at, calls, caps, warns = self._captions_after_zip(monkeypatch, zip_)
+        _submit(at)
+        pd, checked = calls[-1]
+        keys = ("county", "zip")
+        by_zip = _raw_prompt_kw(dict(_LIAM_PPC3, **{k: pd[k] for k in keys}), checked_topics=checked)
+        by_hand = _raw_prompt_kw(dict(_LIAM_PPC3, county=pd["county"]), checked_topics=checked)
+        assert by_zip == by_hand
+        for text in caps + warns:
+            if text.startswith("ZIP ") or "Sage results" in text:
+                assert text not in by_zip[1] and "spans" not in by_zip[1]
+        assert zip_ not in by_zip[1]
