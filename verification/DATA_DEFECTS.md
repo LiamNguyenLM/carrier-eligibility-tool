@@ -223,6 +223,62 @@ re-confirming against the real text in one direction or the other.
 
 ---
 
+## DD-5 — all four Swyfft guides lost their fi / fl ligatures (recorded 2026-10-02, round 24)
+
+**Not a mis-filed PDF:** the right documents are on file, but some of their
+words are broken. **Record only; Liam decides when to fix it.**
+
+**What is stored.** Every "fi" and "fl" ligature in the four Swyfft PDFs is
+stored as a NUL character (`\x00`). Only Swyfft is affected; no other
+program's stored text contains a NUL.
+
+| Program | NUL characters | Chunks |
+|---|---|---|
+| Swyfft_-_Benchmark_(Admitted)_HO3 | 9 | 15 |
+| Swyfft_-_Benchmark_(Surplus)_HO3 | 10 | 15 |
+| Swyfft_-_Lloyds_(Surplus)_HO3 | 8 | 19 |
+| Swyfft_-_Topa_(Surplus)_HO3 | 11 | 16 |
+
+By word, over all four guides (␀ marks the NUL):
+
+| Stored as | Should read | Count |
+|---|---|---|
+| Paci␀c | Pacific | 5 |
+| Roo␀ng | Roofing | 4 |
+| ␀le | file | 4 |
+| re␀ects | reflects | 4 |
+| land␀lls | landfills | 4 |
+| retro␀tted | retrofitted | 4 |
+| ␀rst | first | 4 |
+| ␀re | fire (e.g. "Prior liability or ␀re loss at any location") | 4 |
+| certi␀ed | certified | 3 |
+| Bene␀ts | Benefits | 2 |
+
+**Why it matters.** Retrieval embeds the broken words, and every keyword
+check misses them: "fire", "file", "first", "Roofing", "landfills",
+"certified". The guides' "flat" and "flood" happen not to be ligated in
+these PDFs, but nothing guarantees that.
+- The round 23 pilot workbook's quote check fails on these rows for the
+  same reason.
+- In the same text, the bullet glyph is stored as U+FFFD.
+
+**Cause** (confirmed 2026-10-02). It comes from pdfplumber itself:
+`page.extract_text()` on `carrier_eligibility_pdfs/Swyfft_-_Benchmark_(Admitted)_HO3.pdf`
+returns 9 NULs. The glyphs sit in subset Roboto fonts (`AKBJSY+Roboto-Bold`,
+`BEGEVY+Roboto-Regular`) whose ToUnicode map has no entry for the
+ligatures.
+
+**The fix** (not done):
+1. In the loader's text extraction (`pdf_extraction.py`), recover the
+   ligature, either from the glyph name or by trying "fi" and "fl" against
+   a word list. A NUL alone does not say which ligature it was.
+2. Add a load-time check that fails on any NUL in extracted text, so it
+   cannot recur silently.
+3. **Re-seed** the four Swyfft programs: re-upload, or a full re-index (see
+   handoff.md, "Updating carrier guides in production", and the
+   FORCE_RESEED warning there).
+4. Re-run the pilot workbook's Swyfft quote check afterwards.
+
 ## Why this class is worth a standing test
 
 Neither defect is visible in the tool's output. Both records return
