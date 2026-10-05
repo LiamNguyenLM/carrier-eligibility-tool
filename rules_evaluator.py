@@ -360,10 +360,18 @@ def code_record(canon, outcomes):
     npass = sum(1 for o, _ in outcomes.values() if o == "PASS")
     if not reasons:
         reasons = [f"Rules table: {npass} rule(s) decided from the form pass; none fails."]
+    open_items = [f"{outcomes[rid][1]} -- [{rid}] {rules[rid]['Plain rule']}" for rid in opens]
     rec = {"carrier": canon, "status": status, "flaw_count": flaws, "reasons": reasons,
            "citations": [citation(rules[rid]) for rid in cited],
-           "missing_info": [f"{outcomes[rid][1]} -- [{rid}] {rules[rid]['Plain rule']}" for rid in opens],
+           "missing_info": open_items,
            "notes": "", "rules_table": True, "also_confirm": also_confirm(canon, outcomes)}
+    if status == "INELIGIBLE":
+        # Round 26 step 2 (Liam, 2026-10-05): nothing still open can change a
+        # decline, so the card lists none of it; the open rows stay here.
+        rec["missing_info"] = []
+        rec["diagnostics"] = {"open_rows": open_items}
+    if cited:
+        rec["decided_by_code"] = True
     return rec, not (opens and not cited)
 
 

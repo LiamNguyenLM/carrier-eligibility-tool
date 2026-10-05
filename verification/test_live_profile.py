@@ -73,3 +73,48 @@ def test_the_five_sage_carriers_on_live_all_land_in_not_eligible():
     # them under "One Issue" on Liam's screen. It no longer matters.
     assert res[SAGE_FIVE[4]]["flaw_count"] == 2 and res[SAGE_FIVE[0]]["flaw_count"] == 1
     assert not any(r["carrier"] in SAGE_FIVE for r in buckets["refer"])
+
+
+# -- Step 2: a code-decided verdict owns the card ----------------------------------
+def test_sage_auros_on_live_shows_one_territory_reason_with_the_quote_and_no_missing_info():
+    res, _ = run_live(live_sage_answer)
+    r = res["Sage_-_Auros_HO3"]
+    assert r["status"] == "INELIGIBLE"
+    assert len(r["reasons"]) == 1
+    assert r["reasons"][0].startswith("Collin County is outside this carrier's territory. The guide says:")
+    assert '"' in r["reasons"][0]                            # the guide's own sentence, quoted
+    assert r["missing_info"] == []
+    assert not any("flat ineligible" in x for x in r["reasons"])
+    # the model's own words are kept, off the card
+    assert "None states a flat ineligible outcome for PPC 3." in r["diagnostics"]["model_reasons"]
+    assert "Distance to the nearest hydrant" in r["diagnostics"]["model_missing_info"]
+
+
+@pytest.mark.parametrize("carrier", SAGE_FIVE)
+def test_every_sage_carrier_on_live_is_owned_by_the_territory_rule(carrier):
+    res, _ = run_live(live_sage_answer)
+    r = res[carrier]
+    assert r["decided_by_code"] and r["missing_info"] == []
+    assert [x for x in r["reasons"] if "outside this carrier's territory" in x] == r["reasons"]
+
+
+def test_a_code_hold_keeps_its_missing_info_and_leads_with_the_code_reason():
+    # County blank: the Sage county hold. A hold can still change, so the open
+    # items stay; the code's reason is the first (and only) line.
+    profile = dict(LIVE_PROFILE, county="", zip="")
+    res, _ = run_live(lambda n: {"status": "ELIGIBLE", "reasons": ["PPC 3 is fine."],
+                                 "missing_info": ["Distance to fire station"]}
+                      if n == "Sage_-_Auros_HO3" else {}, profile=profile)
+    r = res["Sage_-_Auros_HO3"]
+    assert r["status"] == "INSUFFICIENT_INFORMATION"
+    assert r["reasons"][0].startswith("No County given")
+    assert any(m.startswith("County") for m in r["missing_info"])
+    assert "Distance to fire station" in r["missing_info"]
+
+
+def test_a_model_decided_record_is_untouched():
+    res, _ = run_live(lambda n: {"status": "INSUFFICIENT_INFORMATION", "reasons": ["own reason"],
+                                 "missing_info": ["own item"]} if n.startswith("Travelers") else {})
+    t = [r for c, r in res.items() if c.startswith("Travelers")][0]
+    assert t["reasons"] == ["own reason"] and t["missing_info"] == ["own item"]
+    assert "diagnostics" not in t and not t.get("decided_by_code")

@@ -157,6 +157,7 @@ CORE_STEPS = {
     "_add_fixed_rows": "GUIDE_UNAVAILABLE / NOT_EVALUATED / UNRECOGNISED rows",
     "_apply_structured_overrides": "a dispatcher; each branch is tagged override:<carrier set>",
     "_strip_contradicted_property_claims": "a dispatcher; each field is tagged guard:<field>",
+    "_code_owns_cards": "round 26: a status a rule set shows that rule's reason, whatever is checked",
 }
 
 # Always-on routing and lookups (not gated; listed so the inventory is whole).

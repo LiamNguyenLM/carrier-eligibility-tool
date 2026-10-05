@@ -1439,6 +1439,44 @@ def _force_ineligible(result, reason_text):
         result["flaw_count"] = 1
     result.setdefault("reasons", []).append(reason_text)
     result.setdefault("citations", []).append(reason_text)
+    _decide_by_code(result, "INELIGIBLE", reason_text)
+
+
+def _decide_by_code(result, status, reason, citation=None):
+    """Round 26 step 2 (Liam, 2026-10-05): a deterministic rule set this
+    record's status. The caller still sets the status; this records why, and
+    _code_owns_cards() rebuilds the card from it at the end of the chain."""
+    result.setdefault("_code_decisions", []).append(
+        {"status": status, "reason": reason, "citation": citation})
+
+
+def _code_owns_cards(results):
+    """Round 26 step 2 (Liam, 2026-10-05): when a deterministic rule set the
+    status, the card says the code's reason (with the guide's own sentence
+    where the rule has one), not the model's. On Liam's live check the four
+    Sage carriers declined on territory still argued "none states a flat
+    ineligible outcome for PPC 3" and listed fire-station questions that
+    cannot change a territory decline.
+    - reasons / citations: the code decisions that match the final status.
+    - missing_info: emptied for a decline (nothing open can change it); kept
+      for a hold or a referral (an open item can still change those).
+    - The model's own reasons, citations and missing_info move to
+      r["diagnostics"], which the card never shows.
+    A record whose final status no code decision matches is left alone (a
+    later rule overrode the earlier one)."""
+    for r in results:
+        decisions = r.pop("_code_decisions", None) or []
+        own = [d for d in decisions if d["status"] == r.get("status")]
+        if not own:
+            continue
+        r["diagnostics"] = {"model_reasons": list(r.get("reasons") or []),
+                            "model_citations": list(r.get("citations") or []),
+                            "model_missing_info": list(r.get("missing_info") or [])}
+        r["reasons"] = list(dict.fromkeys(d["reason"] for d in own))
+        r["citations"] = list(dict.fromkeys(d["citation"] for d in own if d.get("citation")))
+        if r["status"] == "INELIGIBLE":
+            r["missing_info"] = []
+        r["decided_by_code"] = True
 
 
 def _append_note(result, text):
@@ -3342,6 +3380,9 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
             _apply_location_holds(filtered, relevant_carriers, property_details)
         if _on("check:_apply_chubb_hold", checked):
             _apply_chubb_hold(filtered, relevant_carriers, property_details)
+        # Last, after every rule that can set a status: a code-decided verdict
+        # owns the card (round 26 step 2).
+        _code_owns_cards(filtered)
 
         final = _add_fixed_rows(filtered, relevant_carriers, unavailable, defects, unrecognised)
         if unrecognised or usable_answer_count(final) == 0:
@@ -3425,6 +3466,9 @@ _CHUBB_COVERAGE_A_ITEM = (
 
 # The two phrases are copied from the guide's text (page-10 table and its
 # footnote); a test checks they pass the chat tab's quote verifier.
+_CHUBB_BELOW_MINIMUM_REFER_REASON = (
+    "Below $1,000,000 Coverage A a primary house goes to Chubb's Standard Tier, which the guide "
+    "marks \"Subject to pre-approval\": a referral to underwriting.")
 _CHUBB_BELOW_MINIMUM_REFER_NOTE = (
     "Status set to REFER: below $1,000,000 Coverage A a primary house goes to Chubb's Standard "
     "Tier, which the guide marks \"Subject to pre-approval*\" -- \"Coverage will not be declined "
@@ -3467,12 +3511,17 @@ def _apply_chubb_hold(results, relevant_carriers, property_details):
                 r["status"] = "REFER"
                 r["flaw_count"] = 0
                 _append_note(r, _CHUBB_BELOW_MINIMUM_REFER_NOTE)
+                _decide_by_code(r, "REFER", _CHUBB_BELOW_MINIMUM_REFER_REASON,
+                                f'{_CHUBB}: "Subject to pre-approval"')
             continue
         if r.get("status") in ("ELIGIBLE", "REFER"):
             r["status"] = "INSUFFICIENT_INFORMATION"
             r["flaw_count"] = 0
             _append_note(r, "Coverage A hold: Chubb's tier placement depends on the dwelling "
                             "amount, and none was given, so it cannot be Eligible yet.")
+            _decide_by_code(r, "INSUFFICIENT_INFORMATION",
+                            "No Coverage A given: Chubb's tier, and whether it is referred, "
+                            "depends on the dwelling amount.")
         if r.get("status") == "INSUFFICIENT_INFORMATION":
             mi = r.setdefault("missing_info", [])
             if not any(m.startswith("Dwelling amount (Coverage A)") for m in mi):
@@ -3619,6 +3668,9 @@ def _undo_location_decline(r, canon, county):
         r["status"] = "REFER"
         r["flaw_count"] = 0
         _append_note(r, LOCATION_DECLINE_NOTE)
+        _decide_by_code(r, "REFER", f"{county} County is inside this guide's territory; the "
+                                    f"model declined on location only, so this is referred, "
+                                    f"not declined. Re-run to confirm.")
     return True
 
 
@@ -3652,6 +3704,10 @@ def _apply_location_holds(results, relevant_carriers, property_details):
                 r["flaw_count"] = 0
                 _append_note(r, "County hold: this carrier only writes in specific counties, "
                                 "and no County was given, so it cannot be Eligible yet.")
+                _decide_by_code(r, "INSUFFICIENT_INFORMATION",
+                                "No County given, and this carrier only writes in specific "
+                                "counties. The guide says: \"{}\"".format(sentence),
+                                f"{canon}: '{sentence}'")
             if r.get("status") == "INSUFFICIENT_INFORMATION":
                 mi = r.setdefault("missing_info", [])
                 if not _county_item_present(mi):
@@ -3668,6 +3724,7 @@ def _apply_location_holds(results, relevant_carriers, property_details):
                 r["flaw_count"] = 1
             r.setdefault("reasons", []).append(reason)
             r.setdefault("citations", []).append(f"{canon}: '{sentence}'")
+            _decide_by_code(r, "INELIGIBLE", reason, f"{canon}: '{sentence}'")
 
 
 # Two statuses the PIPELINE writes -- never the model -- for carriers it could

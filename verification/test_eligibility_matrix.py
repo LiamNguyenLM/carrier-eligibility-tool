@@ -7342,7 +7342,12 @@ class TestSageTerritoryGuard:
         r = _decline(_AUROS, "Harris")
         assert r["status"] == "REFER" and r["flaw_count"] == 0
         assert LOCATION_DECLINE_NOTE in r["notes"]
-        assert _LUNA_HARRIS_DECLINE not in r["reasons"] and _NON_LOCATION_OK in r["reasons"]
+        # CHANGED DELIBERATELY (Liam, 2026-10-05, round 26 step 2): the REFER
+        # is set by code, so the card shows the code's reason only; the
+        # model's other reasons are kept off the card, in diagnostics.
+        assert len(r["reasons"]) == 1 and "inside this guide's territory" in r["reasons"][0]
+        assert _LUNA_HARRIS_DECLINE not in r["reasons"]
+        assert _NON_LOCATION_OK in r["diagnostics"]["model_reasons"]
         assert not any("East Texas" in c for c in r["citations"])
 
     def test_a_second_non_location_flaw_keeps_it_ineligible(self):
@@ -7364,7 +7369,12 @@ class TestSageTerritoryGuard:
     def test_nueces_excluded_by_name_stays_outside(self):
         nueces = "The property is in Nueces County, which the carrier expressly excludes."
         r = _decline(_AUROS, "Nueces", reasons=(nueces,))
-        assert r["status"] == "INELIGIBLE" and nueces in r["reasons"]
+        # CHANGED DELIBERATELY (Liam, 2026-10-05, round 26 step 2): the
+        # territory rule owns the card; the model's own sentence is kept in
+        # diagnostics.
+        assert r["status"] == "INELIGIBLE"
+        assert r["reasons"][0].startswith("Nueces County is outside this carrier's territory")
+        assert nueces in r["diagnostics"]["model_reasons"]
 
     def test_nueces_is_inside_for_trium_so_its_location_decline_is_undone(self):
         r = _decline(_TRIUM, "Nueces", reasons=("Nueces County is outside the South Texas territory.",))
