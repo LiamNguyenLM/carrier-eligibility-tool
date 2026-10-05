@@ -292,125 +292,136 @@ with tab1:
         st.error("Pick a Dwelling type (House, Townhome or Condo) before running the check.")
         submitted = False
 
+    # Round 26 step 7: every result element lives in one placeholder, made
+    # before the check runs. A rerun replaces it at once, so the previous
+    # check's sections no longer stay on screen (Streamlit's stale-element
+    # display) while a new check runs -- what made Liam's copy of the page
+    # show sections two or three times.
+    results_area = st.empty()
     if submitted:
-        coastal_clean = coastal_tier.split(" - ")[0]
-        property_details = {
-            "year_built": year_built,
-            "roof_age": roof_age,
-            "roof_type": roof_type,
-            "roof_shape": roof_shape,
-            "construction_type": construction_type,
-            "plumbing_type": plumbing_type,
-            "occupancy_type": occupancy_type,
-            "ownership_type": ownership_type,
-            "coastal_tier": coastal_clean,
-            "swimming_pool": swimming_pool,
-            "pool_accessories": pool_accessories,
-            # ticked = a stated fact; unticked = unknown
-            "pool_fence_4ft": pool_fence_4ft,
-            "pool_gate_locking": pool_gate_locking,
-            "has_dogs": "Yes" if has_dogs else "No",
-            "aggressive_breed": "Yes" if aggressive_breed else "No",
-            "solar_panels": "Yes" if solar_panels else "No",
-            "ppc": ppc,
-            # optional: "" / None mean unknown. The ZIP never reaches the prompt.
-            "zip": intake_fields.parse_zip(zip_text)[0] or "",
-            "county": county,
-            "dwelling_amount": dwelling_amount,
-            "dwelling_type": dwelling_type,
-        }
+        with results_area.container():
+            coastal_clean = coastal_tier.split(" - ")[0]
+            property_details = {
+                "year_built": year_built,
+                "roof_age": roof_age,
+                "roof_type": roof_type,
+                "roof_shape": roof_shape,
+                "construction_type": construction_type,
+                "plumbing_type": plumbing_type,
+                "occupancy_type": occupancy_type,
+                "ownership_type": ownership_type,
+                "coastal_tier": coastal_clean,
+                "swimming_pool": swimming_pool,
+                "pool_accessories": pool_accessories,
+                # ticked = a stated fact; unticked = unknown
+                "pool_fence_4ft": pool_fence_4ft,
+                "pool_gate_locking": pool_gate_locking,
+                "has_dogs": "Yes" if has_dogs else "No",
+                "aggressive_breed": "Yes" if aggressive_breed else "No",
+                "solar_panels": "Yes" if solar_panels else "No",
+                "ppc": ppc,
+                # optional: "" / None mean unknown. The ZIP never reaches the prompt.
+                "zip": intake_fields.parse_zip(zip_text)[0] or "",
+                "county": county,
+                "dwelling_amount": dwelling_amount,
+                "dwelling_type": dwelling_type,
+            }
 
-        with st.spinner("Analyzing carrier eligibility..."):
-            results = check_eligibility(property_details, checked_topics=checked_topics)
-        partial = topics.is_partial(topics.normalize(checked_topics))
+            with st.spinner("Analyzing carrier eligibility..."):
+                results = check_eligibility(property_details, checked_topics=checked_topics)
+            partial = topics.is_partial(topics.normalize(checked_topics))
 
-        st.markdown("---")
-        st.subheader("CARRIER ELIGIBILITY ANALYSIS")
-        # Liam, 2026-10-01: ELIGIBLE must never read as "no inspection needed".
-        st.caption("Inspection requirements are not checked.")
-        # Round 21 (Liam, 2026-10-02): say what was checked, partial mode only.
-        if partial:
-            st.info(topics.partial_check_line(topics.normalize(checked_topics)))
-
-        # 2026-09-30: a live check returned records with no verdict at all,
-        # and four empty columns were the only thing on screen. Never again
-        # let "no carriers" read as an answer.
-        if usable_answer_count(results) == 0:
-            st.error("The check did not return usable answers. Run it again; if it repeats, tell Liam.")
-
-        buckets = assign_buckets(results)
-        eligible = buckets["eligible"]
-        refer = buckets["refer"]
-        insufficient_info = buckets["insufficient_info"]
-        not_eligible = buckets["not_eligible"]
-
-        def render_carrier(carrier):
-            # Round 26 (Liam, 2026-10-05, decision C): a compact card -- the
-            # status and the verdict in one line, the open items, and
-            # everything else collapsed under "Details" (cards.py).
-            # Round 25: the rules-table pilot's cards say so.
-            if carrier.get("rules_table"):
-                st.caption("rules table")
-            st.markdown(cards.first_line_markdown(carrier, property_details, checked_topics))
-            if carrier.get("missing_info"):
-                st.markdown("**Missing:**\n" + "\n".join("- " + item for item in carrier["missing_info"]))
-            details = cards.details_html(carrier)
-            if details:
-                st.markdown(details, unsafe_allow_html=True)
-
-        col_yes, col_refer, col_info, col_no = st.columns(4)
-
-        with col_yes:
-            st.markdown("### Eligible")
+            st.markdown("---")
+            st.subheader("CARRIER ELIGIBILITY ANALYSIS")
+            # Liam, 2026-10-01: ELIGIBLE must never read as "no inspection needed".
+            st.caption("Inspection requirements are not checked.")
+            # Round 21 (Liam, 2026-10-02): say what was checked, partial mode only.
             if partial:
-                st.caption("No problem found on the checked items.")
-            if eligible:
-                for carrier in eligible:
-                    with st.expander(carrier["carrier"]):
-                        render_carrier(carrier)
-            else:
-                st.info("No carriers fully eligible.")
+                st.info(topics.partial_check_line(topics.normalize(checked_topics)))
 
-        # Liam, 2026-10-05 (decision A): this column holds referrals only;
-        # every INELIGIBLE is under Not Eligible, whatever its flaw_count.
-        # Each column now holds one status, so no card repeats it.
-        with col_refer:
-            st.markdown("### Refer to Underwriting")
-            if refer:
-                for carrier in refer:
-                    with st.expander(carrier["carrier"]):
-                        render_carrier(carrier)
-            else:
-                st.info("No carriers to refer to underwriting.")
+            # 2026-09-30: a live check returned records with no verdict at all,
+            # and four empty columns were the only thing on screen. Never again
+            # let "no carriers" read as an answer.
+            if usable_answer_count(results) == 0:
+                st.error("The check did not return usable answers. Run it again; if it repeats, tell Liam.")
 
-        with col_info:
-            st.markdown("### Insufficient Information")
-            if insufficient_info:
-                for carrier in insufficient_info:
-                    with st.expander(carrier["carrier"]):
-                        render_carrier(carrier)
-            else:
-                st.info("No carriers pending missing information.")
+            buckets = assign_buckets(results)
+            eligible = buckets["eligible"]
+            refer = buckets["refer"]
+            insufficient_info = buckets["insufficient_info"]
+            not_eligible = buckets["not_eligible"]
 
-        with col_no:
-            st.markdown("### Not Eligible")
-            if not_eligible:
-                for carrier in not_eligible:
-                    with st.expander(carrier["carrier"]):
-                        render_carrier(carrier)
-            else:
-                st.success("No carriers fully ineligible.")
+            def render_carrier(carrier):
+                # Round 26 (Liam, 2026-10-05, decision C): a compact card -- the
+                # status and the verdict in one line, the open items, and
+                # everything else collapsed under "Details" (cards.py).
+                # Round 25: the rules-table pilot's cards say so.
+                if carrier.get("rules_table"):
+                    st.caption("rules table")
+                st.markdown(cards.first_line_markdown(carrier, property_details, checked_topics))
+                missing = [m for m in carrier.get("missing_info") or [] if isinstance(m, str) and m.strip()]
+                if missing:
+                    st.markdown("**Missing:**\n" + "\n".join("- " + item for item in missing))
+                details = cards.details_html(carrier)
+                if details:
+                    st.markdown(details, unsafe_allow_html=True)
 
-        # Rows the pipeline writes for carriers it could not check -- a
-        # wrong or unreadable guide on file, or no answer from the model.
-        could_not_check = (buckets["unrecognised"] + buckets["guide_unavailable"]
-                           + buckets["not_evaluated"])
-        if could_not_check:
-            st.markdown("### Could Not Be Checked")
-            for carrier in could_not_check:
-                st.warning("**" + carrier["carrier"] + "** — " + carrier["reasons"][0])
-                with st.expander("Details: " + carrier["carrier"]):
-                    render_carrier(carrier)
+            col_yes, col_refer, col_info, col_no = st.columns(4)
+
+            with col_yes:
+                st.markdown("### Eligible")
+                if partial:
+                    st.caption("No problem found on the checked items.")
+                if eligible:
+                    for carrier in eligible:
+                        with st.expander(carrier["carrier"]):
+                            render_carrier(carrier)
+                else:
+                    st.info("No carriers fully eligible.")
+
+            # Liam, 2026-10-05 (decision A): this column holds referrals only;
+            # every INELIGIBLE is under Not Eligible, whatever its flaw_count.
+            # Each column now holds one status, so no card repeats it.
+            with col_refer:
+                st.markdown("### Refer to Underwriting")
+                if refer:
+                    for carrier in refer:
+                        with st.expander(carrier["carrier"]):
+                            render_carrier(carrier)
+                else:
+                    st.info("No carriers to refer to underwriting.")
+
+            with col_info:
+                st.markdown("### Insufficient Information")
+                if insufficient_info:
+                    for carrier in insufficient_info:
+                        with st.expander(carrier["carrier"]):
+                            render_carrier(carrier)
+                else:
+                    st.info("No carriers pending missing information.")
+
+            with col_no:
+                st.markdown("### Not Eligible")
+                if not_eligible:
+                    for carrier in not_eligible:
+                        with st.expander(carrier["carrier"]):
+                            render_carrier(carrier)
+                else:
+                    st.success("No carriers fully ineligible.")
+
+            # Rows the pipeline writes for carriers it could not check -- a
+            # wrong or unreadable guide on file, or no answer from the model.
+            could_not_check = (buckets["unrecognised"] + buckets["guide_unavailable"]
+                               + buckets["not_evaluated"])
+            if could_not_check:
+                st.markdown("### Could Not Be Checked")
+                for carrier in could_not_check:
+                    # Round 26 step 7: the warning line, and a Details toggle only
+                    # when there is something beyond it (never an empty bullet).
+                    st.warning(cards.warning_line(carrier))
+                    details = cards.details_html(carrier)
+                    if details:
+                        st.markdown(details, unsafe_allow_html=True)
 
 
 # ============================================================

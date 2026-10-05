@@ -24,6 +24,18 @@ STATUS_LABEL = {
 }
 
 
+# Statuses whose card shows missing_info as its own "Missing:" list; any other
+# row (GUIDE_UNAVAILABLE, NOT_EVALUATED, an unrecognised verdict) keeps it
+# under Details.
+MODEL_LABELLED = tuple(STATUS_LABEL)
+
+
+def warning_line(rec):
+    """A Could Not Be Checked row's one line: the carrier and its reason."""
+    reasons = [x for x in (rec.get("reasons") or []) if isinstance(x, str) and x.strip()]
+    return f"**{rec.get('carrier', '')}** — " + (reasons[0] if reasons else "could not be checked.")
+
+
 def _on(topic, checked):
     return checked is None or topic in checked
 
@@ -84,11 +96,16 @@ def details_items(rec):
     """(heading, [items]) groups for the Details toggle, empty groups dropped.
     ELIGIBLE keeps every reason here (its first line is the checked facts);
     any other status keeps the reasons after the first."""
-    reasons = rec.get("reasons") or []
+    def clean(items):
+        # Never an empty bullet (round 26 step 7: Could Not Be Checked showed one).
+        return [x for x in items if isinstance(x, str) and x.strip()]
+
+    reasons = clean(rec.get("reasons") or [])
     rest = reasons if rec.get("status") == "ELIGIBLE" else reasons[1:]
-    groups = [("Analysis", rest), ("Citations", rec.get("citations") or []),
-              ("Notes", [rec["notes"]] if (rec.get("notes") or "").strip() else []),
-              ("Also confirm", rec.get("also_confirm") or [])]
+    groups = [("Analysis", rest), ("Citations", clean(rec.get("citations") or [])),
+              ("Notes", clean([rec.get("notes") or ""])),
+              ("Missing", clean(rec.get("missing_info") or []) if rec.get("status") not in MODEL_LABELLED else []),
+              ("Also confirm", clean(rec.get("also_confirm") or []))]
     return [(h, items) for h, items in groups if items]
 
 
