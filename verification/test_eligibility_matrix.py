@@ -1451,7 +1451,9 @@ class TestBaselineAltProfile:
         below, which is the right place for the running number -- this
         assert just stops a silent regression from being invisible."""
         r = self._find("Progressive HO3")
-        blob = " ".join(r.get("missing_info", []) + r.get("citations", [])).lower()
+        # + notes (Liam, 2026-10-05, decision C): the clause is a wind/hail
+        # coverage exclusion, which the compact card carries as its note.
+        blob = " ".join(r.get("missing_info", []) + r.get("citations", []) + [r.get("notes") or ""]).lower()
         assert "solar" in blob
 
 
@@ -1472,7 +1474,8 @@ def test_progressive_ho3_solar_consistency(record_property):
         matches = _find_carrier(by_carrier, "progressive", "ho3", exclude=("ho6",))
         assert matches
         r = matches[0]
-        blob = " ".join(r.get("missing_info", []) + r.get("citations", [])).lower()
+        # + notes (Liam, 2026-10-05, decision C): see the single-run test.
+        blob = " ".join(r.get("missing_info", []) + r.get("citations", []) + [r.get("notes") or ""]).lower()
         outcomes.append("solar" in blob)
     pass_rate = sum(outcomes) / len(outcomes)
     record_property("progressive_ho3_solar_pass_rate", pass_rate)
@@ -4805,7 +4808,9 @@ def test_trust_and_llc_verdicts_follow_each_carriers_own_rule(record_property):
     for _ in range(n_runs - len(recorded)):
         rep = {}
         for own in ("Individual Owner", "Trust", "LLC"):
-            results, rec = _recorded_run(dict(OWNERSHIP_BASE_PROFILE, ownership_type=own))
+            # without House (round 26 step 8): Progressive HO6 is in the expectations
+            results, rec = _recorded_run(dict(_without_dwelling_type(OWNERSHIP_BASE_PROFILE),
+                                              ownership_type=own))
             rep[own] = {"results": results, **rec}
         recorded.append(rep)
         _dump_runs(_OWNERSHIP_DUMP, OWNERSHIP_BASE_PROFILE, recorded)   # after every rep
@@ -5938,7 +5943,12 @@ def _held_only_on_county(r):
     if r.get("status") != "INSUFFICIENT_INFORMATION":
         return True
     mi = r.get("missing_info", [])
-    return (_county_item_present(mi) and "County hold" in (r.get("notes") or "")
+    # CHANGED (round 26 Tier 2, 2026-10-05): since step 3's compact output
+    # (Liam, decision C) Luna writes the "County" item itself, so the code's
+    # county hold -- and its "County hold" note -- need not fire. Held on
+    # County ALONE (no other open item) is the same finding.
+    county_only = bool(mi) and all(_county_item_present([m]) for m in mi)
+    return (_county_item_present(mi) and ("County hold" in (r.get("notes") or "") or county_only)
             and not any("fire station" in m.lower() and "fpc 9" in m.lower() for m in mi))
 
 
@@ -6380,6 +6390,8 @@ class TestPoolBoxes:
     def test_nothing_here_makes_a_carrier_ineligible(self):
         for fence, gate in [(False, False), (True, False), (False, True), (True, True)]:
             for r in _replayed_run(_boxes(STANDARD_PROFILE, fence, gate), _answer_for(_usable("Owner Occupied"))):
+                if r.get("fixed_row"):
+                    continue   # the closed-program row (Liam, 2026-10-05, round 26 step 9) is not about pools
                 assert r["status"] != "INELIGIBLE", (r["carrier"], fence, gate)
 
     def test_the_gate_table_quotes_each_carriers_own_guide(self):

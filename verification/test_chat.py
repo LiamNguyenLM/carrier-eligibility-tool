@@ -441,7 +441,11 @@ _NEGATED_BEFORE_RE = re.compile(r"(\bnot|n't|\bnever|\bno|\bwithout)\s+(an?\s+|t
 
 
 def _home_decline_claims(lowered):
-    """Each un-negated 'ineligible / declined / not eligible ... home' span."""
+    """Each un-negated 'ineligible / declined / not eligible ... home' span.
+    Markdown emphasis is ignored first: round 26's Tier 2 run (2026-10-05)
+    failed on a correct answer whose negation was bold, "does **not** decline
+    the home"."""
+    lowered = re.sub(r"[*_]+", "", lowered)
     out = []
     for m in _HOME_DECLINE_RE.finditer(lowered):
         if m.group(1) != "not eligible" and _NEGATED_BEFORE_RE.search(lowered[max(0, m.start() - 20):m.start()]):
@@ -454,6 +458,8 @@ def test_home_decline_claims_ignores_negated_mentions_only():
     # negated: not a claim
     assert _home_decline_claims("this is a liability restriction, not a decline of the home.") == []
     assert _home_decline_claims("sage does not decline the home for this.") == []
+    assert _home_decline_claims("this restricts pool liability; it does **not** decline the home.") == []
+    assert _home_decline_claims("it is _not_ a decline of the home") == []
     assert _home_decline_claims("it isn't declined; the home stays eligible") == []
     # claims: still caught
     assert _home_decline_claims("the carrier will decline the home.")

@@ -394,7 +394,7 @@ Output guidelines (keep every card short -- the agent reads dozens of them):
 - reasons: at most 2 items, each at most 20 words, ONLY the deciding facts: the rule the property fails, the fact that is still open, or -- for ELIGIBLE -- the one rule that most needed checking. Never restate a fact that passes.
 - citations: at most 2, each exactly carrier name: "quote" -- the quote and nothing else, no commentary.
 - missing_info: short noun phrases naming each open fact (e.g. "Distance to fire station"), not sentences. List every fact still needed for a final determination.
-- notes: at most one sentence, and empty ("") unless it changes what the agent does (e.g. the roof is settled at ACV, not replacement cost).
+- notes: at most one sentence, and empty ("") unless it changes what the agent does (e.g. the roof is settled at ACV, not replacement cost; or the guide excludes from coverage something this property has, such as wind/hail damage to its solar panels).
 - Do not invent rules not found in the documents
 - You MUST include every single carrier that appears in the provided documents. Never skip or omit a carrier. If you cannot determine eligibility for a carrier from the provided excerpts, use status INSUFFICIENT_INFORMATION. All carriers in the context above must appear in your response.
 - Return ONLY the JSON array, no other text
