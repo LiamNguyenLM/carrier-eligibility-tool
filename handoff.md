@@ -624,6 +624,65 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     145 hand-mapped) and `rules_data/RULE_FIELD_MAP.md`. The evaluator is
     `rules_evaluator.py`. The .xlsx stays untracked, and rows are edited in
     the workbook, never in the CSV.
+  - **The switch (step 3):** ELIGIBILITY_RULES_PILOT=1. ON, the six carriers
+    leave retrieval and the main call. Code decides them from the form. One
+    parallel Luna call sees only the rows code left open. Citations
+    ("[ROW] p.N: quote") are attached by code. OFF sends byte-identical
+    prompts to bb0e983 on STANDARD, ALT, COASTAL_PPC4 and OWNERSHIP_BASE,
+    with and without a partial check.
+  - **Two guards came out of the first measurement:**
+    1. A pilot-call verdict on a row that is open only because the form
+       lacks a fact is held as INSUFFICIENT, listing the facts. Luna said
+       REFER, then ELIGIBLE, on the same open pool-fence rows. REFER or
+       INELIGIBLE stands only on a row the model can decide (readings
+       disagree, or the effect is UNKNOWN).
+    2. The pool-spec guards skip pilot carriers. They only know retrieved
+       carriers, so "not retrieved" read as "no fence spec" and flipped
+       Allied and Swyfft to ELIGIBLE.
+  - **Sage Auros with the pilot ON** (FPC upgrade off; SAG-072..080
+    decide):
+    - STANDARD (PPC 9) is open on SAG-077 ("FPC is 9 or greater, and
+      driving distance to fire station is greater than 5 miles" -> ineligible)
+      and SAG-075 (FPC 4-10, hydrant over 1,000 ft -> conditions).
+    - LIAM and CLEAN (PPC 3, 2) are open on SAG-073 and SAG-074 (FPC 1-3;
+      no close hydrant, or station over 5 miles -> visible from the road,
+      central-station alarm, year-round access).
+    - All three are INSUFFICIENT on station and hydrant distance. The
+      upgrade made CLEAN and OLD ELIGIBLE.
+  - **Measurement (step 4, Luna, 8 profiles x 2 runs x ON/OFF,
+    `verification/measure_rules_pilot.py`):**
+    - Per check: ON $0.0034 and 54.9 s; OFF $0.0039 and 78.3 s.
+    - The six: ON gave the same status in both runs in 48/48 cells. OFF:
+      42/48; its flips are generic "excerpt incomplete" holds and one
+      omission.
+    - Real ON differences:
+      - Galvanized declines OFF missed: Allied ALL-057 on OLD; Swyfft
+        SWY-026 on OLD, where OFF gave ELIGIBLE both runs.
+      - CHUBB REFER under $1M (CHU-056, Liam 2026-10-01) on CLEAN, where OFF
+        held on generic items.
+      - Mercury and Progressive ELIGIBLE on CLEAN, where OFF held on generic
+        items and a "PEX year" question for a 2015 house.
+      - Sage Auros as above.
+      - The Tier 2 profiles have no dwelling type, which the live form
+        always asks. Their extra ON holds (MER-078/081, PRO-017, CHU-056/059)
+        all clear with House.
+    - CLEAN false holds: ON 4-7 carriers, OFF 13-16.
+  - **OPEN, found by the measurement:**
+    - Other carriers move with the pilot ON: 96/336 carrier-runs differ ON
+      vs OFF, against 28/168 OFF vs OFF. Their own prompt text is
+      unchanged; only the six's sections are gone.
+    - Luna answers under display names more often with the pilot ON
+      ("SageSure Markel", "Orion180"). Names that fail to resolve become
+      NOT_EVALUATED rows: 24 in 16 ON runs, 16 in 16 OFF runs.
+      "Swyfft - Benchmark" resolves to (Admitted) although Luna meant
+      (Surplus). A fixed carrier enum in the output schema would end this,
+      but it would change OFF too.
+    - Non-pilot carriers holding on blank Coverage A alone (OFF, Luna): 2
+      of 10 runs on blank-Coverage-A profiles, both Liberty Mutual on
+      STANDARD.
+  - **Not this round:** setting the pilot var on Railway (Liam); the DD-5
+    re-seed; extending the table to the other 34 guides; whether the
+    pipeline should stop holding on blank Coverage A for non-pilot carriers.
 
 ## Open work, in priority order (updated 2026-10-02)
 
