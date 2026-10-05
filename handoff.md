@@ -604,6 +604,27 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       roofer's-letter rule. Its roof rule is that a roof with "less than 5
       years of useful life expectancy" is ineligible.
 
+- **2026-10-04 — Round 25 (Liam's decisions dated 2026-10-03).**
+  - **1. Blank Coverage A or blank County:** the rules table shows the
+    carrier's rule as a NOTE ("... ; confirm"), never a hold. The two
+    holds that already exist stay: Sage's county rule (round 19) and
+    CHUBB's Coverage A rule (rounds 19-20).
+  - **2. Condition standards** (Tool handling CONDITION_STANDARD: roof in
+    good condition, no debris, pool maintained, handrails) are notes, never
+    a hold, like inspections.
+  - **3. The C2 pilot** covers Allied Trust HO3, Sage Auros HO3, CHUBB HO,
+    Mercury HO3, Progressive HO3 and Swyfft Benchmark (Admitted) HO3.
+    Every other carrier stays on today's pipeline. It runs behind
+    ELIGIBILITY_RULES_PILOT, default OFF. **Do not set it on Railway**;
+    Liam decides after the round 25 measurement.
+  - **Rules data in the repo:** `rules_data/carrier_rules_pilot_v3.csv` (pilot
+    workbook v3, which applies round 24's four flags: PRO-018 and SWY-018
+    INFO_ONLY, PRO-038 a CONDITION on replaced plumbing, ALL-067
+    IGNORE_INSPECTION). Also `rules_data/rule_field_map.csv` (541 lines,
+    145 hand-mapped) and `rules_data/RULE_FIELD_MAP.md`. The evaluator is
+    `rules_evaluator.py`. The .xlsx stays untracked, and rows are edited in
+    the workbook, never in the CSV.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
