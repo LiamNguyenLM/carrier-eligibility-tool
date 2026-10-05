@@ -902,34 +902,49 @@ class TestBucketAssignment:
     == INELIGIBLE, 9-for-9 "Not Eligible" == INSUFFICIENT_INFORMATION).
     Fixed by mapping each of the four buckets to exactly one status --
     these tests encode the exact failure shape directly, with no LLM call
-    needed since assign_buckets() is pure Python."""
+    needed since assign_buckets() is pure Python.
+
+    CHANGED DELIBERATELY (Liam, 2026-10-05, decision A): the middle bucket
+    is "Refer to Underwriting" (key "refer") and holds REFER only; every
+    INELIGIBLE goes to "not_eligible" whatever its flaw_count. The tests
+    below that put a single-flaw INELIGIBLE in "one_issue" now assert the
+    opposite."""
 
     def _make(self, status, flaw_count=0, carrier="X"):
         return {"carrier": carrier, "status": status, "flaw_count": flaw_count}
 
-    def test_ineligible_single_flaw_goes_to_one_issue_not_not_eligible(self):
+    def test_ineligible_single_flaw_goes_to_not_eligible(self):
+        # Was ..._goes_to_one_issue_not_not_eligible until Liam's 2026-10-05
+        # decision A.
         results = [self._make("INELIGIBLE", flaw_count=1)]
         buckets = assign_buckets(results)
-        assert buckets["one_issue"] == results
-        assert buckets["not_eligible"] == []
+        assert buckets["not_eligible"] == results
+        assert buckets["refer"] == []
+
+    @pytest.mark.parametrize("flaw_count", [0, 1, 2, 5])
+    def test_every_ineligible_goes_to_not_eligible_whatever_its_flaw_count(self, flaw_count):
+        results = [self._make("INELIGIBLE", flaw_count=flaw_count)]
+        assert assign_buckets(results)["not_eligible"] == results
 
     def test_insufficient_information_goes_to_its_own_bucket_not_not_eligible(self):
         results = [self._make("INSUFFICIENT_INFORMATION")]
         buckets = assign_buckets(results)
         assert buckets["insufficient_info"] == results
         assert buckets["not_eligible"] == []
-        assert buckets["one_issue"] == []
+        assert buckets["refer"] == []
 
     def test_ineligible_multi_flaw_goes_to_not_eligible(self):
         results = [self._make("INELIGIBLE", flaw_count=3)]
         buckets = assign_buckets(results)
         assert buckets["not_eligible"] == results
-        assert buckets["one_issue"] == []
+        assert buckets["refer"] == []
 
-    def test_refer_goes_to_one_issue(self):
+    def test_refer_goes_to_refer_to_underwriting(self):
+        # Was test_refer_goes_to_one_issue (the column was renamed 2026-10-05).
         results = [self._make("REFER")]
         buckets = assign_buckets(results)
-        assert buckets["one_issue"] == results
+        assert buckets["refer"] == results
+        assert buckets["not_eligible"] == []
 
     def test_every_status_lands_in_exactly_one_bucket(self):
         """The bucket/label bug took three rounds to catch because a status
@@ -982,13 +997,16 @@ class TestBucketAssignment:
         results = [self._make("INELIGIBLE", flaw_count=1, carrier=f"one-issue-{i}") for i in range(5)]
         results += [self._make("INSUFFICIENT_INFORMATION", carrier=f"insufficient-{i}") for i in range(9)]
         buckets = assign_buckets(results)
-        assert len(buckets["one_issue"]) == 5
-        assert all(r["status"] == "INELIGIBLE" for r in buckets["one_issue"])
+        # CHANGED (Liam, 2026-10-05, decision A): the 5 single-flaw declines
+        # are Not Eligible now, not "One Issue".
+        assert len(buckets["not_eligible"]) == 5
+        assert all(r["status"] == "INELIGIBLE" for r in buckets["not_eligible"])
+        assert buckets["refer"] == []
         assert len(buckets["insufficient_info"]) == 9
         assert all(r["status"] == "INSUFFICIENT_INFORMATION" for r in buckets["insufficient_info"])
         # the actual bug: "not_eligible" must NOT silently absorb the 9
         # INSUFFICIENT_INFORMATION carriers just because they're not ELIGIBLE
-        assert buckets["not_eligible"] == []
+        assert not any(r["status"] == "INSUFFICIENT_INFORMATION" for r in buckets["not_eligible"])
 
 
 # ---------------------------------------------------------------------------
@@ -1997,10 +2015,8 @@ class TestBaselineCoastalPPC4Profile:
         buckets = assign_buckets(self.result)
         assert all(r["status"] == "INELIGIBLE" for r in buckets["not_eligible"])
         assert all(r["status"] == "INSUFFICIENT_INFORMATION" for r in buckets["insufficient_info"])
-        assert all(
-            (r["status"] == "INELIGIBLE" and r.get("flaw_count", 0) == 1) or r["status"] == "REFER"
-            for r in buckets["one_issue"]
-        )
+        # Liam, 2026-10-05 (decision A): the middle column is referrals only.
+        assert all(r["status"] == "REFER" for r in buckets["refer"])
 
     def test_twico_mentions_roof_or_tile_at_all(self):
         r = self._find("TWICO")
@@ -2675,12 +2691,13 @@ def test_insufficient_information_bucket_label_is_not_truncated():
         os.path.join(os.path.dirname(__file__), "..", "app.py"), encoding="utf-8"
     ).read()
     assert 'st.markdown("### Insufficient Information")' in app_src
-    for label in ("### Eligible", "### One Issue", "### Not Eligible", "### Could Not Be Checked"):
+    # "One Issue" was renamed "Refer to Underwriting" (Liam, 2026-10-05).
+    for label in ("### Eligible", "### Refer to Underwriting", "### Not Eligible", "### Could Not Be Checked"):
         assert f'st.markdown("{label}")' in app_src, f"bucket header {label!r} missing"
     # Step 2 (2026-09-29): two pipeline-written buckets, rendered together
     # under "Could Not Be Checked".
     assert set(assign_buckets([]).keys()) == {
-        "eligible", "one_issue", "insufficient_info", "not_eligible",
+        "eligible", "refer", "insufficient_info", "not_eligible",
         "guide_unavailable", "not_evaluated", "unrecognised",
     }
     for bucket in ("unrecognised", "guide_unavailable", "not_evaluated"):
@@ -3389,32 +3406,23 @@ class TestRound14CentauriFlatRoof:
 
 
 @pytest.mark.retrieval
-def test_only_the_mixed_status_buckets_carry_a_status_suffix():
-    """Which buckets render a "| STATUS" suffix on each carrier, and which
-    render the bare carrier name.
+def test_no_bucket_carries_a_status_suffix_since_each_holds_one_status():
+    """Which buckets render a "| STATUS" suffix on each carrier.
 
-    Asked twice by manual audits. Round 13's question was about the bucket
-    HEADER ("Insufficient Information" arriving as just "Information") --
-    that header is complete in the source and the truncation was a
-    column-wrap copy artifact. Round 15's question is a DIFFERENT element:
-    the per-carrier suffix. Ten carriers landed in Insufficient Information
-    with no "| STATUS" tag while One Issue and Not Eligible carriers all had
-    one. That is real, it is by design, and the copy-paste was faithful.
+    Asked twice by manual audits (rounds 13 and 15). Until 2026-10-05 the
+    "One Issue" bucket mixed INELIGIBLE (flaw_count 1) and REFER, so it and
+    Not Eligible carried the suffix while Eligible and Insufficient
+    Information did not.
 
-    The reason is that One Issue is the only bucket that can hold more than
-    one status -- assign_buckets() puts both INELIGIBLE-with-flaw_count-1 and
-    REFER in it, so the tag is doing real work there. Eligible and
-    Insufficient Information each map to exactly one status, so a tag would
-    only restate the column header.
-
-    Locked in so a third audit doesn't have to ask. If someone deliberately
-    makes the tagging uniform, this test should be updated, not deleted --
-    the point is that the choice is explicit rather than accidental.
+    CHANGED DELIBERATELY (Liam, 2026-10-05, decision A): the middle column is
+    "Refer to Underwriting" and holds REFER only; Not Eligible holds every
+    INELIGIBLE. Every column now maps to exactly one status, so no card
+    repeats the header. Updated, not deleted, so the choice stays explicit.
     """
     app_src = open(
         os.path.join(os.path.dirname(__file__), "..", "app.py"), encoding="utf-8"
     ).read()
-    section = app_src[app_src.find("col_yes, col_one, col_info, col_no"):]
+    section = app_src[app_src.find("col_yes, col_refer, col_info, col_no"):]
     section = section[:section.find("# ===")] if "# ===" in section else section
 
     def bucket_body(name):
@@ -3424,8 +3432,7 @@ def test_only_the_mixed_status_buckets_carry_a_status_suffix():
         nxt = rest.find("with col_", 1)
         return rest[:nxt] if nxt != -1 else rest
 
-    # Buckets holding exactly one status -> bare carrier name.
-    for name in ("Eligible", "Insufficient Information"):
+    for name in ("Eligible", "Refer to Underwriting", "Insufficient Information", "Not Eligible"):
         body = bucket_body(name)
         assert 'st.expander(carrier["carrier"])' in body, (
             f"{name!r} bucket no longer renders the bare carrier name"
@@ -3435,24 +3442,16 @@ def test_only_the_mixed_status_buckets_carry_a_status_suffix():
             f"status, so the suffix would only restate the column header"
         )
 
-    # One Issue genuinely mixes INELIGIBLE(flaw_count==1) and REFER.
-    one_issue = bucket_body("One Issue")
-    assert 'carrier.get("status", "").replace("_", " ")' in one_issue
-    assert '+ "  |  " +' in one_issue, (
-        "One Issue is the only bucket that can hold two different statuses -- dropping "
-        "its suffix would make INELIGIBLE and REFER indistinguishable in the UI"
-    )
-
-    # Sanity: that mixing claim is a property of assign_buckets, not folklore.
+    # That each bucket holds one status is a property of assign_buckets.
     mixed = assign_buckets([
         {"carrier": "a", "status": "INELIGIBLE", "flaw_count": 1},
         {"carrier": "b", "status": "REFER", "flaw_count": 0},
+        {"carrier": "c", "status": "INELIGIBLE", "flaw_count": 2},
+        {"carrier": "d", "status": "INSUFFICIENT_INFORMATION", "flaw_count": 0},
     ])
-    assert {r["status"] for r in mixed["one_issue"]} == {"INELIGIBLE", "REFER"}
-    single = assign_buckets([
-        {"carrier": "c", "status": "INSUFFICIENT_INFORMATION", "flaw_count": 0},
-    ])
-    assert {r["status"] for r in single["insufficient_info"]} == {"INSUFFICIENT_INFORMATION"}
+    assert {r["status"] for r in mixed["refer"]} == {"REFER"}
+    assert {r["status"] for r in mixed["not_eligible"]} == {"INELIGIBLE"}
+    assert {r["status"] for r in mixed["insufficient_info"]} == {"INSUFFICIENT_INFORMATION"}
 
 
 @pytest.mark.retrieval
@@ -4711,7 +4710,7 @@ def _score_ownership_runs(reps, universe=()):
                           and any(frag in _compare_key(x) for x in r.get("citations", [])))
                 elif g.startswith("Trust: REFER"):
                     # The status, not only the wording: REFER is its own UI
-                    # bucket (One Issue), and SYSTEM_INSTRUCTIONS ranks it
+                    # bucket (Refer to Underwriting), and SYSTEM_INSTRUCTIONS ranks it
                     # above INSUFFICIENT_INFORMATION when the carrier's own
                     # text offers a referral path for this situation.
                     ok = r.get("status") == "REFER" and _trust_referral_surfaced(r, c)
@@ -4833,7 +4832,7 @@ def _dumped_record(rep, ownership, carrier, universe):
     strict=False,
 )
 def test_allied_trust_trust_is_refer_on_its_approval_row():
-    """The exact finding: status REFER (the One Issue bucket), with the
+    """The exact finding: status REFER (now the Refer to Underwriting bucket), with the
     referral stated about the trust -- the grantor condition alone is not
     enough."""
     universe = get_carriers_for_occupancy("Owner Occupied")
@@ -5560,13 +5559,18 @@ class TestNoSilentlyEmptyResult:
         assert usable_answer_count(results) == 0
         assert _all_placed_once(results)
 
-    @pytest.mark.parametrize("flaw, one_issue", [('"1"', True), ('"2"', False), ('"one"', False),
-                                                 ("null", False), ("1.0", True)])
-    def test_flaw_count_is_coerced_to_an_int(self, flaw, one_issue):
+    @pytest.mark.parametrize("flaw, as_int", [('"1"', 1), ('"2"', 2), ('"one"', None),
+                                              ("null", None), ("1.0", 1)])
+    def test_flaw_count_is_coerced_to_an_int(self, flaw, as_int):
         results = _replay_live(_with_status("INELIGIBLE", flaw))
         model = [r for r in results if r["status"] == "INELIGIBLE"]
         assert model and all(isinstance(r["flaw_count"], int) for r in model)
-        assert (len(assign_buckets(results)["one_issue"]) == len(model)) is one_issue
+        if as_int is not None:
+            assert all(r["flaw_count"] == as_int for r in model)
+        # CHANGED (Liam, 2026-10-05, decision A): flaw_count no longer picks
+        # the bucket -- every INELIGIBLE is Not Eligible. This used to assert
+        # that only a coerced 1 landed in "One Issue".
+        assert len(assign_buckets(results)["not_eligible"]) == len(model)
         assert _all_placed_once(results)
 
     def test_an_unrecognised_record_does_not_cover_a_real_carrier(self):

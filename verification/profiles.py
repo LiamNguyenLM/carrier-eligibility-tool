@@ -154,3 +154,33 @@ OWNERSHIP_BASE_PROFILE = {
     "solar_panels": "No",
     "ppc": "3",
 }
+
+
+# Liam's live check on Railway, 27870a0 (round 26, 2026-10-05). Exactly what
+# the form sent: the unchecked widgets keep their defaults (roof age 10,
+# Composition Shingle, Gable, Frame, Not Coastal, no dogs), and only the
+# topics in LIVE_CHECKED are considered. ZIP 75094 picks Collin (100%).
+LIVE_PROFILE = {
+    "year_built": 2007,
+    "roof_age": 10,
+    "roof_type": "Composition Shingle",
+    "roof_shape": "Gable",
+    "construction_type": "Frame",
+    "plumbing_type": "PVC",
+    "occupancy_type": "Owner Occupied",
+    "ownership_type": "Individual Owner",
+    "coastal_tier": "Not Coastal",
+    "swimming_pool": "No Pool",
+    "pool_accessories": "None",
+    "pool_fence_4ft": False,
+    "pool_gate_locking": False,
+    "has_dogs": "No",
+    "aggressive_breed": "No",
+    "solar_panels": "Yes",
+    "ppc": "3",
+    "zip": "75094",
+    "county": "Collin",
+    "dwelling_amount": None,
+    "dwelling_type": "House",
+}
+LIVE_CHECKED = ["ppc", "home_age", "pool", "plumbing", "solar", "county"]

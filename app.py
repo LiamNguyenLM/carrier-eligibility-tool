@@ -340,7 +340,7 @@ with tab1:
 
         buckets = assign_buckets(results)
         eligible = buckets["eligible"]
-        one_issue = buckets["one_issue"]
+        refer = buckets["refer"]
         insufficient_info = buckets["insufficient_info"]
         not_eligible = buckets["not_eligible"]
 
@@ -377,7 +377,7 @@ with tab1:
                     for item in confirm:
                         st.markdown("- " + item)
 
-        col_yes, col_one, col_info, col_no = st.columns(4)
+        col_yes, col_refer, col_info, col_no = st.columns(4)
 
         with col_yes:
             st.markdown("### Eligible")
@@ -390,15 +390,17 @@ with tab1:
             else:
                 st.info("No carriers fully eligible.")
 
-        with col_one:
-            st.markdown("### One Issue")
-            if one_issue:
-                for carrier in one_issue:
-                    label = carrier.get("status", "").replace("_", " ")
-                    with st.expander(carrier["carrier"] + "  |  " + label):
+        # Liam, 2026-10-05 (decision A): this column holds referrals only;
+        # every INELIGIBLE is under Not Eligible, whatever its flaw_count.
+        # Each column now holds one status, so no card repeats it.
+        with col_refer:
+            st.markdown("### Refer to Underwriting")
+            if refer:
+                for carrier in refer:
+                    with st.expander(carrier["carrier"]):
                         render_carrier(carrier)
             else:
-                st.info("No carriers with a single resolvable issue.")
+                st.info("No carriers to refer to underwriting.")
 
         with col_info:
             st.markdown("### Insufficient Information")
@@ -413,8 +415,7 @@ with tab1:
             st.markdown("### Not Eligible")
             if not_eligible:
                 for carrier in not_eligible:
-                    label = carrier.get("status", "").replace("_", " ")
-                    with st.expander(carrier["carrier"] + "  |  " + label):
+                    with st.expander(carrier["carrier"]):
                         render_carrier(carrier)
             else:
                 st.success("No carriers fully ineligible.")

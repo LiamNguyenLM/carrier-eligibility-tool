@@ -684,6 +684,24 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     re-seed; extending the table to the other 34 guides; whether the
     pipeline should stop holding on blank Coverage A for non-pilot carriers.
 
+- **2026-10-05 — Round 26 (Liam's decisions dated 2026-10-05).** Liam pushed
+  main at 27870a0. Source: his live check on Railway, kept as the LIVE
+  profile (verification/profiles.py: PPC 3, Owner Occupied, Individual, built
+  2007, No Pool, PVC, Solar Yes, ZIP 75094 -> Collin, House; everything
+  else unchecked).
+  - **A. Buckets:** the middle column is "Refer to Underwriting" and holds
+    REFER only. Every INELIGIBLE goes to "Not Eligible", whatever its
+    flaw_count. On LIVE, four Sage carriers declined on the territory showed
+    under "One Issue" (flaw_count 1) while Trium, with the same reason, showed
+    under "Not Eligible" (flaw_count 2).
+  - **B.** Two optional fields: "Distance to fire station (miles)" and
+    "Hydrant within 1,000 ft" (Yes / No / Unknown).
+  - **C.** Cards must be much more compact.
+  - **D.** Condition standards ("in good / proper working condition", "well
+    maintained", "meets building codes", "no debris") are notes, never a
+    hold, in the WHOLE tool -- like inspections. (2026-10-03 applied this
+    to the pilot only.)
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"

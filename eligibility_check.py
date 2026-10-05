@@ -3831,38 +3831,30 @@ def _add_fixed_rows(results, relevant_carriers, unavailable, defects, unrecognis
 
 
 def assign_buckets(results):
-    """Split check_eligibility() results into the four UI buckets, one per
-    actual status -- plus one bucket each for the two pipeline-written
-    statuses, GUIDE_UNAVAILABLE and NOT_EVALUATED. Extracted out of app.py so it's testable without a
-    Streamlit session -- this exact logic was the source of a labeling bug
-    confirmed identically across three separate audit rounds and three
-    customer profiles: the old 3-bucket version collapsed REFER and
-    single-flaw INELIGIBLE into "One Issue" and everything else into "Not
-    Eligible", which assumed REFER would be common and INSUFFICIENT_INFORMATION
-    rare. Once this tool started deliberately avoiding REFER (a flat rule
-    blocked on one missing fact is INSUFFICIENT_INFORMATION, not a referral --
-    see the status decision rule in SYSTEM_INSTRUCTIONS), REFER nearly stopped
-    firing and INSUFFICIENT_INFORMATION became common, so "One Issue" ended up
-    holding only hard INELIGIBLE declines (backwards -- that label implies
-    something soft) and "Not Eligible" ended up holding only
-    INSUFFICIENT_INFORMATION carriers (also backwards -- those aren't
-    declined, they're unresolved). Each bucket below maps to exactly one
-    status so a relabeling of ANY status can never produce a mixed, mislabeled
-    bucket again."""
+    """Split check_eligibility() results into the UI buckets, one per actual
+    status, plus one bucket each for the two pipeline-written statuses
+    (GUIDE_UNAVAILABLE, NOT_EVALUATED) and a catch-all. Extracted out of
+    app.py so it's testable without a Streamlit session.
+
+    CHANGED (Liam, 2026-10-05, decision A): the middle column holds REFERRALS
+    ONLY and is labelled "Refer to Underwriting"; every INELIGIBLE goes to
+    "Not Eligible", whatever its flaw_count. Before this, a single-flaw
+    INELIGIBLE sat under "One Issue" -- so on Liam's live check four Sage
+    carriers declined for the same territory reason as Sage Trium appeared
+    under "One Issue" while Trium (flaw_count 2) appeared under "Not
+    Eligible". flaw_count no longer decides a bucket.
+
+    History: rounds 9-11 found the old 3-bucket version mislabeling
+    INSUFFICIENT_INFORMATION as "Not Eligible"; that is why each bucket maps
+    to exactly one status, so a relabeling of ANY status can never produce a
+    mixed, mislabeled bucket again."""
     eligible = [r for r in results if r.get("status") == "ELIGIBLE"]
-    one_issue = [
-        r for r in results
-        if (r.get("status") == "INELIGIBLE" and r.get("flaw_count", 0) == 1)
-        or r.get("status") == "REFER"
-    ]
+    refer = [r for r in results if r.get("status") == "REFER"]
     insufficient_info = [r for r in results if r.get("status") == "INSUFFICIENT_INFORMATION"]
-    not_eligible = [
-        r for r in results
-        if r.get("status") == "INELIGIBLE" and r.get("flaw_count", 0) != 1
-    ]
+    not_eligible = [r for r in results if r.get("status") == "INELIGIBLE"]
     return {
         "eligible": eligible,
-        "one_issue": one_issue,
+        "refer": refer,
         "insufficient_info": insufficient_info,
         "not_eligible": not_eligible,
         "guide_unavailable": [r for r in results if r.get("status") == GUIDE_UNAVAILABLE],
