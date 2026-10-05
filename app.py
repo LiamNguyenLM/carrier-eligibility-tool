@@ -14,6 +14,8 @@ from eligibility_check import check_eligibility, assign_buckets, usable_answer_c
 import intake_fields
 import topics
 import cards
+
+FORM_SCOPE_CAPTION = "Only checked items are considered. Inspections and the condition of the home are not checked."
 from upload_carrier import (
     add_carrier_to_database,
     remove_carrier_from_database,
@@ -107,6 +109,8 @@ with tab1:
     sel1, sel2, _ = st.columns([1, 1, 4])
     sel1.button("Select All", key="select_all", on_click=_set_all, args=(True,))
     sel2.button("Clear", key="clear_all", on_click=_set_all, args=(False,))
+    # Round 26 step 11 (Liam, 2026-10-05; decisions D and 2026-10-01).
+    st.caption(FORM_SCOPE_CAPTION)
 
     st.subheader("📍 Location")
     col1, col2 = st.columns(2)

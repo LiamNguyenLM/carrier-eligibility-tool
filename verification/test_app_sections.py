@@ -85,3 +85,9 @@ def test_could_not_be_checked_has_no_empty_bullet_and_no_empty_details(app):
     assert any("left it out" in m for m in details)
     assert not any("<li></li>" in m or "<li> </li>" in m for m in md)
     assert not any(m.strip() in ("-", "- ", "*") for m in md)
+
+
+# Round 26 step 11 (Liam, 2026-10-05)
+def test_the_form_says_once_what_is_and_is_not_checked(app):
+    caption = "Only checked items are considered. Inspections and the condition of the home are not checked."
+    assert [c.value for c in app.caption].count(caption) == 1
