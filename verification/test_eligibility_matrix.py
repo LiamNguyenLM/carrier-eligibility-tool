@@ -7431,7 +7431,13 @@ class TestSageTerritoryGuard:
 
     @pytest.mark.parametrize("carrier", ["Sage_-_Markel_HO3", "Sage_-_Vave_HO3_-_07.01.2026"])
     def test_markel_and_vave_are_untouched(self, carrier):
-        r = _decline(carrier, "Harris", reasons=(_LUNA_HARRIS_DECLINE,))
+        # CHANGED (Liam, 2026-10-05, round 26 step 4): no citation. The default
+        # fixture citation is the East Texas county sentence, which is in Sage
+        # Auros's guide and in neither Markel's nor Vave's; the content check
+        # now (correctly) removes it as Auros's and downgrades the decline it
+        # alone supported. What this test guards -- the territory guard
+        # leaves Markel and Vave alone -- does not depend on it.
+        r = _decline(carrier, "Harris", reasons=(_LUNA_HARRIS_DECLINE,), citations=[])
         assert r["status"] == "INELIGIBLE" and _LUNA_HARRIS_DECLINE in r["reasons"]
 
     @pytest.mark.parametrize("status", ["ELIGIBLE", "REFER", "INSUFFICIENT_INFORMATION"])
