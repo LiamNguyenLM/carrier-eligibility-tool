@@ -718,6 +718,23 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       Insufficient -> Eligible. Its rule is "unprotected ground mounted
       solar panels", and the prompt defines Solar Panels: Yes as panels
       mounted on the roof; the old hold asked for the mount location.
+  - **Step 8 (carrier enum; pilot ON vs OFF):**
+    - The strict schema's "carrier" is an enum of the call's own program
+      names; ELIGIBILITY_CARRIER_ENUM=0 turns it off.
+    - Round 25 profiles, 2 runs each, Luna:
+      - Unresolved display names: pilot ON 50 -> 0; pilot OFF 0 -> 0.
+      - NOT_EVALUATED rows, pilot ON: 6 -> 2.
+      - NOT_EVALUATED rows, pilot OFF: 7 -> 8. These are real omissions,
+        which an enum cannot stop.
+    - The Tier 2 profiles now carry Dwelling type House (dated).
+    - Other carriers, pilot ON vs OFF (enum on, this round's prompt):
+      - 5 of 168 carrier-profile cells change in both runs; OFF vs OFF
+        differs in 22. Round 25 was 96/336 vs 28/168.
+      - 19 cells where both ON runs agree and differ from an OFF run,
+        judged against the guides: ON right 16, OFF right 3.
+      - ON's misses: Markel's pool rule twice (a liability-coverage
+        condition treated as a hold) and Travelers' "Renovations Section
+        must be completed" (application paperwork).
 
 ## Open work, in priority order (updated 2026-10-02)
 

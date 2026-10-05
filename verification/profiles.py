@@ -19,6 +19,9 @@ STANDARD_PROFILE = {
     "aggressive_breed": "No",
     "solar_panels": "No",
     "ppc": "9",
+    # Liam, 2026-10-05 (round 26 step 8): the live form always sends a
+    # Dwelling type (round 21 made it required), so the Tier 2 profiles do too.
+    "dwelling_type": "House",
 }
 
 # The alternate profile introduced in round 10 -- a genuinely different
@@ -41,6 +44,9 @@ ALT_PROFILE = {
     "aggressive_breed": "No",
     "solar_panels": "Yes",
     "ppc": "1",
+    # Liam, 2026-10-05 (round 26 step 8): the live form always sends a
+    # Dwelling type (round 21 made it required), so the Tier 2 profiles do too.
+    "dwelling_type": "House",
 }
 
 # Round 12's audit profile -- a third, again genuinely different customer
@@ -64,6 +70,9 @@ COASTAL_PPC4_PROFILE = {
     "aggressive_breed": "No",
     "solar_panels": "No",
     "ppc": "4",
+    # Liam, 2026-10-05 (round 26 step 8): the live form always sends a
+    # Dwelling type (round 21 made it required), so the Tier 2 profiles do too.
+    "dwelling_type": "House",
 }
 
 
@@ -153,6 +162,9 @@ OWNERSHIP_BASE_PROFILE = {
     "aggressive_breed": "No",
     "solar_panels": "No",
     "ppc": "3",
+    # Liam, 2026-10-05 (round 26 step 8): the live form always sends a
+    # Dwelling type (round 21 made it required), so the Tier 2 profiles do too.
+    "dwelling_type": "House",
 }
 
 

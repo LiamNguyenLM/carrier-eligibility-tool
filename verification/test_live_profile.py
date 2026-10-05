@@ -272,3 +272,37 @@ def test_a_held_carrier_with_another_open_item_stays_held():
                       if n == ORION else {})
     r = res[ORION]
     assert r["status"] == "INSUFFICIENT_INFORMATION" and r["missing_info"] == ["Distance to fire station"]
+
+
+# -- Step 8: the carrier enum -------------------------------------------------------
+def test_the_schema_limits_carrier_to_the_programs_of_the_call():
+    schema = ec._results_schema(["TWICO_HO3", "ARI_(HOB)"])
+    carrier = schema["properties"]["carriers"]["items"]["properties"]["carrier"]
+    assert carrier == {"type": "string", "enum": ["ARI_(HOB)", "TWICO_HO3"]}
+    # the shared constant is not mutated
+    assert "enum" not in ec.CARRIER_RESULTS_SCHEMA["properties"]["carriers"]["items"]["properties"]["carrier"]
+    assert ec._results_schema(None) is ec.CARRIER_RESULTS_SCHEMA
+
+
+def test_the_main_call_enum_is_exactly_the_carriers_in_its_prompt(monkeypatch):
+    seen = {}
+
+    def fake(system, user, max_tokens):
+        seen["enum"] = list(getattr(ec._CALL, "carriers", None) or [])
+        seen["prompt"] = set(re.findall(r"\n--- (.+?) \(page", user))
+        return json.dumps({"carriers": []}), dict(USAGE)
+
+    monkeypatch.setattr(ec, "_complete", fake)
+    ec.check_eligibility(dict(LIVE_PROFILE), checked_topics=list(LIVE_CHECKED))
+    assert seen["prompt"] and seen["prompt"] <= set(seen["enum"])
+    assert not any("Occidental_HO3" in c or "Centauri_-_HO3" in c for c in seen["enum"])   # wrong guides
+    assert ec._CALL.carriers is None                                                       # reset after
+
+
+def test_the_enum_can_be_turned_off_for_measurement(monkeypatch):
+    monkeypatch.setattr(ec, "CARRIER_ENUM", False)
+    seen = {}
+    monkeypatch.setattr(ec, "_complete", lambda s, u, m: (seen.setdefault("enum", getattr(ec._CALL, "carriers", None)),
+                                                           (json.dumps({"carriers": []}), dict(USAGE)))[1])
+    ec.check_eligibility(dict(LIVE_PROFILE), checked_topics=list(LIVE_CHECKED))
+    assert seen["enum"] is None

@@ -3,10 +3,12 @@ load_dotenv()
 
 from langchain_community.vectorstores import Chroma
 import anthropic
+import copy
 import difflib
 import json
 import os
 import re
+import threading
 from datetime import date
 import streamlit as st
 
@@ -141,6 +143,36 @@ CARRIER_RESULTS_SCHEMA = {
     },
 }
 
+# Round 26 step 8 (Liam, 2026-10-05): the strict schema's "carrier" is an enum
+# of the exact program names the call is about, so Luna cannot answer under a
+# display name ("Orion180", "SageSure Markel") that resolves to nothing and
+# leaves the real program NOT_EVALUATED (round 25: 24 such rows in 16 pilot-ON
+# runs, 16 in 16 OFF). Set per call through a thread-local, because the main
+# and pilot calls run in parallel and tests replace _complete with
+# three-argument fakes. ELIGIBILITY_CARRIER_ENUM=0 turns it off (measurement).
+CARRIER_ENUM = os.environ.get("ELIGIBILITY_CARRIER_ENUM", "1") == "1"
+_CALL = threading.local()
+
+
+def _results_schema(carriers):
+    """CARRIER_RESULTS_SCHEMA, with "carrier" limited to `carriers` when given."""
+    if not carriers:
+        return CARRIER_RESULTS_SCHEMA
+    schema = copy.deepcopy(CARRIER_RESULTS_SCHEMA)
+    schema["properties"]["carriers"]["items"]["properties"]["carrier"] = {
+        "type": "string", "enum": sorted(set(carriers))}
+    return schema
+
+
+def _complete_named(carriers, system_text, user_content, max_tokens):
+    """_complete, with the schema's carrier enum set to `carriers` for this call."""
+    _CALL.carriers = list(carriers) if CARRIER_ENUM else None
+    try:
+        return _complete(system_text, user_content, max_tokens)
+    finally:
+        _CALL.carriers = None
+
+
 _openai_client = None
 
 
@@ -222,7 +254,7 @@ def _complete_openai(system_text, user_content, max_tokens):
         kwargs["response_format"] = {
             "type": "json_schema",
             "json_schema": {"name": "carrier_results", "strict": True,
-                            "schema": CARRIER_RESULTS_SCHEMA},
+                            "schema": _results_schema(getattr(_CALL, "carriers", None))},
         }
     response = _get_openai_client().chat.completions.create(**kwargs)
     usage = response.usage
@@ -3381,13 +3413,15 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
                          + _partial_check_instruction(checked) + "\n\n"
                          + rules_evaluator.evidence_text(pilot["open"]))
         with ThreadPoolExecutor(max_workers=2) as pool:
-            main_future = pool.submit(_complete, SYSTEM_INSTRUCTIONS, user_content, MAX_RESPONSE_TOKENS)
-            pilot_future = pool.submit(_complete, SYSTEM_INSTRUCTIONS, pilot_content, MAX_RESPONSE_TOKENS)
+            main_future = pool.submit(_complete_named, relevant_carriers, SYSTEM_INSTRUCTIONS, user_content,
+                                      MAX_RESPONSE_TOKENS)
+            pilot_future = pool.submit(_complete_named, list(pilot["open"]), SYSTEM_INSTRUCTIONS,
+                                       pilot_content, MAX_RESPONSE_TOKENS)
             raw, usage = main_future.result()
             pilot_raw, pilot_usage = pilot_future.result()
         pilot["records"] += _rules_pilot_model_records(pilot_raw, pilot["open"])
     else:
-        raw, usage = _complete(SYSTEM_INSTRUCTIONS, user_content, MAX_RESPONSE_TOKENS)
+        raw, usage = _complete_named(relevant_carriers, SYSTEM_INSTRUCTIONS, user_content, MAX_RESPONSE_TOKENS)
         pilot_usage = None
     LAST_CALL_USAGE.clear()
     LAST_CALL_USAGE.update(main=usage, pilot=pilot_usage)

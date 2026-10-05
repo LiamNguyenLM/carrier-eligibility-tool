@@ -4252,6 +4252,15 @@ def test_allied_trust_llc_is_ineligible_on_its_own_rule_consistency(record_prope
 
 from profiles import OWNERSHIP_BASE_PROFILE
 
+
+def _without_dwelling_type(profile):
+    """The profile as it was before round 26 step 8 gave the Tier 2 profiles
+    "dwelling_type": "House" (Liam, 2026-10-05). House routes the condo
+    (HO6) programs out, so tests about those programs -- the Progressive HO6
+    ownership rules, Liberty Mutual HO6's wrong-guide row -- and tests about
+    BLANK optional fields use the profile without it."""
+    return {k: v for k, v in profile.items() if k != "dwelling_type"}
+
 _LLC_FLAT_EXCLUSION = [
     "Allied_Trust_HO3",
     "Progressive_HO3_-_04.01.2026",
@@ -4424,7 +4433,8 @@ def _captured_sections_without_occupancy_guarantee(profile):
 
 
 def _unreached(ownership, probes):
-    per, whole = _captured_sections(dict(OWNERSHIP_BASE_PROFILE, ownership_type=ownership))
+    per, whole = _captured_sections(dict(_without_dwelling_type(OWNERSHIP_BASE_PROFILE),
+                                         ownership_type=ownership))
     return [label for label, (carrier, text) in probes.items()
             if text not in (per.get(carrier, "") if carrier else whole)]
 
@@ -5324,17 +5334,17 @@ class TestFixedRows:
 
     @pytest.mark.parametrize("carrier", [c for c in _DEFECTIVE_HO if c != "Centauri_-_HO3_-_05.01.2026"])
     def test_a_defective_carrier_is_left_out_of_the_prompt(self, carrier):
-        per, whole = _captured_sections(OWNERSHIP_BASE_PROFILE)
+        per, whole = _captured_sections(_without_dwelling_type(OWNERSHIP_BASE_PROFILE))
         assert carrier not in per
         assert _norm(carrier) not in whole
 
     def test_its_usable_sibling_stays_in_the_prompt(self):
         """DD-2's bad record is the HO6; the Liberty Mutual HO3 guide is fine."""
-        per, _ = _captured_sections(OWNERSHIP_BASE_PROFILE)
+        per, _ = _captured_sections(_without_dwelling_type(OWNERSHIP_BASE_PROFILE))
         assert "Liberty_Mutual_HO3_-_02.21.2026" in per
 
     def test_each_of_the_four_gets_the_row_and_nothing_else_does(self):
-        results = _replayed_run(OWNERSHIP_BASE_PROFILE, _answer_for(_usable("Owner Occupied")))
+        results = _replayed_run(_without_dwelling_type(OWNERSHIP_BASE_PROFILE), _answer_for(_usable("Owner Occupied")))
         rows = {r["carrier"]: r for r in results if r["status"] == GUIDE_UNAVAILABLE}
         assert set(rows) == set(_DEFECTIVE_HO)
         for carrier, kind in _DEFECTIVE_HO.items():
@@ -5352,7 +5362,7 @@ class TestFixedRows:
             "Sage - Occidental HO3": {"status": "ELIGIBLE"},
             "Liberty Mutual HO6": {"status": "INELIGIBLE", "flaw_count": 1},
         })
-        results = _replayed_run(OWNERSHIP_BASE_PROFILE, answer)
+        results = _replayed_run(_without_dwelling_type(OWNERSHIP_BASE_PROFILE), answer)
         for carrier in _DEFECTIVE_HO:
             assert [r["status"] for r in results if r["carrier"] == carrier] == [GUIDE_UNAVAILABLE]
         assert not [r for r in results if r["carrier"] in (
@@ -5361,7 +5371,7 @@ class TestFixedRows:
     def test_a_tenant_property_gets_no_warning_rows(self):
         """All four defects are homeowners records; their dwelling-fire
         siblings are sound and stay."""
-        tenant = dict(OWNERSHIP_BASE_PROFILE, occupancy_type="Tenant Occupied")
+        tenant = dict(_without_dwelling_type(OWNERSHIP_BASE_PROFILE), occupancy_type="Tenant Occupied")
         results = _replayed_run(tenant, _answer_for(_usable("Tenant Occupied")))
         assert not [r for r in results if r["status"] in (GUIDE_UNAVAILABLE, NOT_EVALUATED)]
 
@@ -5373,16 +5383,16 @@ class TestFixedRows:
         real = data_defects.defective_programs()
         monkeypatch.setattr(data_defects, "defective_programs",
                             lambda: {p: d for p, d in real.items() if p != cleared})
-        results = _replayed_run(OWNERSHIP_BASE_PROFILE, _answer_for(_usable("Owner Occupied")))
+        results = _replayed_run(_without_dwelling_type(OWNERSHIP_BASE_PROFILE), _answer_for(_usable("Owner Occupied")))
         assert cleared not in {r["carrier"] for r in results if r["status"] == GUIDE_UNAVAILABLE}
         if cleared in get_all_carriers():
-            assert _norm(cleared) in _captured_prompt(OWNERSHIP_BASE_PROFILE)
+            assert _norm(cleared) in _captured_prompt(_without_dwelling_type(OWNERSHIP_BASE_PROFILE))
 
     def test_a_carrier_the_model_skips_gets_a_not_evaluated_row(self):
         """THE EXACT ROUND-17 SHAPE: rep 3 Trust at 1b446e2 returned 26 of 28
         carriers, leaving out Foremost and NatGen Custom360. NatGen Custom360
         is now a warning row either way; Foremost must not vanish."""
-        trust = dict(OWNERSHIP_BASE_PROFILE, ownership_type="Trust")
+        trust = dict(_without_dwelling_type(OWNERSHIP_BASE_PROFILE), ownership_type="Trust")
         answered = [c for c in _usable("Owner Occupied") if c != "Foremost_DP3_and_HO3_-_07.01.2026"]
         results = _replayed_run(trust, _answer_for(answered))
         assert [r["carrier"] for r in results if r["status"] == NOT_EVALUATED] == [
@@ -5391,7 +5401,7 @@ class TestFixedRows:
 
     @pytest.mark.parametrize("dropped", ["Allied_Trust_HO3", "Sage_-_SURE_HO-3_-_01.31.2026"])
     def test_any_skipped_carrier_gets_the_row(self, dropped):
-        results = _replayed_run(OWNERSHIP_BASE_PROFILE,
+        results = _replayed_run(_without_dwelling_type(OWNERSHIP_BASE_PROFILE),
                                 _answer_for([c for c in _usable("Owner Occupied") if c != dropped]))
         assert [r["carrier"] for r in results if r["status"] == NOT_EVALUATED] == [dropped]
 
@@ -5400,11 +5410,11 @@ class TestFixedRows:
         orion = "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3"
         answer = _answer_for([c for c in _usable("Owner Occupied") if c != orion],
                              **{"Orion HO3": {"status": "ELIGIBLE"}})
-        results = _replayed_run(OWNERSHIP_BASE_PROFILE, answer)
+        results = _replayed_run(_without_dwelling_type(OWNERSHIP_BASE_PROFILE), answer)
         assert not [r for r in results if r["status"] == NOT_EVALUATED]
 
     def test_a_parse_failure_still_shows_the_warning_rows(self):
-        results = _replayed_run(OWNERSHIP_BASE_PROFILE, "this is not json [ {")
+        results = _replayed_run(_without_dwelling_type(OWNERSHIP_BASE_PROFILE), "this is not json [ {")
         assert results[0]["carrier"] == "Parse Error"
         assert {r["carrier"] for r in results if r["status"] == GUIDE_UNAVAILABLE} == set(_DEFECTIVE_HO)
         assert not [r for r in results if r["status"] == NOT_EVALUATED]
@@ -5700,7 +5710,11 @@ class TestOptionalIntakeFields:
                                          OWNERSHIP_BASE_PROFILE],
                              ids=["STANDARD", "ALT", "COASTAL_PPC4", "OWNERSHIP_BASE"])
     def test_blank_optional_fields_leave_the_prompt_byte_identical(self, profile):
-        assert _captured_prompt(dict(profile, **_BLANK_OPTIONALS)) == _captured_prompt(dict(profile))
+        # CHANGED (Liam, 2026-10-05, round 26 step 8): the Tier 2 profiles now
+        # carry a Dwelling type, which is one of the optional fields; blank
+        # means the profile without it.
+        base = _without_dwelling_type(profile)
+        assert _captured_prompt(dict(base, **_BLANK_OPTIONALS)) == _captured_prompt(dict(base))
 
     def test_each_filled_field_is_stated_once_and_only_when_filled(self):
         blank = _captured_prompt(dict(STANDARD_PROFILE, **_BLANK_OPTIONALS))
