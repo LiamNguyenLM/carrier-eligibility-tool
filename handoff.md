@@ -735,6 +735,32 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       - ON's misses: Markel's pool rule twice (a liability-coverage
         condition treated as a hold) and Travelers' "Renovations Section
         must be completed" (application paperwork).
+  - **Step 9 (closed programs):**
+    - NatGen Premier OneChoice HO3 is a fixed INELIGIBLE row, sent to no
+      model: "Closed to new business (guide, p.3): "Homeowners policies are
+      not eligible for new business effective 11/30/2023."" The quote is
+      re-checked against the stored guide on every check, so a new upload
+      without it clears the row. It does not count as a usable answer.
+    - **For Liam to decide** (found by searching all 40 guides):
+      - NatGen Premier OneChoice DP3, p.3: "Dwelling fire policies are not
+        eligible for new business effective 11/30/2023." The same closure
+        for the DP3 program; not decided by code, since only the HO3 program
+        was named.
+      - Foremost, pp.2-34: the Condominium Homeowners, Condominium Landlord
+        and Tenant forms are marked "(Existing Business Only, No New
+        Business)". Sub-forms; the Foremost Choice HO3 itself is open.
+      - Temporary catastrophe suspensions, not closures:
+        - NatGen Custom360 p.19 ("New Business Moratorium ... may invoke a
+          moratorium on new business");
+        - CHUBB p.6 ("Underwriting Binding Suspensions for Hurricane,
+          Wildfire, Tornado ...");
+        - Mercury p.5 ("authority will remain suspended until an
+          announcement is made");
+        - NatGen Premier HO3/DP3 p.3 ("Binding authority for new business
+          ... will be suspended in areas that may be affected by a tropical
+          storm").
+      - Rules, not closures: Progressive HO3/HO6/DP3, "We are not accepting
+        new business in Hidalgo or Webb county."
 
 ## Open work, in priority order (updated 2026-10-02)
 

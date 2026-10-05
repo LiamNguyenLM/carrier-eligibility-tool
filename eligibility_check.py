@@ -3097,6 +3097,10 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
     if _dwelling_type(property_details) == "House":
         relevant_carriers = [c for c in relevant_carriers if not _is_condo_program(c)]
         unavailable = [p for p in unavailable if not _is_condo_program(p)]
+    # Closed programs (round 26 step 9) never reach retrieval or the model;
+    # each gets its fixed row at the end.
+    closed = closed_programs(relevant_carriers)
+    relevant_carriers = [c for c in relevant_carriers if c not in closed]
     # Rules-table pilot: the pilot carriers leave retrieval and the main
     # prompt. Everything after the model call uses all_carriers again.
     all_carriers = relevant_carriers
@@ -3562,6 +3566,7 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
         _code_owns_cards(filtered)
 
         final = _add_fixed_rows(filtered, relevant_carriers, unavailable, defects, unrecognised)
+        final += [_closed_program_row(c) for c in closed]
         if unrecognised or usable_answer_count(final) == 0:
             _print_raw_diagnostics(
                 "UNUSABLE MODEL ANSWER: {} usable record(s), {} with an unrecognised status "
@@ -3617,7 +3622,8 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
             "missing_info": ["Try submitting again"],
             "notes": "",
             "flaw_count": 0
-        }] + [_guide_unavailable_row(p, defects[p]) for p in unavailable]
+        }] + [_guide_unavailable_row(p, defects[p]) for p in unavailable] + [
+            _closed_program_row(c) for c in closed]
 
 _CHUBB = "CHUBB_HO_-_05.22.2026"
 
@@ -4054,7 +4060,8 @@ def usable_answer_count(results):
     not the pipeline's own Parse Error stand-in. Zero means the check did not
     return usable answers, whatever else is on screen."""
     return sum(1 for r in results
-               if r.get("status") in MODEL_STATUSES and r.get("carrier") != "Parse Error")
+               if r.get("status") in MODEL_STATUSES and r.get("carrier") != "Parse Error"
+               and not r.get("fixed_row"))   # round 26: a closed program's row is code's, not an answer
 
 
 def _print_raw_diagnostics(headline, raw, usage):
@@ -4069,6 +4076,40 @@ _GUIDE_UNAVAILABLE_TEXT = {
 }
 _GUIDE_WRONG_DOCUMENT_TEXT = "The guide on file is the wrong document -- check with the carrier directly."
 _NOT_EVALUATED_TEXT = "No answer came back for this carrier in this check -- run the check again."
+
+
+# Round 26 step 9 (Liam, 2026-10-05). A program its own guide closes to new
+# business is a fixed row like the wrong-guide rows: INELIGIBLE, quoted, and
+# no model tokens -- the model re-decided it on every check. The quote is
+# re-checked against the stored guide each time, so a re-uploaded guide
+# without it clears the row with no code change. Only programs Liam has
+# decided are listed; handoff.md lists the other closure-like statements.
+CLOSED_PROGRAMS = {
+    "NatGen_Premier_OneChoice_HO3_-_02.26.2025": (
+        3, "Homeowners policies are not eligible for new business effective 11/30/2023."),
+}
+
+
+def closed_programs(carriers):
+    """The carriers in `carriers` whose guide still says they are closed."""
+    keys = _guide_keys()
+    return [c for c in carriers if c in CLOSED_PROGRAMS and c in keys
+            and quotes.appears_in(quotes.compare_key(CLOSED_PROGRAMS[c][1]), keys[c])]
+
+
+def _closed_program_row(program):
+    page, quote = CLOSED_PROGRAMS[program]
+    return {
+        "carrier": program,
+        "status": "INELIGIBLE",
+        "flaw_count": 1,
+        "reasons": [f'Closed to new business (guide, p.{page}): "{quote}"'],
+        "citations": [f'{program}: "{quote}"'],
+        "missing_info": [],
+        "notes": "",
+        "decided_by_code": True,
+        "fixed_row": True,
+    }
 
 
 def _guide_unavailable_row(program, defect):

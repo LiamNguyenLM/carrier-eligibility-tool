@@ -306,3 +306,41 @@ def test_the_enum_can_be_turned_off_for_measurement(monkeypatch):
                                                            (json.dumps({"carriers": []}), dict(USAGE)))[1])
     ec.check_eligibility(dict(LIVE_PROFILE), checked_topics=list(LIVE_CHECKED))
     assert seen["enum"] is None
+
+
+# -- Step 9: closed programs are fixed rows -----------------------------------------
+NATGEN = "NatGen_Premier_OneChoice_HO3_-_02.26.2025"
+
+
+def test_natgen_premier_is_a_fixed_closed_row_with_no_model_tokens():
+    res, prompt = run_live(lambda n: {})
+    r = res[NATGEN]
+    assert r["status"] == "INELIGIBLE" and r["decided_by_code"]
+    assert r["reasons"] == ['Closed to new business (guide, p.3): "Homeowners policies are not eligible '
+                            'for new business effective 11/30/2023."']
+    assert f"--- {NATGEN} (page" not in prompt                  # never sent to the model
+    assert ec.assign_buckets(list(res.values()))["not_eligible"].count(r) == 1
+
+
+def test_the_closure_quote_is_in_the_stored_guide():
+    assert ec.closed_programs([NATGEN]) == [NATGEN]
+
+
+def test_the_row_clears_when_the_guide_no_longer_says_it(monkeypatch):
+    monkeypatch.setitem(ec.CLOSED_PROGRAMS, NATGEN, (3, "A sentence this guide does not contain at all."))
+    assert ec.closed_programs([NATGEN]) == []
+    res, prompt = run_live(lambda n: {})
+    assert f"--- {NATGEN} (page" in prompt
+    assert not res[NATGEN].get("decided_by_code")
+
+
+def test_the_dp3_sibling_is_not_closed_by_code():
+    # Its guide says the same for dwelling fire; Liam decides (handoff.md).
+    assert ec.closed_programs(["NatGen_Premier_OneChoice_DP3_-_02.26.2025"]) == []
+
+
+def test_a_closed_row_is_not_a_usable_model_answer():
+    # With no usable model answer, the "did not return usable answers" banner
+    # must still show; the closed program's row is code's.
+    res, _ = run_live(lambda n: {"status": "MAYBE"})
+    assert res[NATGEN]["fixed_row"] and ec.usable_answer_count(list(res.values())) == 0

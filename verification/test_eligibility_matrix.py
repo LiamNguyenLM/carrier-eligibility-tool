@@ -4556,7 +4556,11 @@ class TestRound17OwnershipRuleRetrieval:
         """Flat exclusions, permissions, conditions and referrals alike -- 20
         rules across the family. Measured before the permissive widening:
         15/20, with every miss a rule that allows or conditions an LLC."""
-        missing = _unreached("LLC", _LLC_RULE_PROBES)
+        # CHANGED (Liam, 2026-10-05, round 26 step 9): NatGen Premier OneChoice
+        # HO3 is closed to new business -- a fixed row, never in the prompt --
+        # so its LLC rule no longer has to reach it.
+        probes = {k: v for k, v in _LLC_RULE_PROBES.items() if k != "NatGen Premier"}
+        missing = _unreached("LLC", probes)
         assert not missing, f"LLC rules missing from an LLC property's prompt: {missing}"
 
     def test_every_trust_rule_reaches_the_prompt_for_a_trust_property(self):
@@ -5324,9 +5328,15 @@ def _answer_for(carriers, **extra_records):
 
 
 def _usable(occupancy):
+    """The carriers that reach the model. CHANGED (Liam, 2026-10-05, round 26
+    step 9): a closed program (eligibility_check.CLOSED_PROGRAMS) is a fixed
+    row and never reaches it."""
     import data_defects
+    import eligibility_check as _ec
     defects = data_defects.defective_programs()
-    return [c for c in get_carriers_for_occupancy(occupancy) if c not in defects]
+    carriers = [c for c in get_carriers_for_occupancy(occupancy) if c not in defects]
+    closed = set(_ec.closed_programs(carriers))
+    return [c for c in carriers if c not in closed]
 
 
 @pytest.mark.retrieval
@@ -5351,8 +5361,9 @@ class TestFixedRows:
             assert kind in rows[carrier]["reasons"][0], rows[carrier]["reasons"]
             assert "check with the carrier directly" in rows[carrier]["reasons"][0]
         assert not [r for r in results if r["status"] == NOT_EVALUATED]
+        # + the closed-program row (Liam, 2026-10-05, round 26 step 9)
         assert sorted(r["carrier"] for r in results) == sorted(
-            _usable("Owner Occupied") + list(_DEFECTIVE_HO))
+            _usable("Owner Occupied") + list(_DEFECTIVE_HO) + ["NatGen_Premier_OneChoice_HO3_-_02.26.2025"])
 
     def test_a_replayed_record_for_a_defective_carrier_is_replaced_not_duplicated(self):
         """Recorded outputs from before Step 2 still hold model records for
@@ -5607,14 +5618,15 @@ class TestNoSilentlyEmptyResult:
                                               ("null", None), ("1.0", 1)])
     def test_flaw_count_is_coerced_to_an_int(self, flaw, as_int):
         results = _replay_live(_with_status("INELIGIBLE", flaw))
-        model = [r for r in results if r["status"] == "INELIGIBLE"]
+        # the model's records only -- not the closed-program fixed row (round 26 step 9)
+        model = [r for r in results if r["status"] == "INELIGIBLE" and not r.get("fixed_row")]
         assert model and all(isinstance(r["flaw_count"], int) for r in model)
         if as_int is not None:
             assert all(r["flaw_count"] == as_int for r in model)
         # CHANGED (Liam, 2026-10-05, decision A): flaw_count no longer picks
         # the bucket -- every INELIGIBLE is Not Eligible. This used to assert
         # that only a coerced 1 landed in "One Issue".
-        assert len(assign_buckets(results)["not_eligible"]) == len(model)
+        assert len([r for r in assign_buckets(results)["not_eligible"] if not r.get("fixed_row")]) == len(model)
         assert _all_placed_once(results)
 
     def test_an_unrecognised_record_does_not_cover_a_real_carrier(self):
