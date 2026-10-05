@@ -66,7 +66,9 @@ def test_off_keeps_the_six_in_the_main_prompt_and_makes_no_pilot_call():
 def test_on_routes_exactly_the_six():
     res, main, pilot = _run(dict(STANDARD_PROFILE, dwelling_type="House"))
     assert not any(f"--- {c} (page" in main for c in SIX)
-    others = [c for c in res if c not in SIX and res[c]["status"] not in (ec.GUIDE_UNAVAILABLE,)]
+    # a closed program's fixed row (round 26 step 9, Liam 2026-10-05) is never in a prompt either
+    others = [c for c in res if c not in SIX and res[c]["status"] not in (ec.GUIDE_UNAVAILABLE,)
+              and not res[c].get("fixed_row")]
     assert others and all(f"--- {c} (page" in main for c in others)
     assert set(re.findall(r"--- (.+?) \(rule check\) ---", pilot)) <= set(SIX)
     assert all(res[c].get("rules_table") for c in SIX)

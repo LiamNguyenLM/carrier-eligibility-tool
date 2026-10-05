@@ -173,5 +173,27 @@ def pool_box(property_details, key):
             and property_details.get(key) is True)
 
 
+# Round 26 (Liam, 2026-10-05, decision B): two optional PPC-topic fields.
+# Blank / Unknown is UNKNOWN -- never "no", never 0 miles.
+HYDRANT_CHOICES = ("Unknown", "Yes", "No")
+
+
+def parse_station_miles(value):
+    """Driving distance to the responding fire station in miles, or None when
+    blank or unreadable. "3", "3.5", "3 miles", " 7mi " all read."""
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value) if value >= 0 else None
+    m = re.match(r"\s*(\d+(?:\.\d+)?)", str(value))
+    return float(m.group(1)) if m else None
+
+
+def hydrant_answer(value):
+    """"Yes" / "No" for a stated answer, None for Unknown or blank."""
+    v = str(value or "").strip().capitalize()
+    return v if v in ("Yes", "No") else None
+
+
 def normalize_dwelling_type(value):
     return value if value in DWELLING_TYPES else ""

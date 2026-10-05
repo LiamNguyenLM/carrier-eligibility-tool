@@ -48,21 +48,29 @@ MAP = {
     "ALL-112": ("ppc", "ppc_num between 1 and 9", "always", "", ""),
     "ALL-113": ("ppc;year_built", "home_age <= 3 and FACT(Protected Subdivision Rule)", "ppc_num == 10",
                 "Protected Subdivision Rule", ""),
-    "SAG-073": ("ppc", "FACT(visible from road, central station alarm, 10-ft year-round access)",
-                "ppc_num between 1 and 3 and FACT(hydrant over 1,000 ft or none)",
-                "hydrant distance; visibility, alarm, access", "the FPC table row is chosen by facts the form lacks"),
-    "SAG-074": ("ppc", "FACT(visible from road, central station alarm, 10-ft year-round access)",
-                "ppc_num between 1 and 3 and FACT(station over 5 miles)",
-                "station distance; visibility, alarm, access", ""),
-    "SAG-075": ("ppc;year_built;occupancy_type", "home_age < 25 and occupancy_type == Owner Occupied and "
+    # Round 26 (Liam, 2026-10-05, decision B): the table row is chosen by the
+    # optional station distance / hydrant fields; blank / Unknown leaves the
+    # row OPEN, as before. SAG-072 (any FPC, <= 5 miles and a hydrant within
+    # 1,000 ft: eligible) is ALLOWS -- the rows below simply do not apply then.
+    "SAG-073": ("ppc;fire_station_miles;hydrant_1000ft",
+                "FACT(visible from road, central station alarm, 10-ft year-round access)",
+                "ppc_num between 1 and 3 and fire_station_miles <= 5 and hydrant_1000ft == No",
+                "station / hydrant distance if not given; visibility, alarm, access",
+                "the FPC table row is chosen by station distance and hydrant"),
+    "SAG-074": ("ppc;fire_station_miles", "FACT(visible from road, central station alarm, 10-ft year-round access)",
+                "ppc_num between 1 and 3 and fire_station_miles > 5",
+                "station distance if not given; visibility, alarm, access", ""),
+    "SAG-075": ("ppc;year_built;occupancy_type;fire_station_miles;hydrant_1000ft",
+                "home_age < 25 and occupancy_type == Owner Occupied and "
                 "FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",
-                "ppc_num between 4 and 10 and FACT(hydrant over 1,000 ft or none)",
-                "hydrant distance; visibility, alarm, access, fire losses", ""),
-    "SAG-076": ("ppc;year_built;occupancy_type", "home_age < 25 and occupancy_type == Owner Occupied and "
+                "ppc_num between 4 and 10 and fire_station_miles <= 5 and hydrant_1000ft == No",
+                "station / hydrant distance if not given; visibility, alarm, access, fire losses", ""),
+    "SAG-076": ("ppc;year_built;occupancy_type;fire_station_miles",
+                "home_age < 25 and occupancy_type == Owner Occupied and "
                 "FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",
-                "ppc_num between 4 and 8 and FACT(station over 5 miles)",
-                "station distance; visibility, alarm, access, fire losses", ""),
-    "SAG-077": ("ppc", "FACT(station within 5 miles)", "ppc_num >= 9", "station distance", ""),
+                "ppc_num between 4 and 8 and fire_station_miles > 5",
+                "station distance if not given; visibility, alarm, access, fire losses", ""),
+    "SAG-077": ("ppc;fire_station_miles", "fire_station_miles <= 5", "ppc_num >= 9", "station distance", ""),
     "MER-060": ("ppc", "ppc_num < 10", "always", "", "10W counts as 10"),
     "PRO-068": ("ppc", "FACT(paved road and visible to neighbors)", "ppc_num between 9 and 10",
                 "paved road; visibility to neighbors", ""),
@@ -98,8 +106,9 @@ MAP = {
     "ALL-031": ("year_built", "FACT(updates under 20 years old)", "home_age >= 76", "update ages", ""),
     "SAG-026": ("year_built;occupancy_type", "FACT(signed lead exclusion acknowledgement)",
                 "occupancy_type == Tenant Occupied and year_built < 1980", "signed acknowledgement", ""),
-    "SAG-078": ("year_built;ppc", "home_age < 25",
-                "ppc_num between 4 and 10 and FACT(hydrant over 1,000 ft or station over 5 miles)", "", ""),
+    "SAG-078": ("year_built;ppc;fire_station_miles;hydrant_1000ft", "home_age < 25",
+                "ppc_num between 4 and 10 and (hydrant_1000ft == No or fire_station_miles > 5)",
+                "station / hydrant distance if not given", ""),
     "MER-010": ("year_built", "FACT(Functional Replacement Cost coverage)", "year_built < 1940", "loss settlement", ""),
     # ---------------- PLUMBING
     "ALL-057": ("plumbing_type;year_built", NO_BAD_PLUMB + " || " + PEX_2011, "always", "",
@@ -275,7 +284,8 @@ def main():
     ev = [r for r in rows if r["Tool handling"] in ("EVALUATE", "EVALUATE_CURE_IS_INSPECTION")]
     with open(OUT, "w", encoding="utf-8", newline="") as fh:
         fh.write("# source: rules_data/build_rule_field_map.py over rules_data/carrier_rules_pilot_v3.csv "
-                 "(pilot workbook version 3); built 2026-10-04. Grammar: rules_data/RULE_FIELD_MAP.md.\n")
+                 "(pilot workbook version 3); built 2026-10-05 (round 26: station / hydrant fields). "
+                 "Grammar: rules_data/RULE_FIELD_MAP.md.\n")
         w = csv.writer(fh)
         w.writerow(["row_id", "field", "test", "gate", "outcome_if_fail", "open_fact", "map_note"])
         for r in ev:

@@ -32,7 +32,10 @@ def run(m, **pd):
 def test_data_files_carry_their_source_header():
     for path in (ev.RULES_CSV, ev.MAP_CSV):
         first = open(path, encoding="utf-8-sig").readline()
-        assert first.startswith("# source:") and "version 3" in first and "2026-10-04" in first
+        # the rules CSV was copied in 2026-10-04; the map was rebuilt 2026-10-05 for
+        # round 26's station / hydrant fields (Liam, decision B)
+        assert first.startswith("# source:") and "version 3" in first and ("2026-10-04" in first
+                                                                          or "2026-10-05" in first)
 
 
 def test_every_deciding_row_has_exactly_one_map_line():

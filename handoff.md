@@ -761,6 +761,27 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
           storm").
       - Rules, not closures: Progressive HO3/HO6/DP3, "We are not accepting
         new business in Hidalgo or Webb county."
+  - **Step 10 (station distance and hydrant fields, decision B):**
+    - The fields are optional, part of the PPC topic. Blank / Unknown is
+      unknown and leaves the prompt byte-identical to step 9 on STANDARD,
+      ALT, COASTAL_PPC4, OWNERSHIP_BASE and LIVE.
+    - The rules table maps them in SAG-073 to SAG-078. No other row's open
+      fact is station or hydrant distance; SAG-072 (eligible) is ALLOWS,
+      and SAG-079/080 are NONE.
+    - The Sage FPC override passes both into sage_family_fpc_eligibility:
+      - FPC 9+ over 5 miles is now a code decline;
+      - "fire station" and "hydrant" joined its keyword set;
+      - missing items the form now answers are dropped when it upgrades.
+    - Measured on LIVE + Bexar, Luna, 2 runs each:
+      - With the pilot ON, Sage Auros is Insufficient on SAG-073/074 when
+        blank, Eligible by code at 3 mi / hydrant Yes, and Insufficient on
+        SAG-074's conditions at 7 mi / No.
+      - SURE, SafePort, Wilshire and Trium (the override) are Eligible in
+        all three.
+      - **OPEN for Liam:** at 7 miles the override still says Eligible
+        ("eligible only if visible from the road, central alarm, year-round
+        access"), where the rows say those conditions are open. This is the
+        same override-vs-rows question as round 19.
 
 ## Open work, in priority order (updated 2026-10-02)
 

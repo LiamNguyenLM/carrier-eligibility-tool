@@ -961,6 +961,14 @@ def _property_details_text(pd, home_age, occupancy, ownership, checked, carriers
         ("fact:solar_panels", f"Solar Panels: {pd['solar_panels']}"),
         ("fact:ppc", f"PPC Number: {pd['ppc']}"),
     ]
+    # Round 26 (Liam, 2026-10-05, decision B): stated only when filled, so a
+    # blank / Unknown answer leaves the prompt byte-identical.
+    miles = intake_fields.parse_station_miles(pd.get("fire_station_miles"))
+    hydrant = intake_fields.hydrant_answer(pd.get("hydrant_1000ft"))
+    if miles is not None:
+        rows.append(("fact:fire_station_miles", f"Driving Distance to Responding Fire Station: {miles:g} miles"))
+    if hydrant:
+        rows.append(("fact:hydrant_1000ft", f"Hydrant Within 1,000 Feet: {hydrant}"))
     county, amount, dtype = _county(pd), _dwelling_amount(pd), _dwelling_type(pd)
     if county:
         rows.append(("fact:county", f"County: {county}"))
@@ -2688,8 +2696,13 @@ def _apply_structured_overrides(results, relevant_carriers, property_details, ch
         # overrides them -- round 19's open item). Other Sage carriers keep it.
         if (canon in _SAGE_FPC_CARRIERS and canon not in fpc_skip
                 and _on("override:_SAGE_FPC_CARRIERS", checked)):
+            # Round 26 (decision B): the optional station distance and hydrant
+            # answer pick the table row; Unknown stays None, never "no".
+            hydrant = intake_fields.hydrant_answer(property_details.get("hydrant_1000ft"))
             s_status, s_reasons = sage_family_fpc_eligibility(
                 property_details['ppc'], carrier=canon,
+                distance_miles=intake_fields.parse_station_miles(property_details.get("fire_station_miles")),
+                hydrant_feet={"Yes": 1000, "No": 1001}.get(hydrant),
             )
             if s_status == "ELIGIBLE" and r.get("status") == "INSUFFICIENT_INFORMATION":
                 # CHANGED (round 12): a real end-to-end run showed the model
@@ -2706,10 +2719,26 @@ def _apply_structured_overrides(results, relevant_carriers, property_details, ch
                     r.get("missing_info", []) + r.get("reasons", []) + r.get("citations", [])
                     + [r.get("notes", "")]
                 ).lower()
-                if any(kw in blob for kw in ("fpc", "fire protection class", "protection class", "ppc")):
+                if any(kw in blob for kw in ("fpc", "fire protection class", "protection class", "ppc",
+                                             "fire station", "hydrant")):
                     r["status"] = "ELIGIBLE"
                     r["flaw_count"] = 0
-                    _append_note(r, "Structured FPC check: " + s_reasons[0])
+                    # Row 1 (within 5 miles, hydrant within 1,000 ft) has no
+                    # conditions and so no reason text -- reachable only since
+                    # round 26 gave the form these fields.
+                    _append_note(r, "Structured FPC check: " + (s_reasons[0] if s_reasons else (
+                        "the fire station is within 5 miles and a hydrant within 1,000 ft, which this "
+                        "carrier's FPC table makes eligible with no conditions.")))
+                    # Round 26: an item the form now answers is no longer open.
+                    answered = [w for w, v in (("fire station", property_details.get("fire_station_miles")),
+                                               ("hydrant", hydrant)) if v not in (None, "")]
+                    if answered:
+                        r["missing_info"] = [m for m in r.get("missing_info") or []
+                                             if not any(w in m.lower() for w in answered)]
+            elif s_status == "INELIGIBLE":
+                # Round 26: only reachable with a stated distance (FPC 9+ over
+                # 5 miles) -- the table decides, not the model.
+                _force_ineligible(r, "Sage FPC table: " + s_reasons[0])
             elif s_status == "INSUFFICIENT_INFORMATION":
                 mi = r.setdefault("missing_info", [])
                 if not any("fire station" in m.lower() for m in mi):

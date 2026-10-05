@@ -64,6 +64,7 @@ FIELD_TOPIC = {   # map field -> round 21 topic (always-on fields -> None)
     "pool_fence_4ft": "pool", "pool_gate_locking": "pool", "has_dogs": "dogs", "aggressive_breed": "dogs",
     "solar_panels": "solar", "county": "county", "zip": "county", "dwelling_amount": "dwelling_amount",
     "occupancy_type": None, "ownership_type": None, "dwelling_type": None,
+    "fire_station_miles": "ppc", "hydrant_1000ft": "ppc",     # round 26, decision B
 }
 # Decision 1: an OPEN that rests only on these blank fields is a NOTE.
 BLANK_IS_NOTE = {"dwelling_amount", "county", "zip", "sage_territory"}
@@ -110,6 +111,9 @@ def facts(pd, today=None):
         f["plumbing_type"] = None
     if f.get("ppc") in ("N/A", ""):
         f["ppc"] = None
+    # Round 26 (decision B): blank / Unknown is unknown, never "no".
+    f["fire_station_miles"] = intake_fields.parse_station_miles(pd.get("fire_station_miles"))
+    f["hydrant_1000ft"] = intake_fields.hydrant_answer(pd.get("hydrant_1000ft"))
     for box in ("pool_fence_4ft", "pool_gate_locking"):      # unticked = unknown, never "no"
         f[box] = True if intake_fields.pool_box(pd, box) else None
     return f

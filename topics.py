@@ -33,7 +33,7 @@ from collections import namedtuple
 Topic = namedtuple("Topic", "key label short owns strip")
 
 TOPICS = (
-    Topic("ppc", "PPC", "PPC", ("ppc",),
+    Topic("ppc", "PPC", "PPC", ("ppc", "fire_station_miles", "hydrant_1000ft"),
           r"\bppc\b|protection class|\bfpc\b|fire protection|fire station|fire department|"
           r"hydrant|fire district|responding station"),
     Topic("coastal", "Coastal tier", "Coastal", ("coastal_tier",),
@@ -102,6 +102,8 @@ STEPS = {
     "fact:aggressive_breed": (("dogs",), "all"),
     "fact:solar_panels": (("solar",), "all"),
     "fact:ppc": (("ppc",), "all"),
+    "fact:fire_station_miles": (("ppc",), "all"),
+    "fact:hydrant_1000ft": (("ppc",), "all"),
     "fact:county": (("county",), "all"),
     "fact:county_territory": (("county",), "all"),
     "fact:dwelling_amount": (("dwelling_amount",), "all"),

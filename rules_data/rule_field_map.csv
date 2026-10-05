@@ -1,4 +1,4 @@
-# source: rules_data/build_rule_field_map.py over rules_data/carrier_rules_pilot_v3.csv (pilot workbook version 3); built 2026-10-04. Grammar: rules_data/RULE_FIELD_MAP.md.
+# source: rules_data/build_rule_field_map.py over rules_data/carrier_rules_pilot_v3.csv (pilot workbook version 3); built 2026-10-05 (round 26: station / hydrant fields). Grammar: rules_data/RULE_FIELD_MAP.md.
 row_id,field,test,gate,outcome_if_fail,open_fact,map_note
 ALL-001,occupancy_type,always,occupancy_type == Owner Occupied,DECLINES,,Owner Occupied = primary residence
 ALL-002,occupancy_type,"FACT(3+ months a year, no rental exposure)","occupancy_type in {Seasonal, Secondary Home}",CONDITION,months occupied; rentals,
@@ -204,12 +204,12 @@ SAG-067,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Y
 SAG-068,has_dogs,FACT(no bite history),has_dogs == Yes,CONDITION,bite history,
 SAG-069,NONE,,,CONDITION,,the form has no field for this
 SAG-070,NONE,,,CONDITION,,the form has no field for this
-SAG-073,ppc,"FACT(visible from road, central station alarm, 10-ft year-round access)","ppc_num between 1 and 3 and FACT(hydrant over 1,000 ft or none)",CONDITION,"hydrant distance; visibility, alarm, access",the FPC table row is chosen by facts the form lacks
-SAG-074,ppc,"FACT(visible from road, central station alarm, 10-ft year-round access)",ppc_num between 1 and 3 and FACT(station over 5 miles),CONDITION,"station distance; visibility, alarm, access",
-SAG-075,ppc;year_built;occupancy_type,"home_age < 25 and occupancy_type == Owner Occupied and FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)","ppc_num between 4 and 10 and FACT(hydrant over 1,000 ft or none)",CONDITION,"hydrant distance; visibility, alarm, access, fire losses",
-SAG-076,ppc;year_built;occupancy_type,"home_age < 25 and occupancy_type == Owner Occupied and FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",ppc_num between 4 and 8 and FACT(station over 5 miles),CONDITION,"station distance; visibility, alarm, access, fire losses",
-SAG-077,ppc,FACT(station within 5 miles),ppc_num >= 9,DECLINES,station distance,
-SAG-078,year_built;ppc,home_age < 25,"ppc_num between 4 and 10 and FACT(hydrant over 1,000 ft or station over 5 miles)",CONDITION,,
+SAG-073,ppc;fire_station_miles;hydrant_1000ft,"FACT(visible from road, central station alarm, 10-ft year-round access)",ppc_num between 1 and 3 and fire_station_miles <= 5 and hydrant_1000ft == No,CONDITION,"station / hydrant distance if not given; visibility, alarm, access",the FPC table row is chosen by station distance and hydrant
+SAG-074,ppc;fire_station_miles,"FACT(visible from road, central station alarm, 10-ft year-round access)",ppc_num between 1 and 3 and fire_station_miles > 5,CONDITION,"station distance if not given; visibility, alarm, access",
+SAG-075,ppc;year_built;occupancy_type;fire_station_miles;hydrant_1000ft,"home_age < 25 and occupancy_type == Owner Occupied and FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",ppc_num between 4 and 10 and fire_station_miles <= 5 and hydrant_1000ft == No,CONDITION,"station / hydrant distance if not given; visibility, alarm, access, fire losses",
+SAG-076,ppc;year_built;occupancy_type;fire_station_miles,"home_age < 25 and occupancy_type == Owner Occupied and FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",ppc_num between 4 and 8 and fire_station_miles > 5,CONDITION,"station distance if not given; visibility, alarm, access, fire losses",
+SAG-077,ppc;fire_station_miles,fire_station_miles <= 5,ppc_num >= 9,DECLINES,station distance,
+SAG-078,year_built;ppc;fire_station_miles;hydrant_1000ft,home_age < 25,ppc_num between 4 and 10 and (hydrant_1000ft == No or fire_station_miles > 5),CONDITION,station / hydrant distance if not given,
 SAG-079,NONE,,,CONDITION,,the form has no field for this
 SAG-080,NONE,,,CONDITION,,loss / claims history is not asked
 SAG-081,county,sage_territory == IN,always,DECLINES,,"south of 31 N except Nueces, or the eight East Texas counties"

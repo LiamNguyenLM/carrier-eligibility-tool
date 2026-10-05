@@ -344,3 +344,77 @@ def test_a_closed_row_is_not_a_usable_model_answer():
     # must still show; the closed program's row is code's.
     res, _ = run_live(lambda n: {"status": "MAYBE"})
     assert res[NATGEN]["fixed_row"] and ec.usable_answer_count(list(res.values())) == 0
+
+
+# -- Step 10: fire station distance and hydrant (Liam, 2026-10-05, B) ---------------
+import intake_fields  # noqa: E402
+import rules_evaluator as rv  # noqa: E402
+from profiles import STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE, OWNERSHIP_BASE_PROFILE  # noqa: E402
+
+BEXAR = dict(LIVE_PROFILE, county="Bexar", zip="")
+
+
+@pytest.mark.parametrize("raw,miles", [("3", 3.0), ("3.5", 3.5), (" 7 miles", 7.0), ("", None), (None, None),
+                                       ("unknown", None), (0, 0.0), (-1, None)])
+def test_station_miles_parse(raw, miles):
+    assert intake_fields.parse_station_miles(raw) == miles
+
+
+@pytest.mark.parametrize("raw,answer", [("Yes", "Yes"), ("No", "No"), ("Unknown", None), ("", None), (None, None)])
+def test_unknown_hydrant_never_reads_as_no(raw, answer):
+    assert intake_fields.hydrant_answer(raw) == answer
+    assert rv.facts(dict(LIVE_PROFILE, hydrant_1000ft=raw))["hydrant_1000ft"] == answer
+
+
+def _prompt(pd, checked=None):
+    return run_live(lambda n: {}, profile=pd, checked=checked or LIVE_CHECKED)[1]
+
+
+@pytest.mark.parametrize("profile", [STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE, OWNERSHIP_BASE_PROFILE,
+                                     LIVE_PROFILE], ids=["STANDARD", "ALT", "COASTAL_PPC4", "OWNERSHIP_BASE", "LIVE"])
+def test_blank_or_unknown_fields_leave_the_prompt_byte_identical(profile):
+    checked = LIVE_CHECKED if profile is LIVE_PROFILE else list(ec.topics.TOPIC_KEYS)
+    assert _prompt(dict(profile, fire_station_miles="", hydrant_1000ft="Unknown"), checked) == \
+        _prompt(dict(profile), checked)
+
+
+def test_filled_fields_are_stated_once_and_only_with_ppc_checked():
+    p = _prompt(dict(BEXAR, fire_station_miles="3", hydrant_1000ft="Yes"))
+    assert p.count("Driving Distance to Responding Fire Station: 3 miles") == 1
+    assert p.count("Hydrant Within 1,000 Feet: Yes") == 1
+    unchecked = _prompt(dict(BEXAR, fire_station_miles="3", hydrant_1000ft="Yes"),
+                        [t for t in LIVE_CHECKED if t != "ppc"])
+    assert "Fire Station:" not in unchecked and "Hydrant Within" not in unchecked
+
+
+@pytest.mark.parametrize("miles,hydrant,expect", [
+    (None, None, {"SAG-073": "OPEN", "SAG-074": "OPEN"}),            # blank: the row is unknown
+    (3, "Yes", {"SAG-073": "N/A", "SAG-074": "N/A"}),                # SAG-072: eligible, no conditions
+    (7, "No", {"SAG-073": "N/A", "SAG-074": "OPEN"}),                # > 5 miles: SAG-074's conditions open
+    (3, "No", {"SAG-073": "OPEN", "SAG-074": "N/A"}),                # <= 5 miles, no hydrant: SAG-073's
+])
+def test_the_sage_auros_rows_follow_the_fields(miles, hydrant, expect):
+    out = rv.evaluate_carrier("Sage_-_Auros_HO3", dict(BEXAR, fire_station_miles=miles, hydrant_1000ft=hydrant))
+    assert {k: out[k][0] for k in expect} == expect
+    if (miles, hydrant) == (7, "No"):
+        assert "station distance" not in out["SAG-074"][1] or "if not given" in out["SAG-074"][1]
+
+
+def test_sage_auros_at_3_miles_with_a_hydrant_is_decided_eligible_by_code():
+    out = rv.evaluate_carrier("Sage_-_Auros_HO3", dict(BEXAR, fire_station_miles=3, hydrant_1000ft="Yes"))
+    rec, decided = rv.code_record("Sage_-_Auros_HO3", out)
+    assert decided and rec["status"] == "ELIGIBLE"
+
+
+@pytest.mark.parametrize("miles,status", [(7, "INELIGIBLE"), (3, "ELIGIBLE")])
+def test_the_sage_fpc_override_uses_the_station_distance(miles, status):
+    # PPC 9 (the FPC 9+ row): over 5 miles is a code decline; within 5 miles
+    # frees a model hold on the fire station.
+    pd = dict(BEXAR, ppc="9", fire_station_miles=miles, hydrant_1000ft="Yes")
+    res, _ = run_live(lambda n: {"status": "INSUFFICIENT_INFORMATION",
+                                 "missing_info": ["Driving distance to the responding fire station"]}
+                      if n == "Sage_-_SURE_HO-3_-_01.31.2026" else {}, profile=pd)
+    r = res["Sage_-_SURE_HO-3_-_01.31.2026"]
+    assert r["status"] == status
+    if status == "INELIGIBLE":
+        assert r["decided_by_code"] and r["reasons"][0].startswith("Sage FPC table: FPC 9 or greater")

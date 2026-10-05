@@ -116,6 +116,16 @@ with tab1:
             "N/A", "1", "2", "3", "4", "5",
             "6", "7", "8", "8A", "8B", "9", "10"
         ], key="ppc", on_change=_autotick, args=("ppc", "ppc", "N/A"))
+        # Round 26 (Liam, 2026-10-05, decision B): optional, part of the PPC
+        # topic. Blank / Unknown means unknown -- never "no".
+        station_text = st.text_input(
+            "Distance to fire station (miles)", value="", key="station_miles", placeholder="blank = unknown",
+            on_change=_autotick, args=("ppc", "station_miles", ""),
+            help="Driving distance to the responding fire station. Leave blank if unknown.")
+        hydrant_1000ft = st.selectbox(
+            "Hydrant within 1,000 ft", list(intake_fields.HYDRANT_CHOICES), key="hydrant",
+            on_change=_autotick, args=("ppc", "hydrant", "Unknown"),
+            help="Unknown is not \"no\".")
         _check_box("ppc")
 
     with col2:
@@ -320,6 +330,9 @@ with tab1:
                 "aggressive_breed": "Yes" if aggressive_breed else "No",
                 "solar_panels": "Yes" if solar_panels else "No",
                 "ppc": ppc,
+                # optional (decision B): None / "Unknown" mean unknown
+                "fire_station_miles": intake_fields.parse_station_miles(station_text),
+                "hydrant_1000ft": hydrant_1000ft,
                 # optional: "" / None mean unknown. The ZIP never reaches the prompt.
                 "zip": intake_fields.parse_zip(zip_text)[0] or "",
                 "county": county,
