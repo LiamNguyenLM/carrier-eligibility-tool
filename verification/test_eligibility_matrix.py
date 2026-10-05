@@ -2798,6 +2798,25 @@ class TestRound13SolarRoofingVsMountedPanels:
         assert result["status"] == "ELIGIBLE"
         assert result["missing_info"] == [] and result["reasons"] == []
 
+    @pytest.mark.parametrize("roof_type,expected", [
+        ("Composition Shingle", "on a Composition Shingle roof"),
+        (None, "on the roof"),                  # Roof type unchecked (round 26, LIVE)
+    ])
+    def test_note_is_one_sentence_and_reads_right_with_or_without_a_roof_type(self, roof_type, expected):
+        carrier = "Allied_Trust_HO3"
+        result = {"carrier": carrier, "status": "ELIGIBLE", "reasons": [], "citations": [],
+                  "missing_info": [], "notes": "", "flaw_count": 0}
+        pd = dict(AUDIT_R13_PROFILE)
+        if roof_type is None:
+            pd.pop("roof_type", None)
+        else:
+            pd["roof_type"] = roof_type
+        _note_solar_roofing_does_not_apply([result], [carrier], pd, {carrier: "roofing_only"})
+        note = result["notes"]
+        assert expected in note
+        assert "a the stated" not in note and "roof covering roof" not in note
+        assert note.count(". ") == 0 and note.endswith(".")       # one sentence
+
     def test_no_note_when_the_carrier_addresses_mounted_panels(self):
         """TWICO genuinely excludes homes with solar panels -- it must be
         left to say so itself, not handed a dismissal."""

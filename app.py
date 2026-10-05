@@ -2,7 +2,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import streamlit as st
-import html
 import os
 
 try:
@@ -14,6 +13,7 @@ except Exception:
 from eligibility_check import check_eligibility, assign_buckets, usable_answer_count
 import intake_fields
 import topics
+import cards
 from upload_carrier import (
     add_carrier_to_database,
     remove_carrier_from_database,
@@ -345,37 +345,18 @@ with tab1:
         not_eligible = buckets["not_eligible"]
 
         def render_carrier(carrier):
-            # Round 25: the rules-table pilot (ELIGIBILITY_RULES_PILOT). Its
-            # code-decided declines and referrals carry the row, page and quote
-            # in their citations; its notes are never a hold.
+            # Round 26 (Liam, 2026-10-05, decision C): a compact card -- the
+            # status and the verdict in one line, the open items, and
+            # everything else collapsed under "Details" (cards.py).
+            # Round 25: the rules-table pilot's cards say so.
             if carrier.get("rules_table"):
                 st.caption("rules table")
-            if carrier.get("reasons"):
-                st.markdown("**Analysis**")
-                for reason in carrier["reasons"]:
-                    st.markdown("- " + reason)
-            if carrier.get("citations"):
-                st.markdown("**Citations**")
-                for citation in carrier["citations"]:
-                    st.markdown("> " + citation)
-            if carrier.get("notes"):
-                st.markdown("**Notes**")
-                st.markdown(carrier["notes"])
+            st.markdown(cards.first_line_markdown(carrier, property_details, checked_topics))
             if carrier.get("missing_info"):
-                st.markdown("**Missing Information**")
-                for item in carrier["missing_info"]:
-                    st.markdown("- " + item)
-            confirm = carrier.get("also_confirm") or []
-            if confirm:
-                if len(confirm) > 3:
-                    # cards already sit in an expander, and expanders cannot nest
-                    items = "".join(f"<li>{html.escape(item)}</li>" for item in confirm)
-                    st.markdown(f"<details><summary><b>Also confirm ({len(confirm)})</b></summary>"
-                                f"<ul>{items}</ul></details>", unsafe_allow_html=True)
-                else:
-                    st.markdown("**Also confirm**")
-                    for item in confirm:
-                        st.markdown("- " + item)
+                st.markdown("**Missing:**\n" + "\n".join("- " + item for item in carrier["missing_info"]))
+            details = cards.details_html(carrier)
+            if details:
+                st.markdown(details, unsafe_allow_html=True)
 
         col_yes, col_refer, col_info, col_no = st.columns(4)
 

@@ -701,6 +701,23 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     maintained", "meets building codes", "no debris") are notes, never a
     hold, in the WHOLE tool -- like inspections. (2026-10-03 applied this
     to the pilot only.)
+  - **Step 2:** a status set by a rule shows that rule's reason (with the
+    guide sentence) as the card's only reason. The model's words move to
+    `diagnostics`; a decline lists no missing items.
+  - **Step 3 (compact cards):**
+    - Prompt and schema: reasons at most 2 (20 words, deciding facts only),
+      citations at most 2 (quote only), missing_info as noun phrases, notes
+      at most 1 sentence. `maxItems` is enforced by Luna's strict mode.
+    - Card (cards.py): **status** — one-sentence verdict, then "Missing:",
+      then everything else under a collapsed Details. An Eligible card reads
+      "No issue on: <checked facts>".
+    - Measured on Luna, 2 runs each, before -> after:
+      - LIVE: output tokens 4,374 -> 3,252; wall 41.9 -> 30.0 s.
+      - STANDARD: output tokens 6,484 -> 3,146; wall 60.3 -> 35.8 s.
+    - One status change held in both runs: Travelers on LIVE went
+      Insufficient -> Eligible. Its rule is "unprotected ground mounted
+      solar panels", and the prompt defines Solar Panels: Yes as panels
+      mounted on the roof; the old hold asked for the mount location.
 
 ## Open work, in priority order (updated 2026-10-02)
 

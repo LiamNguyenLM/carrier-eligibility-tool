@@ -109,6 +109,9 @@ RULES_PILOT = os.environ.get("ELIGIBILITY_RULES_PILOT", "0") == "1"
 LAST_CALL_USAGE = {}
 
 _STRING_LIST = {"type": "array", "items": {"type": "string"}}
+# Round 26 (Liam, 2026-10-05, decision C): at most two reasons and two
+# citations per carrier. Luna's strict mode enforces maxItems (checked live).
+_SHORT_LIST = {"type": "array", "maxItems": 2, "items": {"type": "string"}}
 CARRIER_RESULTS_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
@@ -123,8 +126,8 @@ CARRIER_RESULTS_SCHEMA = {
                              "status", "flaw_count"],
                 "properties": {
                     "carrier": {"type": "string"},
-                    "reasons": _STRING_LIST,
-                    "citations": _STRING_LIST,
+                    "reasons": _SHORT_LIST,
+                    "citations": _SHORT_LIST,
                     "missing_info": _STRING_LIST,
                     "notes": {"type": "string"},
                     "status": {"type": "string",
@@ -329,10 +332,10 @@ Each object must follow this exact structure -- NOTE the field order: work out r
 [
   {
     "carrier": "carrier name from document",
-    "reasons": ["reason 1", "reason 2"],
-    "citations": ["carrier name: exact short quote from document"],
-    "missing_info": ["item needed for final determination"],
-    "notes": "any important coverage distinctions such as RCV vs ACV",
+    "reasons": ["the deciding fact, at most 20 words"],
+    "citations": ["carrier name: \"exact short quote from document\""],
+    "missing_info": ["Distance to fire station"],
+    "notes": "",
     "status": "ELIGIBLE",
     "flaw_count": 0
   }
@@ -351,11 +354,11 @@ flaw_count rules:
 - REFER: always 0
 - INSUFFICIENT_INFORMATION: always 0
 
-Output guidelines:
-- Provide 2 to 4 analysis points in reasons covering key property characteristics
-- Include 1 to 2 citations with enough context to identify where the rule appears
-- List all missing information needed to make a final determination
-- Use the notes field for important coverage distinctions like replacement cost vs ACV
+Output guidelines (keep every card short -- the agent reads dozens of them):
+- reasons: at most 2 items, each at most 20 words, ONLY the deciding facts: the rule the property fails, the fact that is still open, or -- for ELIGIBLE -- the one rule that most needed checking. Never restate a fact that passes.
+- citations: at most 2, each exactly carrier name: "quote" -- the quote and nothing else, no commentary.
+- missing_info: short noun phrases naming each open fact (e.g. "Distance to fire station"), not sentences. List every fact still needed for a final determination.
+- notes: at most one sentence, and empty ("") unless it changes what the agent does (e.g. the roof is settled at ACV, not replacement cost).
 - Do not invent rules not found in the documents
 - You MUST include every single carrier that appears in the provided documents. Never skip or omit a carrier. If you cannot determine eligibility for a carrier from the provided excerpts, use status INSUFFICIENT_INFORMATION. All carriers in the context above must appear in your response.
 - Return ONLY the JSON array, no other text
@@ -2072,7 +2075,11 @@ def _note_solar_roofing_does_not_apply(results, relevant_carriers, property_deta
     """
     if property_details.get("solar_panels") != "Yes":
         return
-    roof_type = property_details.get("roof_type", "the stated roof covering")
+    # Round 26 (Liam, 2026-10-05): one sentence. An unchecked Roof type is
+    # absent from property_details; the old template then read "panels
+    # mounted on a the stated roof covering roof".
+    roof_type = property_details.get("roof_type")
+    on_roof = f"on a {roof_type} roof" if roof_type else "on the roof"
     for r in results:
         canon = _resolve_structured_carrier(r.get("carrier", ""), relevant_carriers)
         if canon is None:
@@ -2083,11 +2090,8 @@ def _note_solar_roofing_does_not_apply(results, relevant_carriers, property_deta
             continue
         _append_note(
             r,
-            f"[Solar check] This carrier's only solar language describes solar material used "
-            f"AS the roof covering (a solar roof system / solar shingles or tiles). The "
-            f"property has conventional panels mounted on a {roof_type} roof, so that "
-            f"exclusion does not apply to it. This carrier's document states no rule about "
-            f"roof-mounted panels.",
+            f"[Solar check] This guide's solar rule is about solar roofing (solar shingles or "
+            f"tiles), so it does not apply to panels mounted {on_roof}.",
         )
 
 
