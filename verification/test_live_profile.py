@@ -218,3 +218,57 @@ def test_a_request_for_guide_text_never_holds_a_carrier(item):
 ])
 def test_a_real_open_fact_is_not_mistaken_for_a_guide_text_request(item):
     assert not ec._is_guide_text_request(item)
+
+
+# -- Step 6: condition standards are notes everywhere (Liam, 2026-10-05, D) --------
+ORION = "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3"
+ORION_LIVE_ITEM = ("Whether the plumbing system is in proper working condition and meets state "
+                   "building codes")
+
+
+def test_the_condition_sentence_is_in_the_prompt():
+    s = ec.SYSTEM_INSTRUCTIONS
+    assert "THE CONDITION OF THE HOME IS NOT CHECKED BY THIS TOOL." in s
+    for kept in ("galvanized plumbing", "a roof older than 20 years", "no central heat", "unrepaired damage"):
+        assert kept in s.split("THE CONDITION OF THE HOME")[1]
+
+
+def test_orion_on_live_no_longer_holds_on_plumbing_condition():
+    res, _ = run_live(lambda n: {"status": "INSUFFICIENT_INFORMATION", "missing_info": [ORION_LIVE_ITEM]}
+                      if n == ORION else {})
+    r = res[ORION]
+    assert r["status"] == "ELIGIBLE" and r["missing_info"] == []
+    assert "(condition of the home is not checked)" in r["notes"]
+
+
+@pytest.mark.parametrize("item", [
+    ORION_LIVE_ITEM,
+    "Whether the roof is in good condition.",
+    "Whether swimming pool is built to code",
+    "Whether the property is well maintained and not unduly exposed to loss",
+    "Confirm the mounted solar panels meet applicable building codes.",
+    "Whether the yard is free of debris",
+])
+def test_a_condition_standard_is_stripped(item):
+    assert ec._is_condition_request(item)
+
+
+@pytest.mark.parametrize("item", [
+    "Plumbing type (galvanized plumbing is ineligible)",
+    "Whether the roof is older than 20 years",
+    "Whether the home has central heat",
+    "Whether the roof is in good condition and whether it has more than one overlay",
+    "Roof condition and remaining life expectancy (must have at least 5 years)",
+    "Driving distance to the responding fire station, to determine which PPC 3 conditions apply",
+    "Homes with significant unrepaired damage",
+])
+def test_a_rule_about_a_material_or_a_fact_is_kept(item):
+    assert not ec._is_condition_request(item)
+
+
+def test_a_held_carrier_with_another_open_item_stays_held():
+    res, _ = run_live(lambda n: {"status": "INSUFFICIENT_INFORMATION",
+                                 "missing_info": [ORION_LIVE_ITEM, "Distance to fire station"]}
+                      if n == ORION else {})
+    r = res[ORION]
+    assert r["status"] == "INSUFFICIENT_INFORMATION" and r["missing_info"] == ["Distance to fire station"]

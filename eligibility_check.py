@@ -306,7 +306,9 @@ SWIMMING POOL RULES SPECIFICALLY: a pool fence height or gate-mechanism requirem
 
 BASE ELIGIBILITY vs. OPTIONAL ENDORSEMENT/COVERAGE: some requirements you'll see (a fence height, a specific material, a distance figure) are conditions of an OPTIONAL endorsement or coverage add-on, not of base policy eligibility -- look for language like "this endorsement," "to qualify for this coverage," or "optional." A condition scoped to an optional endorsement does NOT make the carrier ineligible or create a missing_info blocker if that specific coverage isn't otherwise at issue -- note it in notes as a coverage consideration if relevant, but do not let it drive status or missing_info the way a base eligibility requirement would.
 
-INSPECTION REQUIREMENTS ARE NOT CHECKED BY THIS TOOL. Do not list in missing_info, or base a status on, a requirement that an inspection, photos, a survey, a 4-point or wind-mitigation report, a roofer's letter or Roof Condition Form, a plumber's, electrician's or HVAC contractor's signed statement, or a roof certification be obtained or submitted, including where such a document is what cures a rule. Still apply every rule about the property itself even when an inspection is how it gets verified (e.g. no galvanized plumbing, roof in good condition, no more than one overlay).
+INSPECTION REQUIREMENTS ARE NOT CHECKED BY THIS TOOL. Do not list in missing_info, or base a status on, a requirement that an inspection, photos, a survey, a 4-point or wind-mitigation report, a roofer's letter or Roof Condition Form, a plumber's, electrician's or HVAC contractor's signed statement, or a roof certification be obtained or submitted, including where such a document is what cures a rule. Still apply every rule about the property itself even when an inspection is how it gets verified (e.g. no galvanized plumbing, no more than one overlay).
+
+THE CONDITION OF THE HOME IS NOT CHECKED BY THIS TOOL. A requirement that the home, the roof, a system or an item be in good or proper working condition, well maintained, free of debris, properly installed, or built to / meeting building codes is a condition standard: do not list it in missing_info and do not base a status on it -- including where a guide extends such a standard to a named item (e.g. "not meeting building codes. This includes solar panels" excludes only installations that do not meet code; it says nothing against panels that do). Still apply every rule about a material or a fact (e.g. galvanized plumbing, a roof older than 20 years, no central heat, unrepaired damage).
 
 PROPERTY DETAILS IS THE ONLY SOURCE OF FACTS ABOUT THIS CUSTOMER. Every characteristic of the property -- whether it has solar panels, a pool, dogs, its roof type, its construction, its PPC -- comes from the PROPERTY DETAILS block in this message and from nowhere else. Do not carry a property fact in from a carrier's document, from an example used in these instructions, or from what a typical property might have. In particular, a field whose value is "No"/"None"/"No Pool" is a POSITIVE STATEMENT THAT THE FEATURE IS ABSENT -- it is not a gap to be filled and not an unknown. Before writing any sentence that asserts something about this property, check that PROPERTY DETAILS actually says it. Asserting a feature the intake says the property does not have is a hard error, and an adverse verdict resting on such a feature is the worst kind: it tells an agent a real applicant does not qualify for a carrier they do qualify for.
 
@@ -3514,6 +3516,7 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
         # Before the holds, so a carrier freed here is still held on County /
         # Coverage A.
         _strip_inspection_requests(filtered)
+        _strip_condition_requests(filtered)
         _strip_guide_text_requests(filtered)
         _strip_unchecked_topics(filtered, checked)
         if _on("check:_apply_location_holds", checked):
@@ -3792,6 +3795,53 @@ def _strip_guide_text_requests(results):
         "Status set to ELIGIBLE: the only open items asked for guide text "
         + GUIDE_TEXT_NOT_ASKED_NOTE + ".",
         "GUIDE-TEXT STRIP")
+
+
+# Round 26 step 6 (Liam, 2026-10-05, decision D): condition standards are
+# notes, never a hold, in the whole tool -- like inspections. An item is a
+# CONDITION ask when it only asks whether something is in good / proper
+# working condition, maintained, properly installed or built to / meeting
+# building codes. KEEP wins: an item that also names a material or a fact
+# (overlay / layers, age or years, galvanized, knob-and-tube, type,
+# "details", central heat, damage, replacement, fence, distance ...) stays.
+# "Conditions" in the sense of a rule's branches ("which PPC 3 conditions
+# apply") is not this, and does not match.
+_CONDITION_ASK_RE = re.compile(
+    r"good (?:condition|repair|working order)|"
+    r"(?:proper|good|safe|sound|satisfactory|acceptable) (?:working )?(?:condition|order)\b|"
+    r"working condition|very[- ]good[- ]condition|"
+    r"\bcondition of (?:the )?(?:home|dwelling|house|roof|property|plumbing|electrical|heating|systems?)\b|"
+    r"\b(?:roof|home|dwelling|property|plumbing|electrical|heating|hvac)(?: system)? condition\b(?! (?:form|questionnaire))|"
+    r"well[- ]maintained|\bmaintained\b|\bmaintenance\b|"
+    r"built to code|code[- ]complian|"
+    r"(?:meets?|meeting|comply with|complies with|compliant with|up to) (?:all |current |state |local |applicable )*"
+    r"(?:building )?codes?\b|building codes?\b|properly installed|\bdebris\b|unduly exposed|disrepair",
+    re.I)
+_CONDITION_KEEP_RE = re.compile(
+    r"overlay|\blayers?\b|\bage\b|\byears?\b|galvaniz|polybut|knob|\bfuses?\b|material|\btype\b|details|"
+    r"central heat|heat source|\bcentral\b|thermostat|damage|unrepaired|replac|renovat|update|"
+    r"life expectancy|useful life|remaining life|fence|\bgates?\b|distance|hydrant|"
+    r"square f|\bacre|coverage a", re.I)
+CONDITION_NOT_CHECKED_NOTE = "(condition of the home is not checked)"
+
+
+def _is_condition_request(item):
+    if not isinstance(item, str):
+        return False
+    return bool(_CONDITION_ASK_RE.search(item)) and not _CONDITION_KEEP_RE.search(item)
+
+
+def _strip_condition_requests(results):
+    """Layer 2: remove missing_info items that only ask about the condition
+    of the home. Layer 3: an INSUFFICIENT_INFORMATION record left with
+    nothing open because of that becomes ELIGIBLE."""
+    return _strip_missing_info(
+        results, _is_condition_request,
+        "[Condition check] Removed {n} condition-standard question(s) "
+        + CONDITION_NOT_CHECKED_NOTE + ": {items}",
+        "Status set to ELIGIBLE: the only open items were about the condition of the home "
+        + CONDITION_NOT_CHECKED_NOTE + ".",
+        "CONDITION STRIP")
 
 
 UNCHECKED_NOT_CONSIDERED_NOTE = "(unchecked topics were not considered)"

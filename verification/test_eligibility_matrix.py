@@ -6491,8 +6491,12 @@ class TestInspectionNotChecked:
     def test_the_instruction_is_in_the_system_prompt_with_its_scope(self):
         s = SYSTEM_INSTRUCTIONS
         assert "INSPECTION REQUIREMENTS ARE NOT CHECKED BY THIS TOOL." in s
-        for kept in ("no galvanized plumbing", "roof in good condition", "no more than one overlay"):
+        # CHANGED DELIBERATELY (Liam, 2026-10-05, decision D): "roof in good
+        # condition" is a condition standard now -- a note, never a hold -- so
+        # it left this list of rules that are still applied.
+        for kept in ("no galvanized plumbing", "no more than one overlay"):
             assert kept in s
+        assert "roof in good condition" not in s.split("THE CONDITION OF THE HOME")[0]
         # Round 24 (Liam, 2026-10-02): letters and statements are inspections.
         for named in ("a roofer's letter or Roof Condition Form",
                       "a plumber's, electrician's or HVAC contractor's signed statement",
@@ -7577,3 +7581,25 @@ class TestRooferStatementNotChecked:
     def test_markels_no_known_loss_letter_is_not_an_inspection(self):
         assert not _is_inspection_request(
             "Lapses in coverage (up to 90 days allowed, requires signed no known loss letter)")
+
+
+# ---------------------------------------------------------------------------
+# ROUND 26 (Liam's live check, 2026-10-05) -- TWICO and mounted solar.
+# ---------------------------------------------------------------------------
+@pytest.mark.baseline
+@pytest.mark.xfail(
+    reason="OPEN, round 26 (measured 2026-10-05, Luna, LIVE): TWICO is INELIGIBLE in 4/4 runs -- 2 with "
+           "step 5's stitched sentence, 2 more with step 6's condition-standard prompt sentence, which "
+           "uses this exact wording as its example. The guide: 'Homes of unconventional construction "
+           "including log, do-it-yourself, dome, shell, or homes using unconventional parts or not "
+           "meeting building codes. This includes solar panels.' Liam reads it as a building-code rule "
+           "that code-compliant mounted panels do not trip; Luna attaches 'This' to the unconventional "
+           "construction list. Not hardcoded for TWICO (Liam). Liam decides between a code rule for "
+           "'This includes <item>' after a condition standard and accepting the decline.",
+    strict=False,
+)
+def test_twico_does_not_decline_code_compliant_mounted_solar_on_live():
+    from profiles import LIVE_PROFILE, LIVE_CHECKED
+    result = check_eligibility(dict(LIVE_PROFILE), checked_topics=list(LIVE_CHECKED))
+    twico = [r for r in result if r["carrier"] == "TWICO_HO3"]
+    assert twico and twico[0]["status"] != "INELIGIBLE", twico[0].get("reasons") if twico else "TWICO missing"
