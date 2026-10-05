@@ -1869,7 +1869,21 @@ def test_allied_trust_14yr_roof_consistency(record_property):
     time). Unrelated to anything changed this round -- Allied Trust's
     roof-life-expectancy logic wasn't touched. Converted to the same
     tracked pattern rather than left as a hard assert that fails
-    unpredictably alongside the other newly-discovered flaky cases."""
+    unpredictably alongside the other newly-discovered flaky cases.
+
+    CORRECTED (round 26, 2026-10-05) -- the premise above was wrong. The
+    guide (p.16, "25. ROOFING"): "Roof must have at least 5 years life
+    expectancy unless otherwise noted to be considered at time of New
+    Business. Composite or Architectural Shingle Roofs should have 3/4 of its
+    life expectancy at the time of new business to qualify for replacement
+    cost coverage." The 3/4 rule decides replacement cost, not eligibility;
+    a 14-year composite roof (7 of 21 years left) is eligible, on limited
+    roof settlement. The old reading came from a chunk boundary: stored chunk
+    96 ends "... at the time of new business to qualify" and chunk 97 starts
+    "for replacement cost coverage." Round 26 step 5 stitches 97, and Luna
+    then reads it right (7/7 ALT runs, every one noting replacement cost
+    is not met). The test now checks the guide's rule: the 3/4 rule never
+    declines, and the replacement-cost limit reaches the card."""
     n_runs = 3
     outcomes = []
     for _ in range(n_runs):
@@ -1877,13 +1891,16 @@ def test_allied_trust_14yr_roof_consistency(record_property):
         by_carrier = {r["carrier"]: r for r in result}
         matches = _find_carrier(by_carrier, "allied trust")
         assert matches, "Allied Trust: not found in output"
-        outcomes.append(matches[0]["status"] != "ELIGIBLE")
+        r = matches[0]
+        card = " ".join((r.get("reasons") or []) + (r.get("citations") or []) + [r.get("notes") or ""]).lower()
+        outcomes.append(r["status"] != "INELIGIBLE" and "replacement" in card)
     pass_rate = sum(outcomes) / len(outcomes)
     record_property("allied_trust_14yr_roof_correct_pass_rate", pass_rate)
-    print(f"\nAllied Trust 14yr-roof correct-verdict pass rate: {pass_rate:.0%} over {n_runs} runs ({outcomes})")
+    print(f"\nAllied Trust 14yr-roof: not declined + replacement-cost limit on the card: "
+          f"{pass_rate:.0%} over {n_runs} runs ({outcomes})")
     assert pass_rate > 0.0, (
-        f"Allied Trust's 14yr roof passed as clean ELIGIBLE in EVERY run -- "
-        f"the 3/4-remaining-life-expectancy rule is not being applied at all."
+        "Allied Trust's 14yr roof never showed the replacement-cost limit, or was declined on the 3/4 "
+        "rule (which decides replacement cost, not eligibility) in EVERY run."
     )
 
 

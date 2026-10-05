@@ -718,6 +718,54 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       Insufficient -> Eligible. Its rule is "unprotected ground mounted
       solar panels", and the prompt defines Solar Panels: Yes as panels
       mounted on the roof; the old hold asked for the mount location.
+  - **Step 4 (citation guard):** a citation must be a quote and nothing
+    else, from the carrier's own guide.
+    - The old guard judged only the label, so "ARI_(HOA+): <HOB's age
+      rule>" passed.
+    - Now a citation with no quote marks or with commentary is removed (a
+      note, no status change).
+    - A quote found only in another program's guide counts as that
+      program's citation.
+    - Replay over the round's runs: 226 citations, 0 removed.
+  - **Step 5 (stitching):** 600 of 1,810 prose chunks start mid-sentence.
+    - Each gets the end of the previous chunk, up to 300 characters.
+    - A missing item that asks for guide text never holds a carrier (97 of
+      2,879 recorded items).
+  - **Step 6 (condition standards, D):** prompt sentence + strip + flip.
+    - Caught 110 of 9,104 recorded items, 3 false hits fixed.
+    - 25 recorded Insufficient records would become Eligible.
+    - Orion on LIVE no longer holds.
+  - **Step 7:** Could Not Be Checked rows have no empty bullets. There is no
+    real double render (AppTest); Liam's copy showed Streamlit's stale
+    elements during a re-check. Results now live in one st.empty()
+    placeholder that a new check replaces at once.
+  - **Step 11:** the form says "Only checked items are considered.
+    Inspections and the condition of the home are not checked."
+  - **Step 12 (Tier 2 baseline, Luna, pilot OFF):**
+    - First run, on 8ec2f21: 24 passed, 5 failed, 10 xfailed, 5 xpassed;
+      90 calls, $0.13 ($0.17 in round 25). Fixes in dee8e4c.
+    - Re-run on dee8e4c: 26 passed, 3 failed, 9 xfailed, 6 xpassed; 90
+      calls, $0.13.
+      - Progressive solar, single run: Luna's rate. The 3-run test passed
+        at 1/3. Left red, as in round 25.
+      - Swyfft trust/LLC: OPEN since round 25, also on origin.
+      - Allied 14-year roof: the test's premise was wrong. The guide's ¾
+        rule is "to qualify for replacement cost coverage", not
+        eligibility. A chunk boundary hid that until step 5's stitching.
+        Corrected; 3/3 on Luna.
+    - LIVE, 2 runs, pilot OFF and ON: 26 of 27 carriers are the same in
+      all four runs; Travelers was Insufficient once (OFF). Not Eligible:
+      Sage Auros/SURE/SafePort/Wilshire/Trium (territory), NatGen Premier
+      (closed), TWICO (open item).
+  - **OPEN after round 26:**
+    - TWICO on LIVE is INELIGIBLE (4/4 Luna runs) on "...or not meeting
+      building codes. This includes solar panels." Liam's reading is a
+      building-code rule. Not hardcoded; tracked by a baseline xfail.
+    - The Sage FPC override says Eligible at 7 miles where SAG-074's
+      conditions are open (step 10).
+    - NatGen Premier DP3, Foremost's condo/tenant forms and the catastrophe
+      moratoriums await Liam (step 9 list).
+    - Swyfft Benchmark trust/LLC declines (round 25, also on origin).
   - **Step 8 (carrier enum; pilot ON vs OFF):**
     - The strict schema's "carrier" is an enum of the call's own program
       names; ELIGIBILITY_CARRIER_ENUM=0 turns it off.
