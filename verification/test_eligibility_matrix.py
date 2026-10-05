@@ -96,6 +96,7 @@ from eligibility_check import (
     get_combined_program_carriers,
     get_all_carriers,
     GUIDE_UNAVAILABLE,
+    _GUIDE_WRONG_DOCUMENT_TEXT,
     NOT_EVALUATED,
     _is_openai_model,
     UNRECOGNISED_VERDICT,
@@ -1479,25 +1480,29 @@ def test_sage_occidental_pool_fence_consistency(record_property):
     Progressive (see experiment_progressive_repair_spike.py, which took
     that case from 90% to 100% over 20 runs) once that pattern is wired
     into production -- not applied here yet, so this stays an honest
-    tracked number in the meantime rather than an accepted 55%."""
+    tracked number in the meantime rather than an accepted 55%.
+
+    CHANGED DELIBERATELY (Liam, 2026-09-28/29, commit c49aa2b; expectation
+    updated round 25, 2026-10-04): wrong-guide carriers are left out of the
+    prompt and get a fixed GUIDE_UNAVAILABLE row, so the model never sees
+    Occidental's pool text and this measured 0/3 in round 25's Tier 2 run --
+    the first Tier 2 run since that decision. The test now asserts the
+    decided behaviour on every run: the fixed row, nothing from the model.
+    The pool-fence text claim lives on the DP3 record (see above)."""
     n_runs = 3
-    outcomes = []
+    rows = []
     for _ in range(n_runs):
         result = check_eligibility(STANDARD_PROFILE)
-        by_carrier = {r["carrier"]: r for r in result}
-        matches = _find_carrier(by_carrier, "occidental")
-        assert matches, "Occidental: not found in output"
-        r = matches[0]
-        blob = " ".join(r.get("reasons", []) + r.get("citations", []) + r.get("missing_info", [])).lower()
-        outcomes.append("fenc" in blob or "gate" in blob)
-    pass_rate = sum(outcomes) / len(outcomes)
-    record_property("sage_occidental_pool_fence_pass_rate", pass_rate)
-    print(f"\nSage Occidental pool-fence pass rate: {pass_rate:.0%} over {n_runs} runs ({outcomes})"
-          f"  [DD-4: DP3 guide on file under the HO3 name -- not HO3 evidence]")
-    assert pass_rate > 0.0, (
-        f"Sage Occidental's pool-fence rule did not surface in ANY of {n_runs} runs -- "
-        f"this has regressed from partial (55% measured over 20 runs) to total failure."
-    )
+        mine = [r for r in result if r["carrier"] == "Sage_-_Occidental_HO3"]
+        assert len(mine) == 1, f"Sage_-_Occidental_HO3: expected one row, got {len(mine)}"
+        rows.append(mine[0])
+    statuses = [r["status"] for r in rows]
+    record_property("sage_occidental_ho3_statuses", statuses)
+    print(f"\nSage Occidental HO3 over {n_runs} runs: {statuses}  [DD-4: wrong guide, fixed row]")
+    for r in rows:
+        assert r["status"] == GUIDE_UNAVAILABLE, statuses
+        assert r["reasons"] == [_GUIDE_WRONG_DOCUMENT_TEXT], r["reasons"]
+        assert not r.get("citations"), r.get("citations")
 
 
 @pytest.mark.baseline

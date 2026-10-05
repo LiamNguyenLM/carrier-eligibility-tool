@@ -432,6 +432,49 @@ def _rate(fn, runs=None):
     return passes, runs, failures
 
 
+# Round 25 (2026-10-04): the Sage Auros pool case failed 2/3 on Luna on the
+# correct answer "This is a liability restriction, not a decline of the home."
+# -- the old regex did not see the "not". A negated mention is not a claim; any
+# un-negated "declined ... home" / "home ... ineligible" still fails the case.
+_HOME_DECLINE_RE = re.compile(r"\b(ineligible|declined?|not eligible)\b.{0,40}\bhome\b")
+_NEGATED_BEFORE_RE = re.compile(r"(\bnot|n't|\bnever|\bno|\bwithout)\s+(an?\s+|the\s+)?$")
+
+
+def _home_decline_claims(lowered):
+    """Each un-negated 'ineligible / declined / not eligible ... home' span."""
+    out = []
+    for m in _HOME_DECLINE_RE.finditer(lowered):
+        if m.group(1) != "not eligible" and _NEGATED_BEFORE_RE.search(lowered[max(0, m.start() - 20):m.start()]):
+            continue
+        out.append(m.group(0))
+    return out
+
+
+def test_home_decline_claims_ignores_negated_mentions_only():
+    # negated: not a claim
+    assert _home_decline_claims("this is a liability restriction, not a decline of the home.") == []
+    assert _home_decline_claims("sage does not decline the home for this.") == []
+    assert _home_decline_claims("it isn't declined; the home stays eligible") == []
+    # claims: still caught
+    assert _home_decline_claims("the carrier will decline the home.")
+    assert _home_decline_claims("with no fence the risk is ineligible -- the whole home")
+    assert _home_decline_claims("the property is not eligible as a home risk")
+    assert _home_decline_claims("this pool makes it ineligible, so the home is declined")
+
+
+# Restored round 25 (2026-10-04): the merge eefc9cd removed the confidentiality
+# gate above this helper and took the helper with it, so every golden case
+# failed with a NameError before asking anything. Same body as chat-tab f5c496e.
+def _assert_rate(fn, threshold=1.0):
+    passes, runs, failures = _rate(fn)
+    rate = passes / runs
+    assert rate >= threshold, (
+        "pass rate {p}/{r} = {rate:.0%}, below {t:.0%}. Failures: {f}".format(
+            p=passes, r=runs, rate=rate, t=threshold, f=failures[:3]
+        )
+    )
+
+
 
 @pytest.mark.baseline
 class TestGoldenSet:
@@ -586,7 +629,7 @@ class TestGoldenSet:
             assert result["quotes_verified"], result["quote_problems"]
             lowered = answer.lower()
             assert "liability" in lowered
-            assert not re.search(r"\b(ineligible|declined?|not eligible)\b.{0,40}\bhome\b", lowered)
+            assert not _home_decline_claims(lowered), _home_decline_claims(lowered)
         _assert_rate(check)
 
 

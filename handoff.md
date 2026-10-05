@@ -640,7 +640,36 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
 - **HUD-USPS crosswalk:** the table is the Census ZCTA fallback (land
   share, no PO-box ZIPs). Liam creates the HUD token, then run
   `python build_zip_county.py hud`.
-- **Tier 2 baseline:** none ran in rounds 19, 20 or 21.
+- **Tier 2 baseline:** none ran in rounds 19, 20 or 21. **Ran 2026-10-04
+  (round 25 step 1) on main bb0e983 with Luna**: 19 passed, 10 failed,
+  8 xfailed, 6 xpassed; 82 calls, $0.17, 41.5 min. Controls on origin
+  463e290 (Luna, same database) separate the causes. User prompts for
+  ALT, Trust and LLC are byte-identical on both. The only prompt
+  difference is the round 20/24 inspection sentence.
+  - 7 chat golden cases: a NameError. The merge eefc9cd dropped
+    `_assert_rate`, so this was already broken on origin. Restored. Re-run
+    at 3 runs each: 6 of 7 at 100%.
+  - The 7th, Sage Auros pool, failed on the correct answer "not a decline of
+    the home" because the regex ignored "not". It now ignores negated
+    mentions, with a fast test for both phrasings, and passes 3/3.
+  - Sage Occidental pool fence: an expected change. Liam's 2026-09-28/29
+    decision (c49aa2b) made it a fixed GUIDE_UNAVAILABLE row. The test now
+    asserts that row, and passes 3/3.
+  - **OPEN, Luna rate, not a regression:** Progressive HO3 names solar on
+    ALT in 4/12 runs on main and 2/6 on origin. Sonnet measured 16/16 in
+    round 12. Retrieval still delivers the clause: a page 12 chunk that
+    starts mid-list, with no heading. Progressive's ALT verdict also varies
+    (7 Eligible, 4 Insufficient, 1 Ineligible in 12 runs).
+  - **OPEN, Luna, already on origin:** in the Trust/LLC verdict test,
+    Swyfft Benchmark (Admitted) and (Surplus) DECLINE a trust. Their guide
+    lists it under "Check with us first" (stored as "␀rst", DD-5).
+    - Extra Trust runs: origin declined 6/6, main 5/6.
+    - Lloyds and Topa mostly REFER on both commits.
+    - Progressive HO6 holds on "not a condo unit" and is left out in 2/6 on
+      both commits.
+    - Sage Auros is now INSUFFICIENT on a blank county, from round 19's
+      county hold (expected); origin gave ELIGIBLE.
+    - The test stays red. Nothing was loosened.
 - **NEW: silence in the retrieved text treated as missing information.**
   - Recorded Sonnet: 57 of 1,978 Insufficient records (2.9%) hold ONLY on
     generic items ("criteria not in the excerpts", "table not included in
