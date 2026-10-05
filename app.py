@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import streamlit as st
+import html
 import os
 
 try:
@@ -344,6 +345,11 @@ with tab1:
         not_eligible = buckets["not_eligible"]
 
         def render_carrier(carrier):
+            # Round 25: the rules-table pilot (ELIGIBILITY_RULES_PILOT). Its
+            # code-decided declines and referrals carry the row, page and quote
+            # in their citations; its notes are never a hold.
+            if carrier.get("rules_table"):
+                st.caption("rules table")
             if carrier.get("reasons"):
                 st.markdown("**Analysis**")
                 for reason in carrier["reasons"]:
@@ -359,6 +365,17 @@ with tab1:
                 st.markdown("**Missing Information**")
                 for item in carrier["missing_info"]:
                     st.markdown("- " + item)
+            confirm = carrier.get("also_confirm") or []
+            if confirm:
+                if len(confirm) > 3:
+                    # cards already sit in an expander, and expanders cannot nest
+                    items = "".join(f"<li>{html.escape(item)}</li>" for item in confirm)
+                    st.markdown(f"<details><summary><b>Also confirm ({len(confirm)})</b></summary>"
+                                f"<ul>{items}</ul></details>", unsafe_allow_html=True)
+                else:
+                    st.markdown("**Also confirm**")
+                    for item in confirm:
+                        st.markdown("- " + item)
 
         col_yes, col_one, col_info, col_no = st.columns(4)
 

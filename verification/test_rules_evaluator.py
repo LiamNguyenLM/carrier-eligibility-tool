@@ -178,3 +178,64 @@ def test_model_record_gets_quotes_for_the_row_ids_it_names():
     assert rec["citations"] and rec["citations"][0].startswith("Progressive_HO3_-_04.01.2026: [PRO-068] p.")
     assert not any("ALL-001" in c for c in rec["citations"])
     assert rec["rules_table"] and rec["carrier"] == "Progressive_HO3_-_04.01.2026"
+
+
+# -- round 25 step 4: unknown is not a failure, enforced by code ------------------
+POOL = dict(BASE, swimming_pool="In Ground - Fenced", pool_fence_4ft=None, pool_gate_locking=None)
+
+
+def _model(status, reasons, missing=()):
+    return {"carrier": "x", "status": status, "flaw_count": 1 if status == "INELIGIBLE" else 0,
+            "reasons": list(reasons), "citations": [], "missing_info": list(missing), "notes": ""}
+
+
+@pytest.mark.parametrize("canon,status,reason", [
+    # the exact step 4 records: REFER on an open pool fence, no missing info
+    (ALLIED, "REFER", "The details do not confirm a fence at least 4 feet high or a locking gate. [ALL-093]"),
+    ("Swyfft_-_Benchmark_(Admitted)_HO3", "REFER", "Pool cage or 4-foot fence not confirmed [SWY-035]"),
+    # another phrasing, and the other failing status
+    ("Progressive_HO3_-_04.01.2026", "INELIGIBLE", "PRO-051: fence height is not given, so the pool fails"),
+    (ALLIED, "REFER", "Fence details unknown."),                       # cites no row at all
+])
+def test_a_pilot_refer_or_decline_on_an_unknown_fact_is_held_as_insufficient(canon, status, reason):
+    out = ev.evaluate_carrier(canon, POOL)
+    assert any(o == "OPEN" for o, _ in out.values())
+    rec = ev.finish_model_record(_model(status, [reason]), canon, out)
+    assert rec["status"] == "INSUFFICIENT_INFORMATION" and rec["flaw_count"] == 0
+    assert rec["missing_info"] and all("--" in m for m in rec["missing_info"])
+    assert "facts the form does not give" in rec["notes"]
+    assert rec["citations"]
+
+
+def test_a_pilot_refer_on_an_ambiguous_row_it_cites_stands():
+    out = {"ALL-093": ("OPEN", "ambiguous: two readings of the fence rule"), "ALL-133": ("PASS", "")}
+    rec = ev.finish_model_record(_model("REFER", ["[ALL-093] the fence reading that applies fails"]), ALLIED, out)
+    assert rec["status"] == "REFER"
+    out2 = {"ALL-093": ("OPEN", "the row's effect is UNKNOWN")}
+    assert ev.finish_model_record(_model("INELIGIBLE", ["ALL-093"]), ALLIED, out2)["status"] == "INELIGIBLE"
+
+
+@pytest.mark.parametrize("canon,reason", [
+    # the exact step 4 records (STANDARD / STRESS): ELIGIBLE, fence unknown
+    (ALLIED, "The provided details do not establish whether its fence is at least 4 feet high."),
+    ("Swyfft_-_Benchmark_(Admitted)_HO3", "The intake says the pool is fenced but does not specify fence height."),
+    # another phrasing: no mention of the open fact at all
+    ("Progressive_HO3_-_04.01.2026", "All listed rules are satisfied."),
+])
+def test_a_pilot_eligible_answer_with_an_unknown_fact_open_is_held_as_insufficient(canon, reason):
+    out = ev.evaluate_carrier(canon, POOL)
+    rec = ev.finish_model_record(_model("ELIGIBLE", [reason]), canon, out)
+    assert rec["status"] == "INSUFFICIENT_INFORMATION"
+    assert any("fence" in m for m in rec["missing_info"])
+    assert "Insufficient" in rec["notes"]
+
+
+def test_a_pilot_answer_on_model_decidable_rows_only_stands():
+    out = {"ALL-109": ("OPEN", "ambiguous: solar panels vs solar tiles"), "ALL-133": ("PASS", "")}
+    assert ev.finish_model_record(_model("ELIGIBLE", ["ALL-109 reads as panels"]), ALLIED, out)["status"] == "ELIGIBLE"
+
+
+def test_a_pilot_insufficient_answer_is_untouched():
+    out = ev.evaluate_carrier(ALLIED, POOL)
+    rec = ev.finish_model_record(_model("INSUFFICIENT_INFORMATION", ["ok"], ["the model's own item"]), ALLIED, out)
+    assert rec["status"] == "INSUFFICIENT_INFORMATION" and rec["missing_info"] == ["the model's own item"]

@@ -416,7 +416,44 @@ def finish_model_record(rec, canon, outcomes):
     rec["carrier"] = canon
     rec["rules_table"] = True
     rec["also_confirm"] = also_confirm(canon, outcomes)
+    _hold_unknown_as_insufficient(rec, outcomes, ids)
     return rec
+
+
+def _model_can_decide(detail):
+    """An OPEN row the pilot call can legitimately fail: its readings disagree
+    on known facts, or a known fact breaks it and only the effect is unknown.
+    Every other OPEN row is open because the form does not give a fact."""
+    return detail.startswith("ambiguous:") or detail == "the row's effect is UNKNOWN"
+
+
+def _hold_unknown_as_insufficient(rec, outcomes, cited_ids):
+    """Round 25 step 4 (2026-10-04). On the same open pool-fence rows -- facts
+    the form does not give -- Luna answered REFER in one set of runs and
+    ELIGIBLE in the next, with reasons saying the fence was unknown. Code
+    knows why each row is open, so it decides these, both ways:
+    - REFER / INELIGIBLE stands only when it cites a row the model can decide
+      (readings disagree, or a known fact with an UNKNOWN effect);
+    - otherwise, while any row is open on a fact the form does not give, the
+      carrier is INSUFFICIENT_INFORMATION on those facts -- never ELIGIBLE,
+      as code_record already does when it decides alone.
+    An INSUFFICIENT_INFORMATION answer is left as the model wrote it."""
+    status = rec.get("status")
+    if status == "INSUFFICIENT_INFORMATION":
+        return
+    if status in ("REFER", "INELIGIBLE") and any(
+            outcomes.get(rid, ("", ""))[0] == "OPEN" and _model_can_decide(outcomes[rid][1]) for rid in cited_ids):
+        return
+    rules = load_rules()
+    opens = [rid for rid, (o, d) in outcomes.items() if o == "OPEN" and not _model_can_decide(d)]
+    if status not in ("REFER", "INELIGIBLE") and not opens:
+        return
+    rec["notes"] = ((rec.get("notes") or "") + f" Rules table: the pilot answer said {status}, but these rows "
+                    "depend on facts the form does not give; code holds the carrier as Insufficient.").strip()
+    rec["status"], rec["flaw_count"] = "INSUFFICIENT_INFORMATION", 0
+    opens = opens or [rid for rid, (o, _) in outcomes.items() if o == "OPEN"]   # an uncited decidable row
+    rec["missing_info"] = [f"{outcomes[rid][1]} -- [{rid}] {rules[rid]['Plain rule']}" for rid in opens]
+    rec["citations"] = rec["citations"] or [citation(rules[rid]) for rid in opens]
 
 
 def is_pilot(carrier):

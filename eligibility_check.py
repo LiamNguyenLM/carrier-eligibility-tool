@@ -26,7 +26,9 @@ except Exception:
 from shared_resources import get_embeddings, get_vectorstore
 import data_defects
 import intake_fields
+import rules_evaluator
 import topics
+from concurrent.futures import ThreadPoolExecutor
 from structured_rules import (
     sage_family_fpc_eligibility,
     mercury_roof_eligibility,
@@ -96,6 +98,15 @@ ELIGIBILITY_REASONING_EFFORT = os.environ.get("ELIGIBILITY_REASONING_EFFORT", "l
 # omissions: Foremost was left out in 3 of the 10 (they get NOT_EVALUATED
 # rows). Turn off with ELIGIBILITY_STRUCTURED=0. Ignored on the Anthropic path.
 ELIGIBILITY_STRUCTURED = os.environ.get("ELIGIBILITY_STRUCTURED", "1") == "1"
+
+# Round 25 (Liam, 2026-10-03): the rules-table pilot. OFF by default; OFF is
+# byte-identical to before. ON: the six carriers in rules_evaluator.PILOT_CARRIERS
+# leave retrieval and the main model call; code decides them from the form
+# (rules_data/), and one separate call -- in parallel with the main one -- sees
+# only the rows code left open. Do not set this on Railway; Liam decides.
+RULES_PILOT = os.environ.get("ELIGIBILITY_RULES_PILOT", "0") == "1"
+# The usage of the last check's calls, for measurement: {"main": ..., "pilot": ...}.
+LAST_CALL_USAGE = {}
 
 _STRING_LIST = {"type": "array", "items": {"type": "string"}}
 CARRIER_RESULTS_SCHEMA = {
@@ -1742,7 +1753,8 @@ def _drop_answered_pool_questions(r, height_ok, gate_ok):
     return dropped
 
 
-def _enforce_pool_spec_support(results, relevant_carriers, property_details, pool_specs):
+def _enforce_pool_spec_support(results, relevant_carriers, property_details, pool_specs,
+                               skip=frozenset()):
     """Guarantee that a carrier stating specific pool-enclosure
     requirements records them as UNCONFIRMED rather than assumed met.
 
@@ -1765,7 +1777,9 @@ def _enforce_pool_spec_support(results, relevant_carriers, property_details, poo
     any_box = _pool_fence_4ft(property_details) or _pool_gate_locking(property_details)
     for r in results:
         canon = _resolve_structured_carrier(r.get("carrier", ""), relevant_carriers)
-        if canon is None:
+        # skip: the rules-table pilot carriers. They were never retrieved, so
+        # pool_specs knows nothing about them; their own pool rows decide.
+        if canon is None or canon in skip:
             continue
         spec = pool_specs.get(canon)
         if not spec or not (spec["heights"] or spec["gates"]):
@@ -1806,7 +1820,7 @@ def _enforce_pool_spec_support(results, relevant_carriers, property_details, poo
             _append_note(r, "Status corrected to ELIGIBLE: the only open facts were this "
                             "carrier's pool fence height / gate, and the agent confirmed both.")
 
-    _drop_manufactured_pool_questions(results, relevant_carriers, property_details, pool_specs)
+    _drop_manufactured_pool_questions(results, relevant_carriers, property_details, pool_specs, skip)
 
 
 # Words that make a missing_info item a POOL-SPECIFICITY question.
@@ -1820,7 +1834,8 @@ def _is_manufactured_pool_question(item):
     return any(w in low for w in _POOL_SPECIFICITY_WORDS)
 
 
-def _drop_manufactured_pool_questions(results, relevant_carriers, property_details, pool_specs):
+def _drop_manufactured_pool_questions(results, relevant_carriers, property_details, pool_specs,
+                                      skip=frozenset()):
     """The mirror of the check above, and the more consequential half.
 
     A carrier whose own document states NO specific fence height or gate
@@ -1867,7 +1882,11 @@ def _drop_manufactured_pool_questions(results, relevant_carriers, property_detai
 
     for r in results:
         canon = _resolve_structured_carrier(r.get("carrier", ""), relevant_carriers)
-        if canon is None:
+        # Round 25 step 4: with the pilot ON, a pilot carrier is absent from
+        # pool_specs because it was never retrieved -- not because its guide
+        # states no fence spec. Reading that absence as "no requirement"
+        # dropped Allied's and Swyfft's fence questions and set them ELIGIBLE.
+        if canon is None or canon in skip:
             continue
         spec = pool_specs.get(canon)
         if spec and (spec["heights"] or spec["gates"]):
@@ -2434,7 +2453,8 @@ def _strip_misattributed_citations(results, relevant_carriers):
             )
 
 
-def _apply_structured_overrides(results, relevant_carriers, property_details, checked=None):
+def _apply_structured_overrides(results, relevant_carriers, property_details, checked=None,
+                                fpc_skip=frozenset()):
     """Each branch is gated by its topic tag (topics.STEPS["override:<set>"]);
     a rule needing an unchecked topic is skipped. The carrier sets of the
     elif chain are disjoint (a test checks it), so skipping one branch never
@@ -2453,7 +2473,11 @@ def _apply_structured_overrides(results, relevant_carriers, property_details, ch
             r.get("reasons", []) + r.get("citations", []) + [r.get("notes", "")]
         ).lower()
 
-        if canon in _SAGE_FPC_CARRIERS and _on("override:_SAGE_FPC_CARRIERS", checked):
+        # fpc_skip: with the rules-table pilot ON, Sage Auros's own FPC table
+        # rows (SAG-072..SAG-080) decide instead (round 24 found this upgrade
+        # overrides them -- round 19's open item). Other Sage carriers keep it.
+        if (canon in _SAGE_FPC_CARRIERS and canon not in fpc_skip
+                and _on("override:_SAGE_FPC_CARRIERS", checked)):
             s_status, s_reasons = sage_family_fpc_eligibility(
                 property_details['ppc'], carrier=canon,
             )
@@ -2773,6 +2797,49 @@ def parse_carrier_json(json_str):
         raise original
 
 
+def _rules_pilot_prepare(carriers, property_details, checked):
+    """With RULES_PILOT on: evaluate each pilot carrier in `carriers` from the
+    form. Carriers code decides alone become records now; the rest go to the
+    pilot model call. OFF: nothing (the pipeline is unchanged)."""
+    out = {"carriers": frozenset(), "records": [], "open": {}, "outcomes": {}}
+    if not RULES_PILOT:
+        return out
+    chosen = [c for c in carriers if rules_evaluator.is_pilot(c)]
+    out["carriers"] = frozenset(chosen)
+    for c in chosen:
+        outcomes = rules_evaluator.evaluate_carrier(c, property_details, checked)
+        out["outcomes"][c] = outcomes
+        rec, decided = rules_evaluator.code_record(c, outcomes)
+        if decided:
+            out["records"].append(rec)
+        else:
+            out["open"][c] = outcomes
+    return out
+
+
+def _rules_pilot_model_records(raw, open_carriers):
+    """The pilot call's records, one per open carrier, with code-attached
+    citations and the never-a-hold notes. A carrier the model left out gets
+    no record here (the pipeline's NOT_EVALUATED row covers it)."""
+    try:
+        body = (raw or "").replace("```json", "").replace("```", "").strip()
+        parsed = json.loads(body)
+        recs = parsed.get("carriers", parsed) if isinstance(parsed, dict) else parsed
+    except (ValueError, AttributeError):
+        print("RULES PILOT: unparseable pilot answer; its carriers get NOT_EVALUATED rows")
+        return []
+    out, done = [], set()
+    for r in recs if isinstance(recs, list) else []:
+        if not isinstance(r, dict):
+            continue
+        canon = _resolve_structured_carrier(r.get("carrier", ""), list(open_carriers))
+        if canon is None or canon in done:
+            continue
+        done.add(canon)
+        out.append(rules_evaluator.finish_model_record(r, canon, open_carriers[canon]))
+    return out
+
+
 def check_eligibility(property_details, carrier_subset=None, checked_topics=None):
     """carrier_subset: optional iterable of carrier names to restrict
     evaluation to (intersected with the normal occupancy filter). Used to
@@ -2820,6 +2887,12 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
     if _dwelling_type(property_details) == "House":
         relevant_carriers = [c for c in relevant_carriers if not _is_condo_program(c)]
         unavailable = [p for p in unavailable if not _is_condo_program(p)]
+    # Rules-table pilot: the pilot carriers leave retrieval and the main
+    # prompt. Everything after the model call uses all_carriers again.
+    all_carriers = relevant_carriers
+    pilot = _rules_pilot_prepare(relevant_carriers, property_details, checked)
+    if pilot["carriers"]:
+        relevant_carriers = [c for c in relevant_carriers if c not in pilot["carriers"]]
     vectorstore = get_vectorstore()
 
     seen = set()
@@ -3121,7 +3194,25 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
     # this past that threshold. _complete_anthropic passes an explicit
     # timeout to skip that heuristic entirely; real calls have taken up to
     # ~180s observed this session, so 900s leaves large headroom.
-    raw, usage = _complete(SYSTEM_INSTRUCTIONS, user_content, MAX_RESPONSE_TOKENS)
+    if pilot["open"]:
+        # The pilot call sees the same PROPERTY DETAILS (and partial-check
+        # line) and only the open rows; it runs alongside the main call.
+        pilot_content = (_property_details_text(property_details, home_age, occupancy, ownership, checked,
+                                                list(pilot["open"]))
+                         + _partial_check_instruction(checked) + "\n\n"
+                         + rules_evaluator.evidence_text(pilot["open"]))
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            main_future = pool.submit(_complete, SYSTEM_INSTRUCTIONS, user_content, MAX_RESPONSE_TOKENS)
+            pilot_future = pool.submit(_complete, SYSTEM_INSTRUCTIONS, pilot_content, MAX_RESPONSE_TOKENS)
+            raw, usage = main_future.result()
+            pilot_raw, pilot_usage = pilot_future.result()
+        pilot["records"] += _rules_pilot_model_records(pilot_raw, pilot["open"])
+    else:
+        raw, usage = _complete(SYSTEM_INSTRUCTIONS, user_content, MAX_RESPONSE_TOKENS)
+        pilot_usage = None
+    LAST_CALL_USAGE.clear()
+    LAST_CALL_USAGE.update(main=usage, pilot=pilot_usage)
+    relevant_carriers = all_carriers
 
     # CHANGED: cache visibility. cache_read_input_tokens > 0 means this call
     # got a cache hit; cache_creation_input_tokens > 0 means this call just
@@ -3162,7 +3253,7 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
         # than crash on r.get().
         if not isinstance(parsed, list):
             parsed = []
-        parsed = [_normalize_record(r) for r in parsed if isinstance(r, dict)]
+        parsed = [_normalize_record(r) for r in parsed + pilot["records"] if isinstance(r, dict)]
 
         # CHANGED: the model's own restated carrier name can drop a token
         # from an ambiguous combined-program name (e.g. return "Foremost"
@@ -3223,13 +3314,14 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
         # act on a corrected status rather than a fabricated one.
         _strip_contradicted_property_claims(filtered, property_details, checked)
         _strip_misattributed_citations(filtered, relevant_carriers)
-        _apply_structured_overrides(filtered, relevant_carriers, property_details, checked)
+        _apply_structured_overrides(filtered, relevant_carriers, property_details, checked,
+                                    fpc_skip=pilot["carriers"])
         # Runs last: it only ever ADDS a missing_info item and a note, so it
         # cannot be undone by an override, and it must see the final set of
         # carriers rather than a pre-override one.
         if _on("check:_enforce_pool_spec_support", checked):
             _enforce_pool_spec_support(
-                filtered, relevant_carriers, property_details, pool_specs
+                filtered, relevant_carriers, property_details, pool_specs, skip=pilot["carriers"]
             )
         if _on("check:_note_solar_roofing_does_not_apply", checked):
             # An unchecked roof type is not repeated back in the note.
