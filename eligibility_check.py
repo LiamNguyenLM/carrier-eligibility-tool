@@ -367,6 +367,60 @@ Output guidelines (keep every card short -- the agent reads dozens of them):
 """
 
 
+# Round 26 step 5 (Liam's live check, 2026-10-05). TWICO's chunk started
+# "meeting building codes. This includes solar panels." -- the start of the
+# sentence ("Homes of unconventional construction ... or not") is the end of
+# the previous stored chunk -- and Luna held TWICO asking for "the complete
+# sentence". A chunk that starts mid-sentence now gets the end of the
+# previous chunk of the same program (page order, guides._sorted_chunks)
+# back to the sentence start, at most _STITCH_CAP characters.
+_STITCH_CAP = 300
+_SENTENCE_BREAKS = ("\n", ". ", "? ", "! ", "\u2022", "\ufffd")
+_PREVIOUS_CHUNK = {"count": None, "by_carrier": {}}
+
+
+def starts_mid_sentence(text):
+    """Lowercase first letter, or a continuation mark (, ; ))."""
+    t = (text or "").lstrip()
+    return bool(t) and (t[0].islower() or t[0] in ",;)")
+
+
+def _sorted_chunks_cached(carrier):
+    collection = get_vectorstore()._collection
+    count = collection.count()
+    if _PREVIOUS_CHUNK["count"] != count:
+        _PREVIOUS_CHUNK["by_carrier"], _PREVIOUS_CHUNK["count"] = {}, count
+    if carrier not in _PREVIOUS_CHUNK["by_carrier"]:
+        _PREVIOUS_CHUNK["by_carrier"][carrier] = guides._sorted_chunks(carrier)
+    return _PREVIOUS_CHUNK["by_carrier"][carrier]
+
+
+def sentence_start_from(previous):
+    """The end of `previous` from its last sentence break, capped."""
+    tail = previous[-_STITCH_CAP:]
+    cut = max(tail.rfind(b) + len(b) - 1 for b in _SENTENCE_BREAKS)
+    if cut >= 0:
+        tail = tail[cut + 1:]
+    elif len(previous) > _STITCH_CAP:
+        tail = tail[tail.find(" ") + 1:]          # start on a word
+    return tail.strip()
+
+
+def stitched_text(carrier, chunk_text, is_table=False):
+    """chunk_text, with the start of its sentence prepended when it begins
+    mid-sentence and the previous stored chunk is prose of the same program."""
+    if is_table or not starts_mid_sentence(chunk_text):
+        return chunk_text
+    ordered = _sorted_chunks_cached(carrier)
+    for i, (meta, doc) in enumerate(ordered):
+        if doc == chunk_text:
+            if i == 0 or ordered[i - 1][0].get("is_table"):
+                return chunk_text
+            head = sentence_start_from(ordered[i - 1][1])
+            return head + " " + chunk_text.lstrip() if head else chunk_text
+    return chunk_text
+
+
 def _is_header_only_table(page_content):
     """True if page_content is a Markdown table with a header + separator
     row and NO data rows -- e.g. a repeated page-header banner ("| Texas
@@ -3267,7 +3321,8 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
     for carrier in relevant_carriers:
         for chunk in chunks_by_carrier.get(carrier, []):
             context += f"\n--- {carrier} (page {chunk.metadata.get('page', '?')}) ---\n"
-            context += normalize_chunk_text(chunk.page_content) + "\n"
+            context += normalize_chunk_text(stitched_text(
+                carrier, chunk.page_content, chunk.metadata.get("is_table"))) + "\n"
 
     # CHANGED: carrier safety net. A carrier can pass the occupancy filter
     # but still end up with zero chunks in `chunks` (e.g. retrieval just
@@ -3459,6 +3514,7 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
         # Before the holds, so a carrier freed here is still held on County /
         # Coverage A.
         _strip_inspection_requests(filtered)
+        _strip_guide_text_requests(filtered)
         _strip_unchecked_topics(filtered, checked)
         if _on("check:_apply_location_holds", checked):
             _apply_location_holds(filtered, relevant_carriers, property_details)
@@ -3692,6 +3748,50 @@ def _strip_inspection_requests(results):
         "Status set to ELIGIBLE: the only open items were inspection / photo "
         "requests " + INSPECTION_NOT_CHECKED_NOTE + ".",
         "INSPECTION STRIP")
+
+
+# Round 26 step 5 (Liam, 2026-10-05): a missing_info item that asks the agent
+# for the GUIDE's text -- the rest of a sentence, a table, criteria "not in
+# the excerpts" -- is a retrieval failure, not missing information about the
+# property. It must never hold a carrier. Same mechanism as the inspection
+# strip; counted in the log.
+_GUIDE_TEXT_REQUEST_RE = re.compile(
+    r"complete sentence|rest of the (?:rule|sentence|text|table|list|section|clause)|"
+    r"full (?:text|sentence|rule|table|list|section|clause)\b|"
+    r"complete (?:applicable |base |owner-occupied |homeowners |ho3 )*(?:text|table|rule|list|section|guide|"
+    r"eligibility (?:criteria|requirements|rules)|underwriting (?:criteria|guidelines|requirements)|"
+    r"requirements|criteria)|"
+    r"complete [\w-]+ (?:table|list)|"
+    r"not (?:included|provided|shown|contained|present|stated|reproduced)?\s*in the "
+    r"(?:retrieved |provided |supplied |given |available )?(?:excerpts?|text|pages?|guide text|document excerpts?)|"
+    r"(?:excerpt|sentence|rule|table|clause)s?\s+(?:is |was |are )?(?:truncated|cut off|incomplete)|"
+    r"(?:beginning|start|end) of the (?:sentence|rule|clause)|table (?:headers?|labels?|row labels?)|"
+    r"missing (?:table|text|rows?|headers?)\b|referenced but not shown",
+    re.I)
+# An item that ALSO asks for a fact the agent can supply stays (replay of the
+# round 25/26 runs: "For PPC 6, driving distance to the responding fire
+# station and hydrant distance ... its table is incomplete").
+_GUIDE_TEXT_KEEP_RE = re.compile(
+    r"distance|hydrant|fire station|responding station|fence|\bgates?\b|\bcounty\b|coverage a\b|"
+    r"dwelling amount|\bacre", re.I)
+GUIDE_TEXT_NOT_ASKED_NOTE = "(a request for guide text is not missing information)"
+
+
+def _is_guide_text_request(item):
+    return bool(_GUIDE_TEXT_REQUEST_RE.search(item or "")) and not _GUIDE_TEXT_KEEP_RE.search(item or "")
+
+
+def _strip_guide_text_requests(results):
+    """Remove missing_info items that ask for guide text; an
+    INSUFFICIENT_INFORMATION record left with nothing open because of that
+    becomes ELIGIBLE (the inspection layer's rule)."""
+    return _strip_missing_info(
+        results, _is_guide_text_request,
+        "[Excerpt check] Removed {n} request(s) for guide text "
+        + GUIDE_TEXT_NOT_ASKED_NOTE + ": {items}",
+        "Status set to ELIGIBLE: the only open items asked for guide text "
+        + GUIDE_TEXT_NOT_ASKED_NOTE + ".",
+        "GUIDE-TEXT STRIP")
 
 
 UNCHECKED_NOT_CONSIDERED_NOTE = "(unchecked topics were not considered)"

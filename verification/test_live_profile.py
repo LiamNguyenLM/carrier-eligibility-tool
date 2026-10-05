@@ -164,3 +164,57 @@ def test_hobs_own_citation_of_the_same_sentence_stays():
     res, _ = run_live(lambda n: {"citations": [f'ARI_(HOB): "{HOB_SENTENCE}"']} if n == "ARI_(HOB)" else {})
     assert res["ARI_(HOB)"]["citations"] == [f'ARI_(HOB): "{HOB_SENTENCE}"']
     assert "[Citation check]" not in (res["ARI_(HOB)"].get("notes") or "")
+
+
+# -- Step 5: stitch chunks that start mid-sentence; never hold on guide text -------
+TWICO_FULL = ("Homes of unconventional construction including log, do-it-yourself, dome, shell, or homes "
+              "using unconventional parts or not meeting building codes. This includes solar panels.")
+
+
+def test_twicos_chunk_reaches_the_prompt_as_the_whole_sentence():
+    _, prompt = run_live(lambda n: {})
+    assert "meeting building codes. This includes solar panels." in prompt
+    assert TWICO_FULL in ec.normalize_chunk_text(prompt) or TWICO_FULL in prompt
+
+
+@pytest.mark.parametrize("text,stitched", [
+    ("meeting building codes. This includes solar panels.", True),     # lowercase start
+    (", or homes that are vacant.", True),                             # continuation mark
+    ("Homes of unconventional construction including log.", False),    # a sentence start
+    ("\u2022 Mobile homes and prefabricated homes.", False),           # a bullet
+])
+def test_only_a_chunk_that_starts_mid_sentence_is_stitched(text, stitched):
+    assert ec.starts_mid_sentence(text) is stitched
+
+
+def test_the_stitched_start_stops_at_the_sentence_break_and_is_capped():
+    prev = "Earlier sentence. \u2022 Homes of unconventional construction including log, or not"
+    assert ec.sentence_start_from(prev) == "Homes of unconventional construction including log, or not"
+    long_prev = "word " * 200
+    assert len(ec.sentence_start_from(long_prev)) <= ec._STITCH_CAP
+
+
+def test_a_table_chunk_is_never_stitched():
+    assert ec.stitched_text("TWICO_HO3", "meeting building codes.", is_table=True) == "meeting building codes."
+
+
+@pytest.mark.parametrize("item", [
+    "The complete sentence of the construction rule, which starts mid-sentence in the excerpt.",   # Liam's TWICO
+    "The rest of the rule about unconventional construction.",
+    "Applicable eligibility criteria not included in the retrieved excerpts.",                     # recorded
+    "The complete roof-material table, including the row for architectural shingles.",            # recorded
+])
+def test_a_request_for_guide_text_never_holds_a_carrier(item):
+    res, _ = run_live(lambda n: {"status": "INSUFFICIENT_INFORMATION", "missing_info": [item]}
+                      if n == "TWICO_HO3" else {})
+    r = res["TWICO_HO3"]
+    assert r["status"] == "ELIGIBLE" and r["missing_info"] == []
+    assert "[Excerpt check] Removed 1 request(s) for guide text" in r["notes"]
+
+
+@pytest.mark.parametrize("item", [
+    "For PPC 6, driving distance to the responding fire station and hydrant distance; its table is incomplete.",
+    "Whether the roof is in good condition",          # not about guide text at all
+])
+def test_a_real_open_fact_is_not_mistaken_for_a_guide_text_request(item):
+    assert not ec._is_guide_text_request(item)
