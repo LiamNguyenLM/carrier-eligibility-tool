@@ -118,3 +118,49 @@ def test_a_model_decided_record_is_untouched():
     t = [r for c, r in res.items() if c.startswith("Travelers")][0]
     assert t["reasons"] == ["own reason"] and t["missing_info"] == ["own item"]
     assert "diagnostics" not in t and not t.get("decided_by_code")
+
+
+# -- Step 4: a citation must be a quote, from the carrier's own guide --------------
+# Liam's message describes the live ARI_(HOA+) citation (commentary, not a
+# quote, carrying ARI_(HOB)'s "Homes 0-20 years old") but does not quote it;
+# these are built to that description, two phrasings of each failure.
+HOB_SENTENCE = "Homes 0-20 years old are eligible for this program."
+HOA_OWN = 'ARI_(HOA+): "Kerosene, coal, wood or solar as a source of fuel is unacceptable."'
+
+
+def _ari(citations, status="ELIGIBLE"):
+    return lambda n: ({"status": status, "flaw_count": 1 if status == "INELIGIBLE" else 0,
+                       "reasons": ["The home is 19 years old."], "citations": citations}
+                      if n == "ARI_(HOA+)" else {})
+
+
+@pytest.mark.parametrize("bad", [
+    "ARI_(HOA+): The program accepts homes 0-20 years old, so this 19-year-old home qualifies.",   # no quote
+    'ARI_(HOA+): "Homes 0-20 years old" -- the home is 19, inside that range.',                    # commentary after
+])
+def test_a_citation_that_is_commentary_is_removed(bad):
+    res, _ = run_live(_ari([bad, HOA_OWN]))
+    r = res["ARI_(HOA+)"]
+    assert r["citations"] == [HOA_OWN]
+    assert "[Citation check] Removed 1 citation(s) that were not a quote" in r["notes"]
+    assert r["status"] == "ELIGIBLE"                         # a note, never a status change
+
+
+@pytest.mark.parametrize("hob", [f'ARI_(HOA+): "{HOB_SENTENCE}"', 'ARI_(HOA+): \u201cHomes 0-20 years old\u201d'])
+def test_hobs_quote_under_hoas_label_is_removed_as_hobs(hob):
+    res, _ = run_live(_ari([hob, HOA_OWN]))
+    r = res["ARI_(HOA+)"]
+    assert r["citations"] == [HOA_OWN]
+    assert "belonging to another carrier (ARI_(HOB))" in r["notes"]
+
+
+def test_an_adverse_verdict_resting_only_on_hobs_quote_is_downgraded():
+    res, _ = run_live(_ari([f'ARI_(HOA+): "{HOB_SENTENCE}"'], status="INELIGIBLE"))
+    r = res["ARI_(HOA+)"]
+    assert r["status"] == "INSUFFICIENT_INFORMATION" and r["citations"] == []
+
+
+def test_hobs_own_citation_of_the_same_sentence_stays():
+    res, _ = run_live(lambda n: {"citations": [f'ARI_(HOB): "{HOB_SENTENCE}"']} if n == "ARI_(HOB)" else {})
+    assert res["ARI_(HOB)"]["citations"] == [f'ARI_(HOB): "{HOB_SENTENCE}"']
+    assert "[Citation check]" not in (res["ARI_(HOB)"].get("notes") or "")

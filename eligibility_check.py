@@ -25,7 +25,9 @@ except Exception:
 
 from shared_resources import get_embeddings, get_vectorstore
 import data_defects
+import guides
 import intake_fields
+import quotes
 import rules_evaluator
 import topics
 from concurrent.futures import ThreadPoolExecutor
@@ -2419,6 +2421,54 @@ def _strip_contradicted_property_claims(results, property_details, checked=None)
     return corrected
 
 
+# Round 26 step 4 (Liam, 2026-10-05). A citation is "<label>: <quote>" (the
+# label is optional): the label up to the colon that opens the quote, then one
+# quoted span, then at most closing punctuation. Straight, curly and single
+# quotes all count.
+_CITATION_RE = re.compile(
+    r"""^\s*(?:(?P<label>.*?):\s*)?["\u201c\u2018'](?P<quote>.+)["\u201d\u2019']\s*[.,;)\]]*\s*$""", re.S)
+# Shorter than this (alphanumerics), a quote says too little to tell guides apart.
+_MIN_QUOTE_KEY = 12
+_GUIDE_KEYS = {"count": None, "keys": {}}
+
+
+def _parse_citation(citation):
+    """(problem, label, quote). problem is None for a clean quote, else why it
+    is not one: "no quote" (no quote marks at all) or "text outside the
+    quote" (commentary after the quote, or a label that is a sentence)."""
+    m = _CITATION_RE.match(citation or "")
+    if not m:
+        has_quote = any(q in (citation or "") for q in '"\u201c\u201d')
+        return ("text outside the quote" if has_quote else "no quote"), None, None
+    label, quote = (m.group("label") or "").strip(), m.group("quote")
+    if len(label.split()) > 8:
+        return "text outside the quote", label, quote
+    return None, label, quote
+
+
+def _guide_keys():
+    """{program: quotes.compare_key(full guide text)}, rebuilt whenever the
+    store's chunk count changes (an upload or a re-seed)."""
+    collection = get_vectorstore()._collection
+    count = collection.count()
+    if _GUIDE_KEYS["count"] != count:
+        _GUIDE_KEYS["keys"] = {p: quotes.compare_key(guides.guide_text(p)) for p in guides.all_programs()}
+        _GUIDE_KEYS["count"] = count
+    return _GUIDE_KEYS["keys"]
+
+
+def _quote_belongs_elsewhere(quote, own):
+    """The other program whose guide holds `quote`, when the carrier's own
+    guide does not; None when the quote is in its own guide, is too short to
+    tell, or is in no guide at all (that is not this check's call)."""
+    key = quotes.compare_key(quote)
+    keys = _guide_keys()
+    if len(key) < _MIN_QUOTE_KEY or own not in keys or quotes.appears_in(key, keys[own]):
+        return None
+    holders = sorted(p for p, k in keys.items() if p != own and quotes.appears_in(key, k))
+    return holders[0] if holders else None
+
+
 def _strip_misattributed_citations(results, relevant_carriers):
     """Post-generation attribution check: a rule may only support a
     carrier's verdict if it came from THAT carrier's own document.
@@ -2452,27 +2502,57 @@ def _strip_misattributed_citations(results, relevant_carriers):
     would NOT have caught the historical Sage "Classification A/B/C" bleed,
     which was terminology copied into prose (reasons/notes) with no
     citation label attached -- that remains covered only by the prompt
-    instruction and its retrieval-level guard test."""
+    instruction and its retrieval-level guard test.
+
+    CHANGED (round 26 step 4, Liam's live check 2026-10-05): until now only
+    the LABEL was judged. ARI_(HOA+) cited ARI_(HOB)'s "Homes 0-20 years old"
+    under its own label, and the "citation" was commentary rather than a
+    quote, so both passed. Two more checks, on every model citation:
+      3. A citation must be a quote and nothing else: no quote marks, or text
+         outside them (beyond the carrier label), removes it -- noted, never
+         a status change.
+      4. Its quote must be in the carrier's own guide. A quote found only in
+         another program's guide counts as that program's citation (action 1,
+         and action 2 if it leaves an adverse verdict unsupported).
+    The rules table's citations are attached by code from the workbook, and
+    are left alone."""
     for r in results:
         own = _resolve_structured_carrier(r.get("carrier", ""), relevant_carriers)
-        if own is None:
+        if own is None or r.get("rules_table"):
             continue
         citations = r.get("citations", [])
         if not citations:
             continue
 
-        kept, foreign = [], []
+        kept, foreign, not_quotes = [], [], []
         saw_own_citation = False
         for c in citations:
+            problem, _label, quote = _parse_citation(c)
+            if problem:
+                not_quotes.append((c, problem))
+                continue
             attributed = _citation_attributed_carrier(c, relevant_carriers)
             if attributed is not None and attributed != own:
                 foreign.append((c, attributed))
-            else:
-                if attributed == own:
-                    saw_own_citation = True
-                kept.append(c)
+                continue
+            elsewhere = _quote_belongs_elsewhere(quote, own)
+            if elsewhere is not None:
+                foreign.append((c, elsewhere))
+                continue
+            if attributed == own:
+                saw_own_citation = True
+            kept.append(c)
 
+        if not_quotes:
+            print("CITATION CHECK: carrier=%r removed=%d not a quote: %s"
+                  % (own, len(not_quotes), "; ".join(f"{why}: {c[:80]!r}" for c, why in not_quotes)))
+            _append_note(
+                r,
+                "[Citation check] Removed {n} citation(s) that were not a quote from the guide."
+                .format(n=len(not_quotes)),
+            )
         if not foreign:
+            r["citations"] = kept
             continue
 
         r["citations"] = kept

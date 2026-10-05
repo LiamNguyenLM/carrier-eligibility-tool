@@ -706,11 +706,26 @@ class TestCitationAttributionValidator:
             "the carrier's own citation still supports the decline -- it must not be downgraded."
         )
 
-    def test_unlabeled_citation_is_never_treated_as_misattributed(self):
+    def test_unlabeled_citation_is_never_treated_as_misattributed_by_its_label(self):
+        # A missing label is not proof of misattribution: an unlabeled quote
+        # from the carrier's own guide stays, and the verdict with it.
+        own = "'Kerosene, coal, wood or solar as a source of fuel is unacceptable.'"
+        r = self._result("ARI (HOA+)", "INELIGIBLE", [own])
+        _strip_misattributed_citations([r], ["ARI_(HOA+)", "ARI_(HOB)"])
+        assert r["citations"] == [own]
+        assert r["status"] == "INELIGIBLE"
+
+    def test_unlabeled_quote_found_only_in_another_guide_is_that_guides(self):
+        # CHANGED DELIBERATELY (Liam, 2026-10-05, round 26 step 4): this exact
+        # string used to be kept, because only labels were judged. It is
+        # ARI_(HOB)'s age rule; HOA+'s guide does not contain it. The content
+        # check now removes it, and the INELIGIBLE it alone supported is
+        # downgraded (action 2).
         r = self._result("ARI (HOA+)", "INELIGIBLE", ["'Homes 0-20 years old are eligible.'"])
         _strip_misattributed_citations([r], ["ARI_(HOA+)", "ARI_(HOB)"])
-        assert len(r["citations"]) == 1
-        assert r["status"] == "INELIGIBLE"
+        assert r["citations"] == []
+        assert "ARI_(HOB)" in r["notes"]
+        assert r["status"] == "INSUFFICIENT_INFORMATION"
 
     def test_eligible_verdict_is_never_downgraded(self):
         # Stripping evidence can only ever weaken an ADVERSE finding.
