@@ -886,6 +886,43 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     - **ELIGIBILITY_RULES_PILOT must be exactly "1"** to turn it on; "true",
       "yes", " 1" or anything else is OFF.
     - The app reads it at start, so redeploy after changing it.
+  - **Step 4 (Sage batch extraction):** written to
+    pilot_structured_rules/Carrier_Rules_Sage_Batch_v1.xlsx and
+    _rules.csv. Both are untracked, like v3, until Claude reviews the rows.
+    - 1,033 rows; IDs SUR-, SFP-, WIL-, TRI-, MKL- and VAV-NNN. The sheets
+      and columns match v3.
+    - Each guide was extracted in its own pass per EXTRACTION_SPEC_v2. The
+      parent ran the checks on every row:
+      - quote in PDF text: 0 FAILs;
+      - lint: 0;
+      - quote in app stored text: 18 FAILs, each a split or interleaved
+        stored chunk, with the reason in the row.
+    - The scripts and the agent brief are in
+      pilot_structured_rules/sage_batch_tools/.
+    - How the four sister guides compare with Auros, word for word:
+      - **Roof ages:** identical in all four (15-year 3-tab, 25-year
+        architectural, roofer's statement).
+      - **FPC table:** every clause is the same in all four (see Step 2).
+      - **Territory:** identical, except that Trium drops "except Nueces
+        county". Trium mentions Nueces only for a foundation-coverage
+        exclusion.
+      - **Coastal:** SURE is identical. The others differ:
+        - SafePort raises the deductibles: Very High is 5% (Auros: 3% or
+          higher); High and Moderate are 3% (Auros: 2%).
+        - Wilshire has the same deductibles as SafePort. Its Extreme Hazard
+          locations are "eligible with a 5% Wind and Hail Deductible, or
+          Coastal – 5% Hurricane Deductible and a 1.5% AOP Deductible"
+          (Auros: "Ineligible.").
+        - Trium makes Extreme Hazard eligible with a 1.5% Wind and Hail
+          Deductible, plus "Exception: Coastal – Risks located on any barrier
+          island are only eligible if the island is accessible to the
+          mainland by a roadway". It uses 1.5% in every tier and drops the
+          trees-between-the-rows note.
+    - Markel and Vave do not follow the Auros layout:
+      - Markel: PPC 1-10 allowed, no county or coastal rule; roof age is
+        coverage-only (Roof Exclusion form); LLCs and trusts are allowed.
+      - Vave: no referrals; roof is RCV/ACV/excluded by age (coverage-only);
+        no county or FPC table; LLCs are allowed on five criteria.
 
 ## Open work, in priority order (updated 2026-10-02)
 
