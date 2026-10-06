@@ -110,6 +110,19 @@ ELIGIBILITY_STRUCTURED = os.environ.get("ELIGIBILITY_STRUCTURED", "1") == "1"
 # (rules_data/), and one separate call -- in parallel with the main one -- sees
 # only the rows code left open. Do not set this on Railway; Liam decides.
 RULES_PILOT = os.environ.get("ELIGIBILITY_RULES_PILOT", "0") == "1"
+RULES_PILOT_HELP = ('The rules pilot is ON only when the Railway variable ELIGIBILITY_RULES_PILOT is '
+                    'exactly "1" (not "true", "yes" or "on"); anything else, or no variable, is OFF. '
+                    'The app reads it when it starts, so redeploy after changing it.')
+
+
+def rules_pilot_status_line():
+    """Round 27 step 3 (Liam, 2026-10-06): the Fingerprint panel's line, so the
+    live site shows whether the Railway variable took effect."""
+    if not RULES_PILOT:
+        return "Rules pilot: OFF"
+    return f"Rules pilot: ON ({len(rules_evaluator.PILOT_CARRIERS)} carriers)"
+
+
 # The usage of the last check's calls, for measurement: {"main": ..., "pilot": ...}.
 LAST_CALL_USAGE = {}
 

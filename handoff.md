@@ -881,6 +881,11 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       - 3 mi / Yes: all five Eligible.
       - 3 mi / No: all five held on row B (Auros on SAG-073).
       - 7 mi / No: all five held on row C (Auros on SAG-074).
+  - **Step 3:** the Database Fingerprint panel (Manage Carriers) shows
+    "Rules pilot: ON (6 carriers)" or "Rules pilot: OFF".
+    - **ELIGIBILITY_RULES_PILOT must be exactly "1"** to turn it on; "true",
+      "yes", " 1" or anything else is OFF.
+    - The app reads it at start, so redeploy after changing it.
 
 ## Open work, in priority order (updated 2026-10-02)
 

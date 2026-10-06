@@ -11,6 +11,7 @@ except Exception:
     pass
 
 from eligibility_check import check_eligibility, assign_buckets, usable_answer_count
+import eligibility_check
 import intake_fields
 import topics
 import cards
@@ -462,6 +463,9 @@ with tab2:
         )
     except Exception as e:
         st.warning("Could not compute the database fingerprint: " + str(e))
+    # Round 27 step 3 (Liam, 2026-10-06): did the Railway variable take effect?
+    st.markdown("**" + eligibility_check.rules_pilot_status_line() + "**",
+                help=eligibility_check.RULES_PILOT_HELP)
 
     st.divider()
 

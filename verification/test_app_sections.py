@@ -91,3 +91,29 @@ def test_could_not_be_checked_has_no_empty_bullet_and_no_empty_details(app):
 def test_the_form_says_once_what_is_and_is_not_checked(app):
     caption = "Only checked items are considered. Inspections and the condition of the home are not checked."
     assert [c.value for c in app.caption].count(caption) == 1
+
+
+# Round 27 step 3 (Liam, 2026-10-06): the Fingerprint panel says whether the
+# rules pilot is on, so Liam can confirm the Railway variable took effect.
+@pytest.mark.parametrize("on,line", [(True, "**Rules pilot: ON (6 carriers)**"), (False, "**Rules pilot: OFF**")])
+def test_the_fingerprint_panel_shows_the_rules_pilot_state(monkeypatch, on, line):
+    from streamlit.testing.v1 import AppTest
+    monkeypatch.setattr(ec, "RULES_PILOT", on)
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.session_state["authenticated"] = True
+    at.run()
+    assert not at.exception
+    shown = [m for m in at.markdown if m.value.startswith("**Rules pilot:")]
+    assert [m.value for m in shown] == [line]
+    assert 'exactly "1"' in (shown[0].help or "")
+
+
+@pytest.mark.parametrize("value,on", [("1", True), ("true", False), ("yes", False), ("0", False), ("", False),
+                                      (" 1", False)])
+def test_only_exactly_1_turns_the_pilot_on(value, on):
+    import subprocess
+    env = dict(os.environ, ELIGIBILITY_RULES_PILOT=value, ANTHROPIC_API_KEY="x", OPENAI_API_KEY="x")
+    out = subprocess.run([sys.executable, "-c", "import eligibility_check as e; print(e.RULES_PILOT)"],
+                         cwd=os.path.join(os.path.dirname(__file__), ".."), env=env,
+                         capture_output=True, text=True, timeout=300)
+    assert out.stdout.strip().splitlines()[-1] == str(on), out.stderr[-500:]
