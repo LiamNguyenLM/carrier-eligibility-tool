@@ -831,6 +831,30 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
         access"), where the rows say those conditions are open. This is the
         same override-vs-rows question as round 19.
 
+- **2026-10-06 — Round 27 (Liam's decisions dated 2026-10-06).** Built on
+  3deb3bb (round 26, not yet pushed when the round started).
+  - **1. TWICO and solar:** standard mounted solar panels count as
+    code-compliant, so they do NOT make a TWICO home ineligible.
+  - **2. Sage FPC with a known distance:** over 5 miles, the old Sage FPC
+    upgrade must no longer say ELIGIBLE; hold on the guide's conditions, as
+    Sage Auros does on the rules table. Blank distance behaves as before.
+  - **3.** The rules pilot goes live on Railway; Liam sets
+    ELIGIBILITY_RULES_PILOT.
+  - **4.** The rules table is extended to the Sage batch (SURE HO-3,
+    SafePort HO-3, Wilshire HO3, Trium Lloyd's HO3/HO5, Markel HO3, Vave
+    HO3). It ships behind its OWN switch (ELIGIBILITY_RULES_SAGE_BATCH),
+    OFF, until Claude has reviewed the rows. Never set on Railway without
+    Liam.
+  - **Step 1 (TWICO solar):** _apply_twico_solar_decision.
+    - Fires on TWICO_HO3 + Solar = Yes + a flaw resting on the sentence
+      "... or not meeting building codes. This includes solar panels." (a
+      citation quoting it, or a reason in its words).
+    - It removes that flaw: the status becomes ELIGIBLE (code-decided) when
+      nothing else is wrong; otherwise the remaining flaws stand. The card
+      carries the note.
+    - Real Luna, LIVE, pilot ON: the rule fired in 2 of 3 runs (Luna did
+      not decline TWICO in the third); TWICO was Eligible in all 3.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"

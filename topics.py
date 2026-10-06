@@ -147,6 +147,7 @@ STEPS = {
     "override:_CENTAURI_DP3_CARRIERS": (("roof_shape", "roof_type"), "all"),
     "check:_enforce_pool_spec_support": (("pool",), "all"),
     "check:_note_solar_roofing_does_not_apply": (("solar",), "all"),
+    "check:_apply_twico_solar_decision": (("solar",), "all"),
     "check:_apply_location_holds": (("county",), "all"),
     "check:_apply_chubb_hold": (("dwelling_amount",), "all"),
 }

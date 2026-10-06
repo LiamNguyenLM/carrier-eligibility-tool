@@ -1551,6 +1551,67 @@ def _decide_by_code(result, status, reason, citation=None):
         {"status": status, "reason": reason, "citation": citation})
 
 
+# Round 27 step 1 (Liam, 2026-10-06, decision 1). TWICO's ineligible list
+# says "Homes of unconventional construction including log, do-it-yourself,
+# dome, shell, or homes using unconventional parts or not meeting building
+# codes. This includes solar panels." Luna reads the last sentence as a flat
+# solar exclusion (round 26: 4/4 on LIVE). Liam: standard mounted panels are
+# code-compliant, so they do not make a TWICO home ineligible. Keyed on the
+# carrier, Solar = Yes, and a flaw that rests on THIS sentence: a citation
+# quoting it, or a reason in its own words (solar + unconventional
+# construction / building codes) -- never on loose solar wording.
+_TWICO = "TWICO_HO3"
+TWICO_SOLAR_SENTENCE = ("Homes of unconventional construction including log, do-it-yourself, dome, shell, "
+                        "or homes using unconventional parts or not meeting building codes. This includes "
+                        "solar panels.")
+TWICO_SOLAR_NOTE = ("TWICO lists solar panels with construction that does not meet building codes. Treated "
+                    "as eligible for standard, code-compliant mounted panels (Liam, 2026-10-06); confirm the "
+                    "panels are permitted and code-compliant.")
+_TWICO_SOLAR_REASON_RE = re.compile(
+    r"solar[^.]*\b(?:unconventional|building codes?)\b|\b(?:unconventional|building codes?)\b[^.]*solar", re.I)
+
+
+def _cites_twico_solar_sentence(citation):
+    """A citation whose quote is part of TWICO's sentence and says solar."""
+    _problem, _label, quote = _parse_citation(citation)
+    key = quotes.compare_key(quote or "")
+    return (len(key) >= _MIN_QUOTE_KEY and "solar" in key
+            and key in quotes.compare_key(TWICO_SOLAR_SENTENCE))
+
+
+def _apply_twico_solar_decision(results, relevant_carriers, property_details):
+    """Remove the flaw that rests on TWICO's building-code sentence. Nothing
+    else wrong -> ELIGIBLE (code-decided, with the note); other flaws left ->
+    their status stands, without the solar flaw. Any other decline is left
+    alone."""
+    if property_details.get("solar_panels") != "Yes":
+        return
+    for r in results:
+        if _resolve_structured_carrier(r.get("carrier", ""), relevant_carriers) != _TWICO:
+            continue
+        if r.get("status") != "INELIGIBLE":
+            continue
+        cites = [c for c in r.get("citations") or [] if _cites_twico_solar_sentence(c)]
+        reasons = [x for x in r.get("reasons") or [] if _TWICO_SOLAR_REASON_RE.search(x)]
+        if not cites and not reasons:
+            continue
+        remaining = max(0, int(r.get("flaw_count") or 0) - 1)
+        print("TWICO SOLAR: removed the building-code solar flaw; remaining_flaws=%d" % remaining)
+        _append_note(r, TWICO_SOLAR_NOTE)
+        if remaining:
+            # The model's card stands, minus the solar flaw.
+            r["citations"] = [c for c in r.get("citations") or [] if c not in cites]
+            r["reasons"] = [x for x in r.get("reasons") or [] if x not in reasons]
+            r["flaw_count"] = remaining
+        else:
+            # Code decides; _code_owns_cards moves the model's wording to
+            # diagnostics. A short reason, so the card does not repeat the note.
+            r["status"], r["flaw_count"] = "ELIGIBLE", 0
+            _decide_by_code(r, "ELIGIBLE", "The only flaw was TWICO's building-code sentence that lists solar "
+                                           "panels; mounted panels are treated as code-compliant.",
+                            f'{_TWICO}: "{TWICO_SOLAR_SENTENCE}"')
+
+
 def _code_owns_cards(results):
     """Round 26 step 2 (Liam, 2026-10-05): when a deterministic rule set the
     status, the card says the code's reason (with the guide's own sentence
@@ -3590,6 +3651,8 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
             _apply_location_holds(filtered, relevant_carriers, property_details)
         if _on("check:_apply_chubb_hold", checked):
             _apply_chubb_hold(filtered, relevant_carriers, property_details)
+        if _on("check:_apply_twico_solar_decision", checked):
+            _apply_twico_solar_decision(filtered, relevant_carriers, property_details)
         # Last, after every rule that can set a status: a code-decided verdict
         # owns the card (round 26 step 2).
         _code_owns_cards(filtered)

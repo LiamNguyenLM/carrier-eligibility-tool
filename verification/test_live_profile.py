@@ -418,3 +418,78 @@ def test_the_sage_fpc_override_uses_the_station_distance(miles, status):
     assert r["status"] == status
     if status == "INELIGIBLE":
         assert r["decided_by_code"] and r["reasons"][0].startswith("Sage FPC table: FPC 9 or greater")
+
+
+# == Round 27 =========================================================================
+# -- Step 1: TWICO and mounted solar (Liam, 2026-10-06, decision 1) ------------------
+TWICO_SOLAR_CITE = 'TWICO_HO3: "This includes solar panels."'
+TWICO_SOLAR_REASON = "Solar panels are included in the listed exclusion for homes of unconventional construction."
+
+
+def _twico(**kw):
+    rec = {"status": "INELIGIBLE", "flaw_count": 1, "reasons": [TWICO_SOLAR_REASON],
+           "citations": [TWICO_SOLAR_CITE], "missing_info": []}
+    rec.update(kw)
+    return lambda n: rec if n == "TWICO_HO3" else {}
+
+
+def test_a_twico_decline_on_the_solar_sentence_becomes_eligible_with_the_note():
+    res, _ = run_live(_twico())
+    r = res["TWICO_HO3"]
+    assert r["status"] == "ELIGIBLE" and r["flaw_count"] == 0
+    assert ec.TWICO_SOLAR_NOTE in r["notes"]
+    assert ec.TWICO_SOLAR_NOTE not in r["reasons"]                 # said once, as the note
+    assert TWICO_SOLAR_CITE not in r["citations"]
+    assert TWICO_SOLAR_REASON in r["diagnostics"]["model_reasons"]   # the model's words kept, off the card
+
+
+def test_the_other_live_phrasing_cited_with_more_of_the_sentence_is_caught_too():
+    res, _ = run_live(_twico(reasons=["The carrier includes solar panels among the features of unconventional "
+                                      "construction it excludes."],
+                             citations=['TWICO_HO3: "not meeting building codes. This includes solar panels."']))
+    assert res["TWICO_HO3"]["status"] == "ELIGIBLE"
+
+
+def test_a_second_flaw_keeps_the_decline_without_the_solar_flaw():
+    galv = "Galvanized plumbing is ineligible."
+    res, _ = run_live(_twico(flaw_count=2, reasons=[TWICO_SOLAR_REASON, galv],
+                             citations=[TWICO_SOLAR_CITE, 'TWICO_HO3: "galvanized"']))
+    r = res["TWICO_HO3"]
+    assert r["status"] == "INELIGIBLE" and r["flaw_count"] == 1
+    assert galv in r["reasons"] and TWICO_SOLAR_REASON not in r["reasons"]
+    assert ec.TWICO_SOLAR_NOTE in r["notes"]
+
+
+@pytest.mark.parametrize("profile,checked", [
+    (dict(LIVE_PROFILE, solar_panels="No"), LIVE_CHECKED),                    # Solar = No
+    (LIVE_PROFILE, [t for t in LIVE_CHECKED if t != "solar"]),               # solar unchecked
+])
+def test_no_solar_or_solar_unchecked_leaves_twico_untouched(profile, checked):
+    res, _ = run_live(_twico(), profile=profile, checked=checked)
+    r = res["TWICO_HO3"]
+    # This rule does not fire. (With Solar = No the round 14 intake guard
+    # removes the contradicting solar claim on its own -- a different rule.)
+    assert TWICO_SOLAR_NOTE_ABSENT(r)
+    if profile.get("solar_panels") == "Yes":
+        assert r["status"] == "INELIGIBLE"
+
+
+def TWICO_SOLAR_NOTE_ABSENT(r):
+    return ec.TWICO_SOLAR_NOTE not in (r.get("notes") or "")
+
+
+def test_a_twico_decline_on_something_else_is_untouched():
+    res, _ = run_live(_twico(reasons=["Log homes are unconventional construction and ineligible."],
+                             citations=['TWICO_HO3: "Homes of unconventional construction including log"']))
+    r = res["TWICO_HO3"]
+    assert r["status"] == "INELIGIBLE" and TWICO_SOLAR_NOTE_ABSENT(r)
+
+
+def test_another_carrier_quoting_a_similar_sentence_is_untouched():
+    res, _ = run_live(lambda n: {"status": "INELIGIBLE", "flaw_count": 1, "reasons": [TWICO_SOLAR_REASON],
+                                 # its own guide's solar rule (a made-up quote would be removed
+                                 # by round 26's citation guard first)
+                                 "citations": [f'{n}: "unprotected ground mounted solar panels"']}
+                      if n == "Travelers_HO3_-_06.12.2026" else {})
+    r = res["Travelers_HO3_-_06.12.2026"]
+    assert r["status"] == "INELIGIBLE" and ec.TWICO_SOLAR_NOTE not in (r.get("notes") or "")

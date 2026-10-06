@@ -7648,18 +7648,14 @@ class TestRooferStatementNotChecked:
 # ROUND 26 (Liam's live check, 2026-10-05) -- TWICO and mounted solar.
 # ---------------------------------------------------------------------------
 @pytest.mark.baseline
-@pytest.mark.xfail(
-    reason="OPEN, round 26 (measured 2026-10-05, Luna, LIVE): TWICO is INELIGIBLE in 4/4 runs -- 2 with "
-           "step 5's stitched sentence, 2 more with step 6's condition-standard prompt sentence, which "
-           "uses this exact wording as its example. The guide: 'Homes of unconventional construction "
-           "including log, do-it-yourself, dome, shell, or homes using unconventional parts or not "
-           "meeting building codes. This includes solar panels.' Liam reads it as a building-code rule "
-           "that code-compliant mounted panels do not trip; Luna attaches 'This' to the unconventional "
-           "construction list. Not hardcoded for TWICO (Liam). Liam decides between a code rule for "
-           "'This includes <item>' after a condition standard and accepting the decline.",
-    strict=False,
-)
 def test_twico_does_not_decline_code_compliant_mounted_solar_on_live():
+    """Was an xfail (round 26: TWICO INELIGIBLE 4/4 on LIVE). The guide: "Homes
+    of unconventional construction including log, do-it-yourself, dome, shell,
+    or homes using unconventional parts or not meeting building codes. This
+    includes solar panels." DECIDED (Liam, 2026-10-06, round 27 decision 1):
+    standard mounted panels are code-compliant and do not make a TWICO home
+    ineligible -- eligibility_check._apply_twico_solar_decision removes that
+    flaw, deterministically."""
     from profiles import LIVE_PROFILE, LIVE_CHECKED
     result = check_eligibility(dict(LIVE_PROFILE), checked_topics=list(LIVE_CHECKED))
     twico = [r for r in result if r["carrier"] == "TWICO_HO3"]
