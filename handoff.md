@@ -854,6 +854,33 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       carries the note.
     - Real Luna, LIVE, pilot ON: the rule fired in 2 of 3 runs (Luna did
       not decline TWICO in the third); TWICO was Eligible in all 3.
+  - **Step 2 (Sage FPC with a stated distance):**
+    - The upgrade covers Auros, Wilshire, Trium, SURE and SafePort
+      (Occidental is a wrong-guide row).
+    - All five FPC tables carry every Auros clause, checked clause by clause.
+      Only the labels differ: Trium, SURE and SafePort say "FPC
+      classification" and tag rows A/B/C ("the suffix value that is applied
+      to the FPC values that are used in rating"); SURE and SafePort cap
+      Coverage A at $2,000,000 for B/C risks.
+    - Page layout, all five: FPC 4-10 within 5 miles without a hydrant
+      shares its merged cell, and so all SEVEN conditions, with FPC 4-8 over
+      5 miles. The round 11 code gave it three; corrected.
+    - With the distance stated (structured_rules.sage_fpc_with_distance):
+      - row A -> the old upgrade, as before;
+      - FPC 9+ over 5 miles -> declined;
+      - an unknown hydrant within 5 miles -> hold on the hydrant only;
+      - every "eligible only if" row -> hold, listing the conditions as noun
+        phrases in the guide's words (home age and owner occupancy evaluated
+        when known);
+      - a known failed condition (home 25+) -> REFER, as the rules table
+        treats a failed condition row.
+    - A blank distance gives output identical to 3deb3bb: 60 replays
+      (STANDARD, ALT, LIVE, LIVE+Bexar, STANDARD+Bexar x 4 model answers x
+      3 blank forms).
+    - Real Luna, LIVE + Bexar, pilot ON:
+      - 3 mi / Yes: all five Eligible.
+      - 3 mi / No: all five held on row B (Auros on SAG-073).
+      - 7 mi / No: all five held on row C (Auros on SAG-074).
 
 ## Open work, in priority order (updated 2026-10-02)
 

@@ -35,6 +35,7 @@ import topics
 from concurrent.futures import ThreadPoolExecutor
 from structured_rules import (
     sage_family_fpc_eligibility,
+    sage_fpc_with_distance,
     mercury_roof_eligibility,
     sage_markel_roof_exclusion,
     swyfft_max_roof_age_30,
@@ -2732,6 +2733,30 @@ def _strip_misattributed_citations(results, relevant_carriers):
             )
 
 
+_SAGE_FPC_CONDITION_WORDS = re.compile(
+    r"visib|public road|fire alarm|central station|year-round|roadway|fire[- ]equipment|"
+    r"home age|age of (?:the )?home|under 25|primary occupancy|rental|fire loss", re.I)
+
+
+def _sage_fpc_hold(r, status, items, reason, canon):
+    """Round 27 step 2: a Sage FPC row with a stated distance that is not a
+    plain yes or no. A model decline on another rule stands; otherwise the
+    carrier holds (or is referred, when a condition the form answers fails)
+    on the row's conditions, code-decided, in the guide's words."""
+    if r.get("status") == "INELIGIBLE":
+        return
+    r["status"], r["flaw_count"] = status, 0
+    # The distance is answered; a hydrant item stays only if the row asks for
+    # it; and the model's own wording of the row's conditions ("Visibility
+    # from main public road") gives way to the guide's (LIVE, Luna, round 27).
+    keep_hydrant = "Hydrant within 1,000 ft" in items
+    mi = [m for m in r.get("missing_info") or []
+          if "fire station" not in m.lower() and (keep_hydrant or "hydrant" not in m.lower())
+          and not _SAGE_FPC_CONDITION_WORDS.search(m)]
+    r["missing_info"] = list(dict.fromkeys(items + [m for m in mi if m not in items]))
+    _decide_by_code(r, status, "Sage FPC table: " + reason)
+
+
 def _apply_structured_overrides(results, relevant_carriers, property_details, checked=None,
                                 fpc_skip=frozenset()):
     """Each branch is gated by its topic tag (topics.STEPS["override:<set>"]);
@@ -2760,11 +2785,26 @@ def _apply_structured_overrides(results, relevant_carriers, property_details, ch
             # Round 26 (decision B): the optional station distance and hydrant
             # answer pick the table row; Unknown stays None, never "no".
             hydrant = intake_fields.hydrant_answer(property_details.get("hydrant_1000ft"))
+            miles = intake_fields.parse_station_miles(property_details.get("fire_station_miles"))
             s_status, s_reasons = sage_family_fpc_eligibility(
                 property_details['ppc'], carrier=canon,
-                distance_miles=intake_fields.parse_station_miles(property_details.get("fire_station_miles")),
+                distance_miles=miles,
                 hydrant_feet={"Yes": 1000, "No": 1001}.get(hydrant),
             )
+            # Round 27 step 2 (Liam, 2026-10-06, decision 2): with a STATED
+            # distance, only row A may upgrade to ELIGIBLE and FPC 9+ over 5
+            # miles declines (both below, as before); every "eligible only if"
+            # row holds on its conditions, and an unknown hydrant within 5
+            # miles holds on the hydrant alone. A blank distance never enters.
+            if miles is not None:
+                d_status, d_items, d_reason, _row = sage_fpc_with_distance(
+                    property_details['ppc'], miles, hydrant,
+                    home_age=(date.today().year - int(property_details["year_built"])
+                              if _on("fact:home_age", checked) and property_details.get("year_built") else None),
+                    occupancy=property_details.get("occupancy_type"), carrier=canon)
+                if d_status in ("INSUFFICIENT_INFORMATION", "REFER"):
+                    _sage_fpc_hold(r, d_status, d_items, d_reason, canon)
+                    s_status = None                  # handled; skip the branches below
             if s_status == "ELIGIBLE" and r.get("status") == "INSUFFICIENT_INFORMATION":
                 # CHANGED (round 12): a real end-to-end run showed the model
                 # can correctly conclude "FPC 1-8 is eligible regardless of

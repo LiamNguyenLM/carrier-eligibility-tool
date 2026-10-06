@@ -11,6 +11,8 @@ Not yet wired into check_eligibility() / eligibility_check.py -- these are
 verified building blocks, callable standalone and covered by their own
 deterministic tests in verification/test_eligibility_matrix.py.
 """
+import re
+
 
 
 def sage_family_fpc_eligibility(ppc, distance_miles=None, hydrant_feet=None, carrier=None):
@@ -96,11 +98,19 @@ def sage_family_fpc_eligibility(ppc, distance_miles=None, hydrant_feet=None, car
     if distance_miles is not None and distance_miles <= 5:
         if hydrant_feet is not None and hydrant_feet <= 1000:
             return "ELIGIBLE", []  # row 1
-        if 1 <= fpc <= 10:
+        if 1 <= fpc <= 3:
             return "ELIGIBLE", [
                 f"Eligible only if the property is {conditions_b} "
                 f"(hydrant beyond 1,000ft or absent)."
-            ]  # rows 2 & 4
+            ]  # row 2
+        if 4 <= fpc <= 10:
+            # CORRECTED (round 27): row 4 shares its merged eligibility cell
+            # with row 5 (checked in the page layout of all five guides), so it
+            # carries the same long condition list, not row 2's.
+            return "ELIGIBLE", [
+                f"Eligible only if the property is {conditions_b}, and {conditions_high_fpc_extra} "
+                f"(hydrant beyond 1,000ft or absent)."
+            ]  # row 4
         return "INSUFFICIENT_INFORMATION", [f"FPC {fpc} is outside this table's 1-10 range."]
 
     if distance_miles is not None and distance_miles > 5:
@@ -130,6 +140,66 @@ def sage_family_fpc_eligibility(ppc, distance_miles=None, hydrant_feet=None, car
             "less, and ineligible if greater than 5 miles -- that distance was not provided."
         ]
     return "INSUFFICIENT_INFORMATION", [f"FPC {fpc} is outside this table's 1-10 range."]
+
+
+# Round 27 step 2 (Liam, 2026-10-06, decision 2). Only for a STATED fire-station
+# distance (the round 26 field); a blank distance never reaches this. The
+# table is the one shared by Auros, Wilshire, Trium, SURE and SafePort --
+# read clause by clause in each guide, and in the page layout: FPC 1-3 rows
+# B and C share one merged cell of three conditions; FPC 4-10 row B and FPC
+# 4-8 row C share one merged cell of seven.
+SAGE_FPC_CONDITIONS_B = ("Visible from the main public road", "Central station fire alarm",
+                         "Year-round fire-equipment access (10-ft roadway)")
+SAGE_FPC_CONDITIONS_EXTRA = ("Home age under 25", "Primary occupancy only", "No rental exposures",
+                             "No prior fire losses")
+
+
+def sage_fpc_with_distance(ppc, distance_miles, hydrant, home_age=None, occupancy=None, carrier=None):
+    """(status, open_items, reason, row) for a stated distance.
+
+    status: ELIGIBLE (row A), INELIGIBLE (FPC 9+ over 5 miles), REFER (a
+    condition the form answers fails -- the rules table treats a failed
+    CONDITION row the same way), or INSUFFICIENT_INFORMATION (a hold on the
+    open conditions, or on the hydrant when it is unknown). open_items are
+    short noun phrases in the guide's words. hydrant is "Yes" / "No" / None."""
+    m = re.match(r"\s*(\d+)", str(ppc or ""))
+    if not m:
+        return "INSUFFICIENT_INFORMATION", [], f"FPC/PPC value {ppc!r} is not a recognized number 1-10.", ""
+    fpc = int(m.group(1))
+    miles = f"{distance_miles:g} miles"
+    if distance_miles <= 5:
+        if hydrant == "Yes":
+            return ("ELIGIBLE", [], f"FPC {fpc}, fire station {miles} away and a hydrant within 1,000 ft: "
+                    f"the table's row A, eligible.", "A")
+        if hydrant is None:
+            return ("INSUFFICIENT_INFORMATION", ["Hydrant within 1,000 ft"],
+                    f"Fire station {miles} away: eligible with a hydrant within 1,000 ft, conditions without "
+                    f"one -- the hydrant answer decides.", "A/B")
+        rows = "B" if fpc <= 3 else "B (FPC 4-10)"
+        long_list = fpc >= 4
+    else:
+        if fpc >= 9:
+            return ("INELIGIBLE", [], "FPC 9 or greater with driving distance to the fire station greater than "
+                    "5 miles is ineligible.", "C (FPC 9+)")
+        rows = "C (FPC 1-3)" if fpc <= 3 else "C (FPC 4-8)"
+        long_list = fpc >= 4
+    items = list(SAGE_FPC_CONDITIONS_B)
+    if long_list:
+        extra = list(SAGE_FPC_CONDITIONS_EXTRA)
+        if carrier and "occidental" in carrier.lower():
+            extra.remove("No rental exposures")
+        if home_age is not None:
+            extra.remove("Home age under 25")
+            if home_age >= 25:
+                return ("REFER", [i for i in items + extra if i != "Primary occupancy only"],
+                        f"FPC {fpc}, fire station {miles} away (row {rows}): eligible only if, among other "
+                        f"conditions, the home is under 25 years old; it is {home_age}.", rows)
+        if occupancy == "Owner Occupied":
+            extra.remove("Primary occupancy only")
+        items += extra
+    where = f"fire station {miles} away" + ("" if distance_miles > 5 else ", no hydrant within 1,000 ft")
+    return ("INSUFFICIENT_INFORMATION", items,
+            f"FPC {fpc}, {where} (row {rows}): eligible only if all of the guide's conditions are met.", rows)
 
 
 # ---------------------------------------------------------------------------

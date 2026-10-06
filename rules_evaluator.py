@@ -266,6 +266,21 @@ def row_topics(m):
     return {FIELD_TOPIC[x] for x in m["field"].split(";") if FIELD_TOPIC.get(x)}
 
 
+def _open_fact_now(open_fact, unknown):
+    """The row's open-fact text, without its "... if not given" parts once
+    the form gives them (round 27: "station distance if not given" showed
+    with the distance stated)."""
+    parts = [p.strip() for p in (open_fact or "").split(";") if p.strip()]
+    keep = []
+    for p in parts:
+        if p.endswith("if not given"):
+            fields = [f for w, f in (("station", "fire_station_miles"), ("hydrant", "hydrant_1000ft")) if w in p]
+            if fields and not any(f in unknown for f in fields):
+                continue
+        keep.append(p)
+    return "; ".join(keep)
+
+
 def evaluate_row(m, f, checked=None):
     """(outcome, detail) for one map line."""
     if checked is not None and m["field"] != "NONE" and not row_topics(m) <= set(checked):
@@ -286,7 +301,7 @@ def evaluate_row(m, f, checked=None):
         result = "OPEN"
     ambiguous = result == "OPEN" and len(vals) > 1 and None not in vals
     detail = ("ambiguous: " + (m["map_note"] or "the readings disagree")) if ambiguous else \
-        (m["open_fact"] or "; ".join(dict.fromkeys(unknown)))
+        _open_fact_now(m["open_fact"], unknown) or "; ".join(dict.fromkeys(unknown))
     if m["outcome_if_fail"] == "NOTE" and result in ("FAIL", "OPEN"):
         return "NOTE", "cure is an inspection (not checked)"
     # Decision 1: the row hinges on a blank Coverage A or County -- either the

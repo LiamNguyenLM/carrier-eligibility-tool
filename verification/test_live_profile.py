@@ -29,7 +29,9 @@ def run_live(answer, profile=None, checked=None):
 
     def fake(system, user, max_tokens):
         seen["user"] = user
-        names = sorted(set(re.findall(r"\n--- (.+?) \(page", user)))
+        # the main call's sections, or the rules pilot call's (round 27)
+        names = sorted(set(re.findall(r"\n--- (.+?) \(page", user))
+                       | set(re.findall(r"--- (.+?) \(rule check\) ---", user)))
         recs = []
         for n in names:
             rec = {"carrier": n, "status": "ELIGIBLE", "flaw_count": 0, "reasons": ["fixture"],
@@ -493,3 +495,88 @@ def test_another_carrier_quoting_a_similar_sentence_is_untouched():
                       if n == "Travelers_HO3_-_06.12.2026" else {})
     r = res["Travelers_HO3_-_06.12.2026"]
     assert r["status"] == "INELIGIBLE" and ec.TWICO_SOLAR_NOTE not in (r.get("notes") or "")
+
+
+# -- Step 2: Sage FPC with a stated distance (Liam, 2026-10-06, decision 2) ----------
+SAGE_FPC = ["Sage_-_Auros_HO3", "Sage_-_Wilshire_HO3_-_12.02.2025",
+            "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026",
+            "Sage_-_SURE_HO-3_-_01.31.2026", "Sage_-_SafePort_HO-3_-_01.31.2026"]
+COND_B = ["Visible from the main public road", "Central station fire alarm",
+          "Year-round fire-equipment access (10-ft roadway)"]
+
+
+def _sage_held_on_fpc(n):
+    """What Luna wrote on LIVE: Sage held on the fire station / FPC."""
+    return ({"status": "INSUFFICIENT_INFORMATION", "reasons": ["The FPC table row depends on the fire station."],
+             "missing_info": ["Driving distance to fire station"]} if n in SAGE_FPC else {})
+
+
+def _sage_run(carrier, **pd):
+    res, _ = run_live(_sage_held_on_fpc, profile=dict(BEXAR, **pd))
+    return res[carrier]
+
+
+@pytest.mark.parametrize("carrier", SAGE_FPC)
+class TestSageFpcWithDistance:
+    def test_within_5_miles_with_a_hydrant_is_eligible_as_today(self, carrier):
+        r = _sage_run(carrier, fire_station_miles=3, hydrant_1000ft="Yes")
+        assert r["status"] == "ELIGIBLE"
+        assert not any("fire station" in m.lower() or "hydrant" in m.lower() for m in r["missing_info"])
+
+    def test_within_5_miles_without_a_hydrant_holds_on_the_three_conditions(self, carrier):
+        r = _sage_run(carrier, fire_station_miles=3, hydrant_1000ft="No")      # PPC 3: row B
+        assert r["status"] == "INSUFFICIENT_INFORMATION"
+        assert r["missing_info"][:3] == COND_B
+        assert r["reasons"][0].startswith("Sage FPC table: FPC 3")
+
+    def test_over_5_miles_at_ppc_3_holds_on_the_three_conditions(self, carrier):
+        r = _sage_run(carrier, fire_station_miles=7, hydrant_1000ft="No")      # row C (FPC 1-3)
+        assert r["status"] == "INSUFFICIENT_INFORMATION" and r["missing_info"][:3] == COND_B
+        assert "Driving distance to fire station" not in r["missing_info"]     # answered
+
+    def test_over_5_miles_at_ppc_6_holds_on_the_seven_conditions_the_form_leaves_open(self, carrier):
+        r = _sage_run(carrier, ppc="6", fire_station_miles=7, hydrant_1000ft="No")   # row C (FPC 4-8)
+        assert r["status"] == "INSUFFICIENT_INFORMATION"
+        assert r["missing_info"][:5] == COND_B + ["No rental exposures", "No prior fire losses"]
+        assert "Home age under 25" not in r["missing_info"]                     # age 19 is known and passes
+
+    def test_over_5_miles_at_ppc_6_with_an_old_home_is_referred(self, carrier):
+        r = _sage_run(carrier, ppc="6", year_built=1990, fire_station_miles=7, hydrant_1000ft="No")
+        assert r["status"] == "REFER" and "under 25 years old" in r["reasons"][0]
+
+    def test_over_5_miles_at_ppc_9_is_ineligible(self, carrier):
+        r = _sage_run(carrier, ppc="9", fire_station_miles=7, hydrant_1000ft="No")
+        assert r["status"] == "INELIGIBLE" and "FPC 9 or greater" in r["reasons"][0]
+
+    def test_within_5_miles_with_the_hydrant_unknown_holds_on_the_hydrant_only(self, carrier):
+        r = _sage_run(carrier, fire_station_miles=3, hydrant_1000ft="Unknown")
+        assert r["status"] == "INSUFFICIENT_INFORMATION" and r["missing_info"] == ["Hydrant within 1,000 ft"]
+
+    def test_a_blank_distance_is_as_before(self, carrier):
+        r = _sage_run(carrier)                                                  # the round 12 upgrade
+        assert r["status"] == "ELIGIBLE"
+
+
+def test_with_the_pilot_on_auros_is_left_to_its_rows(monkeypatch):
+    monkeypatch.setattr(ec, "RULES_PILOT", True)
+    res, _ = run_live(_sage_held_on_fpc, profile=dict(BEXAR, fire_station_miles=7, hydrant_1000ft="No"))
+    assert res["Sage_-_Auros_HO3"].get("rules_table")
+    assert not any(r.startswith("Sage FPC table") for r in res["Sage_-_Auros_HO3"]["reasons"])
+    assert res["Sage_-_SURE_HO-3_-_01.31.2026"]["reasons"][0].startswith("Sage FPC table")
+
+
+def test_the_models_own_wording_of_the_conditions_gives_way_to_the_guides():
+    res, _ = run_live(lambda n: {"status": "INSUFFICIENT_INFORMATION",
+                                 "missing_info": ["Visibility from main public road", "Central station fire alarm",
+                                                  "Roof condition"]}
+                      if n == "Sage_-_SURE_HO-3_-_01.31.2026" else {},
+                      profile=dict(BEXAR, fire_station_miles=7, hydrant_1000ft="No"))
+    mi = res["Sage_-_SURE_HO-3_-_01.31.2026"]["missing_info"]
+    assert mi[:3] == COND_B and "Visibility from main public road" not in mi
+
+
+def test_an_open_row_does_not_ask_for_a_distance_the_form_gave():
+    out = rv.evaluate_carrier("Sage_-_Auros_HO3", dict(BEXAR, fire_station_miles=7, hydrant_1000ft="No"))
+    assert out["SAG-074"][0] == "OPEN" and "station distance" not in out["SAG-074"][1]
+    blank = rv.evaluate_carrier("Sage_-_Auros_HO3", dict(BEXAR))
+    assert "station distance if not given" in blank["SAG-074"][1]
