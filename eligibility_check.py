@@ -88,6 +88,11 @@ ELIGIBILITY_MODEL = os.environ.get("ELIGIBILITY_MODEL", "gpt-6-luna")
 # the API there).
 ELIGIBILITY_REASONING_EFFORT = os.environ.get("ELIGIBILITY_REASONING_EFFORT", "low")
 
+# The Anthropic path's effort (round 28 step 5, 2026-10-07): unset = the model's
+# own default (medium on claude-haiku-5-5); "low" / "medium" / "high". Used only
+# by Claude 5-generation models (output_config.effort). Measurement only.
+ELIGIBILITY_EFFORT = os.environ.get("ELIGIBILITY_EFFORT", "") or None
+
 # Enforced output structure on the OpenAI path (Liam, 2026-09-30). Live
 # failure the same day: Luna wrote 23 complete records and left off status and
 # flaw_count on every one. A strict json_schema makes the API itself refuse to
@@ -101,7 +106,8 @@ ELIGIBILITY_REASONING_EFFORT = os.environ.get("ELIGIBILITY_REASONING_EFFORT", "l
 # a valid status and an integer flaw_count, where 3 of 8 unstructured calls
 # the same day had returned no status at all. The schema does NOT prevent
 # omissions: Foremost was left out in 3 of the 10 (they get NOT_EVALUATED
-# rows). Turn off with ELIGIBILITY_STRUCTURED=0. Ignored on the Anthropic path.
+# rows). Turn off with ELIGIBILITY_STRUCTURED=0. On the Anthropic path only Claude
+# 5-generation models use it (round 28 step 5).
 ELIGIBILITY_STRUCTURED = os.environ.get("ELIGIBILITY_STRUCTURED", "1") == "1"
 
 # Round 25 (Liam, 2026-10-03): the rules-table pilot. OFF by default; OFF is
@@ -226,8 +232,46 @@ def _complete(system_text, user_content, max_tokens):
     return _complete_anthropic(system_text, user_content, max_tokens)
 
 
+def _is_claude_gen5(model):
+    """Claude 5-generation models (claude-haiku-5-5, ...): strict structured
+    output via output_config, an effort setting, no temperature (the API
+    rejects it: "`temperature` is deprecated for this model"), and thinking
+    that counts against max_tokens."""
+    m = re.match(r"claude-[a-z]+-(\d+)", model or "")
+    return bool(m) and int(m.group(1)) >= 5
+
+
+def _anthropic_schema(carriers):
+    """The production schema for Claude's structured output. Measured
+    2026-10-07 on claude-haiku-5-5: the carrier enum and the status enum are
+    enforced, but "For 'array' type, property 'maxItems' is not supported" (400),
+    so the two-item limit (decision C) is dropped here and enforced on the
+    parsed answer by _trim_to_two."""
+    schema = copy.deepcopy(_results_schema(carriers))
+    item = schema["properties"]["carriers"]["items"]["properties"]
+    for key in ("reasons", "citations"):
+        item[key] = {k: v for k, v in item[key].items() if k != "maxItems"}
+    return schema
+
+
+def _trim_to_two(text):
+    """(text, trimmed): reasons / citations cut to two per record, as Luna's
+    strict maxItems does. Unparseable text is returned unchanged."""
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return text, 0
+    trimmed = 0
+    for rec in (data.get("carriers") if isinstance(data, dict) else None) or []:
+        for key in ("reasons", "citations"):
+            if isinstance(rec, dict) and isinstance(rec.get(key), list) and len(rec[key]) > 2:
+                rec[key] = rec[key][:2]
+                trimmed += 1
+    return (json.dumps(data, ensure_ascii=False) if trimmed else text), trimmed
+
+
 def _complete_anthropic(system_text, user_content, max_tokens):
-    response = client.messages.create(
+    kwargs = dict(
         model=ELIGIBILITY_MODEL,
         max_tokens=max_tokens,
         temperature=0,
@@ -241,7 +285,25 @@ def _complete_anthropic(system_text, user_content, max_tokens):
         # timeout skips the SDK's max_tokens-derived refusal heuristic.
         timeout=900.0,
     )
+    gen5 = _is_claude_gen5(ELIGIBILITY_MODEL)
+    if gen5:
+        # Round 28 step 5 (2026-10-07): production-equal with the Luna path.
+        # Older Claude models keep the call above unchanged.
+        del kwargs["temperature"]
+        kwargs["max_tokens"] = max_tokens + 4000          # thinking counts here, as reasoning does on Luna
+        output_config = {}
+        if ELIGIBILITY_STRUCTURED:
+            output_config["format"] = {"type": "json_schema",
+                                       "schema": _anthropic_schema(getattr(_CALL, "carriers", None))}
+        if ELIGIBILITY_EFFORT:
+            output_config["effort"] = ELIGIBILITY_EFFORT
+        if output_config:
+            kwargs["output_config"] = output_config
+    response = client.messages.create(**kwargs)
     text = "".join(b.text for b in response.content if getattr(b, "type", "") == "text")
+    trimmed = 0
+    if gen5 and ELIGIBILITY_STRUCTURED:
+        text, trimmed = _trim_to_two(text)
     usage = response.usage
     return text, {
         "input_tokens": usage.input_tokens,
@@ -249,6 +311,7 @@ def _complete_anthropic(system_text, user_content, max_tokens):
         "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
         "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
         "stop_reason": getattr(response, "stop_reason", "n/a"),
+        "trimmed_lists": trimmed,
     }
 
 

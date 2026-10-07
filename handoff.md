@@ -1082,6 +1082,25 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       runs for a blank distance, as it still does for Auros with the pilot
       OFF.
 
+  - **Step 5 (Anthropic path, production-equal, measurement only):** for
+    Claude 5-generation models (claude-haiku-5-5). Older Claude models keep
+    their exact call, and ELIGIBILITY_MODEL still defaults to gpt-6-luna.
+    - **Structured output** (output_config.format) uses the production
+      schema, carrier enum included. What Haiku 5.5 rejects, measured
+      2026-10-07:
+      - `maxItems` ("For 'array' type, property 'maxItems' is not
+        supported", 400). It is dropped, and _trim_to_two cuts reasons and
+        citations to 2, counting each trim (usage "trimmed_lists").
+      - `temperature` ("`temperature` is deprecated for this model", 400).
+        It is not sent.
+      - The enum is enforced: a carrier outside it was refused.
+    - **Caching:** cache_control on the system prompt. max_tokens gets
+      +4,000 because thinking counts against it (as Luna's reasoning does).
+    - **Effort:** ELIGIBILITY_EFFORT (unset = the model's default, medium)
+      goes to output_config.effort.
+    - The rules pilot's side call uses the same model (_complete_named).
+    - Measurement: verification/measure_models.py.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
