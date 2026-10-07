@@ -964,6 +964,52 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       - A blank county is still held by the county hold, with one County
         item. The rows' "blank County" notes are dropped from also_confirm.
       - Auros, a pilot carrier, keeps round 25's path.
+  - **Step 7 (real Luna, pilot ON, batch OFF vs ON, 2 runs each, 37f22b4):**
+    - Batch ON cuts prompt tokens (input + cached) by 19-26% and wall time
+      by 2-8 s. Cost is roughly flat ($0.0017-0.0037 per check; caching
+      dominates).
+    - **Every Sage-batch difference, and which side is right:**
+      - **Blank station distance, PPC 1-3** (LIVE+Bexar, CLEAN): SURE,
+        SafePort, Wilshire and Trium are Eligible OFF, Insufficient ON.
+        - ON follows the guide: row A needs a hydrant and a station within
+          5 miles, so the row is unknown. It is also what Auros does on the
+          pilot.
+        - OFF is the old upgrade that decision 2 kept for a blank distance.
+        - **Liam's call:** the two paths now disagree on purpose.
+      - **OLD** (PPC 6, home 56, distance blank): the four are Eligible OFF,
+        Insufficient ON. ON is right: rows B/C need a home under 25.
+        Wilshire OFF even said "any value is eligible" (model error).
+      - **Markel, OLD and CLEAN:** OFF declined both runs on "$500,000
+        minimum". That is the HO5 minimum (MKL-080); the HO3 minimum is
+        $100,000 (MKL-079). Model error OFF; ON is right.
+      - **Vave, OLD:** ON declines on VAV-047 ("Homes with galvanized,
+        steel, iron, or polybutylene plumbing are ineligible."; OLD has
+        galvanized). Both OFF runs said Eligible: model error OFF.
+      - **Trium, LIVE (Collin):** 2 flaws OFF, 1 flaw ON. OFF: the model
+        declined on location and the county hold added a second flaw for
+        the same county (code bug on the OFF path). ON: TRI-093 only.
+      - Noise only: Wilshire CLEAN OFF Eligible/Refer; Markel STRESS OFF
+        Eligible/Insufficient; Vave STRESS OFF NOT_EVALUATED (omitted).
+    - **Other carriers:** their prompt sections are byte-identical OFF and
+      ON. Yet verdicts outside OFF's range: 0, 1, 0, 4, 3, 4 per profile
+      (OFF-vs-OFF noise: 0, 1, 1, 3, 2, 1). Same-evidence drift from a
+      smaller prompt. Consistent 2/2 flips:
+      - HOAIC STRESS: Refer -> Eligible. Wrong: Coverage A $900k needs
+        underwriting approval.
+      - Swyfft Lloyds STRESS: Insufficient -> Ineligible. Right: "ISO
+        Protection Class 9 or 10" is listed.
+      - Travelers STRESS: Insufficient -> Eligible. Defensible: the PPC 9
+        rule is for secondary / seasonal homes.
+      - HOAIC OLD: Insufficient -> Eligible. ARI HOB CLEAN: Eligible ->
+        Insufficient.
+    - **Rows that look wrong** (not edited; for Claude's review):
+      - MKL-120: "Lapses in coverage up to 90 days are allowed." is stored
+        as RULE / DECLINES. It is an allowance (a lapse over 90 days is
+        what declines).
+      - SUR-048 / SFP-048: the guide's EIFS sentence ("Although excluded,
+        we still will decline homes unless used as trim or minimal portion
+        of siding.") repeated under Screened or Tent-Like Enclosures, stored
+        as UNCLEAR / DECLINES. Map line NONE.
 
 ## Open work, in priority order (updated 2026-10-02)
 
