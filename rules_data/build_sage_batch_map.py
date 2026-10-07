@@ -1,6 +1,6 @@
 """Build rules_data/sage_batch_field_map.csv -- one line per deciding row (Tool
 handling EVALUATE / EVALUATE_CURE_IS_INSPECTION) of
-rules_data/carrier_rules_sage_batch_v1.csv, the Sage batch (round 27 step 5,
+rules_data/carrier_rules_sage_batch_v2.csv, the Sage batch (round 27 step 5,
 Liam's decision 4, 2026-10-06): SURE HO-3, SafePort HO-3, Wilshire HO3,
 Trium Lloyd's HO3/HO5, Markel HO3, Vave HO3.
 
@@ -32,12 +32,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from build_rule_field_map import BREED, DOGS, FLAT, NONE_NOTE, POOL_OK, SEASONAL  # noqa: E402
 
-RULES = os.path.join(HERE, "carrier_rules_sage_batch_v1.csv")
+RULES = os.path.join(HERE, "carrier_rules_sage_batch_v2.csv")
 OUT = os.path.join(HERE, "sage_batch_field_map.csv")
 
 OWNER = "occupancy_type != Tenant Occupied"
 NOT_VACANT = "occupancy_type != Vacant"
-TERRITORY = "sage_territory == IN or county == Nueces"
+EAST_TEXAS = "Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, Polk"
 TRUST = "ownership_type == Trust"
 LLC = "ownership_type == LLC"
 IN_GROUND = "swimming_pool in {In Ground - Fenced, In Ground - Unfenced}"
@@ -74,12 +74,13 @@ def sister(p, ids):
         if ids.get(concept):
             m[ids[concept]] = line
 
-    put("territory", ("county", TERRITORY, "always", "",
-                      "south of 31 N or the eight East Texas counties; Nueces is decided by its own row"
-                      if ids.get("nueces") else "south of 31 N or the eight East Texas counties; this guide has "
-                      "no Nueces exception"))
+    # v2 (2026-10-07): the East Texas list applies only to a county NOT entirely south of 31 N, so it
+    # decides that half; Nueces has its own row (not in Trium). The south-of-31 row restates both.
+    put("territory", same_as(" and ".join(x for x in (ids["east_texas"], ids.get("nueces")) if x), "county"))
     put("nueces", ("county", "county != Nueces", "always", "", ""))
-    put("east_texas", same_as(ids["territory"], "county"))
+    put("east_texas", ("county", "county in {" + EAST_TEXAS + "}", "south_of_31 == False", "",
+                       "a county not entirely south of 31 N (v2)" + ("" if ids.get("nueces") else
+                                                                    "; this guide has no Nueces exception")))
     put("owner", ("occupancy_type", OWNER, "always", "",
                   "owner occupied = primary, seasonal or secondary residence; Vacant is decided by "
                   + ids["vacant"]))
@@ -222,9 +223,11 @@ MAP.update({
     "MKL-022": ("construction_type", "construction_type != Manufactured/Mobile", "always", "", ""),
     "MKL-079": ("dwelling_amount", "dwelling_amount >= 100000", "always", "", ""),
     # ---------------- Vave
-    "VAV-001": ("occupancy_type", OWNER, "always", "",
-                "primary, secondary and seasonal homes are accepted; Vacant is decided by VAV-010"),
-    "VAV-007": same_as("VAV-001"),
+    # v2: VAV-001 is the program description (NOT_ELIGIBILITY); the whole home rented long-term
+    # (Tenant Occupied) is VAV-007's.
+    "VAV-007": ("occupancy_type", OWNER, "always", "",
+                "primary, secondary, seasonal and short-term rental homes are accepted; Vacant is decided by "
+                "VAV-010"),
     "VAV-010": ("occupancy_type", NOT_VACANT, "always", "", ""),
     "VAV-014": ("ownership_type;occupancy_type", OWNER, TRUST, "", ""),
     "VAV-015": ("ownership_type", "always", LLC, "", "decided by VAV-016..VAV-020, its five criteria"),
@@ -262,8 +265,8 @@ def main():
     rows = list(csv.DictReader(l for l in open(RULES, encoding="utf-8-sig") if not l.startswith("#")))
     ev = [r for r in rows if r["Tool handling"] in ("EVALUATE", "EVALUATE_CURE_IS_INSPECTION")]
     with open(OUT, "w", encoding="utf-8", newline="") as fh:
-        fh.write("# source: rules_data/build_sage_batch_map.py over rules_data/carrier_rules_sage_batch_v1.csv "
-                 "(Sage batch version 1, not yet reviewed); built 2026-10-06 (round 27 step 5). "
+        fh.write("# source: rules_data/build_sage_batch_map.py over rules_data/carrier_rules_sage_batch_v2.csv "
+                 "(Sage batch version 2, reviewed by Claude); built 2026-10-07 (round 28 step 3). "
                  "Grammar: rules_data/RULE_FIELD_MAP.md.\n")
         w = csv.writer(fh)
         w.writerow(["row_id", "field", "test", "gate", "outcome_if_fail", "open_fact", "map_note"])

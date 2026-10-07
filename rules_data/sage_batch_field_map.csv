@@ -1,8 +1,8 @@
-# source: rules_data/build_sage_batch_map.py over rules_data/carrier_rules_sage_batch_v1.csv (Sage batch version 1, not yet reviewed); built 2026-10-06 (round 27 step 5). Grammar: rules_data/RULE_FIELD_MAP.md.
+# source: rules_data/build_sage_batch_map.py over rules_data/carrier_rules_sage_batch_v2.csv (Sage batch version 2, reviewed by Claude); built 2026-10-07 (round 28 step 3). Grammar: rules_data/RULE_FIELD_MAP.md.
 row_id,field,test,gate,outcome_if_fail,open_fact,map_note
-SUR-001,county,sage_territory == IN or county == Nueces,always,DECLINES,,south of 31 N or the eight East Texas counties; Nueces is decided by its own row
+SUR-001,county,always,always,DECLINES,,decided by SUR-003 and SUR-002 (the same rule); never a second flaw
 SUR-002,county,county != Nueces,always,DECLINES,,
-SUR-003,county,always,always,DECLINES,,decided by SUR-001 (the same rule); never a second flaw
+SUR-003,county,"county in {Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, Polk}",south_of_31 == False,DECLINES,,a county not entirely south of 31 N (v2)
 SUR-004,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SUR-005,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
 SUR-006,NONE,,,DECLINES,,the number of individual owners is not asked
@@ -44,7 +44,6 @@ SUR-044,NONE,,,DECLINES,,siding / construction details are not form options
 SUR-045,NONE,,,REFERS_TO_UW,,siding / construction details are not form options
 SUR-046,NONE,,,CONDITION,,siding / construction details are not form options
 SUR-047,NONE,,,DECLINES,,siding / construction details are not form options
-SUR-048,NONE,,,DECLINES,,siding / construction details are not form options
 SUR-051,NONE,,,DECLINES,,foundation is not asked
 SUR-052,NONE,,,DECLINES,,siding / construction details are not form options
 SUR-053,NONE,,,REFERS_TO_UW,,siding / construction details are not form options
@@ -90,8 +89,6 @@ SUR-115,ppc;fire_station_miles,fire_station_miles <= 5,ppc_num >= 9,DECLINES,sta
 SUR-116,year_built;ppc;fire_station_miles;hydrant_1000ft,home_age < 25,(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given,
 SUR-117,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,occupancy_type == Owner Occupied and FACT(no rental exposures),(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given; rental exposures,
 SUR-118,NONE,,,CONDITION,,loss / claims history is not asked
-SUR-124,NONE,,,DECLINES,,not asked by the form
-SUR-125,NONE,,,DECLINES,,not asked by the form
 SUR-128,NONE,,,CONDITION,,siding / construction details are not form options
 SUR-129,NONE,,,CONDITION,,not asked by the form
 SUR-130,NONE,,,REFERS_TO_UW,,not asked by the form
@@ -103,10 +100,9 @@ SUR-136,NONE,,,DECLINES,,wiring and panels are not asked
 SUR-137,NONE,,,DECLINES,,wiring and panels are not asked
 SUR-138,NONE,,,DECLINES,,wiring and panels are not asked
 SUR-140,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
-SUR-141,NONE,,,CONDITION,,"heating, cooling and water heater are not asked"
+SUR-141,NONE,,,NOTE,,"heating, cooling and water heater are not asked"
 SUR-142,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
-SUR-146,NONE,,,DECLINES,,roof condition and layers are not asked
-SUR-148,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)",(roof_shape == Flat or roof_type == Flat/Built-Up),DECLINES,prior roof loss; renovation,
+SUR-148,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)",(roof_shape == Flat or roof_type == Flat/Built-Up),REFERS_TO_UW,prior roof loss; renovation,
 SUR-149,roof_type,"FACT(steel, 29 gauge or heavier)",roof_type == Metal,DECLINES,metal roof gauge,
 SUR-150,NONE,,,DECLINES,,roof condition and layers are not asked
 SUR-151,NONE,,,DECLINES,,roof condition and layers are not asked
@@ -117,9 +113,9 @@ SUR-164,coastal_tier,FACT(not within 0.04 miles of an inner shoreline),coastal_t
 SUR-165,coastal_tier,FACT(not in the front or first row of dwellings),coastal_tier == Tier 1,DECLINES,first row,
 SUR-166,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 SUR-172,NONE,,,CONDITION,,flood zone is not asked
-SFP-001,county,sage_territory == IN or county == Nueces,always,DECLINES,,south of 31 N or the eight East Texas counties; Nueces is decided by its own row
+SFP-001,county,always,always,DECLINES,,decided by SFP-003 and SFP-002 (the same rule); never a second flaw
 SFP-002,county,county != Nueces,always,DECLINES,,
-SFP-003,county,always,always,DECLINES,,decided by SFP-001 (the same rule); never a second flaw
+SFP-003,county,"county in {Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, Polk}",south_of_31 == False,DECLINES,,a county not entirely south of 31 N (v2)
 SFP-004,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SFP-005,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
 SFP-006,NONE,,,DECLINES,,the number of individual owners is not asked
@@ -161,7 +157,6 @@ SFP-044,NONE,,,DECLINES,,siding / construction details are not form options
 SFP-045,NONE,,,REFERS_TO_UW,,siding / construction details are not form options
 SFP-046,NONE,,,CONDITION,,siding / construction details are not form options
 SFP-047,NONE,,,DECLINES,,siding / construction details are not form options
-SFP-048,NONE,,,DECLINES,,siding / construction details are not form options
 SFP-051,NONE,,,DECLINES,,foundation is not asked
 SFP-052,NONE,,,DECLINES,,siding / construction details are not form options
 SFP-053,NONE,,,REFERS_TO_UW,,siding / construction details are not form options
@@ -209,8 +204,6 @@ SFP-123,ppc;fire_station_miles,fire_station_miles <= 5,ppc_num >= 9,DECLINES,sta
 SFP-124,year_built;ppc;fire_station_miles;hydrant_1000ft,home_age < 25,(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given,
 SFP-125,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,occupancy_type == Owner Occupied and FACT(no rental exposures),(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given; rental exposures,
 SFP-126,NONE,,,CONDITION,,loss / claims history is not asked
-SFP-132,NONE,,,DECLINES,,not asked by the form
-SFP-133,NONE,,,DECLINES,,not asked by the form
 SFP-136,NONE,,,CONDITION,,not asked by the form
 SFP-137,NONE,,,REFERS_TO_UW,,not asked by the form
 SFP-138,NONE,,,DECLINES,,not asked by the form
@@ -221,10 +214,10 @@ SFP-143,NONE,,,DECLINES,,wiring and panels are not asked
 SFP-144,NONE,,,DECLINES,,wiring and panels are not asked
 SFP-145,NONE,,,DECLINES,,wiring and panels are not asked
 SFP-146,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
-SFP-147,NONE,,,CONDITION,,"heating, cooling and water heater are not asked"
+SFP-147,NONE,,,NOTE,,"heating, cooling and water heater are not asked"
 SFP-148,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 SFP-152,NONE,,,DECLINES,,roof condition and layers are not asked
-SFP-154,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)",(roof_shape == Flat or roof_type == Flat/Built-Up),DECLINES,prior roof loss; renovation,
+SFP-154,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)",(roof_shape == Flat or roof_type == Flat/Built-Up),REFERS_TO_UW,prior roof loss; renovation,
 SFP-155,roof_type,"FACT(steel, 29 gauge or heavier)",roof_type == Metal,DECLINES,metal roof gauge,
 SFP-156,NONE,,,DECLINES,,roof condition and layers are not asked
 SFP-157,NONE,,,DECLINES,,roof condition and layers are not asked
@@ -237,9 +230,9 @@ SFP-174,coastal_tier,FACT(not within 0.04 miles of an inner shoreline),coastal_t
 SFP-175,coastal_tier,FACT(not in the front or first row of dwellings),coastal_tier == Tier 1,DECLINES,first row,
 SFP-176,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 SFP-187,NONE,,,CONDITION,,flood zone is not asked
-WIL-001,county,sage_territory == IN or county == Nueces,always,DECLINES,,south of 31 N or the eight East Texas counties; Nueces is decided by its own row
+WIL-001,county,always,always,DECLINES,,decided by WIL-003 and WIL-002 (the same rule); never a second flaw
 WIL-002,county,county != Nueces,always,DECLINES,,
-WIL-003,county,always,always,DECLINES,,decided by WIL-001 (the same rule); never a second flaw
+WIL-003,county,"county in {Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, Polk}",south_of_31 == False,DECLINES,,a county not entirely south of 31 N (v2)
 WIL-004,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 WIL-005,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
 WIL-006,NONE,,,DECLINES,,the number of individual owners is not asked
@@ -310,7 +303,6 @@ WIL-120,ppc;fire_station_miles,fire_station_miles <= 5,ppc_num >= 9,DECLINES,sta
 WIL-121,year_built;ppc;fire_station_miles;hydrant_1000ft,home_age < 25,(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given,
 WIL-122,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,occupancy_type == Owner Occupied and FACT(no rental exposures),(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given; rental exposures,
 WIL-123,ppc;fire_station_miles;hydrant_1000ft,FACT(no prior fire loss),(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given; fire losses,
-WIL-129,NONE,,,DECLINES,,not asked by the form
 WIL-130,NONE,,,DECLINES,,not asked by the form
 WIL-133,NONE,,,CONDITION,,not asked by the form
 WIL-134,NONE,,,CONDITION,,not asked by the form
@@ -323,14 +315,12 @@ WIL-141,NONE,,,DECLINES,,wiring and panels are not asked
 WIL-142,NONE,,,DECLINES,,wiring and panels are not asked
 WIL-143,NONE,,,DECLINES,,wiring and panels are not asked
 WIL-145,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
-WIL-146,NONE,,,CONDITION,,"heating, cooling and water heater are not asked"
+WIL-146,NONE,,,NOTE,,"heating, cooling and water heater are not asked"
 WIL-147,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
-WIL-150,NONE,,,DECLINES,,roof condition and layers are not asked
-WIL-152,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)",(roof_shape == Flat or roof_type == Flat/Built-Up),DECLINES,prior roof loss; renovation,
+WIL-152,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)",(roof_shape == Flat or roof_type == Flat/Built-Up),REFERS_TO_UW,prior roof loss; renovation,
 WIL-153,roof_type,"FACT(steel, 29 gauge or heavier)",roof_type == Metal,DECLINES,metal roof gauge,
 WIL-154,NONE,,,DECLINES,,roof condition and layers are not asked
 WIL-155,NONE,,,DECLINES,,roof condition and layers are not asked
-WIL-178,NONE,,,UNKNOWN,,"location detail beyond county / tier is not asked, or the guide does not say"
 WIL-188,NONE,,,CONDITION,,flood zone is not asked
 TRI-001,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 TRI-002,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,"owner occupied = primary, seasonal or secondary residence; Vacant is decided by TRI-008"
@@ -364,7 +354,7 @@ TRI-030,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
 TRI-033,year_built;occupancy_type,FACT(signed lead exclusion acknowledgement),occupancy_type == Tenant Occupied and year_built < 1980,CONDITION,signed acknowledgement,
 TRI-035,year_built;ppc;fire_station_miles;hydrant_1000ft,home_age < 25,(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given,
 TRI-038,NONE,,,DECLINES,,roof condition and layers are not asked
-TRI-040,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)",(roof_shape == Flat or roof_type == Flat/Built-Up),DECLINES,prior roof loss; renovation,
+TRI-040,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)",(roof_shape == Flat or roof_type == Flat/Built-Up),REFERS_TO_UW,prior roof loss; renovation,
 TRI-041,roof_type,"FACT(steel, 29 gauge or heavier)",roof_type == Metal,DECLINES,metal roof gauge,
 TRI-042,NONE,,,DECLINES,,roof condition and layers are not asked
 TRI-043,NONE,,,DECLINES,,roof condition and layers are not asked
@@ -379,7 +369,7 @@ TRI-054,NONE,,,DECLINES,,wiring and panels are not asked
 TRI-055,NONE,,,DECLINES,,wiring and panels are not asked
 TRI-056,NONE,,,DECLINES,,wiring and panels are not asked
 TRI-057,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
-TRI-058,NONE,,,CONDITION,,"heating, cooling and water heater are not asked"
+TRI-058,NONE,,,NOTE,,"heating, cooling and water heater are not asked"
 TRI-059,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 TRI-062,NONE,,,DECLINES,,foundation is not asked
 TRI-063,NONE,,,DECLINES,,foundation is not asked
@@ -405,14 +395,13 @@ TRI-089,ppc;fire_station_miles,"FACT(visible from road, central station alarm, 1
 TRI-090,ppc;year_built;occupancy_type;fire_station_miles;hydrant_1000ft,"home_age < 25 and occupancy_type == Owner Occupied and FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",ppc_num between 4 and 10 and fire_station_miles <= 5 and hydrant_1000ft == No,CONDITION,"station / hydrant distance if not given; visibility, alarm, access, fire losses",
 TRI-091,ppc;year_built;occupancy_type;fire_station_miles,"home_age < 25 and occupancy_type == Owner Occupied and FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",ppc_num between 4 and 8 and fire_station_miles > 5,CONDITION,"station distance if not given; visibility, alarm, access, fire losses",
 TRI-092,ppc;fire_station_miles,fire_station_miles <= 5,ppc_num >= 9,DECLINES,station distance,
-TRI-093,county,sage_territory == IN or county == Nueces,always,DECLINES,,south of 31 N or the eight East Texas counties; this guide has no Nueces exception
-TRI-094,county,always,always,DECLINES,,decided by TRI-093 (the same rule); never a second flaw
+TRI-093,county,always,always,DECLINES,,decided by TRI-094 (the same rule); never a second flaw
+TRI-094,county,"county in {Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, Polk}",south_of_31 == False,DECLINES,,a county not entirely south of 31 N (v2); this guide has no Nueces exception
 TRI-095,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 TRI-096,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 TRI-097,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 TRI-098,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 TRI-100,coastal_tier,FACT(not on a barrier island without road access to the mainland),coastal_tier == Tier 1,DECLINES,barrier island road access,Extreme Hazard is otherwise eligible with a deductible
-TRI-102,NONE,,,UNKNOWN,,"location detail beyond county / tier is not asked, or the guide does not say"
 TRI-110,dwelling_amount,dwelling_amount <= 2000000,always,DECLINES,,
 TRI-111,dwelling_amount,dwelling_amount <= 1250000,always,REFERS_TO_UW,,
 TRI-114,dwelling_amount,dwelling_amount >= 85000,always,REFERS_TO_UW,,
@@ -437,7 +426,6 @@ TRI-153,NONE,,,DECLINES,,not asked by the form
 TRI-154,NONE,,,DECLINES,,not asked by the form
 TRI-155,NONE,,,DECLINES,,not asked by the form
 TRI-156,NONE,,,REFERS_TO_UW,,not asked by the form
-TRI-162,NONE,,,DECLINES,,not asked by the form
 TRI-163,NONE,,,DECLINES,,not asked by the form
 TRI-166,NONE,,,DECLINES,,not asked by the form
 TRI-167,NONE,,,DECLINES,,not asked by the form
@@ -446,7 +434,6 @@ TRI-169,NONE,,,CONDITION,,not asked by the form
 TRI-170,NONE,,,REFERS_TO_UW,,not asked by the form
 TRI-171,NONE,,,DECLINES,,not asked by the form
 MKL-002,county,always,always,DECLINES,,the tool is Texas-only (State: TX)
-MKL-004,NONE,,,UNKNOWN,,"location detail beyond county / tier is not asked, or the guide does not say"
 MKL-007,occupancy_type,always,always,DECLINES,,decided by MKL-009 (the same rule); never a second flaw
 MKL-008,NONE,,,DECLINES,,not asked by the form
 MKL-009,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
@@ -482,7 +469,6 @@ MKL-046,NONE,,,REFERS_TO_UW,,"heating, cooling and water heater are not asked"
 MKL-047,NONE,,,CONDITION,,"heating, cooling and water heater are not asked"
 MKL-048,NONE,,,CONDITION,,"heating, cooling and water heater are not asked"
 MKL-050,NONE,,,CONDITION,,"heating, cooling and water heater are not asked"
-MKL-060,NONE,,,CONDITION,,liability hazards are not asked
 MKL-065,NONE,,,DECLINES,,other animals and bite claims are not asked
 MKL-074,NONE,,,REFERS_TO_UW,,acreage is not asked
 MKL-075,NONE,,,CONDITION,,acreage is not asked
@@ -494,7 +480,6 @@ MKL-080,NONE,,,DECLINES,,"TIV, Coverage B and the HO5 form are not asked"
 MKL-081,NONE,,,DECLINES,,"TIV, Coverage B and the HO5 form are not asked"
 MKL-082,NONE,,,REFERS_TO_UW,,"TIV, Coverage B and the HO5 form are not asked"
 MKL-085,NONE,,,REFERS_TO_UW,,"TIV, Coverage B and the HO5 form are not asked"
-MKL-103,NONE,,,CONDITION,,loss / claims history is not asked
 MKL-104,NONE,,,DECLINES,,loss / claims history is not asked
 MKL-105,NONE,,,DECLINES,,loss / claims history is not asked
 MKL-106,NONE,,,DECLINES,,loss / claims history is not asked
@@ -504,14 +489,11 @@ MKL-109,NONE,,,DECLINES,,loss / claims history is not asked
 MKL-117,NONE,,,DECLINES,,not asked by the form
 MKL-118,NONE,,,DECLINES,,not asked by the form
 MKL-119,NONE,,,DECLINES,,not asked by the form
-MKL-120,NONE,,,DECLINES,,not asked by the form
-MKL-121,NONE,,,CONDITION,,not asked by the form
-VAV-001,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,"primary, secondary and seasonal homes are accepted; Vacant is decided by VAV-010"
 VAV-003,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 VAV-004,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 VAV-005,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 VAV-006,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
-VAV-007,occupancy_type,always,always,DECLINES,,decided by VAV-001 (the same rule); never a second flaw
+VAV-007,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,"primary, secondary, seasonal and short-term rental homes are accepted; Vacant is decided by VAV-010"
 VAV-010,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 VAV-014,ownership_type;occupancy_type,occupancy_type != Tenant Occupied,ownership_type == Trust,CONDITION,,
 VAV-015,ownership_type,always,ownership_type == LLC,CONDITION,,"decided by VAV-016..VAV-020, its five criteria"
@@ -552,7 +534,6 @@ VAV-096,NONE,,,DECLINES,,loss / claims history is not asked
 VAV-097,NONE,,,DECLINES,,loss / claims history is not asked
 VAV-099,NONE,,,DECLINES,,acreage is not asked
 VAV-100,NONE,,,DECLINES,,acreage is not asked
-VAV-109,NONE,,,CONDITION,,product / binding status is not a property fact
 VAV-113,NONE,,,DECLINES,,not asked by the form
 VAV-114,NONE,,,DECLINES,,not asked by the form
 VAV-115,NONE,,,DECLINES,,not asked by the form
@@ -562,5 +543,3 @@ VAV-118,NONE,,,DECLINES,,not asked by the form
 VAV-119,NONE,,,DECLINES,,not asked by the form
 VAV-120,NONE,,,DECLINES,,not asked by the form
 VAV-121,NONE,,,DECLINES,,not asked by the form
-VAV-122,NONE,,,DECLINES,,not asked by the form
-VAV-124,NONE,,,CONDITION,,not asked by the form

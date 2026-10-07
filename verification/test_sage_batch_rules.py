@@ -19,7 +19,7 @@ from structured_rules import sage_fpc_with_distance  # noqa: E402
 
 pytestmark = pytest.mark.retrieval
 
-RULES_CSV = os.path.join(ROOT, "rules_data", "carrier_rules_sage_batch_v1.csv")
+RULES_CSV = os.path.join(ROOT, "rules_data", "carrier_rules_sage_batch_v2.csv")
 MAP_CSV = os.path.join(ROOT, "rules_data", "sage_batch_field_map.csv")
 RULES = {r["Rule ID"]: r for r in ev._read_csv(RULES_CSV)}
 FMAP = {m["row_id"]: m for m in ev._read_csv(MAP_CSV)}
@@ -46,13 +46,14 @@ def fails(prefix, **pd):
 def test_data_files_carry_their_source_header():
     for path in (RULES_CSV, MAP_CSV):
         first = open(path, encoding="utf-8-sig").readline()
-        assert first.startswith("# source:") and "Sage batch version 1" in first and "2026-10-06" in first
-        assert "not yet reviewed" in first.lower()
+        # Round 28 step 3 (2026-10-07): version 2 is Claude's review of version 1.
+        assert first.startswith("# source:") and "Sage batch version 2" in first and "2026-10-07" in first
+        assert "reviewed by claude" in first.lower()
 
 
 def test_every_deciding_row_has_exactly_one_map_line():
     deciding = {rid for rid, r in RULES.items() if r["Tool handling"] in ev.DECIDING}
-    assert len(RULES) == 1033 and len(deciding) == 564
+    assert len(RULES) == 1033 and len(deciding) == 543        # v2: 21 rows stopped deciding
     assert set(FMAP) == deciding
     assert {r["Carrier"] for r in RULES.values()} == set(CARRIERS.values())
     assert all(rid[:3] in CARRIERS and RULES[rid]["Carrier"] == CARRIERS[rid[:3]] for rid in RULES)
@@ -90,9 +91,9 @@ def test_coverage_per_carrier():
     """The coverage table in RULE_FIELD_MAP.md (step 5)."""
     kinds = collections.Counter(builder.kind(builder.MAP.get(rid, ("NONE", "", "", "", ""))) for rid in FMAP)
     assert kinds == {"decided by a form field": 79, "gated-but-open": 71, "AMBIGUOUS": 3,
-                     "same rule as another row": 15, "NONE": 396}
+                     "same rule as another row": 14, "NONE": 376}
     per = collections.Counter(rid[:3] for rid in FMAP)
-    assert per == {"SUR": 117, "SFP": 120, "WIL": 95, "TRI": 113, "MKL": 61, "VAV": 58}
+    assert per == {"SUR": 113, "SFP": 117, "WIL": 92, "TRI": 111, "MKL": 56, "VAV": 54}
 
 
 # -- owner occupied means the owner's own home: primary, seasonal or secondary ----
@@ -103,7 +104,8 @@ def test_an_owners_seasonal_or_secondary_home_passes_the_owner_occupied_row(pref
     # under "Dwellings must be owner occupied: Primary ... Seasonal or Secondary")
     # and Vave's "the HO3 is offered only for owner-occupied 1-4 family" (with
     # "Primary, secondary, seasonal ... homes are accepted").
-    owner = {"SUR": "SUR-013", "SFP": "SFP-013", "WIL": "WIL-013", "TRI": "TRI-002", "VAV": "VAV-001"}[prefix]
+    # (v2: VAV-001 is Vave's program description; the whole home rented long-term is VAV-007.)
+    owner = {"SUR": "SUR-013", "SFP": "SFP-013", "WIL": "WIL-013", "TRI": "TRI-002", "VAV": "VAV-007"}[prefix]
     assert outcomes(prefix, occupancy_type=occupancy)[owner][0] == "PASS"
 
 
@@ -134,7 +136,7 @@ def test_nueces(prefix, expected):
 @pytest.mark.parametrize("prefix", SISTERS)
 def test_a_blank_county_is_a_note_never_a_hold(prefix):
     out = outcomes(prefix, county="")
-    terr = [rid for rid, m in FMAP.items() if rid.startswith(prefix) and "sage_territory" in m["test"]]
+    terr = [rid for rid, m in FMAP.items() if rid.startswith(prefix) and m["field"] == "county" and m["test"] != "always"]
     assert terr and all(out[rid][0] == "NOTE" for rid in terr)
 
 
@@ -192,6 +194,46 @@ def test_a_blank_distance_leaves_the_fpc_rows_open_never_eligible(prefix):
     # Round 26 decision B: blank / Unknown is unknown, never "no" -- as Auros's rows.
     assert _fpc_status(prefix, {"ppc": "3"}) == "INSUFFICIENT_INFORMATION"
     assert _fpc_status(prefix, {"ppc": "3", "fire_station_miles": "3", "hydrant_1000ft": "Yes"}) == "ELIGIBLE"
+
+
+# -- round 28 step 3: Sage batch v2 and Liam's decision 1 (2026-10-07) -------------
+EAST = {"SUR": "SUR-003", "SFP": "SFP-003", "WIL": "WIL-003", "TRI": "TRI-094"}
+
+
+@pytest.mark.parametrize("prefix", SISTERS)
+@pytest.mark.parametrize("county,outcome", [("Polk", "PASS"), ("Bell", "PASS"), ("Dallas", "FAIL"),
+                                            ("McLennan", "FAIL"), ("Travis", "N/A"), ("Hidalgo", "N/A"), ("Bexar", "N/A"),
+                                            ("Nueces", "N/A")])
+def test_the_east_texas_list_applies_only_north_of_31(prefix, county, outcome):
+    # v2: "A county that is not entirely south of 31 degrees North is eligible only if it is Bell, ..."
+    assert outcomes(prefix, county=county)[EAST[prefix]][0] == outcome
+
+
+@pytest.mark.parametrize("prefix", SISTERS)
+@pytest.mark.parametrize("ppc", [str(p) for p in range(1, 11)])
+@pytest.mark.parametrize("hydrant", ["Unknown", "Yes", "No"])
+def test_decision_1_a_blank_distance_holds_the_fpc_rows(prefix, ppc, hydrant):
+    # Liam, 2026-10-07: follow the guide; hold on the fire-protection question, like Sage Auros.
+    # Every FPC class has an eligible row A (a station within 5 miles and a hydrant), so PPC alone
+    # never settles it: never Eligible, never declined, with the distance blank.
+    assert _fpc_status(prefix, {"ppc": ppc, "hydrant_1000ft": hydrant}) == "INSUFFICIENT_INFORMATION"
+
+
+@pytest.mark.parametrize("rid", ["SUR-148", "SFP-154", "WIL-152", "TRI-040"])
+def test_a_flat_roof_refers_never_declines(rid):
+    assert FMAP[rid]["outcome_if_fail"] == "REFERS_TO_UW"
+
+
+@pytest.mark.parametrize("rid", ["SUR-048", "SFP-048", "VAV-001", "VAV-122", "MKL-120"])
+def test_v2_rows_that_no_longer_decide(rid):
+    # screened enclosures repeat the EIFS sentence; Vave's program description and its eligible-occupancy
+    # heading; Markel's 90-day lapse allowance
+    assert rid not in FMAP
+
+
+@pytest.mark.parametrize("rid", ["SUR-141", "SFP-147", "WIL-146", "TRI-058"])
+def test_the_furnace_cure_is_an_hvac_statement(rid):
+    assert FMAP[rid]["outcome_if_fail"] == "NOTE"
 
 
 # -- Coverage A -------------------------------------------------------------------
@@ -268,9 +310,10 @@ def test_on_moves_the_batch_to_the_rules_table_like_the_pilot_six():
         assert all(rid.search(x) for x in res[c].get("citations") or []), res[c]["citations"]
 
 
-@pytest.mark.parametrize("canon,row", [("Sage_-_SURE_HO-3_-_01.31.2026", "SUR-001"),
-                                       ("Sage_-_Wilshire_HO3_-_12.02.2025", "WIL-001"),
-                                       ("Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026", "TRI-093")])
+# (v2, 2026-10-07: a county north of 31 N fails the East Texas row, which now decides.)
+@pytest.mark.parametrize("canon,row", [("Sage_-_SURE_HO-3_-_01.31.2026", "SUR-003"),
+                                       ("Sage_-_Wilshire_HO3_-_12.02.2025", "WIL-003"),
+                                       ("Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026", "TRI-094")])
 def test_outside_the_territory_the_evaluators_row_decides_and_shows_once(canon, row):
     res, _, _ = _run(dict(SP, county="Dallas"))
     r = res[canon]

@@ -1048,6 +1048,40 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       verdict change, Ineligible -> Insufficient for a new home.
     The details are in RULE_FIELD_MAP.md.
 
+  - **Step 3 (Sage batch v2):** rules_data/carrier_rules_sage_batch_v2.csv
+    replaces v1. 69 rows differ; 21 stop deciding (543 deciding rows).
+    Map line changes, old -> new:
+    - **Territory:**
+      - SUR-003 / SFP-003 / WIL-003 / TRI-094: `always` -> `county in {the
+        8}`, gated `south_of_31 == False` (v2's Applies when).
+      - SUR-001 / SFP-001 / WIL-001 / TRI-093: `sage_territory == IN or
+        county == Nueces` -> `always`, "same rule as" the East Texas and
+        Nueces rows.
+      - Result: one flaw per county. A new derived fact, south_of_31.
+    - **Flat roof** (SUR-148 / SFP-154 / WIL-152 / TRI-040): DECLINES ->
+      REFERS_TO_UW (same test).
+    - **Furnace** (SUR-141 / SFP-147 / WIL-146 / TRI-058): NONE [CONDITION]
+      -> NONE [NOTE] (the cure is the HVAC statement).
+    - **Vave:** VAV-001 `not Tenant Occupied` -> not deciding (program
+      description). VAV-007 `always` -> `not Tenant Occupied` (the whole
+      home rented long-term).
+    - **No longer deciding** (were NONE): SUR-048, SFP-048 (screened
+      enclosure no longer declines), SUR-124/125/146, SFP-132/133,
+      WIL-129/150/178, TRI-102/162, MKL-004/060/103/120/121,
+      VAV-109/122/124.
+    - **Text changed, line unchanged:** SUR-013 / SFP-013 / WIL-013 /
+      TRI-002 (already "not Tenant Occupied" since round 27); the trust
+      exceptions on SUR/SFP/WIL-006/007 and TRI-021/022 (their lines test
+      LLC or are NONE); MKL-076/077 (>10 acres; acreage not asked: NONE);
+      SFP-053 (NONE).
+    - **Decision 1:** with the batch ON, a blank distance holds all four
+      sister carriers' FPC rows for every PPC 1-10 and every hydrant answer
+      (tested). PPC never settles a Sage row alone, because every class has
+      an eligible row A.
+    - **Not changed:** with the batch OFF, the old Step 2 FPC upgrade still
+      runs for a blank distance, as it still does for Auros with the pilot
+      OFF.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"

@@ -6,11 +6,11 @@ Data (committed, see the header line of each file):
   rules_data/rule_field_map.csv           one map line per deciding row
   rules_data/RULE_FIELD_MAP.md            the expression grammar and the
                                           guide-word -> form-option table
-  rules_data/carrier_rules_sage_batch_v1.csv,
+  rules_data/carrier_rules_sage_batch_v2.csv,
   rules_data/sage_batch_field_map.csv     the Sage batch (round 27, Liam's
                                           decision 4): read only when
                                           eligibility_check.RULES_SAGE_BATCH
-                                          is on; not yet reviewed
+                                          is on (v2: Claude's review, 2026-10-07)
 Measured in rounds 23-24 on branches structured-rules-test / -eval
 (experiments/STRUCTURED_RULES_EVAL_RESULTS.md there); this is condition C2.
 
@@ -51,7 +51,7 @@ RULES_CSV = os.path.join(HERE, "rules_data", "carrier_rules_pilot_v5.csv")
 MAP_CSV = os.path.join(HERE, "rules_data", "rule_field_map.csv")
 # Round 27 step 6 (Liam's decision 4, 2026-10-06): the Sage batch, read only
 # when eligibility_check.RULES_SAGE_BATCH is on. Not yet reviewed.
-SAGE_BATCH_RULES_CSV = os.path.join(HERE, "rules_data", "carrier_rules_sage_batch_v1.csv")
+SAGE_BATCH_RULES_CSV = os.path.join(HERE, "rules_data", "carrier_rules_sage_batch_v2.csv")
 SAGE_BATCH_MAP_CSV = os.path.join(HERE, "rules_data", "sage_batch_field_map.csv")
 
 # workbook carrier name -> pipeline carrier
@@ -85,7 +85,7 @@ FIELD_TOPIC = {   # map field -> round 21 topic (always-on fields -> None)
     "fire_station_miles": "ppc", "hydrant_1000ft": "ppc",     # round 26, decision B
 }
 # Decision 1: an OPEN that rests only on these blank fields is a NOTE.
-BLANK_IS_NOTE = {"dwelling_amount", "county", "zip", "sage_territory"}
+BLANK_IS_NOTE = {"dwelling_amount", "county", "zip", "sage_territory", "south_of_31"}
 
 
 # --------------------------------------------------------------------------- data
@@ -148,6 +148,9 @@ def facts(pd, today=None):
     f["county"] = county
     t = sage_county_in_territory(county or "", intake_fields.COUNTY_MAX_LATITUDE, True)
     f["sage_territory"] = None if t == "UNKNOWN" else t
+    # Round 28 step 3 (Sage batch v2): "a county located entirely south of 31 degrees North"
+    lat = intake_fields.COUNTY_MAX_LATITUDE.get(county) if county else None
+    f["south_of_31"] = None if lat is None else lat < 31.0
     f["dwelling_amount"] = intake_fields.parse_dwelling_amount(pd.get("dwelling_amount"))
     f["zip"] = intake_fields.parse_zip(pd.get("zip"))[0] or None
     f["dwelling_type"] = intake_fields.normalize_dwelling_type(pd.get("dwelling_type")) or None

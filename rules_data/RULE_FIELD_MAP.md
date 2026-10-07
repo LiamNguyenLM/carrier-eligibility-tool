@@ -62,6 +62,9 @@ Derived names:
 - `ppc_num`: the PPC number, with 8A/8B as 8 and 10W as 10.
 - `sage_territory`: IN or OUT from `structured_rules.sage_county_in_territory`
   (round 19).
+- `south_of_31`: True when the County lies entirely south of 31 degrees N
+  (intake_fields.COUNTY_MAX_LATITUDE), False north of it, unknown when the
+  County is blank (round 28, Sage batch v2).
 
 Each row gets one outcome:
 
@@ -191,8 +194,8 @@ Round 25 additions, if any, are in handoff.md.
 
 ## The Sage batch (round 27 step 5, 2026-10-06; Liam's decision 4)
 
-`sage_batch_field_map.csv` has one line for each of the 564 deciding rows of
-`carrier_rules_sage_batch_v1.csv` (SURE HO-3, SafePort HO-3, Wilshire HO3,
+`sage_batch_field_map.csv` has one line for each deciding row of
+`carrier_rules_sage_batch_v2.csv` (SURE HO-3, SafePort HO-3, Wilshire HO3,
 Trium Lloyd's HO3/HO5, Markel HO3 and Vave HO3; 1,033 rows, **not yet
 reviewed**). `build_sage_batch_map.py` builds it with the same grammar. The
 four guides that share the Auros layout share most of their lines (`sister()`
@@ -202,13 +205,16 @@ ELIGIBILITY_RULES_PILOT and ELIGIBILITY_RULES_SAGE_BATCH are "1".
 
 | Carrier | decided by a form field | gated-but-open | AMBIGUOUS | same rule as another row | NONE | total |
 |---|---|---|---|---|---|---|
-| Sage SURE HO-3 | 18 | 18 | 1 | 3 | 77 | 117 |
-| Sage SafePort HO-3 | 18 | 20 | 1 | 3 | 78 | 120 |
-| Sage Wilshire HO3 | 13 | 11 | 0 | 2 | 69 | 95 |
-| Sage Trium Lloyd's HO3/HO5 | 17 | 14 | 1 | 4 | 77 | 113 |
-| Sage Markel HO3 | 4 | 1 | 0 | 1 | 55 | 61 |
-| Sage Vave HO3 | 9 | 7 | 0 | 2 | 40 | 58 |
-| **all** | **79** | **71** | **3** | **15** | **396** | **564** |
+| Sage SURE HO-3 | 18 | 18 | 1 | 3 | 73 | 113 |
+| Sage SafePort HO-3 | 18 | 20 | 1 | 3 | 75 | 117 |
+| Sage Wilshire HO3 | 13 | 11 | 0 | 2 | 66 | 92 |
+| Sage Trium Lloyd's HO3/HO5 | 17 | 14 | 1 | 4 | 75 | 111 |
+| Sage Markel HO3 | 4 | 1 | 0 | 1 | 50 | 56 |
+| Sage Vave HO3 | 9 | 7 | 0 | 1 | 37 | 54 |
+| **all** | **79** | **71** | **3** | **14** | **376** | **543** |
+
+(Round 28 step 3, v2: 543 deciding rows. 21 rows stopped deciding, moving to
+NOT_ELIGIBILITY, CONDITION_STANDARD or ALLOWS. The step 5 table had 564.)
 
 "Same rule as another row": the test is `always` and the note names the row
 that decides it, so one fact fails one row. Examples: a 3-months-unoccupied
@@ -219,10 +225,12 @@ row; a second mobile-home row; Vave's five LLC criteria under VAV-015.
 - **"Dwellings must be owner occupied"** lists primary AND seasonal or
   secondary residences beneath it, so the test is `occupancy_type != Tenant
   Occupied`. Vacant is decided by the guide's vacancy row.
-- **Territory:** the south-of-31 / East Texas row tests `sage_territory == IN
-  or county == Nueces`, and the guide's own Nueces row decides Nueces, so a
-  Nueces home fails one row, not two. Trium's territory has no Nueces
-  exception, so Trium has no Nueces row and Nueces passes.
+- **Territory (v2, round 28):** the East Texas row decides the north half:
+  gate `south_of_31 == False`, test "one of the eight counties". The guide's
+  Nueces row decides Nueces. The south-of-31 row restates both ("same rule
+  as"), so an outside county fails one row. Trium has no Nueces exception, so
+  it has no Nueces row and Nueces passes. `south_of_31` (derived from the
+  county table) is blank-is-a-note, like County.
 - **Coverage A:** the TIV limits are NONE (TIV is not asked). The SURE and
   SafePort cap of $2,000,000 for FPC B or C risks is gated on the station
   distance and hydrant.
