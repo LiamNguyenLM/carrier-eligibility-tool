@@ -944,6 +944,26 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       - A county outside the territory gives two flaws (SAG-081, -083), and
         the county hold adds a third.
       - All three are strict xfails in test_rules_evaluator.py.
+  - **Step 6 (the Sage batch switch):** ELIGIBILITY_RULES_SAGE_BATCH.
+    - **It must be exactly "1", and it only takes effect when
+      ELIGIBILITY_RULES_PILOT is "1".** Default OFF. Do not set it on Railway
+      until Claude has reviewed the rows.
+    - With it ON, the six batch carriers move to the rules table like the
+      pilot six. The Fingerprint panel line reads "Rules pilot: ON (6
+      carriers) + Sage batch ON (6 more)".
+    - OFF is byte-identical to step 3. Checked over 30 replays (10 profiles x
+      3 model answers; every prompt and result): pilot OFF (batch unset or
+      "1"), and pilot ON (batch unset, "0" or "true").
+    - ON, with a fixed model: no carrier outside the batch changes.
+    - The Step 2 FPC logic and the Round 19 county hold, on a batch carrier:
+      - The FPC upgrade is skipped (fpc_skip), so the batch's FPC rows decide.
+        They agree with sage_fpc_with_distance for every owner-occupied case
+        (step 5).
+      - The county hold leaves a known county to the evaluator's territory
+        row, so the card shows that row once (one flaw).
+      - A blank county is still held by the county hold, with one County
+        item. The rows' "blank County" notes are dropped from also_confirm.
+      - Auros, a pilot carrier, keeps round 25's path.
 
 ## Open work, in priority order (updated 2026-10-02)
 

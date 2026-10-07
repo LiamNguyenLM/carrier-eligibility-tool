@@ -6,6 +6,11 @@ Data (committed, see the header line of each file):
   rules_data/rule_field_map.csv           one map line per deciding row
   rules_data/RULE_FIELD_MAP.md            the expression grammar and the
                                           guide-word -> form-option table
+  rules_data/carrier_rules_sage_batch_v1.csv,
+  rules_data/sage_batch_field_map.csv     the Sage batch (round 27, Liam's
+                                          decision 4): read only when
+                                          eligibility_check.RULES_SAGE_BATCH
+                                          is on; not yet reviewed
 Measured in rounds 23-24 on branches structured-rules-test / -eval
 (experiments/STRUCTURED_RULES_EVAL_RESULTS.md there); this is condition C2.
 
@@ -44,6 +49,10 @@ from structured_rules import sage_county_in_territory
 HERE = os.path.dirname(os.path.abspath(__file__))
 RULES_CSV = os.path.join(HERE, "rules_data", "carrier_rules_pilot_v3.csv")
 MAP_CSV = os.path.join(HERE, "rules_data", "rule_field_map.csv")
+# Round 27 step 6 (Liam's decision 4, 2026-10-06): the Sage batch, read only
+# when eligibility_check.RULES_SAGE_BATCH is on. Not yet reviewed.
+SAGE_BATCH_RULES_CSV = os.path.join(HERE, "rules_data", "carrier_rules_sage_batch_v1.csv")
+SAGE_BATCH_MAP_CSV = os.path.join(HERE, "rules_data", "sage_batch_field_map.csv")
 
 # workbook carrier name -> pipeline carrier
 PILOT_CARRIERS = {
@@ -54,7 +63,16 @@ PILOT_CARRIERS = {
     "Progressive HO3": "Progressive_HO3_-_04.01.2026",
     "Swyfft Benchmark (Admitted) HO3": "Swyfft_-_Benchmark_(Admitted)_HO3",
 }
-CANON_TO_WB = {v: k for k, v in PILOT_CARRIERS.items()}
+SAGE_BATCH_CARRIERS = {
+    "Sage SURE HO-3": "Sage_-_SURE_HO-3_-_01.31.2026",
+    "Sage SafePort HO-3": "Sage_-_SafePort_HO-3_-_01.31.2026",
+    "Sage Wilshire HO3": "Sage_-_Wilshire_HO3_-_12.02.2025",
+    "Sage Trium Lloyd's HO3/HO5": "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026",
+    "Sage Markel HO3": "Sage_-_Markel_HO3",
+    "Sage Vave HO3": "Sage_-_Vave_HO3_-_07.01.2026",
+}
+WB_TO_CANON = {**PILOT_CARRIERS, **SAGE_BATCH_CARRIERS}
+CANON_TO_WB = {v: k for k, v in WB_TO_CANON.items()}
 
 DECIDING = ("EVALUATE", "EVALUATE_CURE_IS_INSPECTION")
 FIELD_TOPIC = {   # map field -> round 21 topic (always-on fields -> None)
@@ -89,6 +107,32 @@ def load_map():
     if "map" not in _CACHE:
         _CACHE["map"] = {m["row_id"]: m for m in _read_csv(MAP_CSV)}
     return _CACHE["map"]
+
+
+def load_batch_rules():
+    if "batch_rules" not in _CACHE:
+        _CACHE["batch_rules"] = {r["Rule ID"]: r for r in _read_csv(SAGE_BATCH_RULES_CSV)}
+    return _CACHE["batch_rules"]
+
+
+def load_batch_map():
+    if "batch_map" not in _CACHE:
+        _CACHE["batch_map"] = {m["row_id"]: m for m in _read_csv(SAGE_BATCH_MAP_CSV)}
+    return _CACHE["batch_map"]
+
+
+def _rules():
+    """Every row the evaluator can cite: the pilot's v3 rows, then the Sage
+    batch's (their ids never collide; a carrier only ever reads its own)."""
+    if "all_rules" not in _CACHE:
+        _CACHE["all_rules"] = {**load_rules(), **load_batch_rules()}
+    return _CACHE["all_rules"]
+
+
+def _map():
+    if "all_map" not in _CACHE:
+        _CACHE["all_map"] = {**load_map(), **load_batch_map()}
+    return _CACHE["all_map"]
 
 
 # --------------------------------------------------------------------------- facts
@@ -326,12 +370,12 @@ def _page(r):
 
 def citation(r):
     """The citation code attaches for a row: id + page + the workbook quote."""
-    return f"{PILOT_CARRIERS[r['Carrier']]}: [{r['Rule ID']}] p.{_page(r)}: \"{r['Verbatim quote from guide']}\""
+    return f"{WB_TO_CANON[r['Carrier']]}: [{r['Rule ID']}] p.{_page(r)}: \"{r['Verbatim quote from guide']}\""
 
 
 def evaluate_carrier(canon, pd, checked=None):
     """{row_id: (outcome, detail)} for one pilot carrier's deciding rows."""
-    rules, fmap = load_rules(), load_map()
+    rules, fmap = _rules(), _map()
     wb = CANON_TO_WB[canon]
     f = facts(pd)
     return {rid: evaluate_row(m, f, checked) for rid, m in fmap.items()
@@ -341,7 +385,7 @@ def evaluate_carrier(canon, pd, checked=None):
 def also_confirm(canon, outcomes):
     """The carrier's never-a-hold notes: NONE rows and CONDITION_STANDARD rows
     grouped by topic, then each NOTE row with its reason."""
-    rules = load_rules()
+    rules = _rules()
     wb = CANON_TO_WB[canon]
     groups = {}
     for rid, (o, _) in outcomes.items():
@@ -360,7 +404,7 @@ def also_confirm(canon, outcomes):
 def code_record(canon, outcomes):
     """The record when code decides alone. Returns (record, decided):
     decided is False when OPEN rows are left for the model."""
-    rules, fmap = load_rules(), load_map()
+    rules, fmap = _rules(), _map()
     fails = {e: [rid for rid, (o, _) in outcomes.items() if o == "FAIL" and fmap[rid]["outcome_if_fail"] == e]
              for e in ("DECLINES", "REFERS_TO_UW", "CONDITION")}
     opens = [rid for rid, (o, _) in outcomes.items() if o == "OPEN"]
@@ -416,7 +460,7 @@ def _row_line(r, extra=""):
 def evidence_text(open_carriers):
     """The user-message section for the separate pilot call: for each
     carrier the code could not decide, the code's results and its OPEN rows."""
-    rules = load_rules()
+    rules = _rules()
     out = [PILOT_INSTRUCTION, ""]
     for canon, outcomes in open_carriers.items():
         npass = sum(1 for o, _ in outcomes.values() if o == "PASS")
@@ -429,13 +473,13 @@ def evidence_text(open_carriers):
     return "\n".join(out)
 
 
-_ROW_ID = re.compile(r"\b(?:ALL|SAG|CHU|MER|PRO|SWY)-\d{3}\b")
+_ROW_ID = re.compile(r"\b(?:ALL|SAG|CHU|MER|PRO|SWY|SUR|SFP|WIL|TRI|MKL|VAV)-\d{3}\b")
 
 
 def finish_model_record(rec, canon, outcomes):
     """A model record for a pilot carrier: attach id + page + quote for every
     row id it names, keep its reasons, add the never-a-hold notes, mark it."""
-    rules = load_rules()
+    rules = _rules()
     wb = CANON_TO_WB[canon]
     text = " ".join((rec.get("reasons") or []) + (rec.get("citations") or []) + (rec.get("missing_info") or []))
     ids = [rid for rid in dict.fromkeys(_ROW_ID.findall(text)) if rid in rules and rules[rid]["Carrier"] == wb]
@@ -471,7 +515,7 @@ def _hold_unknown_as_insufficient(rec, outcomes, cited_ids):
     if status in ("REFER", "INELIGIBLE") and any(
             outcomes.get(rid, ("", ""))[0] == "OPEN" and _model_can_decide(outcomes[rid][1]) for rid in cited_ids):
         return
-    rules = load_rules()
+    rules = _rules()
     opens = [rid for rid, (o, d) in outcomes.items() if o == "OPEN" and not _model_can_decide(d)]
     if status not in ("REFER", "INELIGIBLE") and not opens:
         return
@@ -484,4 +528,22 @@ def _hold_unknown_as_insufficient(rec, outcomes, cited_ids):
 
 
 def is_pilot(carrier):
-    return carrier in CANON_TO_WB
+    return carrier in PILOT_CARRIERS.values()
+
+
+def is_sage_batch(carrier):
+    return carrier in SAGE_BATCH_CARRIERS.values()
+
+
+def is_rules_table(carrier, sage_batch=False):
+    """The rules table decides this carrier: a pilot carrier, or (with the
+    Sage batch switch on) one of the Sage batch."""
+    return is_pilot(carrier) or (sage_batch and is_sage_batch(carrier))
+
+
+def territory_rows(canon):
+    """The carrier's map lines decided by the County alone: its territory
+    rows (south of 31 N / East Texas, and Nueces)."""
+    wb = CANON_TO_WB[canon]
+    rules = _rules()
+    return {rid for rid, m in _map().items() if rules[rid]["Carrier"] == wb and m["field"] == "county"}

@@ -208,3 +208,109 @@ def test_the_fpc_b_or_c_coverage_cap_applies_only_on_those_rows():
     assert outcomes("SUR", dwelling_amount=big, fire_station_miles="3", hydrant_1000ft="Yes")["SUR-091"][0] == "N/A"
     assert outcomes("SUR", dwelling_amount=big, fire_station_miles="7")["SUR-091"][0] == "FAIL"
     assert outcomes("SFP", dwelling_amount=big, fire_station_miles="3", hydrant_1000ft="No")["SFP-097"][0] == "FAIL"
+
+
+# -- step 6: the switch, in the pipeline ----------------------------------------
+import json  # noqa: E402
+import re  # noqa: E402
+
+import eligibility_check as ec  # noqa: E402
+from profiles import STANDARD_PROFILE  # noqa: E402
+
+BATCH = list(ev.SAGE_BATCH_CARRIERS.values())
+PILOT = list(ev.PILOT_CARRIERS.values())
+USAGE = {"input_tokens": 1, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0, "output_tokens": 1}
+
+
+def _run(pd, batch_on=True, pilot_status="INSUFFICIENT_INFORMATION", main_status="ELIGIBLE", **kw):
+    calls = {}
+
+    def fake(system, user, max_tokens):
+        if "RULE CHECK:" in user:
+            calls["pilot"] = user
+            names, status = re.findall(r"--- (.+?) \(rule check\) ---", user), pilot_status
+        else:
+            calls["main"] = user
+            names, status = sorted(set(re.findall(r"\n--- (.+?) \(page", user))), main_status
+        return json.dumps({"carriers": [{"carrier": n, "status": status, "flaw_count": int(status == "INELIGIBLE"),
+                                         "reasons": ["fixture"], "citations": [], "missing_info": ["an open fact"],
+                                         "notes": ""} for n in names]}), dict(USAGE)
+
+    saved = ec._complete, ec.RULES_PILOT, ec.RULES_SAGE_BATCH
+    ec._complete, ec.RULES_PILOT, ec.RULES_SAGE_BATCH = fake, True, batch_on
+    try:
+        results = ec.check_eligibility(dict(pd), **kw)
+    finally:
+        ec._complete, ec.RULES_PILOT, ec.RULES_SAGE_BATCH = saved
+    return {r["carrier"]: r for r in results}, calls.get("main"), calls.get("pilot")
+
+
+SP = dict(STANDARD_PROFILE, dwelling_type="House", county="Bexar", fire_station_miles="3", hydrant_1000ft="Yes")
+
+
+def test_the_switch_is_off_by_default():
+    assert os.environ.get("ELIGIBILITY_RULES_SAGE_BATCH") is None and ec.RULES_SAGE_BATCH is False
+
+
+def test_off_leaves_the_batch_in_the_main_prompt():
+    res, main, _ = _run(SP, batch_on=False)
+    assert all(f"--- {c} (page" in main for c in BATCH)
+    assert not any(res[c].get("rules_table") for c in BATCH)
+    assert all(res[c].get("rules_table") for c in PILOT)
+
+
+def test_on_moves_the_batch_to_the_rules_table_like_the_pilot_six():
+    res, main, pilot = _run(SP)
+    assert not any(f"--- {c} (page" in main for c in BATCH + PILOT)
+    assert all(res[c].get("rules_table") for c in BATCH + PILOT)
+    for c in BATCH:
+        rid = re.compile(r"\[(SUR|SFP|WIL|TRI|MKL|VAV)-\d{3}\]")
+        assert all(rid.search(x) for x in res[c].get("citations") or []), res[c]["citations"]
+
+
+@pytest.mark.parametrize("canon,row", [("Sage_-_SURE_HO-3_-_01.31.2026", "SUR-001"),
+                                       ("Sage_-_Wilshire_HO3_-_12.02.2025", "WIL-001"),
+                                       ("Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026", "TRI-093")])
+def test_outside_the_territory_the_evaluators_row_decides_and_shows_once(canon, row):
+    res, _, _ = _run(dict(SP, county="Dallas"))
+    r = res[canon]
+    assert r["status"] == "INELIGIBLE" and r["flaw_count"] == 1
+    assert [x for x in r["reasons"] if "territory" in x.lower() or row in x] == [x for x in r["reasons"] if row in x]
+    assert len([x for x in r["reasons"] if row in x]) == 1
+    assert not any("outside this carrier's territory" in x for x in r["reasons"] + r.get("citations", []))
+
+
+def test_nueces_declines_sure_once_and_not_trium():
+    res, _, _ = _run(dict(SP, county="Nueces"))
+    sure = res["Sage_-_SURE_HO-3_-_01.31.2026"]
+    assert sure["status"] == "INELIGIBLE" and sure["flaw_count"] == 1 and "[SUR-002]" in " ".join(sure["reasons"])
+    assert res["Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026"]["status"] != "INELIGIBLE"
+
+
+@pytest.mark.parametrize("canon,row", [("Sage_-_SURE_HO-3_-_01.31.2026", "SUR-001"),
+                                       ("Sage_-_SafePort_HO-3_-_01.31.2026", "SFP-001")])
+def test_a_blank_county_is_held_once_by_the_county_hold(canon, row):
+    res, _, _ = _run(dict(SP, county=""), pilot_status="ELIGIBLE")
+    r = res[canon]
+    assert r["status"] == "INSUFFICIENT_INFORMATION"
+    assert sum(1 for x in r["missing_info"] if x.startswith("County")) == 1
+    assert not any(n.startswith(f"[{row}]") for n in r.get("also_confirm", []))
+
+
+def test_the_step_2_fpc_logic_does_not_also_fire_on_a_batch_carrier():
+    # LIVE+Bexar+7 mi / no hydrant: the FPC row (C, FPC 1-3) decides, once.
+    # The pilot answer says ELIGIBLE; code holds it on the open rows (round 25 step 4).
+    res, _, pilot = _run(dict(SP, ppc="3", fire_station_miles="7", hydrant_1000ft="No"), pilot_status="ELIGIBLE")
+    for c, row in (("Sage_-_SURE_HO-3_-_01.31.2026", "SUR-112"), ("Sage_-_SafePort_HO-3_-_01.31.2026", "SFP-120")):
+        r = res[c]
+        assert r["status"] == "INSUFFICIENT_INFORMATION"
+        assert not any(x.startswith("Sage FPC table:") for x in r["reasons"])
+        assert sum(1 for x in r["missing_info"] if f"[{row}]" in x) == 1
+        assert f"[{row}]" in pilot
+
+
+def test_the_step_2_fpc_logic_still_fires_with_the_batch_off():
+    res, _, _ = _run(dict(SP, ppc="3", fire_station_miles="7", hydrant_1000ft="No"), batch_on=False)
+    r = res["Sage_-_SURE_HO-3_-_01.31.2026"]
+    assert r["status"] == "INSUFFICIENT_INFORMATION" and not r.get("rules_table")
+    assert any(x.startswith("Sage FPC table:") for x in r["reasons"])

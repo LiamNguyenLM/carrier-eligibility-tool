@@ -113,6 +113,12 @@ RULES_PILOT = os.environ.get("ELIGIBILITY_RULES_PILOT", "0") == "1"
 RULES_PILOT_HELP = ('The rules pilot is ON only when the Railway variable ELIGIBILITY_RULES_PILOT is '
                     'exactly "1" (not "true", "yes" or "on"); anything else, or no variable, is OFF. '
                     'The app reads it when it starts, so redeploy after changing it.')
+# Round 27 step 6 (Liam's decision 4, 2026-10-06): the Sage batch -- SURE HO-3,
+# SafePort HO-3, Wilshire HO3, Trium HO3/HO5, Markel HO3, Vave HO3 -- moves to
+# the rules table like the pilot six. Its own switch, exactly "1", default OFF,
+# and only with the pilot on. OFF is byte-identical to round 27 step 3. Its rows
+# are not yet reviewed: never set on Railway without Liam.
+RULES_SAGE_BATCH = RULES_PILOT and os.environ.get("ELIGIBILITY_RULES_SAGE_BATCH", "0") == "1"
 
 
 def rules_pilot_status_line():
@@ -120,7 +126,10 @@ def rules_pilot_status_line():
     live site shows whether the Railway variable took effect."""
     if not RULES_PILOT:
         return "Rules pilot: OFF"
-    return f"Rules pilot: ON ({len(rules_evaluator.PILOT_CARRIERS)} carriers)"
+    line = f"Rules pilot: ON ({len(rules_evaluator.PILOT_CARRIERS)} carriers)"
+    if RULES_SAGE_BATCH:
+        line += f" + Sage batch ON ({len(rules_evaluator.SAGE_BATCH_CARRIERS)} more)"
+    return line
 
 
 # The usage of the last check's calls, for measurement: {"main": ..., "pilot": ...}.
@@ -3157,7 +3166,7 @@ def _rules_pilot_prepare(carriers, property_details, checked):
     out = {"carriers": frozenset(), "records": [], "open": {}, "outcomes": {}}
     if not RULES_PILOT:
         return out
-    chosen = [c for c in carriers if rules_evaluator.is_pilot(c)]
+    chosen = [c for c in carriers if rules_evaluator.is_rules_table(c, RULES_SAGE_BATCH)]
     out["carriers"] = frozenset(chosen)
     for c in chosen:
         outcomes = rules_evaluator.evaluate_carrier(c, property_details, checked)
@@ -4117,6 +4126,13 @@ def _apply_location_holds(results, relevant_carriers, property_details):
         nueces_excluded, sentence = rule
         territory = sage_county_in_territory(county, intake_fields.COUNTY_MAX_LATITUDE,
                                              nueces_excluded)
+        # Round 27 step 6: on a Sage batch carrier the rules table owns the
+        # territory. Its rows test the same county table, so the hold and the
+        # rows agree; when both would act, the evaluator's row decides and the
+        # card shows it once. (Auros, a pilot carrier, keeps round 25's path.)
+        batch = r.get("rules_table") and rules_evaluator.is_sage_batch(canon)
+        if batch and territory != "UNKNOWN":
+            continue
         if territory == "UNKNOWN":
             if r.get("status") in ("ELIGIBLE", "REFER"):
                 r["status"] = "INSUFFICIENT_INFORMATION"
@@ -4131,6 +4147,11 @@ def _apply_location_holds(results, relevant_carriers, property_details):
                 mi = r.setdefault("missing_info", [])
                 if not _county_item_present(mi):
                     mi.insert(0, "County -- this guide only writes in specific counties: " + sentence)
+            if batch:
+                # the County item above says it; the rows' "blank County" notes would repeat it
+                rows = rules_evaluator.territory_rows(canon)
+                r["also_confirm"] = [n for n in r.get("also_confirm") or []
+                                     if not any(n.startswith(f"[{rid}]") for rid in rows)]
         elif territory == "IN" and r.get("status") == "INELIGIBLE":
             _undo_location_decline(r, canon, county)
         elif territory == "OUT":

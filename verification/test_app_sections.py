@@ -117,3 +117,32 @@ def test_only_exactly_1_turns_the_pilot_on(value, on):
                          cwd=os.path.join(os.path.dirname(__file__), ".."), env=env,
                          capture_output=True, text=True, timeout=300)
     assert out.stdout.strip().splitlines()[-1] == str(on), out.stderr[-500:]
+
+
+# Round 27 step 6 (Liam's decision 4, 2026-10-06): the Sage batch has its own
+# switch, exactly "1", effective only with the pilot on; the panel says so.
+def test_the_fingerprint_panel_shows_the_sage_batch_state(monkeypatch):
+    from streamlit.testing.v1 import AppTest
+    monkeypatch.setattr(ec, "RULES_PILOT", True)
+    monkeypatch.setattr(ec, "RULES_SAGE_BATCH", True)
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.session_state["authenticated"] = True
+    at.run()
+    assert not at.exception
+    shown = [m.value for m in at.markdown if m.value.startswith("**Rules pilot:")]
+    assert shown == ["**Rules pilot: ON (6 carriers) + Sage batch ON (6 more)**"]
+
+
+@pytest.mark.parametrize("pilot,batch,on", [("1", "1", True), ("1", "true", False), ("1", " 1", False),
+                                            ("1", "", False), ("0", "1", False), ("", "1", False)])
+def test_the_sage_batch_needs_exactly_1_and_the_pilot(pilot, batch, on):
+    import subprocess
+    env = dict(os.environ, ELIGIBILITY_RULES_PILOT=pilot, ELIGIBILITY_RULES_SAGE_BATCH=batch,
+               ANTHROPIC_API_KEY="x", OPENAI_API_KEY="x")
+    out = subprocess.run([sys.executable, "-c", "import eligibility_check as e; print(e.RULES_SAGE_BATCH); "
+                                                "print(e.rules_pilot_status_line())"],
+                         cwd=os.path.join(os.path.dirname(__file__), ".."), env=env,
+                         capture_output=True, text=True, timeout=300)
+    flag, line = out.stdout.strip().splitlines()[-2:]
+    assert flag == str(on), out.stderr[-500:]
+    assert ("Sage batch" in line) == on
