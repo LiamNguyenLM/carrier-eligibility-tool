@@ -81,7 +81,7 @@ ALL-107,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Y
 ALL-108,NONE,,,DECLINES,,the form has no field for this
 ALL-109,solar_panels,always || solar_panels == No,solar_panels == Yes,DECLINES,,AMBIGUOUS: the form's Solar Panels does not say mounted panels or a solar roof system
 ALL-110,solar_panels,always || solar_panels == No,solar_panels == Yes,DECLINES,,AMBIGUOUS: solar tiles
-ALL-112,ppc,ppc_num between 1 and 9,always,DECLINES,,
+ALL-112,ppc,ppc_num between 1 and 10,always,DECLINES,,class 10 is decided by ALL-113 (its exception)
 ALL-113,ppc;year_built,home_age <= 3 and FACT(Protected Subdivision Rule),ppc_num == 10,DECLINES,Protected Subdivision Rule,
 ALL-115,NONE,,,DECLINES,,location detail beyond county / tier is not asked
 ALL-116,NONE,,,DECLINES,,location detail beyond county / tier is not asked
@@ -209,7 +209,7 @@ SAG-074,ppc;fire_station_miles,"FACT(visible from road, central station alarm, 1
 SAG-075,ppc;year_built;occupancy_type;fire_station_miles;hydrant_1000ft,"home_age < 25 and occupancy_type == Owner Occupied and FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",ppc_num between 4 and 10 and fire_station_miles <= 5 and hydrant_1000ft == No,CONDITION,"station / hydrant distance if not given; visibility, alarm, access, fire losses",
 SAG-076,ppc;year_built;occupancy_type;fire_station_miles,"home_age < 25 and occupancy_type == Owner Occupied and FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",ppc_num between 4 and 8 and fire_station_miles > 5,CONDITION,"station distance if not given; visibility, alarm, access, fire losses",
 SAG-077,ppc;fire_station_miles,fire_station_miles <= 5,ppc_num >= 9,DECLINES,station distance,
-SAG-078,year_built;ppc;fire_station_miles;hydrant_1000ft,home_age < 25,ppc_num between 4 and 10 and (hydrant_1000ft == No or fire_station_miles > 5),CONDITION,station / hydrant distance if not given,
+SAG-078,year_built;ppc;fire_station_miles;hydrant_1000ft,home_age < 25,(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given,
 SAG-079,NONE,,,CONDITION,,the form has no field for this
 SAG-080,NONE,,,CONDITION,,loss / claims history is not asked
 SAG-081,county,sage_territory == IN or county == Nueces,always,DECLINES,,south of 31 N or the eight East Texas counties; Nueces is decided by SAG-082

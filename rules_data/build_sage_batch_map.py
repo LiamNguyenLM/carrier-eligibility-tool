@@ -49,7 +49,10 @@ FPC_B13 = "ppc_num between 1 and 3 and fire_station_miles <= 5 and hydrant_1000f
 FPC_C13 = "ppc_num between 1 and 3 and fire_station_miles > 5"
 FPC_B410 = "ppc_num between 4 and 10 and fire_station_miles <= 5 and hydrant_1000ft == No"
 FPC_C48 = "ppc_num between 4 and 8 and fire_station_miles > 5"
-FPC_7ROWS = "ppc_num between 4 and 10 and (hydrant_1000ft == No or fire_station_miles > 5)"
+# Round 28 step 2: the seven-condition rows are FPC 4-10 within 5 miles with no hydrant, and
+# FPC 4-8 over 5 miles. FPC 9-10 over 5 miles is row C 9+ (declined), never these rows.
+FPC_7ROWS = ("(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_n"
+             "um between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5)")
 FPC_BC = "(fire_station_miles <= 5 and hydrant_1000ft == No) or fire_station_miles > 5"
 ROW_FACT_3 = "FACT(visible from road, central station alarm, 10-ft year-round access)"
 ROW_FACT_7 = ("home_age < 25 and occupancy_type == Owner Occupied and "

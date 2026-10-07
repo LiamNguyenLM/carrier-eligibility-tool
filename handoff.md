@@ -1039,6 +1039,15 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     - Pilot OFF is byte-identical to 329e183 (30 replays). Pilot ON changes
       only Auros.
 
+  - **Step 2 (boundary tests):** verification/test_map_boundaries.py covers
+    all 93 numeric map lines, at the boundary written in each plain rule.
+    Fixed:
+    - The seven-condition FPC gate (11 lines) took PPC 9-10 over 5 miles; no
+      verdict changed, because the FPC 9+ row declines first.
+    - ALL-112 declined a PPC 10 home that ALL-113's exception allows: a
+      verdict change, Ineligible -> Insufficient for a new home.
+    The details are in RULE_FIELD_MAP.md.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"

@@ -45,7 +45,9 @@ CHUBB_COASTAL = ("{Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Har
 # or NOTE for EVALUATE_CURE_IS_INSPECTION rows (filled in below).
 MAP = {
     # ---------------- PROTECTION_CLASS
-    "ALL-112": ("ppc", "ppc_num between 1 and 9", "always", "", ""),
+    # Round 28 step 2: class 10 is ALL-113's, which has an exception (a new home in a protected
+    # subdivision); failing it here declined that home anyway.
+    "ALL-112": ("ppc", "ppc_num between 1 and 10", "always", "", "class 10 is decided by ALL-113 (its exception)"),
     "ALL-113": ("ppc;year_built", "home_age <= 3 and FACT(Protected Subdivision Rule)", "ppc_num == 10",
                 "Protected Subdivision Rule", ""),
     # Round 26 (Liam, 2026-10-05, decision B): the table row is chosen by the
@@ -107,7 +109,8 @@ MAP = {
     "SAG-026": ("year_built;occupancy_type", "FACT(signed lead exclusion acknowledgement)",
                 "occupancy_type == Tenant Occupied and year_built < 1980", "signed acknowledgement", ""),
     "SAG-078": ("year_built;ppc;fire_station_miles;hydrant_1000ft", "home_age < 25",
-                "ppc_num between 4 and 10 and (hydrant_1000ft == No or fire_station_miles > 5)",
+                ("(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_n"
+                 "um between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5)"),
                 "station / hydrant distance if not given", ""),
     "MER-010": ("year_built", "FACT(Functional Replacement Cost coverage)", "year_built < 1940", "loss settlement", ""),
     # ---------------- PLUMBING

@@ -253,3 +253,37 @@ row; a second mobile-home row; Vave's five LLC criteria under VAV-015.
 - **v5 rows:** SAG-032 is now REFERS_TO_UW (the outcome is taken from the
   row's Effect). SAG-048 is a cure-is-inspection row; its line stays NONE,
   so it is an "Also confirm" note.
+
+## Boundary tests (round 28 step 2, 2026-10-07)
+
+`verification/test_map_boundaries.py` tests every map line with a numeric or
+ordered test, in both maps: 93 lines. Each is tested just inside, just outside
+and at the boundary written in its **plain rule** (never the Check type column).
+A guard fails if a numeric line has no case.
+
+**Wrong, and fixed:**
+- **The seven-condition FPC rows:** SAG-078, SUR-116/117, SFP-124/125,
+  WIL-121/122/123, TRI-019/020/035.
+  - The gate `ppc 4-10 and (no hydrant or over 5 miles)` also took PPC 9-10
+    over 5 miles. That is row C 9+ (declined by the FPC 9+ row), never
+    these rows.
+  - The gate is now `(ppc 4-8 and (no hydrant or over 5 miles)) or (ppc 9-10
+    and no hydrant and 5 miles or less)`. A PPC 4-8 home with no hydrant
+    still applies with the distance blank.
+- **ALL-112** ("Protection classes 1-9 are eligible") failed class 10. That
+  declined the new home in a protected subdivision that ALL-113's exception
+  allows. Class 10 is now ALL-113's alone.
+
+**Kept, with a note:** MER-078 and MER-081 are limits on Coverage A and C
+combined. Coverage C is not asked, so A alone is tested: A over the limit
+fails for certain, while A under it passes without knowing C.
+
+**No numeric map test to check:** these numbers are inside FACT(...) lines
+or NONE lines (the form does not ask them). Nothing here can carry a wrong
+boundary until a form field exists:
+- the metal roof gauge (SAG-033 and the batch's metal-roof rows, FACT);
+- months unoccupied (SAG-002 and the batch's 3-months rows, "same rule as"
+  the Vacant row);
+- Vave's 20 rental weeks (NONE);
+- loss counts (NONE);
+- the shoreline distances (SUR-163, SFP-172 and the like, FACT).

@@ -87,8 +87,8 @@ SUR-112,ppc;fire_station_miles,"FACT(visible from road, central station alarm, 1
 SUR-113,ppc;year_built;occupancy_type;fire_station_miles;hydrant_1000ft,"home_age < 25 and occupancy_type == Owner Occupied and FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",ppc_num between 4 and 10 and fire_station_miles <= 5 and hydrant_1000ft == No,CONDITION,"station / hydrant distance if not given; visibility, alarm, access, fire losses",
 SUR-114,ppc;year_built;occupancy_type;fire_station_miles,"home_age < 25 and occupancy_type == Owner Occupied and FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",ppc_num between 4 and 8 and fire_station_miles > 5,CONDITION,"station distance if not given; visibility, alarm, access, fire losses",
 SUR-115,ppc;fire_station_miles,fire_station_miles <= 5,ppc_num >= 9,DECLINES,station distance,
-SUR-116,year_built;ppc;fire_station_miles;hydrant_1000ft,home_age < 25,ppc_num between 4 and 10 and (hydrant_1000ft == No or fire_station_miles > 5),CONDITION,station / hydrant distance if not given,
-SUR-117,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,occupancy_type == Owner Occupied and FACT(no rental exposures),ppc_num between 4 and 10 and (hydrant_1000ft == No or fire_station_miles > 5),CONDITION,station / hydrant distance if not given; rental exposures,
+SUR-116,year_built;ppc;fire_station_miles;hydrant_1000ft,home_age < 25,(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given,
+SUR-117,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,occupancy_type == Owner Occupied and FACT(no rental exposures),(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given; rental exposures,
 SUR-118,NONE,,,CONDITION,,loss / claims history is not asked
 SUR-124,NONE,,,DECLINES,,not asked by the form
 SUR-125,NONE,,,DECLINES,,not asked by the form
@@ -206,8 +206,8 @@ SFP-120,ppc;fire_station_miles,"FACT(visible from road, central station alarm, 1
 SFP-121,ppc;year_built;occupancy_type;fire_station_miles;hydrant_1000ft,"home_age < 25 and occupancy_type == Owner Occupied and FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",ppc_num between 4 and 10 and fire_station_miles <= 5 and hydrant_1000ft == No,CONDITION,"station / hydrant distance if not given; visibility, alarm, access, fire losses",
 SFP-122,ppc;year_built;occupancy_type;fire_station_miles,"home_age < 25 and occupancy_type == Owner Occupied and FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",ppc_num between 4 and 8 and fire_station_miles > 5,CONDITION,"station distance if not given; visibility, alarm, access, fire losses",
 SFP-123,ppc;fire_station_miles,fire_station_miles <= 5,ppc_num >= 9,DECLINES,station distance,
-SFP-124,year_built;ppc;fire_station_miles;hydrant_1000ft,home_age < 25,ppc_num between 4 and 10 and (hydrant_1000ft == No or fire_station_miles > 5),CONDITION,station / hydrant distance if not given,
-SFP-125,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,occupancy_type == Owner Occupied and FACT(no rental exposures),ppc_num between 4 and 10 and (hydrant_1000ft == No or fire_station_miles > 5),CONDITION,station / hydrant distance if not given; rental exposures,
+SFP-124,year_built;ppc;fire_station_miles;hydrant_1000ft,home_age < 25,(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given,
+SFP-125,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,occupancy_type == Owner Occupied and FACT(no rental exposures),(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given; rental exposures,
 SFP-126,NONE,,,CONDITION,,loss / claims history is not asked
 SFP-132,NONE,,,DECLINES,,not asked by the form
 SFP-133,NONE,,,DECLINES,,not asked by the form
@@ -307,9 +307,9 @@ WIL-117,ppc;fire_station_miles,"FACT(visible from road, central station alarm, 1
 WIL-118,ppc;year_built;occupancy_type;fire_station_miles;hydrant_1000ft,"home_age < 25 and occupancy_type == Owner Occupied and FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",ppc_num between 4 and 10 and fire_station_miles <= 5 and hydrant_1000ft == No,CONDITION,"station / hydrant distance if not given; visibility, alarm, access, fire losses",
 WIL-119,ppc;year_built;occupancy_type;fire_station_miles,"home_age < 25 and occupancy_type == Owner Occupied and FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",ppc_num between 4 and 8 and fire_station_miles > 5,CONDITION,"station distance if not given; visibility, alarm, access, fire losses",
 WIL-120,ppc;fire_station_miles,fire_station_miles <= 5,ppc_num >= 9,DECLINES,station distance,
-WIL-121,year_built;ppc;fire_station_miles;hydrant_1000ft,home_age < 25,ppc_num between 4 and 10 and (hydrant_1000ft == No or fire_station_miles > 5),CONDITION,station / hydrant distance if not given,
-WIL-122,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,occupancy_type == Owner Occupied and FACT(no rental exposures),ppc_num between 4 and 10 and (hydrant_1000ft == No or fire_station_miles > 5),CONDITION,station / hydrant distance if not given; rental exposures,
-WIL-123,ppc;fire_station_miles;hydrant_1000ft,FACT(no prior fire loss),ppc_num between 4 and 10 and (hydrant_1000ft == No or fire_station_miles > 5),CONDITION,station / hydrant distance if not given; fire losses,
+WIL-121,year_built;ppc;fire_station_miles;hydrant_1000ft,home_age < 25,(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given,
+WIL-122,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,occupancy_type == Owner Occupied and FACT(no rental exposures),(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given; rental exposures,
+WIL-123,ppc;fire_station_miles;hydrant_1000ft,FACT(no prior fire loss),(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given; fire losses,
 WIL-129,NONE,,,DECLINES,,not asked by the form
 WIL-130,NONE,,,DECLINES,,not asked by the form
 WIL-133,NONE,,,CONDITION,,not asked by the form
@@ -349,8 +349,8 @@ TRI-014,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not a
 TRI-015,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 TRI-016,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 TRI-017,NONE,,,CONDITION,,"rentals, mailing address and occupancy dates are not asked"
-TRI-019,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,occupancy_type == Owner Occupied,ppc_num between 4 and 10 and (hydrant_1000ft == No or fire_station_miles > 5),CONDITION,station / hydrant distance if not given,
-TRI-020,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,occupancy_type != Tenant Occupied and FACT(no rental exposures),ppc_num between 4 and 10 and (hydrant_1000ft == No or fire_station_miles > 5),CONDITION,station / hydrant distance if not given; rental exposures,
+TRI-019,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,occupancy_type == Owner Occupied,(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given,
+TRI-020,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,occupancy_type != Tenant Occupied and FACT(no rental exposures),(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given; rental exposures,
 TRI-021,ownership_type,ownership_type != LLC,always,DECLINES,,
 TRI-022,NONE,,,DECLINES,,the number of individual owners is not asked
 TRI-023,ownership_type;occupancy_type,occupancy_type != Tenant Occupied,ownership_type == Trust,CONDITION,,
@@ -362,7 +362,7 @@ TRI-028,construction_type,always,always,DECLINES,,decided by TRI-027 (the same r
 TRI-029,NONE,,,CONDITION,,"unit count, foundation and original use are not asked"
 TRI-030,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
 TRI-033,year_built;occupancy_type,FACT(signed lead exclusion acknowledgement),occupancy_type == Tenant Occupied and year_built < 1980,CONDITION,signed acknowledgement,
-TRI-035,year_built;ppc;fire_station_miles;hydrant_1000ft,home_age < 25,ppc_num between 4 and 10 and (hydrant_1000ft == No or fire_station_miles > 5),CONDITION,station / hydrant distance if not given,
+TRI-035,year_built;ppc;fire_station_miles;hydrant_1000ft,home_age < 25,(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given,
 TRI-038,NONE,,,DECLINES,,roof condition and layers are not asked
 TRI-040,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)",(roof_shape == Flat or roof_type == Flat/Built-Up),DECLINES,prior roof loss; renovation,
 TRI-041,roof_type,"FACT(steel, 29 gauge or heavier)",roof_type == Metal,DECLINES,metal roof gauge,
