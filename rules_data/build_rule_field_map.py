@@ -1,6 +1,6 @@
 """Build rules_data/rule_field_map.csv -- one line per deciding row (Tool
 handling EVALUATE / EVALUATE_CURE_IS_INSPECTION) of
-rules_data/carrier_rules_pilot_v3.csv.
+rules_data/carrier_rules_pilot_v5.csv (v3 until round 28).
 
 Round 24 built it for v2 (on the structured-rules-eval branch). Round 25
 (2026-10-04) moved it here and updated it for v3: PRO-018 and SWY-018 are no
@@ -18,7 +18,7 @@ import csv
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-RULES = os.path.join(HERE, "carrier_rules_pilot_v3.csv")
+RULES = os.path.join(HERE, "carrier_rules_pilot_v5.csv")
 OUT = os.path.join(HERE, "rule_field_map.csv")
 
 NO_POOL = "swimming_pool != No Pool"
@@ -175,8 +175,11 @@ MAP = {
     "ALL-008": ("occupancy_type", "occupancy_type != Tenant Occupied", "always", "", ""),
     "ALL-009": ("occupancy_type", "occupancy_type != Tenant Occupied", "always", "", "a rented other structure is not asked"),
     "ALL-010": ("occupancy_type", "FACT(no rental exposure)", SEASONAL, "rentals", ""),
-    "SAG-001": ("occupancy_type", "occupancy_type == Owner Occupied", "always", "", ""),
-    "SAG-002": ("occupancy_type", "occupancy_type != Vacant", "always", "", ""),
+    # v4 (2026-10-07): the owner-occupied heading covers primary AND seasonal / secondary homes.
+    "SAG-001": ("occupancy_type", "occupancy_type != Tenant Occupied", "always", "",
+                "owner occupied = primary, seasonal or secondary residence; Vacant is decided by SAG-005"),
+    # Round 28 (v4/v5, 2026-10-07): one failing row per fact, as the Sage batch.
+    "SAG-002": ("occupancy_type", "always", "always", "", "decided by SAG-005 (the same rule); never a second flaw"),
     "SAG-003": ("occupancy_type;dwelling_type", "dwelling_type == House", SEASONAL, "", ""),
     "SAG-004": ("occupancy_type", "FACT(checked monthly while away)", SEASONAL, "monthly checks", ""),
     "SAG-005": ("occupancy_type", "occupancy_type != Vacant", "always", "", "for sale is not asked"),
@@ -235,9 +238,10 @@ MAP = {
     "PRO-089": ("dwelling_amount", "dwelling_amount <= 1500000", "always", "", ""),
     "SWY-046": ("dwelling_amount", "dwelling_amount between 125000 and 2000000", "always", "", ""),
     # ---------------- LOCATION
-    "SAG-081": ("county", "sage_territory == IN", "always", "", "south of 31 N except Nueces, or the eight East Texas counties"),
+    "SAG-081": ("county", "sage_territory == IN or county == Nueces", "always", "",
+                "south of 31 N or the eight East Texas counties; Nueces is decided by SAG-082"),
     "SAG-082": ("county", "county != Nueces", "always", "", ""),
-    "SAG-083": ("county", "sage_territory == IN", "always", "", "same test as SAG-081"),
+    "SAG-083": ("county", "always", "always", "", "decided by SAG-081 (the same rule); never a second flaw"),
     "SAG-088": ("coastal_tier", "FACT(not an extreme hazard location)", "coastal_tier == Tier 1",
                 "distance to shoreline", "the form's tiers are not the guide's tiers"),
     "SAG-089": ("coastal_tier", "FACT(not within the shoreline distances)", "coastal_tier in {Tier 1, Tier 2}",
@@ -283,8 +287,8 @@ def main():
     rows = list(csv.DictReader(l for l in open(RULES, encoding="utf-8-sig") if not l.startswith("#")))
     ev = [r for r in rows if r["Tool handling"] in ("EVALUATE", "EVALUATE_CURE_IS_INSPECTION")]
     with open(OUT, "w", encoding="utf-8", newline="") as fh:
-        fh.write("# source: rules_data/build_rule_field_map.py over rules_data/carrier_rules_pilot_v3.csv "
-                 "(pilot workbook version 3); built 2026-10-05 (round 26: station / hydrant fields). "
+        fh.write("# source: rules_data/build_rule_field_map.py over rules_data/carrier_rules_pilot_v5.csv "
+                 "(pilot workbook version 5); built 2026-10-07 (round 28: SAG-001, one flaw per fact). "
                  "Grammar: rules_data/RULE_FIELD_MAP.md.\n")
         w = csv.writer(fh)
         w.writerow(["row_id", "field", "test", "gate", "outcome_if_fail", "open_fact", "map_note"])

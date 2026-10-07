@@ -32,10 +32,9 @@ def run(m, **pd):
 def test_data_files_carry_their_source_header():
     for path in (ev.RULES_CSV, ev.MAP_CSV):
         first = open(path, encoding="utf-8-sig").readline()
-        # the rules CSV was copied in 2026-10-04; the map was rebuilt 2026-10-05 for
-        # round 26's station / hydrant fields (Liam, decision B)
-        assert first.startswith("# source:") and "version 3" in first and ("2026-10-04" in first
-                                                                          or "2026-10-05" in first)
+        # Round 28 step 1 (2026-10-07): the pilot workbook is version 5 (v4: SAG-001;
+        # v5: SAG-032, SAG-048) and the map was rebuilt the same day.
+        assert first.startswith("# source:") and "version 5" in first and "2026-10-07" in first
 
 
 def test_every_deciding_row_has_exactly_one_map_line():
@@ -244,26 +243,35 @@ def test_a_pilot_insufficient_answer_is_untouched():
     assert rec["status"] == "INSUFFICIENT_INFORMATION" and rec["missing_info"] == ["the model's own item"]
 
 
-# -- round 27 step 5: found while mapping the Sage batch; listed, not changed ----
-# (Step 6 must leave the pilot-ON / batch-OFF path byte-identical.)
-@pytest.mark.xfail(strict=True, reason="round 27: SAG-001 tests Owner Occupied only; Auros's guide lists seasonal "
-                                        "and secondary residences under 'Dwellings must be owner occupied', so a "
-                                        "seasonal Auros home is INELIGIBLE with the pilot ON")
+# -- round 28 step 1 (pilot v4/v5, 2026-10-07): round 27's three Auros xfails, fixed --
+OCC = ("SAG-001", "SAG-002", "SAG-003", "SAG-005")
+
+
 @pytest.mark.parametrize("occupancy", ["Seasonal", "Secondary Home"])
-def test_an_auros_seasonal_or_secondary_home_is_not_declined_by_sag_001(occupancy):
-    rec, _ = ev.code_record(SAGE, ev.evaluate_carrier(SAGE, dict(BASE, county="Bexar", occupancy_type=occupancy)))
+def test_an_auros_seasonal_or_secondary_home_is_not_declined_on_occupancy(occupancy):
+    # The guide: "Dwellings must be owner occupied:" over BOTH "Primary Occupancy
+    # eligible if:" and "Seasonal or Secondary Residence eligible if:" (p.2).
+    out = ev.evaluate_carrier(SAGE, dict(BASE, county="Bexar", occupancy_type=occupancy))
+    assert out["SAG-001"][0] == "PASS"
+    assert [rid for rid in OCC if out[rid][0] == "FAIL"] == []
+    rec, _ = ev.code_record(SAGE, out)
     assert rec["status"] != "INELIGIBLE"
 
 
-@pytest.mark.xfail(strict=True, reason="round 27: Vacant fails SAG-001, SAG-002 and SAG-005 (three flaws for one "
-                                        "fact; flaw_count decides the One Issue bucket)")
-def test_a_vacant_auros_home_is_one_flaw():
+def test_an_auros_tenant_occupied_home_is_still_declined_on_occupancy_once():
+    out = ev.evaluate_carrier(SAGE, dict(BASE, county="Bexar", occupancy_type="Tenant Occupied"))
+    rec, _ = ev.code_record(SAGE, out)
+    assert [rid for rid in OCC if out[rid][0] == "FAIL"] == ["SAG-001"]
+    assert rec["status"] == "INELIGIBLE" and rec["flaw_count"] == 1
+
+
+def test_a_vacant_auros_home_is_one_flaw_and_one_reason():
     rec, _ = ev.code_record(SAGE, ev.evaluate_carrier(SAGE, dict(BASE, county="Bexar", occupancy_type="Vacant")))
-    assert rec["flaw_count"] == 1
+    assert rec["status"] == "INELIGIBLE" and rec["flaw_count"] == 1
+    assert len(rec["reasons"]) == 1 and rec["reasons"][0].startswith("[SAG-005]")
 
 
-@pytest.mark.xfail(strict=True, reason="round 27: SAG-081 and SAG-083 share one test, so a county outside "
-                                        "Auros's territory fails twice (the round 19 county hold adds a third)")
-def test_an_auros_county_outside_the_territory_is_one_flaw_in_the_evaluator():
-    rec, _ = ev.code_record(SAGE, ev.evaluate_carrier(SAGE, dict(BASE, county="Dallas")))
-    assert rec["flaw_count"] == 1
+@pytest.mark.parametrize("county,row", [("Dallas", "SAG-081"), ("Nueces", "SAG-082")])
+def test_an_auros_county_outside_the_territory_is_one_flaw_in_the_evaluator(county, row):
+    rec, _ = ev.code_record(SAGE, ev.evaluate_carrier(SAGE, dict(BASE, county=county)))
+    assert rec["flaw_count"] == 1 and len(rec["reasons"]) == 1 and rec["reasons"][0].startswith(f"[{row}]")

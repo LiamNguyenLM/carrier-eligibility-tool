@@ -120,6 +120,50 @@ def test_the_sage_county_hold_and_chubb_hold_still_fire():
     assert res3["Sage_-_Auros_HO3"]["status"] == "INELIGIBLE"  # out of territory, as round 19
 
 
+# Round 28 step 1 (Liam, 2026-10-07): one reason per rule on the Auros card. An
+# out-of-territory county was 2 flaws from SAG-081 + SAG-083 and a third from the
+# round 19 county hold; the territory row now decides, once.
+@pytest.mark.parametrize("county,row", [("Dallas", "SAG-081"), ("Nueces", "SAG-082")])
+def test_an_auros_county_outside_the_territory_is_one_flaw_and_one_reason_on_the_card(county, row):
+    res, _, _ = _run(dict(LIAM, county=county, dwelling_amount=450000), pilot_status="ELIGIBLE")
+    sage = res["Sage_-_Auros_HO3"]
+    assert sage["status"] == "INELIGIBLE" and sage["flaw_count"] == 1
+    assert len(sage["reasons"]) == 1 and sage["reasons"][0].startswith(f"[{row}]")
+    assert not any("outside this carrier's territory" in x for x in sage["reasons"] + sage.get("citations", []))
+
+
+def test_a_blank_county_holds_auros_once():
+    res, _, _ = _run(dict(LIAM, dwelling_amount=450000), pilot_status="ELIGIBLE")
+    sage = res["Sage_-_Auros_HO3"]
+    assert sage["status"] == "INSUFFICIENT_INFORMATION"
+    assert sum(1 for m in sage["missing_info"] if m.startswith("County")) == 1
+    assert not any(n.startswith(("[SAG-081]", "[SAG-083]")) for n in sage.get("also_confirm", []))
+
+
+def test_auros_owner_occupied_vacancy_rows_never_fail_twice():
+    # Vacant never reaches an HO3 card (occupancy routing, below); the evaluator
+    # test covers its one flaw. Owner Occupied passes SAG-001 / SAG-002 / SAG-005.
+    res, _, _ = _run(dict(LIAM, county="Bexar", dwelling_amount=450000), pilot_status="ELIGIBLE")
+    assert not any(x.startswith(("[SAG-001]", "[SAG-002]", "[SAG-005]")) for x in res["Sage_-_Auros_HO3"]["reasons"])
+
+
+@pytest.mark.xfail(strict=True, reason="round 28: _fits_occupancy sends every occupancy but Owner Occupied to DP "
+                                        "programs only, so an owner's Seasonal / Secondary home never reaches Sage "
+                                        "Auros (or any HO3), although its guide accepts them (SAG-001, v4). "
+                                        "Routing is Liam's call; not changed.")
+@pytest.mark.parametrize("occupancy", ["Seasonal", "Secondary Home"])
+def test_an_owners_seasonal_or_secondary_home_reaches_sage_auros(occupancy):
+    res, _, _ = _run(dict(LIAM, county="Bexar", dwelling_amount=450000, occupancy_type=occupancy),
+                     pilot_status="ELIGIBLE")
+    assert "Sage_-_Auros_HO3" in res
+
+
+@pytest.mark.parametrize("occupancy", ["Tenant Occupied", "Vacant"])
+def test_a_tenant_or_vacant_home_never_reaches_an_ho3_card(occupancy):
+    res, _, _ = _run(dict(LIAM, county="Bexar", dwelling_amount=450000, occupancy_type=occupancy))
+    assert "Sage_-_Auros_HO3" not in res
+
+
 def test_sage_auros_fpc_upgrade_is_off_with_the_pilot_and_on_for_other_sage():
     res, _, pilot = _run(dict(LIAM, county="Travis", dwelling_amount=450000))
     assert "Structured FPC check" not in (res["Sage_-_Auros_HO3"].get("notes") or "")

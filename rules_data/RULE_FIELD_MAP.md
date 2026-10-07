@@ -1,7 +1,7 @@
-# Rule field map (round 24 Part 2, 2026-10-02; updated for v3 in round 25, 2026-10-04)
+# Rule field map (round 24 Part 2, 2026-10-02; v3 in round 25, 2026-10-04; v5 in round 28, 2026-10-07)
 
 `rule_field_map.csv` has one line per **deciding** row of
-`carrier_rules_pilot_v3.csv` (pilot workbook version 3), i.e. rows whose
+`carrier_rules_pilot_v5.csv` (pilot workbook version 5), i.e. rows whose
 Tool handling is EVALUATE or EVALUATE_CURE_IS_INSPECTION. There are 541 such
 rows. It is built by `build_rule_field_map.py`, where every non-NONE line is
 written by hand. The evaluator that reads it is `rules_evaluator.py` at the
@@ -238,10 +238,18 @@ row; a second mobile-home row; Vave's five LLC criteria under VAV-015.
     agree: the rows REFER it ("Primary occupancy only" fails, as SAG-075
     does), while step 2 holds it. This is a strict xfail.
 
-**Rows / lines that look wrong (listed only; nothing in v3 was edited):**
-- **SAG-001** (Auros) tests `occupancy_type == Owner Occupied`, so it fails a
-  seasonal or secondary home that the guide accepts. A Vacant Auros home also
-  fails SAG-001, SAG-002 and SAG-005: three flaws for one fact.
-- **SAG-081 and SAG-083** both test `sage_territory == IN`, so an Auros home
-  outside the territory fails twice, and the round 19 county hold then adds
-  a third flaw.
+**Auros lines found here, fixed in round 28 step 1 (pilot v4/v5, 2026-10-07):**
+- **SAG-001** tested `occupancy_type == Owner Occupied`, which fails a seasonal
+  or secondary home the guide accepts. It now tests `!= Tenant Occupied` (v4).
+- **Vacant** failed SAG-001, SAG-002 and SAG-005. Now only SAG-005 fails;
+  SAG-002 is "same rule as SAG-005".
+- **SAG-081 / SAG-083** shared one test, so an out-of-territory county failed
+  twice, and the round 19 county hold added a third flaw. Now:
+  - SAG-081 tests `sage_territory == IN or county == Nueces`;
+  - SAG-082 decides Nueces;
+  - SAG-083 is "same rule as SAG-081";
+  - the county hold leaves a known county to the territory row on every
+    rules-table carrier.
+- **v5 rows:** SAG-032 is now REFERS_TO_UW (the outcome is taken from the
+  row's Effect). SAG-048 is a cure-is-inspection row; its line stays NONE,
+  so it is an "Also confirm" note.

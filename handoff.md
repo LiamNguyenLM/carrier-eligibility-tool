@@ -1011,6 +1011,34 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
         of siding.") repeated under Screened or Tent-Like Enclosures, stored
         as UNCLEAR / DECLINES. Map line NONE.
 
+- **2026-10-07 — Round 28 (Liam's decisions dated 2026-10-07).** Built on
+  329e183 (rounds 26-27 still unpushed; origin 27870a0).
+  - **1. Sage batch, blank fire-station distance: follow the guide.** SURE,
+    SafePort, Wilshire and Trium hold on the fire-protection question when
+    the distance is blank (unless PPC alone settles it), like Sage Auros.
+  - **2. Measure Claude Haiku 5.5 against Luna** (measurement only; the
+    production model stays Luna).
+  - New data from Claude (untracked, pilot_structured_rules/): pilot v5,
+    and Sage batch v2 (Claude's review of v1, 103 changes).
+  - **Step 1 (Auros on the live pilot):** pilot v5 is loaded
+    (rules_data/carrier_rules_pilot_v5.csv); only SAG-001, SAG-032 and
+    SAG-048 differ from v3.
+    - Map lines:
+      - SAG-001 = not Tenant Occupied (an owner's seasonal or secondary
+        home passes);
+      - SAG-002 and SAG-083 are "same rule as" SAG-005 and SAG-081;
+      - SAG-081 leaves Nueces to SAG-082.
+    - The county hold leaves a known county to the territory row on every
+      rules-table carrier. An out-of-territory Auros card was 3 flaws with 1
+      reason; it is now 1 flaw and 1 reason. Vacant is 1 flaw.
+    - **Found:** _fits_occupancy sends every occupancy except Owner Occupied
+      to DP programs only. So a Seasonal / Secondary home never reaches Sage
+      Auros or any HO3, and the SAG-001 decline was never reachable in the
+      app. What was live: the 3-flaw out-of-territory card. Routing is
+      Liam's call (strict xfail).
+    - Pilot OFF is byte-identical to 329e183 (30 replays). Pilot ON changes
+      only Auros.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"

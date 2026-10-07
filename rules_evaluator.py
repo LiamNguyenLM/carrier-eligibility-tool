@@ -2,7 +2,7 @@
 structured rule rows from the form, in code, for the six pilot carriers.
 
 Data (committed, see the header line of each file):
-  rules_data/carrier_rules_pilot_v3.csv   the rows (pilot workbook version 3)
+  rules_data/carrier_rules_pilot_v5.csv   the rows (pilot workbook version 5)
   rules_data/rule_field_map.csv           one map line per deciding row
   rules_data/RULE_FIELD_MAP.md            the expression grammar and the
                                           guide-word -> form-option table
@@ -47,7 +47,7 @@ import intake_fields
 from structured_rules import sage_county_in_territory
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-RULES_CSV = os.path.join(HERE, "rules_data", "carrier_rules_pilot_v3.csv")
+RULES_CSV = os.path.join(HERE, "rules_data", "carrier_rules_pilot_v5.csv")
 MAP_CSV = os.path.join(HERE, "rules_data", "rule_field_map.csv")
 # Round 27 step 6 (Liam's decision 4, 2026-10-06): the Sage batch, read only
 # when eligibility_check.RULES_SAGE_BATCH is on. Not yet reviewed.

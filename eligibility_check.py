@@ -4126,12 +4126,12 @@ def _apply_location_holds(results, relevant_carriers, property_details):
         nueces_excluded, sentence = rule
         territory = sage_county_in_territory(county, intake_fields.COUNTY_MAX_LATITUDE,
                                              nueces_excluded)
-        # Round 27 step 6: on a Sage batch carrier the rules table owns the
-        # territory. Its rows test the same county table, so the hold and the
-        # rows agree; when both would act, the evaluator's row decides and the
-        # card shows it once. (Auros, a pilot carrier, keeps round 25's path.)
-        batch = r.get("rules_table") and rules_evaluator.is_sage_batch(canon)
-        if batch and territory != "UNKNOWN":
+        # Round 27 step 6 (Sage batch), round 28 step 1 (Sage Auros, 2026-10-07):
+        # on a rules-table carrier the rules table owns the territory. Its rows
+        # test the same county table, so the hold and the rows agree; when both
+        # would act, the evaluator's row decides and the card shows it once.
+        owned = r.get("rules_table") and rules_evaluator.territory_rows(canon)
+        if owned and territory != "UNKNOWN":
             continue
         if territory == "UNKNOWN":
             if r.get("status") in ("ELIGIBLE", "REFER"):
@@ -4147,7 +4147,7 @@ def _apply_location_holds(results, relevant_carriers, property_details):
                 mi = r.setdefault("missing_info", [])
                 if not _county_item_present(mi):
                     mi.insert(0, "County -- this guide only writes in specific counties: " + sentence)
-            if batch:
+            if owned:
                 # the County item above says it; the rows' "blank County" notes would repeat it
                 rows = rules_evaluator.territory_rows(canon)
                 r["also_confirm"] = [n for n in r.get("also_confirm") or []

@@ -1,4 +1,4 @@
-# source: rules_data/build_rule_field_map.py over rules_data/carrier_rules_pilot_v3.csv (pilot workbook version 3); built 2026-10-05 (round 26: station / hydrant fields). Grammar: rules_data/RULE_FIELD_MAP.md.
+# source: rules_data/build_rule_field_map.py over rules_data/carrier_rules_pilot_v5.csv (pilot workbook version 5); built 2026-10-07 (round 28: SAG-001, one flaw per fact). Grammar: rules_data/RULE_FIELD_MAP.md.
 row_id,field,test,gate,outcome_if_fail,open_fact,map_note
 ALL-001,occupancy_type,always,occupancy_type == Owner Occupied,DECLINES,,Owner Occupied = primary residence
 ALL-002,occupancy_type,"FACT(3+ months a year, no rental exposure)","occupancy_type in {Seasonal, Secondary Home}",CONDITION,months occupied; rentals,
@@ -147,8 +147,8 @@ ALL-208,NONE,,,DECLINES,,not asked by the form
 ALL-209,NONE,,,CONDITION,,not asked by the form
 ALL-213,NONE,,,REFERS_TO_UW,,not asked by the form
 ALL-214,NONE,,,CONDITION,,not asked by the form
-SAG-001,occupancy_type,occupancy_type == Owner Occupied,always,DECLINES,,
-SAG-002,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
+SAG-001,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,"owner occupied = primary, seasonal or secondary residence; Vacant is decided by SAG-005"
+SAG-002,occupancy_type,always,always,DECLINES,,decided by SAG-005 (the same rule); never a second flaw
 SAG-003,occupancy_type;dwelling_type,dwelling_type == House,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,,
 SAG-004,occupancy_type,FACT(checked monthly while away),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,monthly checks,
 SAG-005,occupancy_type,occupancy_type != Vacant,always,DECLINES,,for sale is not asked
@@ -171,7 +171,7 @@ SAG-022,NONE,,,CONDITION,,the form has no field for this
 SAG-023,NONE,,,DECLINES,,the form has no field for this
 SAG-026,year_built;occupancy_type,FACT(signed lead exclusion acknowledgement),occupancy_type == Tenant Occupied and year_built < 1980,CONDITION,signed acknowledgement,
 SAG-030,NONE,,,DECLINES,,the form has no field for this
-SAG-032,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)",(roof_shape == Flat or roof_type == Flat/Built-Up),DECLINES,prior roof loss; renovation,
+SAG-032,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)",(roof_shape == Flat or roof_type == Flat/Built-Up),REFERS_TO_UW,prior roof loss; renovation,
 SAG-033,roof_type,"FACT(steel, 29 gauge or heavier)",roof_type == Metal,DECLINES,metal roof gauge,
 SAG-034,NONE,,,DECLINES,,the form has no field for this
 SAG-035,NONE,,,DECLINES,,the form has no field for this
@@ -185,7 +185,7 @@ SAG-044,NONE,,,DECLINES,,wiring and panels are not asked
 SAG-045,NONE,,,DECLINES,,wiring and panels are not asked
 SAG-046,NONE,,,DECLINES,,wiring and panels are not asked
 SAG-047,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
-SAG-048,NONE,,,CONDITION,,"heating, cooling and water heater are not asked"
+SAG-048,NONE,,,NOTE,,"heating, cooling and water heater are not asked"
 SAG-049,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 SAG-052,NONE,,,DECLINES,,foundation is not asked
 SAG-053,NONE,,,DECLINES,,foundation is not asked
@@ -212,9 +212,9 @@ SAG-077,ppc;fire_station_miles,fire_station_miles <= 5,ppc_num >= 9,DECLINES,sta
 SAG-078,year_built;ppc;fire_station_miles;hydrant_1000ft,home_age < 25,ppc_num between 4 and 10 and (hydrant_1000ft == No or fire_station_miles > 5),CONDITION,station / hydrant distance if not given,
 SAG-079,NONE,,,CONDITION,,the form has no field for this
 SAG-080,NONE,,,CONDITION,,loss / claims history is not asked
-SAG-081,county,sage_territory == IN,always,DECLINES,,"south of 31 N except Nueces, or the eight East Texas counties"
+SAG-081,county,sage_territory == IN or county == Nueces,always,DECLINES,,south of 31 N or the eight East Texas counties; Nueces is decided by SAG-082
 SAG-082,county,county != Nueces,always,DECLINES,,
-SAG-083,county,sage_territory == IN,always,DECLINES,,same test as SAG-081
+SAG-083,county,always,always,DECLINES,,decided by SAG-081 (the same rule); never a second flaw
 SAG-084,NONE,,,DECLINES,,location detail beyond county / tier is not asked
 SAG-085,NONE,,,DECLINES,,location detail beyond county / tier is not asked
 SAG-086,NONE,,,DECLINES,,location detail beyond county / tier is not asked
