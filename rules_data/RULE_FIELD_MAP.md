@@ -188,3 +188,60 @@ number:
 
 Round 24's list (PRO-018, SWY-018, PRO-038, ALL-067) was applied in v3.
 Round 25 additions, if any, are in handoff.md.
+
+## The Sage batch (round 27 step 5, 2026-10-06; Liam's decision 4)
+
+`sage_batch_field_map.csv` has one line for each of the 564 deciding rows of
+`carrier_rules_sage_batch_v1.csv` (SURE HO-3, SafePort HO-3, Wilshire HO3,
+Trium Lloyd's HO3/HO5, Markel HO3 and Vave HO3; 1,033 rows, **not yet
+reviewed**). `build_sage_batch_map.py` builds it with the same grammar. The
+four guides that share the Auros layout share most of their lines (`sister()`
+in the builder). The app reads none of it unless both
+ELIGIBILITY_RULES_PILOT and ELIGIBILITY_RULES_SAGE_BATCH are "1".
+`verification/test_sage_batch_rules.py` covers it.
+
+| Carrier | decided by a form field | gated-but-open | AMBIGUOUS | same rule as another row | NONE | total |
+|---|---|---|---|---|---|---|
+| Sage SURE HO-3 | 18 | 18 | 1 | 3 | 77 | 117 |
+| Sage SafePort HO-3 | 18 | 20 | 1 | 3 | 78 | 120 |
+| Sage Wilshire HO3 | 13 | 11 | 0 | 2 | 69 | 95 |
+| Sage Trium Lloyd's HO3/HO5 | 17 | 14 | 1 | 4 | 77 | 113 |
+| Sage Markel HO3 | 4 | 1 | 0 | 1 | 55 | 61 |
+| Sage Vave HO3 | 9 | 7 | 0 | 2 | 40 | 58 |
+| **all** | **79** | **71** | **3** | **15** | **396** | **564** |
+
+"Same rule as another row": the test is `always` and the note names the row
+that decides it, so one fact fails one row. Examples: a 3-months-unoccupied
+row next to the Vacant row; the East Texas county list next to the territory
+row; a second mobile-home row; Vave's five LLC criteria under VAV-015.
+
+**Choices that differ from the Auros lines:**
+- **"Dwellings must be owner occupied"** lists primary AND seasonal or
+  secondary residences beneath it, so the test is `occupancy_type != Tenant
+  Occupied`. Vacant is decided by the guide's vacancy row.
+- **Territory:** the south-of-31 / East Texas row tests `sage_territory == IN
+  or county == Nueces`, and the guide's own Nueces row decides Nueces, so a
+  Nueces home fails one row, not two. Trium's territory has no Nueces
+  exception, so Trium has no Nueces row and Nueces passes.
+- **Coverage A:** the TIV limits are NONE (TIV is not asked). The SURE and
+  SafePort cap of $2,000,000 for FPC B or C risks is gated on the station
+  distance and hydrant.
+- **Coastal:** Wilshire's and Trium's Extreme Hazard rows are COVERAGE_ONLY
+  (eligible with a deductible), so they are not deciding rows. Trium keeps
+  one deciding coastal row: barrier islands without road access (TRI-100,
+  gated on Tier 1).
+- **The FPC table rows** are the Auros lines (SAG-073..078) on each guide's
+  own row ids. Agreement with round 27 step 2's `sage_fpc_with_distance`:
+  - Owner Occupied: every case of PPC 1-10 x 3 or 7 miles x hydrant
+    Yes / No / Unknown x home age 16 or 36 agrees.
+  - A known Seasonal or Tenant home in the seven-condition rows does not
+    agree: the rows REFER it ("Primary occupancy only" fails, as SAG-075
+    does), while step 2 holds it. This is a strict xfail.
+
+**Rows / lines that look wrong (listed only; nothing in v3 was edited):**
+- **SAG-001** (Auros) tests `occupancy_type == Owner Occupied`, so it fails a
+  seasonal or secondary home that the guide accepts. A Vacant Auros home also
+  fails SAG-001, SAG-002 and SAG-005: three flaws for one fact.
+- **SAG-081 and SAG-083** both test `sage_territory == IN`, so an Auros home
+  outside the territory fails twice, and the round 19 county hold then adds
+  a third flaw.

@@ -923,6 +923,27 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
         coverage-only (Roof Exclusion form); LLCs and trusts are allowed.
       - Vave: no referrals; roof is RCV/ACV/excluded by age (coverage-only);
         no county or FPC table; LLCs are allowed on five criteria.
+  - **Step 5 (Sage batch map):** files in rules_data:
+    - carrier_rules_sage_batch_v1.csv: a copy of the step 4 rules CSV with a
+      source header (the .xlsx stays untracked);
+    - build_sage_batch_map.py, which writes sage_batch_field_map.csv.
+    - 564 deciding rows: 79 decided by a form field, 71 gated-but-open,
+      3 AMBIGUOUS, 15 the same rule as another row, 396 NONE. The per-carrier
+      table and the choices that differ from Auros are in RULE_FIELD_MAP.md.
+    - verification/test_sage_batch_rules.py covers the data and the lines.
+      Its FPC rows agree with step 2's sage_fpc_with_distance in all 120
+      owner-occupied cases. A known Seasonal or Tenant home in the
+      seven-condition rows is REFER on the rows but held by step 2 (strict
+      xfail).
+    - **Found in Auros's pilot lines** (pilot ON today; listed, not changed,
+      because step 6 must keep batch-OFF byte-identical):
+      - SAG-001 declines a seasonal or secondary Auros home, which the guide
+        accepts. This changes a verdict: it is the first thing to fix after
+        this round.
+      - Vacant gives three flaws (SAG-001, -002, -005).
+      - A county outside the territory gives two flaws (SAG-081, -083), and
+        the county hold adds a third.
+      - All three are strict xfails in test_rules_evaluator.py.
 
 ## Open work, in priority order (updated 2026-10-02)
 

@@ -242,3 +242,28 @@ def test_a_pilot_insufficient_answer_is_untouched():
     out = ev.evaluate_carrier(ALLIED, POOL)
     rec = ev.finish_model_record(_model("INSUFFICIENT_INFORMATION", ["ok"], ["the model's own item"]), ALLIED, out)
     assert rec["status"] == "INSUFFICIENT_INFORMATION" and rec["missing_info"] == ["the model's own item"]
+
+
+# -- round 27 step 5: found while mapping the Sage batch; listed, not changed ----
+# (Step 6 must leave the pilot-ON / batch-OFF path byte-identical.)
+@pytest.mark.xfail(strict=True, reason="round 27: SAG-001 tests Owner Occupied only; Auros's guide lists seasonal "
+                                        "and secondary residences under 'Dwellings must be owner occupied', so a "
+                                        "seasonal Auros home is INELIGIBLE with the pilot ON")
+@pytest.mark.parametrize("occupancy", ["Seasonal", "Secondary Home"])
+def test_an_auros_seasonal_or_secondary_home_is_not_declined_by_sag_001(occupancy):
+    rec, _ = ev.code_record(SAGE, ev.evaluate_carrier(SAGE, dict(BASE, county="Bexar", occupancy_type=occupancy)))
+    assert rec["status"] != "INELIGIBLE"
+
+
+@pytest.mark.xfail(strict=True, reason="round 27: Vacant fails SAG-001, SAG-002 and SAG-005 (three flaws for one "
+                                        "fact; flaw_count decides the One Issue bucket)")
+def test_a_vacant_auros_home_is_one_flaw():
+    rec, _ = ev.code_record(SAGE, ev.evaluate_carrier(SAGE, dict(BASE, county="Bexar", occupancy_type="Vacant")))
+    assert rec["flaw_count"] == 1
+
+
+@pytest.mark.xfail(strict=True, reason="round 27: SAG-081 and SAG-083 share one test, so a county outside "
+                                        "Auros's territory fails twice (the round 19 county hold adds a third)")
+def test_an_auros_county_outside_the_territory_is_one_flaw_in_the_evaluator():
+    rec, _ = ev.code_record(SAGE, ev.evaluate_carrier(SAGE, dict(BASE, county="Dallas")))
+    assert rec["flaw_count"] == 1
