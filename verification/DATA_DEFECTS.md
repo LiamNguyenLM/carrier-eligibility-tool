@@ -339,3 +339,18 @@ LANDLORD CONDOMINIUM ONLY" ineligibility section (3 vs 8, ratio 2.7) and must
 not trip; NatGen Custom360's mis-filed record is 2 vs 34, ratio 17. A
 header-only variant was tried and rejected — it tripped on Sage Occidental
 HO3 and Travelers on one-hit margins.
+
+## Round 29 step 6 (2026-10-08): evidence for the three wrong files (record only)
+
+`data_defects.WRONG_FILE_EVIDENCE` holds, for each, the detected kind, the PDF's size and
+sha256, and what its first page shows. Nothing is removed. Today a profile that reaches one
+gets a GUIDE_UNAVAILABLE row ("The guide on file is the wrong document -- check with the
+carrier directly"), never a verdict; a correct re-upload clears it with no code change (the
+test then flags the record as stale, by hash).
+
+| Program | Detected as | Bytes | sha256 (first 16) | Page 1 |
+|---|---|---|---|---|
+| Liberty_Mutual_HO6_-_02.21.2026 | DUPLICATE_DOCUMENT (DD-1) | 207,340 | c454ca0a8682970c | the HO3 guide ("Texas What's New ... Home and Updates"), identical to Liberty_Mutual_HO3 |
+| NatGen_Custom360_HO3_-_06.25.2026 | DUPLICATE_DOCUMENT (DD-2) | 434,289 | bc0f9c6dc28f939a | "Texas Landlord -- Custom360", identical to NatGen_Custom360_DP3 |
+| Sage_-_Occidental_HO3 | WRONG_PRODUCT (DD-4) | 308,623 | 2a34fcb2a72ad755 | "TEXAS OCCIDENTAL DWELLING FIRE PROGRAM (DP3)"; a different copy from Sage_-_Occidental_DP3 (324,527 bytes) |
+

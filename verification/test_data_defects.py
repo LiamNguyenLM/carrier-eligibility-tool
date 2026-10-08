@@ -133,3 +133,24 @@ class TestDataDefects:
     def test_guide_date_comes_from_the_filename(self):
         assert data_defects.guide_date("Progressive_HO3_-_04.01.2026") == "04.01.2026"
         assert data_defects.guide_date("Allied_Trust_HO3") is None
+
+
+# Round 29 step 6 (2026-10-08): the evidence recorded for the three wrong files.
+@pytest.mark.retrieval
+@pytest.mark.parametrize("program", sorted(data_defects.WRONG_FILE_EVIDENCE))
+def test_wrong_file_evidence_matches_the_detector_and_the_pdf(program):
+    import hashlib
+    kind, size, sha, _ = data_defects.WRONG_FILE_EVIDENCE[program]
+    defect = data_defects.defective_programs().get(program)
+    assert defect and defect["kind"] == kind            # still detected, and as the recorded kind
+    pdf = os.path.join(data_defects.PDF_FOLDER, program + ".pdf")
+    if not os.path.exists(pdf):
+        pytest.skip("no local PDF folder (production)")
+    data = open(pdf, "rb").read()
+    # a different file here means it was re-uploaded: the record is then stale, not the detector
+    assert (len(data), hashlib.sha256(data).hexdigest()) == (size, sha)
+
+
+@pytest.mark.retrieval
+def test_wrong_file_evidence_names_exactly_the_wrong_files_the_detector_finds():
+    assert set(data_defects.WRONG_FILE_EVIDENCE) == set(data_defects.defective_programs())
