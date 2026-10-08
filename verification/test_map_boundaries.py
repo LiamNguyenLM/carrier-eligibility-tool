@@ -164,6 +164,69 @@ CASES += [
       for rid in ("VAV-025", "VAV-026")],
 ]
 
+# ---- Round 29 step 7: the HO3 batch (plain rule in each comment)
+CASES += [
+    # "Unprotected property (class 10) that is not visible ... is ineligible"
+    *[(rid, {}, "ppc", {"9": "N/A", "10": "OPEN"}) for rid in ("ARA-013", "ARB-011")],
+    # "more than 5 miles from an ISO-rated responding fire department are ineligible": a stated distance decides
+    *[(rid, {"ppc": "N/A"}, "fire_station_miles", {"5": "PASS", "5.1": "FAIL"}) for rid in ("ARA-014", "ARB-012", "ORI-098")],
+    *[(rid, {"ppc": "9"}, "fire_station_miles", {"": "PASS", "7": "FAIL"}) for rid in ("ARA-014", "ARB-012", "ORI-098")],
+    *[(rid, {}, "ppc", {"10": "OPEN"}) for rid in ("ARA-014", "ARB-012", "ORI-098")],      # PPC 10, no distance
+    *[(rid, {}, "roof_age", {14: "N/A", 15: "OPEN"}) for rid in ("ARA-059", "ARB-058")],      # 5 years' life left
+    *[money(rid, 700000, "over_refers") for rid in ("ARA-078", "ARB-083")],                    # binding limit $700,000
+    *[money(rid, 1000000, "max") for rid in ("ARA-079", "ARB-087")],                           # Coverage A max $1,000,000
+    *[(rid, {}, "ppc", {"9": "PASS", "10": "FAIL"}) for rid in ("ARA-085", "ARB-093", "ORI-029")],  # class 10 ineligible
+    ("ARB-040", {}, "year_built", {age(20): "PASS", age(21): "FAIL"}),                        # "homes 0-20 years old"
+    money("FOR-005", 100000, "min"), money("FOR-006", 750000, "max"),
+    money("HOA-001", 150000, "min"), money("HOA-002", 2000000, "max"),
+    money("HOA-003", 1500000, "over_refers"),                                                  # "over $1,500,000 ... approval"
+    ("HOA-006", {}, "year_built", {age(100): "PASS", age(101): "FAIL"}),                       # "older than 100 years"
+    ("HOA-008", {"ppc": "8"}, "year_built", {age(3): "PASS", age(4): "FAIL"}),                 # "3 years old or newer"
+    ("HOA-008", {"year_built": age(10)}, "ppc", {"7": "N/A", "8": "FAIL", "10": "FAIL"}),
+    ("HOA-009", {"ppc": "8"}, "year_built", {age(3): "FAIL", age(4): "N/A"}),                  # 8-10 and <= 3 years: refer
+    ("LIB-033", {}, "year_built", {1975: "OPEN", 1976: "N/A"}),                                # "built before 1976"
+    ("LIB-051", {"ppc": "9"}, "dwelling_amount", {3000000: "PASS", 3000001: "FAIL"}),          # PC 9, over $3 million
+    ("LIB-051", {"dwelling_amount": 3500000}, "ppc", {"8": "N/A", "9": "FAIL"}),
+    ("LIB-052", {"ppc": "10"}, "dwelling_amount", {1000000: "PASS", 1000001: "FAIL"}),         # PC 10, over $1 million
+    ("LIB-064", {"ppc": "9"}, "dwelling_amount", {1499999: "PASS", 1500000: "FAIL"}),          # "$1.5 million or more"
+    ("LIB-065", {}, "ppc", {"9": "PASS", "10": "FAIL"}),
+    # PC 9 with Coverage A $1.5-3 million, or any PC 10: within 15 miles of a responding fire department
+    ("LIB-068", {"ppc": "10"}, "fire_station_miles", {"15": "PASS", "15.1": "FAIL"}),
+    ("LIB-068", {"ppc": "9", "fire_station_miles": "20"}, "dwelling_amount",
+     {1499999: "N/A", 1500000: "FAIL", 3000000: "FAIL", 3000001: "N/A"}),
+    *[(rid, {"ppc": "9"}, "dwelling_amount", {1499999: "N/A", 1500000: "OPEN", 3000000: "OPEN"})
+      for rid in ("LIB-069", "LIB-070", "LIB-071", "LIB-072")],
+    ("ORI-050", {}, "year_built", {1899: "FAIL", 1900: "PASS"}),                               # "built before 1900"
+    ("ORI-102", {}, "dwelling_amount", {349999: "FAIL", 350000: "PASS", 2000000: "PASS", 2000001: "FAIL"}),
+    *[(rid, {}, "dwelling_amount", {149999: "FAIL", 150000: "PASS", 2000000: "PASS", 2000001: "FAIL"})
+      for rid in ("SBS-001", "STO-002")],
+    ("SLL-002", {}, "dwelling_amount", {124999: "FAIL", 125000: "PASS", 2000000: "PASS", 2000001: "FAIL"}),
+    *[(rid, {}, "year_built", {age(100): "PASS", age(101): "OPEN"}) for rid in ("SBS-003", "STO-010")],
+    *[(rid, {}, "roof_age", {30: "PASS", 31: "FAIL"}) for rid in ("SBS-005", "STO-012")],     # "older than 30 years"
+    # "Roofs older than 25 years" (shingles, light metal, built-up, wood); 40 for standing seam metal, tile, slate
+    ("SLL-015", {"roof_type": "Composition Shingle"}, "roof_age", {25: "PASS", 26: "FAIL"}),
+    ("SLL-015", {"roof_type": "Tile"}, "roof_age", {40: "PASS", 41: "FAIL"}),
+    ("SLL-015", {"roof_type": "Metal"}, "roof_age", {25: "PASS", 26: "OPEN", 41: "FAIL"}),
+    ("SLL-054", {}, "year_built", {1949: "FAIL", 1950: "PASS"}),                               # "1950 or newer"
+    ("SLL-056", {}, "ppc", {"8": "PASS", "9": "FAIL"}),                                        # "class 9 or 10"
+    money("TWI-002", 2000000, "max"),
+    ("TWI-014", {}, "year_built", {1979: "OPEN", 1980: "N/A"}),                                # "built before 1980"
+    ("TRV-032", {}, "dwelling_amount", {1499999: "N/A", 1500000: "OPEN"}),                     # "$1,500,000 or more"
+    ("TRV-033", {"occupancy_type": "Seasonal"}, "dwelling_amount", {499999: "N/A", 500000: "OPEN"}),
+    ("TRV-073", {"occupancy_type": "Secondary Home"}, "dwelling_amount", {499999: "N/A", 500000: "OPEN"}),
+    # "more than 7 road miles from the first responding fire department": a stated distance decides
+    ("TRV-036", {"ppc": "N/A"}, "fire_station_miles", {"7": "PASS", "7.1": "FAIL"}),
+    ("TRV-036", {"ppc": "3"}, "fire_station_miles", {"": "PASS"}),
+    ("TRV-039", {"occupancy_type": "Seasonal"}, "ppc", {"8": "N/A", "9": "OPEN"}),             # "class 9, 10 ..."
+    ("TRV-044", {}, "roof_age", {10: "N/A", 11: "NOTE"}),                                      # not replaced in 10 years
+    ("TRV-045", {}, "roof_age", {15: "N/A", 16: "NOTE"}),
+    ("TRV-046", {}, "roof_age", {25: "PASS", 26: "NOTE"}),                                     # cure: questionnaire
+    money("TRV-074", 2000000, "or_more_refers"),                                               # "$2,000,000 or more"
+    money("TRV-075", 500000, "or_more_refers", {"dwelling_type": "Condo"}),
+    ("TRV-082", {"coastal_tier": "Tier 2"}, "year_built", {1999: "OPEN", 2000: "PASS"}),       # "unless built in 2000 or newer"
+    ("TRV-083", {"coastal_tier": "Tier 2"}, "dwelling_amount", {1000000: "PASS", 1000001: "OPEN"}),
+]
+
 NUMERIC = re.compile(r"\b\w+ (?:<=|>=|<|>|between)\s+[\d.]|\b\w+ ==\s*\d")
 
 

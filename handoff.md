@@ -1263,6 +1263,35 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       Secondary, where 26 HO3-side carriers now appear and none are removed.
       Tenant, Vacant and every Owner Occupied case are byte-identical.
 
+  - **Step 7 (HO3 batch, 11 guides, behind ELIGIBILITY_RULES_HO3_BATCH):**
+    - Data and map:
+      - rules_data/carrier_rules_ho3_batch_v1.csv (964 rows) and
+        build_ho3_batch_map.py -> ho3_batch_field_map.csv (615 deciding rows:
+        102 decided, 61 gated-but-open, 14 AMBIGUOUS, 18 same-rule, 420 NONE);
+      - RULE_FIELD_MAP.md has the section.
+    - **The batch hook is a registry** (rules_evaluator.BATCHES plus
+      eligibility_check.RULES_BATCH_SWITCHES). A further batch is one entry
+      and one switch line.
+      - A per-carrier occupancy scope picks a two-program guide's rows:
+        Foremost's FOR rows apply to owner's homes only.
+      - The panel shows "+ HO3 batch ON (11 more)".
+    - **Switch:** exactly "1", only with the pilot on, default OFF.
+    - **Tests:**
+      - verification/test_ho3_batch_rules.py;
+      - boundary cases for all 60 numeric HO3 lines, in
+        test_map_boundaries.py.
+      - The boundary cases found one wrong first draft: with an unknown PPC,
+        "within 5 miles" came out OPEN, not FAIL. Hence station_miles_iso.
+    - **Galvanized, batch ON:** code declines the seven carriers on their own
+      galvanized row.
+    - **Galvanized, batch OFF:** a guaranteed plumbing-material lookup
+      (guarantee:plumbing) now brings each carrier's galvanized /
+      polybutylene chunks into the prompt when the form names the material.
+      The seven round 28 strict xfails pass, and none remain.
+    - **Replay vs the parent, HO3 switch OFF, pilot OFF and ON:** 36/39
+      identical. The OLD (galvanized) prompt differs, from the plumbing
+      lookup. Under fixed answers the results are identical.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"

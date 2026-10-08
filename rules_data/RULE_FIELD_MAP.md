@@ -295,3 +295,47 @@ boundary until a form field exists:
 - Vave's 20 rental weeks (NONE);
 - loss counts (NONE);
 - the shoreline distances (SUR-163, SFP-172 and the like, FACT).
+
+## The HO3 batch (round 29 step 7, 2026-10-08)
+
+`ho3_batch_field_map.csv` has one line for each of the 615 deciding rows of
+`carrier_rules_ho3_batch_v1.csv` (11 guides; 964 rows; Claude's review applied
+142 changes). It is built by `build_ho3_batch_map.py`. It is read only when
+ELIGIBILITY_RULES_HO3_BATCH is "1" (and the pilot is on). Its registry entry is
+`rules_evaluator.BATCHES["ho3"]`.
+
+| Carrier | decided by a form field | gated-but-open | AMBIGUOUS | same rule as another row | NONE | total |
+|---|---|---|---|---|---|---|
+| ARI HOA / HOA Plus | 13 | 8 | 3 | 1 | 37 | 62 |
+| ARI HOB | 13 | 6 | 4 | 2 | 40 | 65 |
+| Foremost Choice Homeowners | 8 | 6 | 1 | 4 | 98 | 117 |
+| HOAIC HO3 | 6 | 0 | 0 | 0 | 0 | 6 |
+| Liberty Mutual / Safeco HO3 | 11 | 5 | 0 | 2 | 32 | 50 |
+| Orion180 Flex HO3 | 10 | 6 | 1 | 3 | 49 | 69 |
+| Swyfft Benchmark (Surplus) HO3 | 9 | 2 | 0 | 0 | 27 | 38 |
+| Swyfft Lloyd's (Surplus) HO3 | 10 | 7 | 1 | 1 | 36 | 55 |
+| Swyfft Topa (Surplus) HO3 | 10 | 2 | 1 | 0 | 26 | 39 |
+| TWICO HO3 | 5 | 6 | 1 | 5 | 18 | 35 |
+| Travelers Quantum Home 2.0 | 7 | 13 | 2 | 0 | 57 | 79 |
+| **all** | **102** | **61** | **14** | **18** | **420** | **615** |
+
+**Readings used:**
+- **`station_miles_iso`** (a new derived name) is the stated distance when
+  there is one; otherwise 5 for ISO classes 1-9, which are within 5 road
+  miles; otherwise unknown. A stated distance always decides. The rows that
+  use it: "more than 5 miles from a fire department" (ARA-014, ARB-012,
+  ORI-098) and "more than 7 road miles" (TRV-036).
+- **Roof material lists** name things the form lumps together. Metal may or
+  may not be the "expensive" / corrugated / light metal a guide names, and
+  Flat/Built-Up may or may not be tar and gravel or rolled asphalt. These
+  lines are AMBIGUOUS.
+- **Breeds:** the form's aggressive-breed list is not each carrier's
+  (BREED, as in the pilot).
+- **Foremost:** one guide holds both programs. The FOR rows (homeowners)
+  apply only to an owner's home: the registry scopes them to Owner Occupied,
+  Seasonal and Secondary Home. A Foremost Tenant / Vacant check never reads
+  them.
+- **TWICO:** standard mounted solar is eligible (Liam, 2026-10-06). No solar
+  row decides.
+- **Galvanized:** ARA-050, ARB-048, SBS-030, STO-032, SLL-045, TWI-039 and
+  TRV-054 decide galvanized plumbing. These are round 28's retrieval misses.

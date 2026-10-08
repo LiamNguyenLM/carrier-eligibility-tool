@@ -134,6 +134,7 @@ STEPS = {
     "guarantee:roof_shape": (("roof_shape",), "any"),
     "guarantee:roof_life": (("roof_age", "roof_type"), "any"),
     "guarantee:coverage_a": (("dwelling_amount",), "any"),
+    "guarantee:plumbing": (("plumbing",), "any"),
     # -- post-parse checks and overrides (rules) --------------------------
     "guard:solar_panels": (("solar",), "all"),
     "guard:swimming_pool": (("pool",), "all"),

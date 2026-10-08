@@ -126,6 +126,20 @@ RULES_PILOT_HELP = ('The rules pilot is ON only when the Railway variable ELIGIB
 # and only with the pilot on. OFF is byte-identical to round 27 step 3. Its rows
 # are not yet reviewed: never set on Railway without Liam.
 RULES_SAGE_BATCH = RULES_PILOT and os.environ.get("ELIGIBILITY_RULES_SAGE_BATCH", "0") == "1"
+# Round 29 step 7 (2026-10-08): the HO3 batch (11 guides), the same pattern: exactly "1",
+# only with the pilot on, default OFF. Never set on Railway without Liam.
+RULES_HO3_BATCH = RULES_PILOT and os.environ.get("ELIGIBILITY_RULES_HO3_BATCH", "0") == "1"
+# The batch registry's switches (rules_evaluator.BATCHES): registry name -> this module's flag
+# name and the panel's label. A further batch is one line here and one entry there.
+RULES_BATCH_SWITCHES = {
+    "sage": ("RULES_SAGE_BATCH", "Sage batch"),
+    "ho3": ("RULES_HO3_BATCH", "HO3 batch"),
+}
+
+
+def _batches_on():
+    """The registry names of the batches switched on (read at call time: tests set the flags)."""
+    return {name for name, (flag, _) in RULES_BATCH_SWITCHES.items() if globals()[flag]}
 
 
 def rules_pilot_status_line():
@@ -134,8 +148,9 @@ def rules_pilot_status_line():
     if not RULES_PILOT:
         return "Rules pilot: OFF"
     line = f"Rules pilot: ON ({len(rules_evaluator.PILOT_CARRIERS)} carriers)"
-    if RULES_SAGE_BATCH:
-        line += f" + Sage batch ON ({len(rules_evaluator.SAGE_BATCH_CARRIERS)} more)"
+    for name, (flag, label) in RULES_BATCH_SWITCHES.items():
+        if globals()[flag]:
+            line += f" + {label} ON ({len(rules_evaluator.BATCHES[name]['carriers'])} more)"
     return line
 
 
@@ -741,6 +756,10 @@ def _mentions_solar(content):
     touching the topic. This missed an actual wrong verdict (TWICO
     returned Eligible despite its own explicit solar exclusion)."""
     return "solar" in content.lower()
+
+
+# Round 29 step 7: the form's plumbing answers that guides decline, and the word each guide uses.
+_PLUMBING_MATERIAL_WORDS = {"Galvanized": "galvaniz", "Polybutylene": "polybutylene"}
 
 
 def _mentions_roof_life_expectancy(content):
@@ -3247,10 +3266,12 @@ def _rules_pilot_prepare(carriers, property_details, checked):
     out = {"carriers": frozenset(), "records": [], "open": {}, "outcomes": {}}
     if not RULES_PILOT:
         return out
-    chosen = [c for c in carriers if rules_evaluator.is_rules_table(c, RULES_SAGE_BATCH)]
+    on = _batches_on()
+    wbs = {c: rules_evaluator.rules_table_wb(c, on, property_details) for c in carriers}
+    chosen = [c for c in carriers if wbs[c]]
     out["carriers"] = frozenset(chosen)
     for c in chosen:
-        outcomes = rules_evaluator.evaluate_carrier(c, property_details, checked)
+        outcomes = rules_evaluator.evaluate_carrier(c, property_details, checked, wb=wbs[c])
         out["outcomes"][c] = outcomes
         rec, decided = rules_evaluator.code_record(c, outcomes)
         if decided:
@@ -3510,6 +3531,29 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
                 priority_key=lambda c: not any(
                     k in c.page_content.lower()
                     for k in ("ineligib", "not eligible", "exclu", "unacceptable", "prohibited")
+                ),
+            )
+            for chunk in found:
+                key = (carrier, chunk.page_content)
+                if key not in seen:
+                    seen.add(key)
+                    chunks.append(chunk)
+
+    # Round 29 step 7 (2026-10-08): guaranteed per-carrier PLUMBING MATERIAL lookup. Round 28 found
+    # seven guides (ARI HOA+ / HOB, the three Swyfft Surplus, TWICO, Travelers) whose galvanized
+    # decline never reached the prompt for a galvanized home, so no model could apply it. When the
+    # form names a material guides decline, every carrier's chunks that name it are kept.
+    MAX_PLUMBING_CHUNKS_PER_CARRIER = 2
+    material = _PLUMBING_MATERIAL_WORDS.get(str(property_details.get("plumbing_type", "")))
+    if _on("guarantee:plumbing", checked) and material:
+        for carrier in relevant_carriers:
+            found = guaranteed_carrier_lookup(
+                collection, carrier, predicate=lambda doc: material in doc.lower(),
+                keep=MAX_PLUMBING_CHUNKS_PER_CARRIER,
+                # prefer chunks that pair the material with ineligibility language
+                priority_key=lambda c: not any(
+                    k in c.page_content.lower()
+                    for k in ("ineligib", "not eligible", "not accept", "unacceptable", "exclu", "decline")
                 ),
             )
             for chunk in found:

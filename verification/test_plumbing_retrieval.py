@@ -31,11 +31,13 @@ GALVANIZED_DECLINES = {
     "TWICO_HO3": "Homes with galvanized plumbing are ineligible.",
     "Travelers_HO3_-_06.12.2026": "A dwelling or condo with lead, galvanized or polybutylene plumbing.",
 }
-MISSING_2026_10_07 = set(GALVANIZED_DECLINES)       # all seven, measured on OLD with the pilot OFF
+# Round 28 (2026-10-07): all seven missing. Round 29 step 7 (2026-10-08): the guaranteed plumbing
+# lookup (guarantee:plumbing) brings each one's galvanized rule into the prompt; with the HO3 batch
+# on, code decides them from their rows (test_ho3_batch_rules). No strict xfail remains.
+MISSING_2026_10_07 = set()
 
 
-@pytest.fixture(scope="module")
-def old_prompt():
+def _main_prompt(pd):
     cap = {}
 
     def fake(system, user, max_tokens):
@@ -47,10 +49,15 @@ def old_prompt():
     real = ec._complete
     ec._complete = fake
     try:
-        ec.check_eligibility(dict(M.PROFILES["OLD"]))
+        ec.check_eligibility(dict(pd))
     finally:
         ec._complete = real
     return cap["main"]
+
+
+@pytest.fixture(scope="module")
+def old_prompt():
+    return _main_prompt(M.PROFILES["OLD"])
 
 
 def _section(prompt, carrier):
@@ -70,3 +77,9 @@ def test_a_galvanized_home_gets_the_carriers_galvanized_rule(old_prompt, carrier
 def test_the_old_profile_is_galvanized_and_the_carriers_are_in_the_prompt(old_prompt):
     assert M.PROFILES["OLD"]["plumbing_type"] == "Galvanized"
     assert all(_section(old_prompt, c) for c in GALVANIZED_DECLINES)
+
+
+def test_the_plumbing_lookup_adds_nothing_for_copper_plumbing():
+    """Round 29 step 7: the lookup is keyed on the form's answer; any other answer's prompt is unchanged."""
+    copper = _main_prompt(dict(M.PROFILES["OLD"], plumbing_type="Copper"))
+    assert "galvaniz" not in _section(copper, "TWICO_HO3").lower()

@@ -53,6 +53,9 @@ MAP_CSV = os.path.join(HERE, "rules_data", "rule_field_map.csv")
 # when eligibility_check.RULES_SAGE_BATCH is on. Not yet reviewed.
 SAGE_BATCH_RULES_CSV = os.path.join(HERE, "rules_data", "carrier_rules_sage_batch_v2.csv")
 SAGE_BATCH_MAP_CSV = os.path.join(HERE, "rules_data", "sage_batch_field_map.csv")
+# Round 29 step 7 (2026-10-08): the HO3 batch, read only when eligibility_check.RULES_HO3_BATCH is on.
+HO3_BATCH_RULES_CSV = os.path.join(HERE, "rules_data", "carrier_rules_ho3_batch_v1.csv")
+HO3_BATCH_MAP_CSV = os.path.join(HERE, "rules_data", "ho3_batch_field_map.csv")
 
 # workbook carrier name -> pipeline carrier
 PILOT_CARRIERS = {
@@ -71,8 +74,36 @@ SAGE_BATCH_CARRIERS = {
     "Sage Markel HO3": "Sage_-_Markel_HO3",
     "Sage Vave HO3": "Sage_-_Vave_HO3_-_07.01.2026",
 }
-WB_TO_CANON = {**PILOT_CARRIERS, **SAGE_BATCH_CARRIERS}
-CANON_TO_WB = {v: k for k, v in WB_TO_CANON.items()}
+HO3_BATCH_CARRIERS = {
+    "ARI HOA / HOA Plus": "ARI_(HOA+)",
+    "ARI HOB": "ARI_(HOB)",
+    "Foremost Choice Homeowners": "Foremost_DP3_and_HO3_-_07.01.2026",
+    "HOAIC HO3": "HOAIC_-_TX-HOMEOWNERS-0326_HO3",
+    "Liberty Mutual / Safeco HO3": "Liberty_Mutual_HO3_-_02.21.2026",
+    "Orion180 Flex HO3": "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3",
+    "Swyfft Benchmark (Surplus) HO3": "Swyfft_-_Benchmark_(Surplus)_HO3",
+    "Swyfft Lloyd's (Surplus) HO3": "Swyfft_-_Lloyds_(Surplus)_HO3",
+    "Swyfft Topa (Surplus) HO3": "Swyfft_-_Topa_(Surplus)_HO3",
+    "TWICO HO3": "TWICO_HO3",
+    "Travelers Quantum Home 2.0": "Travelers_HO3_-_06.12.2026",
+}
+# An owner's own home (round 29 decision 2): the occupancies a homeowners program sees.
+OWNERS_HOMES = ("Owner Occupied", "Seasonal", "Secondary Home")
+
+# The batch registry (round 29 step 7): one entry per rules-table batch. "scope" is for a
+# pipeline carrier whose one guide holds two programs (Foremost: homeowners and dwelling
+# fire): {workbook carrier: the occupancies its rows apply to}. A further batch is one entry
+# here plus its switch in eligibility_check.RULES_BATCH_SWITCHES.
+BATCHES = {
+    "pilot": {"rules": RULES_CSV, "map": MAP_CSV, "carriers": PILOT_CARRIERS},
+    "sage": {"rules": SAGE_BATCH_RULES_CSV, "map": SAGE_BATCH_MAP_CSV, "carriers": SAGE_BATCH_CARRIERS},
+    "ho3": {"rules": HO3_BATCH_RULES_CSV, "map": HO3_BATCH_MAP_CSV, "carriers": HO3_BATCH_CARRIERS,
+            "scope": {"Foremost Choice Homeowners": OWNERS_HOMES}},
+}
+WB_TO_CANON = {wb: canon for b in BATCHES.values() for wb, canon in b["carriers"].items()}
+CANON_TO_WB = {}
+for _wb, _canon in WB_TO_CANON.items():
+    CANON_TO_WB.setdefault(_canon, _wb)        # a two-program carrier's first workbook name; see rules_table_wb
 
 DECIDING = ("EVALUATE", "EVALUATE_CURE_IS_INSPECTION")
 FIELD_TOPIC = {   # map field -> round 21 topic (always-on fields -> None)
@@ -121,17 +152,33 @@ def load_batch_map():
     return _CACHE["batch_map"]
 
 
+def _load(kind, path):
+    key = (kind, path)
+    if key not in _CACHE:
+        idx = "Rule ID" if kind == "rules" else "row_id"
+        _CACHE[key] = {r[idx]: r for r in _read_csv(path)}
+    return _CACHE[key]
+
+
 def _rules():
-    """Every row the evaluator can cite: the pilot's v3 rows, then the Sage
-    batch's (their ids never collide; a carrier only ever reads its own)."""
+    """Every row the evaluator can cite: the pilot's rows, then each batch's, in
+    registry order (their ids never collide; a carrier only ever reads its own)."""
     if "all_rules" not in _CACHE:
-        _CACHE["all_rules"] = {**load_rules(), **load_batch_rules()}
+        out = {**load_rules(), **load_batch_rules()}
+        for name, b in BATCHES.items():
+            if name not in ("pilot", "sage"):
+                out.update(_load("rules", b["rules"]))
+        _CACHE["all_rules"] = out
     return _CACHE["all_rules"]
 
 
 def _map():
     if "all_map" not in _CACHE:
-        _CACHE["all_map"] = {**load_map(), **load_batch_map()}
+        out = {**load_map(), **load_batch_map()}
+        for name, b in BATCHES.items():
+            if name not in ("pilot", "sage"):
+                out.update(_load("map", b["map"]))
+        _CACHE["all_map"] = out
     return _CACHE["all_map"]
 
 
@@ -161,6 +208,10 @@ def facts(pd, today=None):
     # Round 26 (decision B): blank / Unknown is unknown, never "no".
     f["fire_station_miles"] = intake_fields.parse_station_miles(pd.get("fire_station_miles"))
     f["hydrant_1000ft"] = intake_fields.hydrant_answer(pd.get("hydrant_1000ft"))
+    # Round 29 step 7: "within N road miles of a fire station" (HO3 batch). A stated distance
+    # decides; with none, ISO classes 1-9 are within 5 road miles; otherwise unknown.
+    f["station_miles_iso"] = (f["fire_station_miles"] if f["fire_station_miles"] is not None
+                              else 5.0 if f["ppc_num"] is not None and f["ppc_num"] <= 9 else None)
     for box in ("pool_fence_4ft", "pool_gate_locking"):      # unticked = unknown, never "no"
         f[box] = True if intake_fields.pool_box(pd, box) else None
     return f
@@ -376,10 +427,11 @@ def citation(r):
     return f"{WB_TO_CANON[r['Carrier']]}: [{r['Rule ID']}] p.{_page(r)}: \"{r['Verbatim quote from guide']}\""
 
 
-def evaluate_carrier(canon, pd, checked=None):
-    """{row_id: (outcome, detail)} for one pilot carrier's deciding rows."""
+def evaluate_carrier(canon, pd, checked=None, wb=None):
+    """{row_id: (outcome, detail)} for one rules-table carrier's deciding rows. wb: the workbook
+    carrier (rules_table_wb picks it for a carrier whose guide holds two programs)."""
     rules, fmap = _rules(), _map()
-    wb = CANON_TO_WB[canon]
+    wb = wb or CANON_TO_WB[canon]
     f = facts(pd)
     return {rid: evaluate_row(m, f, checked) for rid, m in fmap.items()
             if rules[rid]["Carrier"] == wb and rules[rid]["Tool handling"] in DECIDING}
@@ -389,7 +441,7 @@ def also_confirm(canon, outcomes):
     """The carrier's never-a-hold notes: NONE rows and CONDITION_STANDARD rows
     grouped by topic, then each NOTE row with its reason."""
     rules = _rules()
-    wb = CANON_TO_WB[canon]
+    wb = _wb_of(canon, outcomes)
     groups = {}
     for rid, (o, _) in outcomes.items():
         if o == "NONE":
@@ -476,14 +528,14 @@ def evidence_text(open_carriers):
     return "\n".join(out)
 
 
-_ROW_ID = re.compile(r"\b(?:ALL|SAG|CHU|MER|PRO|SWY|SUR|SFP|WIL|TRI|MKL|VAV)-\d{3}\b")
+_ROW_ID = re.compile(r"\b[A-Z]{3}-\d{3}\b")      # any batch's row id; filtered to the carrier's own rows
 
 
 def finish_model_record(rec, canon, outcomes):
     """A model record for a pilot carrier: attach id + page + quote for every
     row id it names, keep its reasons, add the never-a-hold notes, mark it."""
     rules = _rules()
-    wb = CANON_TO_WB[canon]
+    wb = _wb_of(canon, outcomes)
     text = " ".join((rec.get("reasons") or []) + (rec.get("citations") or []) + (rec.get("missing_info") or []))
     ids = [rid for rid in dict.fromkeys(_ROW_ID.findall(text)) if rid in rules and rules[rid]["Carrier"] == wb]
     rec["citations"] = [citation(rules[rid]) for rid in ids]
@@ -538,10 +590,36 @@ def is_sage_batch(carrier):
     return carrier in SAGE_BATCH_CARRIERS.values()
 
 
-def is_rules_table(carrier, sage_batch=False):
-    """The rules table decides this carrier: a pilot carrier, or (with the
-    Sage batch switch on) one of the Sage batch."""
-    return is_pilot(carrier) or (sage_batch and is_sage_batch(carrier))
+def is_rules_table(carrier, sage_batch=False, batches_on=(), pd=None):
+    """The rules table decides this carrier: a pilot carrier, or one of a batch whose switch is on
+    (sage_batch: the round 27 form of batches_on={"sage"})."""
+    on = set(batches_on) | ({"sage"} if sage_batch else set())
+    return rules_table_wb(carrier, on, pd) is not None
+
+
+def rules_table_wb(carrier, batches_on=(), pd=None):
+    """The workbook carrier whose rows decide `carrier` for this property, or None: the pilot's,
+    or that of a batch in batches_on whose scope (if any) covers the property's occupancy."""
+    occupancy = (pd or {}).get("occupancy_type")
+    for name, b in BATCHES.items():
+        if name != "pilot" and name not in batches_on:
+            continue
+        for wb, canon in b["carriers"].items():
+            if canon != carrier:
+                continue
+            scope = b.get("scope", {}).get(wb)
+            if scope is None or occupancy in scope:
+                return wb
+    return None
+
+
+def _wb_of(canon, outcomes):
+    """The workbook carrier behind these outcomes (the rows evaluated), else the carrier's first."""
+    rules = _rules()
+    for rid in outcomes:
+        if rid in rules:
+            return rules[rid]["Carrier"]
+    return CANON_TO_WB[canon]
 
 
 def territory_rows(canon):
