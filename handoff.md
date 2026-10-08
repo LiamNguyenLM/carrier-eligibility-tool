@@ -1643,6 +1643,40 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
         one retry. Still unparseable -> the Parse Error card, as before.
         Tests in test_omitted_retry.py.
     - **Tier 2 on 10867e9, Haiku 5.5 low:** 22 passed, 0 failed.
+    - **Tier 2 on 5c9dafd (final code, Luna, live configuration):** 22
+      passed, 0 failed.
+  - **Step 6 (Haiku 5.5 low in the live configuration; measurement only):**
+    - Run on 5c9dafd. Pilot + Sage + HO3 + DP batches ON. The round 29 step 3
+      profiles, 8 x 3 runs per model, configs alternating, one check at a
+      time with nothing else running.
+
+      | | Haiku 5.5 low | Luna |
+      |---|---|---|
+      | wall s per check | 11.7 | 15.8 |
+      | cost $ per check | 0.0023 | 0.0011 |
+      | same verdict in all 3 runs | 199/200 | 200/200 |
+      | CLEAN holds per run | 5, 5, 5 | 5, 5, 5 |
+      | carriers omitted / NOT_EVALUATED after the retry | 0 / 0 | 0 / 0 |
+      | OLD galvanized declines (13 carriers x 3) | 39 | 39 |
+      | Tier 2 (live configuration) | 22 / 0 (10867e9) | 22 / 0 (5c9dafd) |
+
+    - **Gate:** same verdict 99.5% vs 100% (>= Luna - 2 points); CLEAN 5 vs
+      5; omitted 0; Tier 2 no new failures; OLD 39 vs 39; wall 0.74x. All
+      pass.
+    - **No carrier is decided differently in every run.** Haiku's one
+      inconsistent cell: LIVE+Bexar Swyfft Benchmark (Admitted), SWY-043
+      ("Tesla Solar Roofs, including those with Tesla batteries or any Tesla
+      parts, are ineligible"). Haiku held once on the panel brand, which the
+      form never asks. Luna (ELIGIBLE, 3/3) is right under decision 2.
+    - **What the model still decides.** In this configuration the main call
+      decides no carrier on these profiles: all are rules-table or fixed rows.
+      The model only judges the AMBIGUOUS rows in the rules-check call.
+      That is why wall time and cost fell for both, compared with round 29.
+    - **Switch is safe: set ELIGIBILITY_MODEL=claude-haiku-5-5 and
+      ELIGIBILITY_EFFORT=low.** Cost is 2.1x Luna's.
+  - **Step 7 (replacement guides):** no PDF in carrier_eligibility_pdfs/ is
+    dated after 2026-10-08 (the newest is 2026-08-14). Skipped. The seed is
+    unchanged, so FORCE_RESEED is not needed again.
 
 ## Open work, in priority order (updated 2026-10-02)
 

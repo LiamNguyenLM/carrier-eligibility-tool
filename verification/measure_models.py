@@ -2,7 +2,7 @@
 Sage batch ON, recorded for the Haiku 5.5 vs Luna comparison. Real API cost.
 Measurement only: the production default stays gpt-6-luna.
 
-usage: python verification/measure_models.py <model> <effort|-> <PROFILE> <label> <out.jsonl>
+usage: python verification/measure_models.py <model> <effort|-> <PROFILE> <label> <out.jsonl> [all]
 PROFILE: LIVE, LIVE+Bexar, OLD, CLEAN, STRESS, or a Tier 2 baseline profile (ALT, COASTAL_PPC4,
 OWNERSHIP_BASE). Each call's raw answer is checked against the carrier enum the call sent.
 
@@ -26,6 +26,8 @@ import measure_rules_pilot as M  # noqa: E402
 import profiles as P  # noqa: E402
 
 model, effort, prof, label, out = sys.argv[1:6]
+# round 30 step 6: "all" also switches on the HO3 and DP batches (the live configuration)
+batches = sys.argv[6] if len(sys.argv) > 6 else "pilot+sage"
 LIVE = dict(P.LIVE_PROFILE)
 PROFILES = {"LIVE": (LIVE, P.LIVE_CHECKED), "LIVE+Bexar": (dict(LIVE, county="Bexar", zip=""), P.LIVE_CHECKED),
             **{k: (M.PROFILES[k], None) for k in ("OLD", "CLEAN", "STRESS", "ALT", "COASTAL_PPC4",
@@ -37,6 +39,7 @@ ec.ELIGIBILITY_MODEL = model
 ec.ELIGIBILITY_EFFORT = None if effort == "-" else effort
 ec.RULES_PILOT = True
 ec.RULES_SAGE_BATCH = True
+ec.RULES_HO3_BATCH = ec.RULES_DP_BATCH = batches == "all"
 calls = []
 real = ec._complete
 
@@ -72,7 +75,7 @@ price = PRICE["gpt" if model.startswith("gpt") else "claude"]
 cost = sum((c["usage"].get("input_tokens", 0) * price["in"] + c["usage"].get("cache_read_input_tokens", 0) * price["cached"]
             + c["usage"].get("cache_creation_input_tokens", 0) * price["write"]
             + c["usage"].get("output_tokens", 0) * price["out"]) / 1e6 for c in calls)
-rec = {"model": model, "effort": effort, "profile": prof, "label": label,
+rec = {"model": model, "effort": effort, "profile": prof, "label": label, "batches": batches,
        "commit": os.popen("git rev-parse --short HEAD").read().strip(), "wall": wall, "cost": round(cost, 5),
        "calls": calls, "buckets": {k: len(v) for k, v in ec.assign_buckets(res).items()},
        # round 29: what the hold guard did (cards released, cards trimmed, items moved to notes)
