@@ -1677,6 +1677,11 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
   - **Step 7 (replacement guides):** no PDF in carrier_eligibility_pdfs/ is
     dated after 2026-10-08 (the newest is 2026-08-14). Skipped. The seed is
     unchanged, so FORCE_RESEED is not needed again.
+  - **Fast tiers:**
+    - 71a9b11 (step 1): 1,891 passed, 0 failed.
+    - afe11e3 (step 2), 794cb1a (step 3), cf48084 (step 4): the same 2
+      failures in test_rules_evaluator.py (FACT -> NOTE), fixed in 6a66d2f.
+    - aa1ad14 (round 30 code head): 1,941 passed, 0 failed.
 
 ## Open work, in priority order (updated 2026-10-02)
 
