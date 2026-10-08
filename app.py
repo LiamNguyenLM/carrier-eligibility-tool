@@ -162,6 +162,19 @@ with tab1:
         else:
             ownership_type = "Individual Owner"
 
+        # Round 30 step 1 (Liam, 2026-10-08, decision 1): only for the owner's other homes;
+        # hidden (and absent from property_details) for every other occupancy.
+        primary_home_carrier = primary_home_miles = None
+        if occupancy_type in intake_fields.OWNERS_OTHER_HOMES:
+            primary_home_carrier = st.selectbox(
+                "Primary home insured with", list(intake_fields.PRIMARY_HOME_CHOICES), key="primary_carrier",
+                format_func=lambda v: v or "— pick one —",
+                help="The carrier that insures the owner's primary home. Several guides write a "
+                     "seasonal or secondary home only when they also insure the primary home.")
+            primary_home_miles = intake_fields.parse_primary_home_miles(st.text_input(
+                "Distance to the primary home (miles)", value="", key="primary_miles",
+                placeholder="e.g. 40 — leave blank if unknown"))
+
     has_dogs = st.toggle("Dogs on Premises", key="dogs",
                          on_change=_autotick, args=("dogs", "dogs", False))
     if has_dogs:
@@ -344,6 +357,11 @@ with tab1:
                 "dwelling_amount": dwelling_amount,
                 "dwelling_type": dwelling_type,
             }
+            # Round 30 step 1: present only when the question was shown, so every other
+            # profile's property_details (and prompt) is byte-identical.
+            if occupancy_type in intake_fields.OWNERS_OTHER_HOMES:
+                property_details["primary_home_carrier"] = primary_home_carrier or ""
+                property_details["primary_home_miles"] = primary_home_miles
 
             with st.spinner("Analyzing carrier eligibility..."):
                 results = check_eligibility(property_details, checked_topics=checked_topics)

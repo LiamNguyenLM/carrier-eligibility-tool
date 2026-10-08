@@ -45,7 +45,47 @@ FORM_FIELDS = {
     "county": (r"\bcounty\b", r"territory", r"south texas", r"east texas"),
     "dwelling_amount": (r"coverage a\b", r"dwelling (amount|limit|coverage)", r"cov\.? a\b"),
     "dwelling_type": (r"dwelling type", r"\bcondo", r"townhome", r"townhouse", r"unit[- ]owner", r"single[- ]family"),
+    # Round 30 step 1 (Liam, 2026-10-08): asked only for a Seasonal / Secondary Home.
+    "primary_home_carrier": (r"(insures?|writes?|written|insured)\b.{0,40}\bprimary",
+                             r"primary\b.{0,40}\b(insur|written|writes)", r"primary (home|residence|dwelling) carrier"),
+    "primary_home_miles": (r"(distance|miles)\b.{0,30}\bprimary", r"primary\b.{0,30}\b(distance|miles)"),
 }
+
+# Round 30 step 1 (Liam, 2026-10-08, decision 1): "Primary home insured with", shown only for a
+# Seasonal / Secondary Home. One choice per insurer, in the carrier list's order (the list is the
+# program names sorted, so an insurer's programs sit together); Sage's insurers stay separate.
+# label -> the program-name prefixes it covers. Every expected program maps to exactly one label
+# (test_primary_home_fields.py), so a new carrier cannot be left out silently.
+PRIMARY_HOME_CARRIERS = {
+    "ARI": ("ARI_",), "Allied Trust": ("Allied_Trust",), "Chubb": ("CHUBB_",), "Centauri": ("Centauri_",),
+    "Foremost": ("Foremost_",), "HOAIC": ("HOAIC_",), "Liberty Mutual / Safeco": ("Liberty_Mutual_",),
+    "Mercury": ("Mercury_",), "National General": ("NatGen_",), "Orion180": ("Orion_",),
+    "Progressive": ("Progressive_",), "Sage: Auros": ("Sage_-_Auros",), "Sage: Markel": ("Sage_-_Markel",),
+    "Sage: Occidental": ("Sage_-_Occidental",), "Sage: SURE": ("Sage_-_SURE",),
+    "Sage: SafePort": ("Sage_-_SafePort",), "Sage: Trium": ("Sage_-_Trium",), "Sage: Vave": ("Sage_-_Vave",),
+    "Sage: Wilshire": ("Sage_-_Wilshire",), "Steadily": ("Steadily_",), "Swyfft": ("Swyfft_",),
+    "TWICO": ("TWICO_",), "Travelers": ("Travelers_",),
+}
+OTHER_CARRIER, UNKNOWN_CARRIER = "Other carrier", "Unknown"
+PRIMARY_HOME_CHOICES = ("",) + tuple(PRIMARY_HOME_CARRIERS) + (OTHER_CARRIER, UNKNOWN_CARRIER)
+OWNERS_OTHER_HOMES = ("Seasonal", "Secondary Home")
+
+
+def primary_home_label(program):
+    """The "Primary home insured with" choice that covers a program name, or None."""
+    hits = [label for label, prefixes in PRIMARY_HOME_CARRIERS.items() if program.startswith(prefixes)]
+    return hits[0] if len(hits) == 1 else None
+
+
+def primary_home_carrier(value):
+    """A stated choice ("Chubb", "Other carrier"), or None for blank / Unknown / anything else."""
+    v = str(value or "").strip()
+    return v if v in PRIMARY_HOME_CARRIERS or v == OTHER_CARRIER else None
+
+
+def parse_primary_home_miles(value):
+    """Miles from the primary home, or None when blank or unreadable (read as the station distance)."""
+    return parse_station_miles(value)
 
 
 def _load_counties():

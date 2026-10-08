@@ -64,7 +64,9 @@ def test_every_expression_parses(prof):
 
 def test_coverage():
     kinds = collections.Counter(builder.kind(builder.MAP.get(rid, ("NONE", "", "", "", ""))) for rid in FMAP)
-    assert kinds == {"decided by a form field": 102, "gated-but-open": 61, "AMBIGUOUS": 14,
+    # CHANGED DELIBERATELY (round 30 step 1, 2026-10-08; Liam's decision 1): ARA-029, SBS-027, TWI-005
+    # and TRV-039 are decided by the new primary-home questions (were 102 / 61).
+    assert kinds == {"decided by a form field": 106, "gated-but-open": 57, "AMBIGUOUS": 14,
                      "same rule as another row": 18, "NONE": 420}
 
 

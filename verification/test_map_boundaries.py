@@ -227,6 +227,10 @@ CASES += [
     ("TRV-083", {"coastal_tier": "Tier 2"}, "dwelling_amount", {1000000: "PASS", 1000001: "OPEN"}),
 ]
 
+# ---- Round 30 step 1: "less than 50 miles from the primary residence" (the new distance question)
+CASES += [(rid, {"occupancy_type": "Seasonal"}, "primary_home_miles", {"49.9": "FAIL", "50": "PASS", "": "OPEN"})
+          for rid in ("SWY-007", "SBS-027")]
+
 NUMERIC = re.compile(r"\b\w+ (?:<=|>=|<|>|between)\s+[\d.]|\b\w+ ==\s*\d")
 
 

@@ -254,7 +254,7 @@ SAG-150,NONE,,,REFERS_TO_UW,,not asked by the form
 SAG-151,NONE,,,DECLINES,,not asked by the form
 CHU-002,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 CHU-003,NONE,,,DECLINES,,the form has no field for this
-CHU-004,occupancy_type;dwelling_type,FACT(Chubb writes the primary residence),"occupancy_type in {Seasonal, Secondary Home} or occupancy_type == Tenant Occupied or dwelling_type == Condo",CONDITION,Chubb writes the primary,
+CHU-004,occupancy_type;dwelling_type;primary_home_carrier,primary_home_carrier == Chubb,"occupancy_type in {Seasonal, Secondary Home} or occupancy_type == Tenant Occupied or dwelling_type == Condo",CONDITION,Chubb writes the primary,
 CHU-005,occupancy_type,FACT(Chubb writes the primary residence),occupancy_type == Tenant Occupied,CONDITION,Chubb writes the primary,
 CHU-009,NONE,,,CONDITION,,the form has no field for this
 CHU-011,NONE,,,UNKNOWN,,the form has no field for this
@@ -276,8 +276,8 @@ CHU-041,NONE,,,DECLINES,,location detail beyond county / tier is not asked
 CHU-042,NONE,,,CONDITION,,location detail beyond county / tier is not asked
 CHU-043,county,FACT(not Territory 8/9/10 or Harris 1A),"county in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Harris, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy}",DECLINES,Chubb territory,no ZIP list in the guide
 CHU-044,county,FACT(not Harris 1B/1C/1E),county == Harris,REFERS_TO_UW,Chubb territory,
-CHU-045,county;occupancy_type,FACT(Chubb writes the primary),"county == Harris and occupancy_type in {Seasonal, Secondary Home}",CONDITION,Chubb territory; primary,
-CHU-046,county;occupancy_type,"FACT(Chubb primary, $25,000 non-CAT premium)","county == Harris and occupancy_type in {Seasonal, Secondary Home}",CONDITION,Chubb territory; premium,
+CHU-045,county;occupancy_type;primary_home_carrier,primary_home_carrier == Chubb,"county == Harris and occupancy_type in {Seasonal, Secondary Home}",CONDITION,Chubb territory; primary,
+CHU-046,county;occupancy_type;primary_home_carrier,"primary_home_carrier == Chubb and FACT($25,000 non-CAT premium)","county == Harris and occupancy_type in {Seasonal, Secondary Home}",CONDITION,Chubb territory; premium,
 CHU-047,county;occupancy_type,FACT(not Harris 1A-east or Territory 8/9/10),"county in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Harris, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy} and occupancy_type in {Seasonal, Secondary Home}",DECLINES,Chubb territory,
 CHU-050,NONE,,,DECLINES,,the form has no field for this
 CHU-051,NONE,,,DECLINES,,the form has no field for this
@@ -326,7 +326,7 @@ CHU-106,NONE,,,DECLINES,,not asked by the form
 CHU-107,NONE,,,DECLINES,,not asked by the form
 MER-001,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 MER-002,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
-MER-003,occupancy_type,FACT(Mercury insures the primary dwelling),"occupancy_type in {Seasonal, Secondary Home}",DECLINES,Mercury writes the primary,
+MER-003,occupancy_type;primary_home_carrier,primary_home_carrier == Mercury,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,Mercury writes the primary,round 30 step 1: the form's 'Primary home insured with'
 MER-004,NONE,,,DECLINES,,the form has no field for this
 MER-005,ownership_type,"ownership_type != LLC || ownership_type not in {LLC, Trust}",always,DECLINES,,AMBIGUOUS: a form Trust may be a corporate trust
 MER-006,NONE,,,DECLINES,,the form has no field for this
@@ -507,7 +507,7 @@ SWY-003,NONE,,,DECLINES,,the form has no field for this
 SWY-004,NONE,,,DECLINES,,the form has no field for this
 SWY-005,NONE,,,DECLINES,,the form has no field for this
 SWY-006,NONE,,,DECLINES,,the form has no field for this
-SWY-007,occupancy_type,FACT(owner-occupied and 50+ miles from the primary),"occupancy_type in {Seasonal, Secondary Home}",DECLINES,distance from primary,
+SWY-007,occupancy_type;primary_home_miles,primary_home_miles >= 50,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,distance from primary,round 30 step 1: 'less than 50 miles from the primary residence'; the home is the owner's (decision 2)
 SWY-009,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,
 SWY-010,NONE,,,DECLINES,,the form has no field for this
 SWY-011,ownership_type,"ownership_type not in {Trust, LLC}",always,REFERS_TO_UW,,trust or LLC: refer

@@ -22,7 +22,7 @@ ARA-024,coastal_tier,"FACT(more than 1,000 ft from the Gulf or a coastal bay)",c
 ARA-025,swimming_pool;pool_gate_locking,"swimming_pool not in {In Ground - Unfenced, Above Ground - Unfenced} and pool_gate_locking == True and FACT(fence at least 6 ft)",swimming_pool != No Pool,CONDITION,6 ft fence; locked or self-locking gate,the form's fence box is 4 ft
 ARA-026,swimming_pool;pool_accessories,pool_accessories == None,swimming_pool != No Pool,DECLINES,,
 ARA-028,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
-ARA-029,occupancy_type,FACT(ARI insures the primary home),"occupancy_type in {Seasonal, Secondary Home}",DECLINES,ARI insures the primary home,
+ARA-029,occupancy_type;primary_home_carrier,primary_home_carrier == ARI,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,ARI insures the primary home,round 30 step 1: the form's 'Primary home insured with'
 ARA-030,occupancy_type,occupancy_type == Owner Occupied,"occupancy_type in {Seasonal, Secondary Home}",REFERS_TO_UW,,a seasonal or secondary home is always referred (ineligible unless ARI insures the primary)
 ARA-031,NONE,,,DECLINES,,siding / construction details are not form options
 ARA-032,NONE,,,DECLINES,,foundation is not asked
@@ -381,7 +381,7 @@ SBS-023,NONE,,,DECLINES,,not asked by the form
 SBS-024,NONE,,,DECLINES,,the number of individual owners is not asked
 SBS-025,NONE,,,DECLINES,,not asked by the form
 SBS-026,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
-SBS-027,occupancy_type,FACT(at least 50 miles from the primary residence),"occupancy_type in {Seasonal, Secondary Home}",DECLINES,distance from the primary home,
+SBS-027,occupancy_type;primary_home_miles,primary_home_miles >= 50,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,distance from the primary home,
 SBS-028,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,
 SBS-029,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SBS-030,plumbing_type,"plumbing_type not in {Galvanized, Polybutylene}",always,DECLINES,,
@@ -503,7 +503,7 @@ STO-059,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
 STO-060,NONE,,,REFERS_TO_UW,,"unit count, foundation and original use are not asked"
 TWI-002,dwelling_amount,dwelling_amount <= 2000000,always,DECLINES,,
 TWI-004,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,
-TWI-005,occupancy_type,FACT(the primary home is also written with TWICO),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,primary home written with TWICO,
+TWI-005,occupancy_type;primary_home_carrier,primary_home_carrier == TWICO,"occupancy_type in {Seasonal, Secondary Home}",CONDITION,primary home written with TWICO,
 TWI-009,NONE,,,DECLINES,,the number of individual owners is not asked
 TWI-010,occupancy_type,always,always,DECLINES,,decided by TWI-004 (the same rule); never a second flaw
 TWI-011,ownership_type,"FACT(written in the trustee's name, the trust an Additional Insured)",ownership_type == Trust,CONDITION,trustee's name,
@@ -564,7 +564,7 @@ TRV-035,NONE,,,CONDITION,,"TIV, Coverage B and the HO5 form are not asked"
 TRV-036,ppc;fire_station_miles,station_miles_iso <= 7,always,DECLINES,station distance if not given,a stated distance decides; else ISO classes 1-9 are within 5 road miles
 TRV-037,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 TRV-038,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
-TRV-039,occupancy_type;ppc,FACT(Travelers writes the primary dwelling),"occupancy_type in {Seasonal, Secondary Home} and ppc_num >= 9",DECLINES,primary dwelling with Travelers,
+TRV-039,occupancy_type;ppc;primary_home_carrier,primary_home_carrier == Travelers,"occupancy_type in {Seasonal, Secondary Home} and ppc_num >= 9",DECLINES,primary dwelling with Travelers,
 TRV-040,NONE,,,DECLINES,,siding / construction details are not form options
 TRV-041,roof_type,"roof_type != Wood Shake || roof_type not in {Wood Shake, Flat/Built-Up}",always,DECLINES,,rolled asphalt may or may not be the form's Flat/Built-Up
 TRV-042,NONE,,,DECLINES,,roof condition and layers are not asked

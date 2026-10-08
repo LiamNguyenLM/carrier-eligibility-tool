@@ -1082,6 +1082,15 @@ def _property_details_text(pd, home_age, occupancy, ownership, checked, carriers
         rows.append(("fact:fire_station_miles", f"Driving Distance to Responding Fire Station: {miles:g} miles"))
     if hydrant:
         rows.append(("fact:hydrant_1000ft", f"Hydrant Within 1,000 Feet: {hydrant}"))
+    # Round 30 step 1 (Liam, 2026-10-08, decision 1): asked only for a Seasonal / Secondary Home,
+    # and stated only when answered, so every other prompt is byte-identical.
+    if occupancy in intake_fields.OWNERS_OTHER_HOMES:
+        primary = intake_fields.primary_home_carrier(pd.get("primary_home_carrier"))
+        primary_miles = intake_fields.parse_primary_home_miles(pd.get("primary_home_miles"))
+        if primary:
+            rows.append((None, f"Primary Home Insured With: {primary}"))
+        if primary_miles is not None:
+            rows.append((None, f"Distance to the Primary Home: {primary_miles:g} miles"))
     county, amount, dtype = _county(pd), _dwelling_amount(pd), _dwelling_type(pd)
     if county:
         rows.append(("fact:county", f"County: {county}"))

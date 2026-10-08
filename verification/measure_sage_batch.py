@@ -35,7 +35,16 @@ PROFILES = {"LIVE": (LIVE, P.LIVE_CHECKED), "LIVE+Bexar": (BEXAR, P.LIVE_CHECKED
             "OLD+Tenant": (dict(M.PROFILES["OLD"], occupancy_type="Tenant Occupied"), None),
             "Tenant+LLC": (dict(BEXAR, occupancy_type="Tenant Occupied", ownership_type="LLC"), P.LIVE_CHECKED),
             "VACANT": (dict(BEXAR, occupancy_type="Vacant"), P.LIVE_CHECKED),
-            "CONDO": (dict(BEXAR, dwelling_type="Condo"), P.LIVE_CHECKED)}
+            "CONDO": (dict(BEXAR, dwelling_type="Condo"), P.LIVE_CHECKED),
+            # round 30: the primary-home questions (step 1) and condo routing (step 4)
+            "SEASONAL+Chubb40": (dict(BEXAR, occupancy_type="Seasonal", primary_home_carrier="Chubb",
+                                      primary_home_miles=40), P.LIVE_CHECKED),
+            "SEASONAL+Unknown": (dict(BEXAR, occupancy_type="Seasonal", primary_home_carrier="Unknown",
+                                      primary_home_miles=None), P.LIVE_CHECKED),
+            "SECONDARY+Chubb40": (dict(BEXAR, occupancy_type="Secondary Home", primary_home_carrier="Chubb",
+                                       primary_home_miles=40), P.LIVE_CHECKED),
+            "CONDO+Tenant": (dict(BEXAR, dwelling_type="Condo", occupancy_type="Tenant Occupied"), P.LIVE_CHECKED),
+            "CONDO+Seasonal": (dict(BEXAR, dwelling_type="Condo", occupancy_type="Seasonal"), P.LIVE_CHECKED)}
 pd, checked = PROFILES[prof]
 ec.RULES_PILOT = True
 ec.RULES_SAGE_BATCH = batch == "ON"

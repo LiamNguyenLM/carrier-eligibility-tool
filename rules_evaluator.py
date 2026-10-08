@@ -153,6 +153,7 @@ FIELD_TOPIC = {   # map field -> round 21 topic (always-on fields -> None)
     "solar_panels": "solar", "county": "county", "zip": "county", "dwelling_amount": "dwelling_amount",
     "occupancy_type": None, "ownership_type": None, "dwelling_type": None,
     "fire_station_miles": "ppc", "hydrant_1000ft": "ppc",     # round 26, decision B
+    "primary_home_carrier": None, "primary_home_miles": None,  # round 30 step 1 (with occupancy)
 }
 # Decision 1: an OPEN that rests only on these blank fields is a NOTE.
 BLANK_IS_NOTE = {"dwelling_amount", "county", "zip", "sage_territory", "south_of_31"}
@@ -251,6 +252,9 @@ def facts(pd, today=None):
     # decides; with none, ISO classes 1-9 are within 5 road miles; otherwise unknown.
     f["station_miles_iso"] = (f["fire_station_miles"] if f["fire_station_miles"] is not None
                               else 5.0 if f["ppc_num"] is not None and f["ppc_num"] <= 9 else None)
+    # Round 30 step 1 (decision 1): asked only for a Seasonal / Secondary Home; blank / Unknown is unknown.
+    f["primary_home_carrier"] = intake_fields.primary_home_carrier(pd.get("primary_home_carrier"))
+    f["primary_home_miles"] = intake_fields.parse_primary_home_miles(pd.get("primary_home_miles"))
     for box in ("pool_fence_4ft", "pool_gate_locking"):      # unticked = unknown, never "no"
         f[box] = True if intake_fields.pool_box(pd, box) else None
     return f

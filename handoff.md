@@ -1460,6 +1460,49 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       test). Updated in 6b8ae91.
     - 6b8ae91 (round 29 head): 1,857 passed, 0 failed, 1 skipped, 9 xfailed.
 
+- **2026-10-08 — Round 30 (Liam's decisions dated 2026-10-08).** Built on
+  3e0bfd3. Live configuration after the round 29 push, as Liam sets it:
+  pilot ON, Sage + HO3 + DP batches ON, model Luna (FORCE_RESEED=1 once).
+  Liam plans to switch to Haiku 5.5 low a few days later (step 6 tests it).
+  - **1. Seasonal and Secondary Home profiles get two new form questions**
+    (step 1), so the largest groups of round 29 holds can be decided.
+  - **2. Project rule, applied to the rules table too:** a fact the form never
+    asks is a "Confirm:" note, never a hold (step 2).
+  - **3. Foremost vacant dwelling (FOD-005) is a note, not a decline:**
+    Foremost writes vacant dwellings on TDP-1 (step 3).
+  - **4. Condo units that are tenant-occupied or seasonal go to Progressive
+    HO6 as well;** its rows decide (step 4).
+  - **Step 1 (primary-home questions):**
+    - Shown only for Seasonal / Secondary Home:
+      - "Primary home insured with": one choice per insurer, in the carrier
+        list's order (Sage's insurers separate), plus "Other carrier" and
+        "Unknown";
+      - "Distance to the primary home (miles)".
+    - Absent from property_details otherwise. Stated in the prompt only when
+      answered. Replay vs 3e0bfd3 (13 profiles x 3 answers, switches off and
+      on): 78/78 byte-identical, blank Seasonal / Secondary included.
+    - **Rows they settle.** None of these guides extends the rule to an
+      affiliate or group, so only the carrier's own choice passes.
+      - CHU-004 / 045: "Applicable to residences where Chubb writes the
+        primary residence". CHU-046 also still needs the $25,000 non-CAT
+        premium fact.
+      - MER-003: "...and Mercury does not insure the primary dwelling".
+      - ARA-029: "...unless ARI insures the primary home".
+      - TWI-005: "Secondary must have an associated primary written in Twico".
+      - TRV-039: PC 9/10, "and we do not write the primary dwelling".
+      - SWY-007 / SBS-027: "less than 50 miles from the primary residence"
+        (50 passes).
+    - **Not settled:**
+      - SLL-043 (country of the primary home);
+      - ARB-025 / ARB-039 (both REFER, so a non-ARI primary still refers; the
+        data has no decline row);
+      - CHU-005 (tenant risks; the question is not shown);
+      - NPD-010 (closed).
+    - Blank / Unknown leaves the row open on a form field, which still holds
+      (step 2's class a).
+    - Tests: verification/test_primary_home_fields.py (32), and boundary
+      cases for the 50-mile lines.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
