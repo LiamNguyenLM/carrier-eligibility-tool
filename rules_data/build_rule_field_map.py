@@ -142,10 +142,13 @@ MAP = {
     "SAG-060": ("pool_accessories", "FACT(signed acknowledgement of the slide/diving board exclusion)",
                 "pool_accessories != None", "signed acknowledgement", ""),
     "MER-047": ("swimming_pool", "swimming_pool != In Ground - Unfenced", "always", "", ""),
-    "PRO-051": ("swimming_pool;pool_fence_4ft;pool_gate_locking", POOL_OK, NO_POOL, "fence 4 ft; locking gate",
-                "approved alternate enclosure also cures"),
-    "SWY-035": ("swimming_pool;pool_fence_4ft;pool_gate_locking", POOL_OK, NO_POOL, "fence 4 ft; self-latching gate",
-                "a pool cage also cures"),
+    # Round 31 step 4: an explicitly unfenced pool fails (an unticked box is still unknown)
+    "PRO-051": ("swimming_pool;pool_fence_4ft;pool_gate_locking",
+                "swimming_pool not in {Above Ground - Unfenced, In Ground - Unfenced} and " + POOL_OK, NO_POOL,
+                "fence 4 ft; locking gate", "approved alternate enclosure also cures"),
+    "SWY-035": ("swimming_pool;pool_fence_4ft;pool_gate_locking", "swimming_pool != Above Ground - Unfenced and " + POOL_OK,
+                NO_POOL, "fence 4 ft; self-latching gate",
+                "a pool cage also cures; an unfenced in-ground pool is SWY-036's (one failing row per fact)"),
     "SWY-036": ("swimming_pool", "swimming_pool != In Ground - Unfenced", "always", "", ""),
     # ---------------- ANIMALS (dogs only: the form asks nothing about other animals)
     "ALL-102": ("has_dogs", "FACT(no dangerous propensities)", DOGS, "dog history", "other animals not asked"),

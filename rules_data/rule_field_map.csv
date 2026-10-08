@@ -446,7 +446,7 @@ PRO-045,NONE,,,CONDITION,,"heating, cooling and water heater are not asked"
 PRO-046,NONE,,,DECLINES,,foundation is not asked
 PRO-048,NONE,,,CONDITION,,foundation is not asked
 PRO-050,NONE,,,REFERS_TO_UW,,foundation is not asked
-PRO-051,swimming_pool;pool_fence_4ft;pool_gate_locking,pool_fence_4ft == True and pool_gate_locking == True,swimming_pool != No Pool,CONDITION,fence 4 ft; locking gate,approved alternate enclosure also cures
+PRO-051,swimming_pool;pool_fence_4ft;pool_gate_locking,"swimming_pool not in {Above Ground - Unfenced, In Ground - Unfenced} and pool_fence_4ft == True and pool_gate_locking == True",swimming_pool != No Pool,CONDITION,fence 4 ft; locking gate,approved alternate enclosure also cures
 PRO-053,NONE,,,CONDITION,,the form has no field for this
 PRO-054,NONE,,,DECLINES,,liability hazards are not asked
 PRO-056,NONE,,,CONDITION,,liability hazards are not asked
@@ -525,7 +525,7 @@ SWY-027,NONE,,,DECLINES,,wiring and panels are not asked
 SWY-028,NONE,,,DECLINES,,wiring and panels are not asked
 SWY-029,NONE,,,DECLINES,,wiring and panels are not asked
 SWY-030,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
-SWY-035,swimming_pool;pool_fence_4ft;pool_gate_locking,pool_fence_4ft == True and pool_gate_locking == True,swimming_pool != No Pool,CONDITION,fence 4 ft; self-latching gate,a pool cage also cures
+SWY-035,swimming_pool;pool_fence_4ft;pool_gate_locking,swimming_pool != Above Ground - Unfenced and pool_fence_4ft == True and pool_gate_locking == True,swimming_pool != No Pool,CONDITION,fence 4 ft; self-latching gate,a pool cage also cures; an unfenced in-ground pool is SWY-036's (one failing row per fact)
 SWY-036,swimming_pool,swimming_pool != In Ground - Unfenced,always,DECLINES,,
 SWY-039,NONE,,,DECLINES,,liability hazards are not asked
 SWY-040,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,DECLINES,,as ALL-106

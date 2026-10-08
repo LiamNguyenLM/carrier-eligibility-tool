@@ -194,7 +194,7 @@ def load_rules():
 
 def load_map():
     if "map" not in _CACHE:
-        _CACHE["map"] = {m["row_id"]: m for m in _read_csv(MAP_CSV)}
+        _CACHE["map"] = _with_requirement_outcomes({m["row_id"]: m for m in _read_csv(MAP_CSV)})
     return _CACHE["map"]
 
 
@@ -206,15 +206,71 @@ def load_batch_rules():
 
 def load_batch_map():
     if "batch_map" not in _CACHE:
-        _CACHE["batch_map"] = {m["row_id"]: m for m in _read_csv(SAGE_BATCH_MAP_CSV)}
+        _CACHE["batch_map"] = _with_requirement_outcomes({m["row_id"]: m for m in _read_csv(SAGE_BATCH_MAP_CSV)})
     return _CACHE["batch_map"]
+
+
+# Round 31 step 4 (Liam, 2026-10-08, decision 2): a requirement row the form shows is NOT met reads
+# Ineligible, unless the row's own guide text names an underwriting / referral / approval path (then
+# Refer). Decided row by row; the words that decided each are kept here and listed in handoff.md.
+# Only the map line's outcome changes: unknown / blank still holds or is a confirm note, as before.
+_UNACCEPTABLE_CHUBB = "Secondary locations where Chubb does not write the primary residence are unacceptable."
+_TRUST_OCCUPIED = "eligible only when the trustee, grantor, or beneficiary resides at the residence (no path named)"
+_FPC_ALL_CRITERIA = "Risk is eligible only if all of the following criteria are met (no path named)"
+_POOL_NO_PATH = "Must have pool cage or 4' permanent fence ... with self-latching gate (no path named)"
+REQUIREMENT_OUTCOMES = {
+    "CHU-004": ("DECLINES", _UNACCEPTABLE_CHUBB),
+    "CHU-045": ("DECLINES", _UNACCEPTABLE_CHUBB),
+    "CHU-046": ("DECLINES", _UNACCEPTABLE_CHUBB),
+    "SAG-019": ("DECLINES", "Residence Held in Trust if the residence is occupied by the trustee, the grantor ... "
+                            "(no path named)"),
+    "SUR-019": ("DECLINES", _TRUST_OCCUPIED), "SFP-019": ("DECLINES", _TRUST_OCCUPIED),
+    "WIL-019": ("DECLINES", _TRUST_OCCUPIED), "TRI-023": ("DECLINES", _TRUST_OCCUPIED),
+    "VAV-014": ("DECLINES", _TRUST_OCCUPIED), "VDP-062": ("DECLINES", _TRUST_OCCUPIED),
+    "CDP-072": ("DECLINES", "The home is tenant occupied (one of four conditions, all required; underwriting "
+                            "approval is needed in addition, not instead)"),
+    "ALL-061": ("DECLINES", "Copper tubing or PVC plumbing is required (no path named)"),
+    "PRO-051": ("REFERS_TO_UW", "... or approved alternate enclosure"),
+    "CDP-053": ("REFERS_TO_UW", "... or alternate approved enclosure"),
+    "PDP-103": ("REFERS_TO_UW", "... or alternate approved enclosure"),
+    "SWY-035": ("DECLINES", _POOL_NO_PATH), "SBS-008": ("DECLINES", _POOL_NO_PATH),
+    "SLL-003": ("DECLINES", _POOL_NO_PATH), "STO-004": ("DECLINES", _POOL_NO_PATH),
+    "ARA-025": ("DECLINES", "Homes with swimming pools ... that are not properly secured (listed under "
+                            "INELIGIBLE RISKS; no path named)"),
+    "FOR-053": ("DECLINES", "Properties with pools ... must have a fence minimum four feet high ... AND a "
+                            "self-locking gate (Unacceptable Liability Characteristics; no path named)"),
+    "NCD-104": ("DECLINES", "Pools are fenced in with self-locking gate (no path named)"),
+    **{rid: ("DECLINES", _FPC_ALL_CRITERIA) for rid in (
+        "SAG-075", "SAG-076", "SAG-078", "SUR-113", "SUR-114", "SUR-116", "SUR-117", "SFP-121", "SFP-122",
+        "SFP-124", "SFP-125", "WIL-118", "WIL-119", "WIL-121", "WIL-122", "TRI-019", "TRI-020", "TRI-035",
+        "TRI-090", "TRI-091", "ODP-114", "ODP-115", "SDP-080")},
+}
+# Looked at and left as they are (a row's map outcome is unchanged), with the reason:
+REQUIREMENT_UNCHANGED = {
+    "ALL-093": "ALL-094 already declines an unfenced pool (one failing row per fact); boxes unticked hold",
+    "ALL-019": "ALL-020 already declines anything but a single-family dwelling or townhouse unit (one row per fact)",
+    "HDP-002": "proof of updates is never asked: it cannot fail on a form fact (a confirm note)",
+    "VDP-042": "a gut rehab is never asked: it cannot fail on a form fact (a confirm note)",
+    "SLL-007": "meeting local code is never asked: it cannot fail on a form fact (a confirm note)",
+    **{rid: "the cure is a signed acknowledgement the form never asks: the form cannot show it unmet"
+       for rid in ("SAG-067", "SUR-069", "SFP-070", "TRI-081", "FOR-062")},
+}
+
+
+def _with_requirement_outcomes(rows):
+    """A map's lines with REQUIREMENT_OUTCOMES applied (every loader: pilot, Sage batch, the others)."""
+    for rid, (outcome, _) in REQUIREMENT_OUTCOMES.items():
+        if rid in rows and rows[rid]["outcome_if_fail"] != "NOTE":
+            rows[rid]["outcome_if_fail"] = outcome
+    return rows
 
 
 def _load(kind, path):
     key = (kind, path)
     if key not in _CACHE:
         idx = "Rule ID" if kind == "rules" else "row_id"
-        _CACHE[key] = {r[idx]: r for r in _read_csv(path)}
+        rows = {r[idx]: r for r in _read_csv(path)}
+        _CACHE[key] = _with_requirement_outcomes(rows) if kind == "map" else rows
     return _CACHE[key]
 
 
@@ -591,7 +647,9 @@ def _cell(v):
 
 def _row_line(r, extra=""):
     value = " ".join(x for x in (_cell(r["Value"]), _cell(r["Unit"])) if x)
-    return " | ".join([f"[{r['Rule ID']}] {_cell(r['Topic'])}", _cell(r["Effect"]), _cell(r["Plain rule"]),
+    # round 31 step 4: the effect code applies (a requirement row's decided outcome), not the workbook's
+    effect = REQUIREMENT_OUTCOMES.get(r["Rule ID"], (r["Effect"],))[0]
+    return " | ".join([f"[{r['Rule ID']}] {_cell(r['Topic'])}", _cell(effect), _cell(r["Plain rule"]),
                        value or "-", _cell(r["Applies when"]) or "-", _cell(r["Exceptions / cure"]) or "-"]) + extra
 
 

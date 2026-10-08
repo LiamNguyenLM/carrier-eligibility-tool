@@ -1743,6 +1743,84 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       Nothing blocks a check, and a logging error never breaks one.
     - The suite logs to a temp file (conftest.py).
     - Tests: verification/test_usage_log.py.
+  - **Step 4 (requirement rows, decision 2):**
+    - rules_evaluator.REQUIREMENT_OUTCOMES sets, row by row, what a failed
+      requirement row reads:
+      - Ineligible, unless the row's own guide text (quote or Exceptions /
+        cure) names an underwriting / referral / approval path;
+      - then "refers to underwriting".
+    - Applied to the map lines of all four tables at load. The workbook rows
+      are not edited. The rules-check prompt shows the effect code applies.
+    - 55 rows: 45 change outcome; 10 are unchanged, each with its reason
+      (REQUIREMENT_UNCHANGED).
+    - Unknown / blank still holds or is a confirm note. An unticked pool box
+      is unknown, so pool rows fail only on an explicit Unfenced pool:
+      - PRO-051 now fails on either unfenced pool;
+      - SWY-035 fails on an above-ground unfenced pool only (an in-ground
+        one is SWY-036's).
+    - The FPC rows still hold on their unasked conditions (Liam, 2026-10-06
+      / 2026-10-08). Only a failed home age or occupancy declines them.
+    - Full list:
+
+      | Row | Carrier | Outcome when the form shows it unmet | Deciding words |
+      |---|---|---|---|
+      | CHU-004 | Chubb HO | Ineligible | Secondary locations where Chubb does not write the primary residence are unacceptable. |
+      | CHU-045 | Chubb HO | Ineligible | Secondary locations where Chubb does not write the primary residence are unacceptable. |
+      | CHU-046 | Chubb HO | Ineligible | Secondary locations where Chubb does not write the primary residence are unacceptable. |
+      | SAG-019 | Sage Auros HO3 | Ineligible | Residence Held in Trust if the residence is occupied by the trustee, the grantor ... (no path named) |
+      | SUR-019 | Sage SURE HO-3 | Ineligible | eligible only when the trustee, grantor, or beneficiary resides at the residence (no path named) |
+      | SFP-019 | Sage SafePort HO-3 | Ineligible | eligible only when the trustee, grantor, or beneficiary resides at the residence (no path named) |
+      | WIL-019 | Sage Wilshire HO3 | Ineligible | eligible only when the trustee, grantor, or beneficiary resides at the residence (no path named) |
+      | TRI-023 | Sage Trium Lloyd's HO3/HO5 | Ineligible | eligible only when the trustee, grantor, or beneficiary resides at the residence (no path named) |
+      | VAV-014 | Sage Vave HO3 | Ineligible | eligible only when the trustee, grantor, or beneficiary resides at the residence (no path named) |
+      | VDP-062 | Sage Vave DP3 | Ineligible | eligible only when the trustee, grantor, or beneficiary resides at the residence (no path named) |
+      | CDP-072 | Centauri DP3 | Ineligible | The home is tenant occupied (one of four conditions, all required; underwriting approval is needed in addition, not instead) |
+      | ALL-061 | Allied Trust HO3 | Ineligible | Copper tubing or PVC plumbing is required (no path named) |
+      | PRO-051 | Progressive HO3 | Refer | ... or approved alternate enclosure |
+      | CDP-053 | Centauri DP3 | Refer | ... or alternate approved enclosure |
+      | PDP-103 | Progressive DP3 | Refer | ... or alternate approved enclosure |
+      | SWY-035 | Swyfft Benchmark (Admitted) HO3 | Ineligible | Must have pool cage or 4' permanent fence ... with self-latching gate (no path named) |
+      | SBS-008 | Swyfft Benchmark (Surplus) HO3 | Ineligible | Must have pool cage or 4' permanent fence ... with self-latching gate (no path named) |
+      | SLL-003 | Swyfft Lloyd's (Surplus) HO3 | Ineligible | Must have pool cage or 4' permanent fence ... with self-latching gate (no path named) |
+      | STO-004 | Swyfft Topa (Surplus) HO3 | Ineligible | Must have pool cage or 4' permanent fence ... with self-latching gate (no path named) |
+      | ARA-025 | ARI HOA / HOA Plus | Ineligible | Homes with swimming pools ... that are not properly secured (listed under INELIGIBLE RISKS; no path named) |
+      | FOR-053 | Foremost Choice Homeowners | Ineligible | Properties with pools ... must have a fence minimum four feet high ... AND a self-locking gate (Unacceptable Liability Characteristics; no path named) |
+      | NCD-104 | NatGen Custom360 Landlord | Ineligible | Pools are fenced in with self-locking gate (no path named) |
+      | SAG-075 | Sage Auros HO3 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | SAG-076 | Sage Auros HO3 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | SAG-078 | Sage Auros HO3 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | SUR-113 | Sage SURE HO-3 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | SUR-114 | Sage SURE HO-3 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | SUR-116 | Sage SURE HO-3 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | SUR-117 | Sage SURE HO-3 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | SFP-121 | Sage SafePort HO-3 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | SFP-122 | Sage SafePort HO-3 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | SFP-124 | Sage SafePort HO-3 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | SFP-125 | Sage SafePort HO-3 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | WIL-118 | Sage Wilshire HO3 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | WIL-119 | Sage Wilshire HO3 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | WIL-121 | Sage Wilshire HO3 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | WIL-122 | Sage Wilshire HO3 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | TRI-019 | Sage Trium Lloyd's HO3/HO5 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | TRI-020 | Sage Trium Lloyd's HO3/HO5 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | TRI-035 | Sage Trium Lloyd's HO3/HO5 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | TRI-090 | Sage Trium Lloyd's HO3/HO5 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | TRI-091 | Sage Trium Lloyd's HO3/HO5 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | ODP-114 | Sage Occidental DP3 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | ODP-115 | Sage Occidental DP3 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | SDP-080 | Sage SURE DP3 | Ineligible | Risk is eligible only if all of the following criteria are met (no path named) |
+      | ALL-093 | Allied Trust HO3 | unchanged | ALL-094 already declines an unfenced pool (one failing row per fact); boxes unticked hold |
+      | ALL-019 | Allied Trust HO3 | unchanged | ALL-020 already declines anything but a single-family dwelling or townhouse unit (one row per fact) |
+      | HDP-002 | HOAIC Texas Dwelling (TDP3) | unchanged | proof of updates is never asked: it cannot fail on a form fact (a confirm note) |
+      | VDP-042 | Sage Vave DP3 | unchanged | a gut rehab is never asked: it cannot fail on a form fact (a confirm note) |
+      | SLL-007 | Swyfft Lloyd's (Surplus) HO3 | unchanged | meeting local code is never asked: it cannot fail on a form fact (a confirm note) |
+      | SAG-067 | Sage Auros HO3 | unchanged | the cure is a signed acknowledgement the form never asks: the form cannot show it unmet |
+      | SUR-069 | Sage SURE HO-3 | unchanged | the cure is a signed acknowledgement the form never asks: the form cannot show it unmet |
+      | SFP-070 | Sage SafePort HO-3 | unchanged | the cure is a signed acknowledgement the form never asks: the form cannot show it unmet |
+      | TRI-081 | Sage Trium Lloyd's HO3/HO5 | unchanged | the cure is a signed acknowledgement the form never asks: the form cannot show it unmet |
+      | FOR-062 | Foremost Choice Homeowners | unchanged | the cure is a signed acknowledgement the form never asks: the form cannot show it unmet |
+
+    - Tests: verification/test_requirement_rows.py.
 
 ## Open work, in priority order (updated 2026-10-02)
 

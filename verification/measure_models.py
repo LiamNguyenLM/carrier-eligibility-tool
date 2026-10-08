@@ -34,7 +34,11 @@ PROFILES = {"LIVE": (LIVE, P.LIVE_CHECKED), "LIVE+Bexar": (dict(LIVE, county="Be
                                                     "OWNERSHIP_BASE")},
             # round 31 step 3: an owner's second home and a rental, County Bexar
             "SEASONAL": (dict(LIVE, county="Bexar", zip="", occupancy_type="Seasonal"), P.LIVE_CHECKED),
-            "TENANT": (dict(LIVE, county="Bexar", zip="", occupancy_type="Tenant Occupied"), P.LIVE_CHECKED)}
+            "TENANT": (dict(LIVE, county="Bexar", zip="", occupancy_type="Tenant Occupied"), P.LIVE_CHECKED),
+            # round 31 step 4: fails converted requirement rows (Chubb primary home, unfenced pool)
+            "SEASONAL+OTHER+UNFENCED": (dict(LIVE, county="Bexar", zip="", occupancy_type="Seasonal",
+                                             primary_home_carrier="Other carrier", primary_home_miles=100,
+                                             swimming_pool="Above Ground - Unfenced"), P.LIVE_CHECKED)}
 PRICE = {"gpt": {"in": 0.10, "cached": 0.01, "write": 0.0, "out": 0.50},
          "claude": {"in": 0.10, "cached": 0.01, "write": 0.125, "out": 0.50}}
 pd, checked = PROFILES[prof]
