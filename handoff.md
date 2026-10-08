@@ -1131,6 +1131,55 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     - The rules pilot's side call uses the same model (_complete_named).
     - Measurement: verification/measure_models.py.
 
+  - **Step 6 (Haiku 5.5 vs Luna, measurement only; pilot ON, batch ON; 8
+    profiles x 3 runs each, on e827e18).** The configs are interleaved, so
+    the parallel fast tiers slow all three equally.
+
+    | | Haiku medium | Haiku low | Luna |
+    |---|---|---|---|
+    | wall s per check | 47.0 | 36.8 | 38.2 |
+    | cost $ per check (cached) | 0.0083 | 0.0060 | 0.0023 |
+    | input / cached / cache-write / output tokens | 17.4k / 12.8k / 7.0k / 11.1k | 17.4k / 19.8k / 0 / 8.2k | 2.7k / 19.5k / 0 / 3.6k |
+    | calls parsed, valid status on every record | 48/48 | 48/48 | 48/48 |
+    | names outside the enum | 0 | 0 | 0 |
+    | carriers omitted (NOT_EVALUATED) | 0 | 4 | 2 |
+    | lists cut to two (no maxItems) | 6 | 7 | 0 (schema) |
+    | same verdict in all 3 runs | 163/192 (85%) | 158/192 (82%) | 175/192 (91%) |
+    | CLEAN model holds per run (+5 rules-table holds, same for all) | 9, 9, 9 | 7, 9, 10 | 3, 3, 2 |
+    | Tier 2 baseline (pilot + batch ON) | 15 pass / 7 fail | 15 / 7 (+1 xpass) | 15 / 7 |
+
+    - **Cost assumptions.** Haiku's cache prices are not on its page: read
+      $0.01 and write $0.125 per M are ASSUMED (Anthropic's usual 0.1x /
+      1.25x). Most of Haiku's extra cost is output, i.e. thinking.
+    - **Tier 2:** the same 7 tests fail on all three, all from the
+      configuration:
+      - Auros / Wilshire PPC 1 is held on the distance (decision 1; the test
+        assumes pilot OFF);
+      - Progressive / Allied solar and the Allied 14-year roof are decided
+        by code, so there is no model text;
+      - Swyfft Benchmark Surplus trust/LLC is open since round 25.
+      Haiku low also XPASSes the TWICO circuit-panel test.
+    - **OLD declines caught:**
+      - Pilot carriers, decided by code: all three configs are Ineligible
+        on Allied ALL-057, Swyfft SWY-026, Vave VAV-047, Progressive and
+        Mercury.
+      - Non-pilot galvanized rules: no model applies them, because the
+        rule is not retrieved for ARI HOA+ / HOB, Swyfft Benchmark / Topa /
+        Lloyds Surplus, TWICO or Travelers (pilot OFF as well). This is a
+        verdict-changing retrieval miss; strict xfails in
+        test_plumbing_retrieval.py.
+    - **Disagreements in every run:** 17 pairs (Haiku medium) and 8 (Haiku
+      low), always Haiku Insufficient vs Luna Eligible.
+      - The carriers: Liberty Mutual (brush / wind hazard area), Orion
+        (acreage, commercial exposure), Swyfft Benchmark / Lloyds Surplus
+        (loss history), Travelers (heating; ground-mounted solar is a
+        liability exclusion), Foremost (wiring / amperage).
+      - Each Haiku hold is on a fact the form never asks. Luna is right by
+        the project's rule for such facts ("confirm", never a hold, as the
+        rules table's NONE rows). The system prompt's literal text (missing
+        facts -> missing_info) allows Haiku's reading.
+    - The default model was not switched.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
