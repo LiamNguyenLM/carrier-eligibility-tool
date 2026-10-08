@@ -1292,6 +1292,43 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       identical. The OLD (galvanized) prompt differs, from the plumbing
       lookup. Under fixed answers the results are identical.
 
+  - **Step 3 (Haiku 5.5 vs Luna, re-measured on f12b5b6 = steps 1-2):** pilot
+    ON, Sage batch ON, 8 profiles x 3 runs per config, configs interleaved
+    (the fast tiers ran alongside, slowing all three equally). Tier 2: pilot +
+    Sage batch ON, once per config.
+
+    | | Haiku medium | Haiku low | Luna |
+    |---|---|---|---|
+    | wall s per check | 38.1 | 28.5 | 23.1 |
+    | cost $ per check | 0.0080 | 0.0071 | 0.0025 |
+    | same verdict in all 3 runs | 173/192 (90%) | 176/192 (92%) | 172/192 (90%) |
+    | CLEAN holds per run | 7, 6, 6 | 7, 6, 7 | 6, 8, 7 |
+    | holds removed by the guard | 95 (4.0 / check) | 75 (3.1) | 22 (0.9) |
+    | carriers omitted -> after the retry | 2 -> 0 | 1 -> 0 | 1 -> 0 |
+    | OLD declines caught (galvanized carriers, 3 runs) | 18 | 18 | 18 |
+    | Tier 2 failures | the same 7 | 6 (a subset: Allied solar passed) | 7 |
+
+    - **Gate, Haiku low vs Luna:**
+      - same verdict: 92% vs 90% (needs >= 88%): pass;
+      - CLEAN holds per run: 6.7 vs 7.0: pass;
+      - omitted after the retry: 0: pass;
+      - Tier 2: no new failures: pass;
+      - OLD declines: 18 vs 18: pass;
+      - wall: 28.5 s vs 1.25 x 23.1 = 28.9 s: pass, by 0.4 s (1.23x). The
+        thinnest margin.
+    - Haiku medium fails on wall time (1.65x).
+    - Cost is not a gate item: Haiku low costs 2.8x Luna per check.
+    - **The one carrier where they disagree in every run is TWICO.**
+      - CLEAN: Haiku is right. A 3-year architectural roof is in the RCV band
+        under every row of TWICO's roof table. Luna held on the table's missing
+        material labels.
+      - ALT: Luna is right. A 14-year roof changes only ACV vs RCV, never
+        eligibility, and central A/C / heat is a confirm. Haiku held on the
+        roof sub-type.
+    - **Haiku passes the gate at low: set ELIGIBILITY_MODEL=claude-haiku-5-5
+      and ELIGIBILITY_EFFORT=low.** Liam's call: wall time is within 2% of the
+      limit, and cost is 2.8x.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"

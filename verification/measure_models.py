@@ -75,6 +75,9 @@ cost = sum((c["usage"].get("input_tokens", 0) * price["in"] + c["usage"].get("ca
 rec = {"model": model, "effort": effort, "profile": prof, "label": label,
        "commit": os.popen("git rev-parse --short HEAD").read().strip(), "wall": wall, "cost": round(cost, 5),
        "calls": calls, "buckets": {k: len(v) for k, v in ec.assign_buckets(res).items()},
+       # round 29: what the hold guard did (cards released, cards trimmed, items moved to notes)
+       "guard": {"released": ec.LAST_GUARD_STATS.get("released", 0), "trimmed": ec.LAST_GUARD_STATS.get("trimmed", 0),
+                 "items": [list(x) for x in ec.LAST_GUARD_STATS.get("removed_items", [])]},
        "records": res}
 with open(out, "a", encoding="utf-8") as fh:
     fh.write(json.dumps(rec, ensure_ascii=False, default=str) + "\n")
