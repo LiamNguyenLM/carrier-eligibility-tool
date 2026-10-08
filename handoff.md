@@ -1328,6 +1328,137 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     - **Haiku passes the gate at low: set ELIGIBILITY_MODEL=claude-haiku-5-5
       and ELIGIBILITY_EFFORT=low.** Liam's call: wall time is within 2% of the
       limit, and cost is 2.8x.
+  - **Step 4, real runs (Luna, Bexar, pilot + Sage + HO3 batch ON, 2 runs):**
+    all 26 HO3-side carriers now answer for a Seasonal / Secondary home.
+    - Seasonal, r1: 8 ELIGIBLE, 3 REFER, 13 INSUFFICIENT, 1 closed (NatGen
+      Premier), 2 wrong guide. Secondary is the same, except Centauri HO3
+      INELIGIBLE (model: "owner-occupied only").
+    - The REFERs are the guides' own rows: ARA-030, ARB-025, LIB-066.
+    - The ELIGIBLEs:
+      - rules table, none fails: Foremost, HOAIC, Orion, Markel, Vave, Topa,
+        Travelers;
+      - model: Centauri HO3.
+    - Every INSUFFICIENT names the guide's secondary-home condition on a fact
+      the form does not ask: same carrier writes the primary (Chubb, Mercury,
+      TWICO), property checks while away (Auros, SURE, SafePort, Trium,
+      Wilshire), distance from the primary (Swyfft Admitted / Surplus),
+      country of the primary (Lloyd's), rental exposure (Progressive,
+      Allied).
+    - These are rules-table holds (or model holds citing them), so the hold
+      guard does not touch them. **Seasonal / Secondary checks are now
+      dominated by these.** A form question ("does the same carrier insure
+      the primary home?") would settle most of them. That is Liam's call.
+
+  - **Step 7, measured (Luna, pilot + Sage ON, HO3 batch OFF -> ON, 9
+    profiles x 2):** wall 30.1 -> 23.6 s; cost $0.0031 -> $0.0019.
+    - **ON is right (per the guide):**
+      - CLEAN TWICO and Travelers: ELIGIBLE (OFF held on garbled roof tables);
+      - LIVE ARI HOB: ELIGIBLE (OFF held on "9 months occupancy");
+      - LIVE / STRESS Foremost: FOR-078 county (+ FOR-006 Coverage A);
+      - OLD Foremost: FOR-036 galvanized;
+      - 7 mi: ARA-014, ARB-012, ORI-098 (more than 5 miles from a station);
+      - Seasonal / Secondary Liberty HO3: REFER on LIB-066;
+      - STRESS: ARI HOA+ REFER (ARA-078 over $700k), ARI HOB ARB-040 (over 20
+        years), HOAIC HOA-008 (PPC 8-10, over 3 years);
+      - TRUST Swyfft Benchmark Surplus: REFER on SBS-054 (OFF declined; the
+        round 25 Tier 2 failure);
+      - TRUST ARI: ELIGIBLE.
+    - **ON holds by design on a fact the form does not ask** (gated-but-open
+      rows): Liberty HO3 wiring (LIB-033, OLD and STRESS); TWICO primary with
+      TWICO (Seasonal) and trustee name (Trust); Travelers trust activity;
+      Lloyd's country of primary; TWICO plumbing update (STRESS).
+    - **Rows still wrong:** ARA-049 / ARB-046 ("exposed water lines must be
+      copper or PVC"). For a PEX home the AMBIGUOUS line lets the model hold
+      on "are the lines exposed", a fact the form does not ask (CLEAN, ARI
+      HOA+, both runs). It should be NONE (confirm). Not changed this round.
+
+  - **Step 8 (remaining batch, 15 guides, behind ELIGIBILITY_RULES_DP_BATCH):**
+    - rules_data/carrier_rules_remaining_v1.csv (1,655 rows) and
+      build_remaining_batch_map.py -> remaining_batch_field_map.csv: 990
+      deciding rows (109 decided, 56 gated-but-open, 13 AMBIGUOUS, 40
+      same-rule, 772 NONE).
+    - The readings and the wrong-looking rows (SDP-012/013, FOD-005, PH6-078,
+      CDP-094, STD-045) are in RULE_FIELD_MAP.md.
+    - Registry: BATCHES["dp"], 14 carriers. NatGen Premier DP3 is closed: it
+      is in CLOSED_PROGRAMS (a live change, for every check that reaches it).
+      Panel: "+ DP batch ON (14 more)".
+    - **Foremost DP vs HO:** one guide and one carrier name, so the occupancy
+      decides.
+      - FOD rows apply to Tenant / Vacant checks; FOR rows to owner's homes.
+      - The FOR rows the guide marks "All use types (shared ...)" also apply to
+        the DP check (BATCHES["dp"]["shares"]), except FOR-012 / 074 / 076,
+        which FOD decides.
+    - **PH6 (condo):** HO6 programs are routed for Owner Occupied only, and
+      dropped when the dwelling type is House. The guide also writes tenant
+      and seasonal units, which the app never routes to it (a routing gap,
+      not changed).
+    - **Tests:**
+      - test_remaining_batch_boundaries.py: 109 cases;
+      - test_remaining_batch_rules.py: tenant passes every DP occupancy line;
+        owner's homes fail only the landlord-only guides; liability-only rows
+        are NONE; registry, switch, panel; the pipeline.
+    - **Measured (Luna, pilot + Sage + HO3 ON, DP OFF -> ON, 6 profiles x 2):**
+      wall 25.9 -> 19.1 s; cost $0.0020 -> $0.0013.
+      - The first ON runs found four map errors, fixed in the follow-up commit
+        (0b6a321) and re-run:
+        - CDP-069 written "X || FACT" ("||" is two readings, not "or"), which
+          held every Centauri DP3 check;
+        - Seasonal AMBIGUOUS on LDP-001 / NCD-047 flipped I / ? between runs;
+        - STD-073 galvanized was AMBIGUOUS;
+        - Foremost's shared rules were missing, so a galvanized rental came
+          back ELIGIBLE.
+      - **ON is right (after the follow-up):**
+        - VACANT: CDP-066 / PDP-030 / VDP-026 decline; Markel / SURE /
+          SafePort REFER on their own vacancy rows.
+        - OLD+Tenant: Liberty DP3 LDP-049, Foremost FOR-036, Steadily STD-073
+          decline galvanized.
+        - SEASONAL: Liberty DP3 / NatGen C360 decline (landlord-only); HOAIC
+          DP ELIGIBLE.
+        - CONDO: PH6 ELIGIBLE (OFF held on months occupied).
+      - **ON holds by design:**
+        - SURE / SafePort / Occidental FPC rows with a blank distance (decision
+          2026-10-07; Tenant+LLC, OLD+Tenant);
+        - FOD-018 LLC business on premises;
+        - NCD-051 vacant occupied within 60 days;
+        - STD-092 solar share of the roof;
+        - Centauri HO3 on Seasonal (CHO-013 AMBIGUOUS).
+      - **Doubtful:** a Vacant Foremost DP check declines on FOD-005
+        ("TDP-3 has no vacant use; write TDP-1"). This was inferred from the
+        guide's silence. Liam to confirm.
+
+  - **Step 6 (record only):** data_defects.WRONG_FILE_EVIDENCE has the size,
+    sha256 and page 1 of Liberty_Mutual_HO6 (= the HO3 guide),
+    NatGen_Custom360_HO3 (= the DP3 landlord guide) and Sage_-_Occidental_HO3
+    (a DP3 guide). Files are kept. Today a profile that reaches one gets a
+    GUIDE_UNAVAILABLE card: "The guide on file is the wrong document -- check
+    with the carrier directly."
+
+  - **Step 9 (Tier 2's seven):**
+    - **Three code fixes (verdicts were right; notes were lost):**
+      - rules_evaluator.coverage_notes adds Progressive HO3's PRO-067 solar
+        wind/hail exclusion and Allied's ALL-045 replacement-cost limit;
+      - the [Solar check] note now also covers rules-table carriers.
+    - **One dated baseline update:** Auros / Wilshire PPC 1, held on the FPC
+      1-3 B/C conditions with no distance (decision 2026-10-07).
+    - **No change:** Swyfft Benchmark Surplus trust/LLC and Progressive HO6
+      trust are decided by SBS-054 / PH6-027 once their batches are on.
+    - **Tier 2, once on Luna after step 9 (3b5847d; pilot + Sage + HO3 + DP
+      batch ON): 22 passed, 0 failed, 7 xfailed, 7 xpassed.** With today's
+      Railway values (batches OFF), Swyfft Benchmark Surplus trust/LLC and
+      Progressive HO6 trust still fail.
+
+  - **Replays, DP batch OFF vs the parent (74e2a46 -> 0b6a321, pilot + Sage
+    ON, 13 profiles x 3 fixed answers):** 27/39 byte-identical. The 12 that
+    differ are the Tenant / Vacant / Seasonal / Secondary cases, and only by
+    NatGen Premier DP3: it is now the closed card and has left the prompt.
+
+  - **Fast tiers (fast_at2.sh, each commit's own seed):**
+    - 07f160b (step 5), 2bfb48d (step 4), 27b2363 (step 7): 1 failure each,
+      all the same test (Centauri HO3 is now in the enum). The test is updated
+      in 74e2a46.
+    - 0b6a321 (step 8 + follow-up): 1 failure (the NatGen Premier DP3 closure
+      test). Updated in 6b8ae91.
+    - 6b8ae91 (round 29 head): 1,857 passed, 0 failed, 1 skipped, 9 xfailed.
 
 ## Open work, in priority order (updated 2026-10-02)
 
