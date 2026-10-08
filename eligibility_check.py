@@ -30,6 +30,7 @@ import data_defects
 import guides
 import intake_fields
 import quotes
+import hold_guard
 import rules_evaluator
 import topics
 from concurrent.futures import ThreadPoolExecutor
@@ -140,6 +141,8 @@ def rules_pilot_status_line():
 
 # The usage of the last check's calls, for measurement: {"main": ..., "pilot": ...}.
 LAST_CALL_USAGE = {}
+# What the hold guard did in the last check (round 29 step 1), for measurement.
+LAST_GUARD_STATS = {}
 
 _STRING_LIST = {"type": "array", "items": {"type": "string"}}
 # Round 26 (Liam, 2026-10-05, decision C): at most two reasons and two
@@ -3644,6 +3647,7 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
         pilot_usage = None
     LAST_CALL_USAGE.clear()
     LAST_CALL_USAGE.update(main=usage, pilot=pilot_usage)
+    LAST_GUARD_STATS.clear()
     relevant_carriers = all_carriers
 
     # CHANGED: cache visibility. cache_read_input_tokens > 0 means this call
@@ -3744,6 +3748,10 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
         # Runs before everything else: a claim contradicting the intake is
         # the most fundamental error there is, and the checks below should
         # act on a corrected status rather than a fabricated one.
+        # Round 29 step 1: the model's own missing_info, before any code rule adds to it
+        # (hold_guard tells a code-made item from a model's by this).
+        for r in filtered:
+            r["_model_missing_info"] = list(r.get("missing_info") or [])
         _strip_contradicted_property_claims(filtered, property_details, checked)
         _strip_misattributed_citations(filtered, relevant_carriers)
         _apply_structured_overrides(filtered, relevant_carriers, property_details, checked,
@@ -3778,6 +3786,8 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
             _apply_chubb_hold(filtered, relevant_carriers, property_details)
         if _on("check:_apply_twico_solar_decision", checked):
             _apply_twico_solar_decision(filtered, relevant_carriers, property_details)
+        # Round 29 step 1 (Liam, 2026-10-08): a fact the form never asks is "confirm", never a hold.
+        hold_guard.apply(filtered, _decide_by_code, _append_note, LAST_GUARD_STATS)
         # Last, after every rule that can set a status: a code-decided verdict
         # owns the card (round 26 step 2).
         _code_owns_cards(filtered)

@@ -15,6 +15,38 @@ TEXAS_COUNTIES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 DWELLING_TYPES = ("", "House", "Townhome", "Condo")
 
+# Round 29 step 1 (Liam, 2026-10-08): every field the intake form collects
+# (app.py's property_details keys), with the words a missing_info item uses
+# for it. hold_guard.py keeps any hold on these: they are on the form, so a
+# blank one is the agent's to fill in, never "not asked".
+FORM_FIELDS = {
+    "year_built": (r"year built", r"home age", r"age of (the )?(home|dwelling|house)", r"built (in|before|after)"),
+    "roof_age": (r"roof age", r"age of (the )?roof", r"roof[- ]age"),
+    "roof_type": (r"roof (type|material|covering)", r"3-tab", r"architectural", r"shingle", r"metal roof",
+                  r"tile roof", r"wood shake", r"\broof\b"),
+    "roof_shape": (r"roof shape", r"flat roof", r"\bgable\b", r"\bhip\b"),
+    "construction_type": (r"construction type", r"\bframe\b", r"\bmasonry\b", r"manufactured", r"mobile home"),
+    "plumbing_type": (r"plumbing", r"galvani[sz]ed", r"polybutylene", r"\bpex\b", r"\bcopper\b"),
+    "occupancy_type": (r"occupan", r"owner[- ]occupied", r"tenant", r"vacan", r"seasonal", r"secondary"),
+    "ownership_type": (r"ownership", r"\btrust\b", r"\bllc\b", r"owned by"),
+    "coastal_tier": (r"coastal", r"\bcoast\b", r"\bgulf\b", r"shoreline", r"\bbay\b", r"hurricane", r"wind ?pool",
+                     r"\btwia\b", r"\btier\b"),
+    "swimming_pool": (r"\bpool\b", r"\bspa\b", r"hot tub"),
+    "pool_accessories": (r"diving board", r"\bslide\b"),
+    "pool_fence_4ft": (r"\bfence\b", r"enclosure", r"pool cage", r"\bbarrier\b"),
+    "pool_gate_locking": (r"\bgate\b", r"self[- ]latching", r"self[- ]locking", r"lockable"),
+    "has_dogs": (r"\bdogs?\b", r"\bcanine\b"),
+    "aggressive_breed": (r"\bbreed\b",),
+    "solar_panels": (r"\bsolar\b",),
+    "ppc": (r"\bppc\b", r"protection class", r"\bfpc\b"),
+    "fire_station_miles": (r"fire station", r"station distance", r"miles to (the )?(nearest |responding )?fire"),
+    "hydrant_1000ft": (r"hydrant",),
+    "zip": (r"\bzip\b",),
+    "county": (r"\bcounty\b", r"territory", r"south texas", r"east texas"),
+    "dwelling_amount": (r"coverage a\b", r"dwelling (amount|limit|coverage)", r"cov\.? a\b"),
+    "dwelling_type": (r"dwelling type", r"\bcondo", r"townhome", r"townhouse", r"unit[- ]owner", r"single[- ]family"),
+}
+
 
 def _load_counties():
     with open(TEXAS_COUNTIES_FILE, encoding="utf-8") as fh:

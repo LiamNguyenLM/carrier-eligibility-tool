@@ -163,6 +163,7 @@ CORE_STEPS = {
     "_code_owns_cards": "round 26: a status a rule set shows that rule's reason, whatever is checked",
     "_strip_guide_text_requests": "round 26: a request for guide text is never missing information",
     "_strip_condition_requests": "Liam 2026-10-05 (D): the condition of the home is never checked",
+    "hold_guard.apply": "Liam 2026-10-08: a fact the form never asks is confirm, never a hold",
 }
 
 # Always-on routing and lookups (not gated; listed so the inventory is whole).

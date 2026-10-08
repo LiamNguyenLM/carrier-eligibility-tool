@@ -1180,6 +1180,37 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
         facts -> missing_info) allows Haiku's reading.
     - The default model was not switched.
 
+- **2026-10-08 — Round 29 (Liam's decisions dated 2026-10-08).** Built on
+  d0332f0 (rounds 26-28 unpushed; origin 27870a0). Railway today: pilot ON,
+  Sage batch OFF, model Luna.
+  - **1. Model:** fix false holds in code, re-test Haiku 5.5 against Luna,
+    and report against the gate (step 3). The default in code stays
+    gpt-6-luna. If Haiku passes, Liam switches by setting ELIGIBILITY_MODEL
+    on Railway; nothing else should be needed.
+  - **2. Seasonal and Secondary Home** (owner's homes) are routed to HO3
+    programs as well as DP programs, and each guide's occupancy rows decide.
+    Tenant Occupied and Vacant stay DP-only.
+  - **Step 1 (hold guard, hold_guard.py):** runs after every code rule and
+    before _code_owns_cards. It classifies the missing_info items of each
+    INSUFFICIENT card:
+    - (a) a form field (intake_fields.FORM_FIELDS, 23 fields): kept;
+    - (b) written by code (any item not in the model's own list, snapshotted
+      right after parsing, plus prefix patterns): kept;
+    - (c) a fact the form does not collect (hold_guard.NOT_ASKED: 25 facts,
+      110 patterns): moved to a "Confirm (not asked by the form; never a
+      hold): ..." note;
+    - anything unclassified, and items asking for guide text: kept.
+    - All items (c) -> ELIGIBLE, decided by code; some (c) -> only those
+      move.
+    - Never touched: INELIGIBLE / REFER cards, rules-table cards, holds
+      made by code, cards citing a row.
+    - Replayed over round 28 step 6's records, it releases 107/165 held
+      cards on Haiku medium, 86/142 on Haiku low and 24/62 on Luna.
+    - Top (c) items: roof remaining useful life 36, brush / wind hazard
+      area 32, heating / cooling system 30 (plus variants), commercial
+      exposure 17, number of mortgages 14, prior liability / fire loss 12,
+      plumbing update date 11.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
