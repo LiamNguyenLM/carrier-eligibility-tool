@@ -1566,6 +1566,30 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       - Boundary files: OPEN -> NOTE only where a row is open purely on a
         never-asked fact (dated helper r30_label). The (c) rows keep OPEN.
       - test_sage_batch_rules.py is unchanged apart from the band C test.
+    - **Re-measured after step 2 (real Luna, all batches ON, 2 runs; the
+      round 29 profiles, primary-home answers blank):**
+      - holds per run: CLEAN 7, 7 -> 5, 5; Seasonal 16, 17 -> 14, 13;
+        Secondary 17, 15 -> 14, 14.
+      - Every hold left is on a blank form field (the Sage FPC station
+        distance, also class c; the primary-home answers), or Centauri HO3's
+        AMBIGUOUS owner-occupancy line (the model decides).
+      - Gone (now confirm notes): Allied / Progressive months and rentals, the
+        Sage property checks while away, Lloyd's country of the primary home.
+  - **Step 3 (Foremost vacant dwelling, decision 3):**
+    - FOD-004 / 005 / 006 / 009 / 012 rest on the product grid (TDP-3 has no
+      vacant or secondary / seasonal use type). In the CSV they are now
+      INFO_ONLY / NOT_ELIGIBILITY, with a dated Review note; quotes kept. The
+      CSV header line records the edit.
+    - FOD-012 is a real guide line ("ALL RENTAL PROPERTIES ... 6. Vacant or
+      unoccupied", p.16), but its own exception writes the home on TDP-1
+      Vacant, so it is treated the same.
+    - A Vacant Foremost DP check is no longer declined on these rows. Its
+      card notes "Foremost writes vacant dwellings on TDP-1, not TDP-3; quote
+      TDP-1 (FOD-005)" (rules_evaluator.PROGRAM_NOTES), and its status comes
+      from the other rows.
+    - FOD-020 ("Manufactured homes ... unless vacant/unoccupied", p.16) now
+      passes a vacant manufactured home.
+    - Deciding rows: 990 -> 985.
 
 ## Open work, in priority order (updated 2026-10-02)
 

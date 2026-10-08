@@ -3886,6 +3886,9 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
                 for note in rules_evaluator.coverage_notes(canon, pilot["outcomes"][canon], property_details):
                     if note not in (r.get("notes") or ""):
                         _append_note(r, f"Coverage (not eligibility): {note}")
+                for note in rules_evaluator.program_notes(canon, pilot["outcomes"][canon], property_details):
+                    if note not in (r.get("notes") or ""):
+                        _append_note(r, note)                  # round 30 step 3
         if _on("check:_note_solar_roofing_does_not_apply", checked):
             # An unchecked roof type is not repeated back in the note.
             solar_pd = property_details if "roof_type" in checked else {

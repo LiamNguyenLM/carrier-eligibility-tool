@@ -379,10 +379,12 @@ MAP = {
     "STD-102": money("dwelling_amount <= 1500000"),
     "STD-104": ("dwelling_type;dwelling_amount", "dwelling_amount < 350000", "dwelling_type == Condo", "", ""),
     # ================= Foremost Dwelling Fire (TDP-3): the registry applies FOD only to Tenant / Vacant checks
-    "FOD-005": ("occupancy_type", NOT_VACANT, "always", "", "TDP-1 writes vacant homes; this check is TDP-3"),
-    "FOD-009": same_as("FOD-005"), "FOD-012": same_as("FOD-005"),
+    # FOD-004/005/006/009/012: INFO_ONLY since round 30 step 3 (decision 3) -- not deciding rows; a Vacant
+    # Foremost DP check gets rules_evaluator.PROGRAM_NOTES' "quote TDP-1" note instead.
     "FOD-018": ("ownership_type", "FACT(no business conducted from the premises)", LLC, "business on premises", ""),
-    "FOD-020": ("construction_type", MOBILE, "always", "", ""),
+    # "Manufactured homes ... unless vacant/unoccupied." (p.16): a vacant one is written on TDP-1 (round 30 step 3)
+    "FOD-020": ("construction_type;occupancy_type", MOBILE + " or occupancy_type == Vacant", "always", "",
+                "vacant manufactured homes are acceptable on TDP-1"),
     "FOD-031": money("dwelling_amount >= 100000"),
     "FOD-033": money("dwelling_amount <= 1000000"),
     "FOD-055": ("county", "county not in " + FOREMOST_COASTAL, "always", "", ""),
@@ -391,9 +393,7 @@ MAP = {
 
 # Rows the registry's scope keeps from ever being evaluated (an owner's home never reaches FOD),
 # and the closed NatGen Premier Dwelling Fire program (CLOSED_PROGRAMS decides it, as for its HO3).
-SCOPE_NONE = {"FOD-004": "owner-occupied: FOD rows apply only to Tenant / Vacant checks",
-              "FOD-006": "seasonal / secondary: FOD rows apply only to Tenant / Vacant checks",
-              "FOD-054": "owner-occupied: FOD rows apply only to Tenant / Vacant checks"}
+SCOPE_NONE = {"FOD-054": "owner-occupied: FOD rows apply only to Tenant / Vacant checks"}
 CLOSED_NOTE = "closed to new business 11/30/2023: CLOSED_PROGRAMS decides NatGen Premier DP3 (as its HO3)"
 LIABILITY_ONLY = "liability coverage only (write without liability): never a decline of the home"
 REMAINING_NONE_NOTE = dict(BATCH_NONE_NOTE, SOLAR="solar shingles / roofs are not the form's (mounted) Solar panels",

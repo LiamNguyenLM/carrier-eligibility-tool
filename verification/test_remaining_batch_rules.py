@@ -39,7 +39,8 @@ def test_data_files_carry_their_source_header():
 
 def test_every_deciding_row_has_exactly_one_map_line():
     deciding = {rid for rid, r in RULES.items() if r["Tool handling"] in ev.DECIDING}
-    assert len(RULES) == 1655 and len(deciding) == 990
+    # round 30 step 3 (decision 3, 2026-10-08): FOD-004/005/006/009/012 are INFO_ONLY now (was 990)
+    assert len(RULES) == 1655 and len(deciding) == 985
     assert set(FMAP) == deciding
     other = set(ev.load_rules()) | set(ev.load_batch_rules()) | set(ev._load("rules", ev.HO3_BATCH_RULES_CSV))
     assert not set(RULES) & other
@@ -69,8 +70,10 @@ def test_every_expression_parses(prof):
 
 def test_coverage():
     kinds = collections.Counter(builder.kind(builder.MAP.get(rid, ("NONE", "", "", "", ""))) for rid in FMAP)
-    assert kinds == {"decided by a form field": 109, "gated-but-open": 56, "AMBIGUOUS": 13,
-                     "same rule as another row": 40, "NONE": 772}
+    # round 30 step 3: FOD-005 (decided) and its two same-rule rows, and the scope NONE rows FOD-004 /
+    # FOD-006, left the deciding set; FOD-020 now reads occupancy too (still decided)
+    assert kinds == {"decided by a form field": 108, "gated-but-open": 56, "AMBIGUOUS": 13,
+                     "same rule as another row": 38, "NONE": 770}
 
 
 # -- the map's readings ----------------------------------------------------------------------
@@ -104,8 +107,9 @@ def test_the_owners_own_homes_fail_only_the_landlord_only_guides(occupancy):
 
 def test_a_vacant_home_fails_each_guides_own_vacancy_row_once():
     fails = _occupancy_outcomes("Vacant", DP_PREFIXES)["FAIL"]
+    # round 30 step 3: FOD-005 is a note pointing to TDP-1, never a decline
     assert fails == {"CDP-066", "LDP-013", "PDP-030", "MDP-006", "ODP-031", "SDP-015", "FDP-032", "VDP-026",
-                     "STD-024", "FOD-005"}
+                     "STD-024"}
     assert len({rid[:3] for rid in fails}) == len(fails)
 
 
@@ -263,3 +267,32 @@ def test_a_foremost_tenant_check_uses_the_dwelling_fire_rows():
 def test_natgen_premier_dp3_shows_closed_on_a_tenant_check():
     r = _run(TENANT_C).get(NPD)
     assert r is not None and r["status"] == "INELIGIBLE" and "Closed to new business" in r["reasons"][0]
+
+
+# -- round 30 step 3 (Liam, 2026-10-08, decision 3): Foremost vacant dwellings go on TDP-1 -------------
+@pytest.mark.parametrize("rid", ["FOD-004", "FOD-005", "FOD-006", "FOD-009", "FOD-012"])
+def test_the_grid_inferred_foremost_rows_are_info_only_with_a_dated_note(rid):
+    r = RULES[rid]
+    assert (r["Effect"], r["Tool handling"]) == ("INFO_ONLY", "NOT_ELIGIBILITY")
+    assert "2026-10-08" in r["Review note"] and "TDP-1" in r["Review note"] and r["Verbatim quote from guide"]
+    assert rid not in FMAP
+
+
+def test_a_vacant_foremost_dp_check_is_not_declined_and_says_quote_tdp_1():
+    r = _run(dict(TENANT_C, occupancy_type="Vacant", ppc="3", fire_station_miles="2", hydrant_1000ft="Yes"))[FOREMOST]
+    assert r.get("rules_table") and r["status"] != "INELIGIBLE", r["reasons"]
+    assert "Foremost writes vacant dwellings on TDP-1, not TDP-3; quote TDP-1" in r["notes"]
+    assert not any("FOD-005" in x for x in r["reasons"])
+
+
+@pytest.mark.parametrize("occupancy,want", [("Vacant", "PASS"), ("Tenant Occupied", "FAIL")])
+def test_foremost_manufactured_homes_are_acceptable_only_when_vacant(occupancy, want):
+    # FOD-020: "Manufactured homes ... unless vacant/unoccupied." (p.16)
+    f = ev.facts(dict(STANDARD_PROFILE, construction_type="Manufactured/Mobile", occupancy_type=occupancy))
+    assert ev.evaluate_row(FMAP["FOD-020"], f)[0] == want
+
+
+def test_a_tenant_foremost_check_gets_no_tdp_1_note():
+    r = _run(dict(TENANT_C, ppc="3", fire_station_miles="2", hydrant_1000ft="Yes"))[FOREMOST]
+    assert "TDP-1" not in (r.get("notes") or "")
+

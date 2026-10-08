@@ -724,6 +724,22 @@ def _coverage_note_applies(row, pd):
     return False
 
 
+# Round 30 step 3 (Liam, 2026-10-08, decision 3): INFO_ONLY rows the card still states when they apply.
+# row id -> (applies to this property?, the card's note). FOD-005: TDP-3 has no vacant use type, and
+# Foremost writes vacant dwellings on TDP-1 -- a note, never a decline (it was inferred from the grid).
+PROGRAM_NOTES = {
+    "FOD-005": (lambda pd: pd.get("occupancy_type") == "Vacant",
+                "Foremost writes vacant dwellings on TDP-1, not TDP-3; quote TDP-1 (FOD-005)."),
+}
+
+
+def program_notes(canon, outcomes, pd):
+    """The PROGRAM_NOTES lines for this carrier's workbook program that apply to the property."""
+    wb, rules = _wb_of(canon, outcomes), _rules()
+    return [note for rid, (applies, note) in PROGRAM_NOTES.items()
+            if rid in rules and rules[rid]["Carrier"] == wb and applies(pd)]
+
+
 def coverage_notes(canon, outcomes, pd):
     """The carrier's COVERAGE_ONLY rows this property triggers, as "[id] plain rule" lines."""
     wb = _wb_of(canon, outcomes)

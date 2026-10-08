@@ -957,18 +957,13 @@ STD-162,NONE,,,DECLINES,,loss / claims history is not asked
 STD-163,NONE,,,DECLINES,,loss / claims history is not asked
 STD-164,NONE,,,DECLINES,,loss / claims history is not asked
 STD-165,NONE,,,DECLINES,,acreage is not asked
-FOD-004,NONE,,,CONDITION,,owner-occupied: FOD rows apply only to Tenant / Vacant checks
-FOD-005,occupancy_type,occupancy_type != Vacant,always,DECLINES,,TDP-1 writes vacant homes; this check is TDP-3
-FOD-006,NONE,,,DECLINES,,seasonal / secondary: FOD rows apply only to Tenant / Vacant checks
-FOD-009,occupancy_type,always,always,CONDITION,,decided by FOD-005 (the same rule); never a second flaw
-FOD-012,occupancy_type,always,always,DECLINES,,decided by FOD-005 (the same rule); never a second flaw
 FOD-013,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 FOD-014,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 FOD-016,NONE,,,DECLINES,,the number of individual owners is not asked
 FOD-017,NONE,,,DECLINES,,the number of individual owners is not asked
 FOD-018,ownership_type,FACT(no business conducted from the premises),ownership_type == LLC,CONDITION,business on premises,
 FOD-019,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
-FOD-020,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,
+FOD-020,construction_type;occupancy_type,construction_type != Manufactured/Mobile or occupancy_type == Vacant,always,DECLINES,,vacant manufactured homes are acceptable on TDP-1
 FOD-031,dwelling_amount,dwelling_amount >= 100000,always,DECLINES,,
 FOD-032,NONE,,,CONDITION,,"TIV, Coverage B and the HO5 form are not asked"
 FOD-033,dwelling_amount,dwelling_amount <= 1000000,always,REFERS_TO_UW,,
