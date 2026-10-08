@@ -113,6 +113,17 @@ DP_BATCH_CARRIERS = {
 }
 # A landlord's check (Foremost's one guide holds both programs; the occupancy tells them apart).
 NOT_OWNERS_HOMES = ("Tenant Occupied", "Vacant")
+# Rules the Foremost guide states once for both programs: the HO3 batch holds them as FOR rows
+# marked "All use types (shared Dwelling Fire and Homeowners rule)" or "(all programs)", and
+# the FOD rows leave them out on purpose. A Foremost dwelling-fire check reads them too, except
+# where an FOD row already decides the same fact (one failing row per fact).
+FOREMOST_SHARED_DECIDED_BY_FOD = {"FOR-012": "FOD-020", "FOR-074": "FOD-055", "FOR-076": "FOD-055"}
+
+
+def _foremost_shared(row):
+    aw = row["Applies when"]
+    return ((aw.startswith("All use types") or "(all programs)" in aw)
+            and row["Rule ID"] not in FOREMOST_SHARED_DECIDED_BY_FOD)
 
 # The batch registry (round 29 step 7): one entry per rules-table batch. "scope" is for a
 # pipeline carrier whose one guide holds two programs (Foremost: homeowners and dwelling
@@ -124,7 +135,9 @@ BATCHES = {
     "ho3": {"rules": HO3_BATCH_RULES_CSV, "map": HO3_BATCH_MAP_CSV, "carriers": HO3_BATCH_CARRIERS,
             "scope": {"Foremost Choice Homeowners": OWNERS_HOMES}},
     "dp": {"rules": DP_BATCH_RULES_CSV, "map": DP_BATCH_MAP_CSV, "carriers": DP_BATCH_CARRIERS,
-           "scope": {"Foremost Dwelling Fire (TDP-3)": NOT_OWNERS_HOMES}},
+           "scope": {"Foremost Dwelling Fire (TDP-3)": NOT_OWNERS_HOMES},
+           # workbook carrier -> (the other workbook carrier whose rows it also reads, which of them)
+           "shares": {"Foremost Dwelling Fire (TDP-3)": ("Foremost Choice Homeowners", _foremost_shared)}},
 }
 WB_TO_CANON = {wb: canon for b in BATCHES.values() for wb, canon in b["carriers"].items()}
 CANON_TO_WB = {}
@@ -459,8 +472,17 @@ def evaluate_carrier(canon, pd, checked=None, wb=None):
     rules, fmap = _rules(), _map()
     wb = wb or CANON_TO_WB[canon]
     f = facts(pd)
-    return {rid: evaluate_row(m, f, checked) for rid, m in fmap.items()
-            if rules[rid]["Carrier"] == wb and rules[rid]["Tool handling"] in DECIDING}
+    out = {rid: evaluate_row(m, f, checked) for rid, m in fmap.items()
+           if rules[rid]["Carrier"] == wb and rules[rid]["Tool handling"] in DECIDING}
+    # round 29 step 8: rows another workbook carrier states for both programs (after the
+    # carrier's own, so _wb_of still names this one)
+    for b in BATCHES.values():
+        other, pick = b.get("shares", {}).get(wb, (None, None))
+        if other:
+            out.update({rid: evaluate_row(m, f, checked) for rid, m in fmap.items()
+                        if rules[rid]["Carrier"] == other and rules[rid]["Tool handling"] in DECIDING
+                        and pick(rules[rid])})
+    return out
 
 
 def also_confirm(canon, outcomes):

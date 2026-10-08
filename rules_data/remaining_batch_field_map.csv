@@ -52,7 +52,7 @@ CDP-065,NONE,,,DECLINES,,not asked by the form
 CDP-066,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 CDP-067,NONE,,,REFERS_TO_UW,,"rentals, mailing address and occupancy dates are not asked"
 CDP-068,NONE,,,DECLINES,,lease length is not asked; every rental needs a 12-month lease (confirm)
-CDP-069,ownership_type,ownership_type != Trust || FACT(a family member living trust as an Additional Named Insured),always,DECLINES,family living trust,LLCs are decided by CDP-071 / CDP-072
+CDP-069,ownership_type,FACT(a family member living trust as an Additional Named Insured),ownership_type == Trust,DECLINES,family living trust,LLCs are decided by CDP-071 / CDP-072
 CDP-070,ownership_type,always,always,CONDITION,,decided by CDP-069 (the same rule); never a second flaw
 CDP-071,ownership_type,ownership_type != LLC,always,REFERS_TO_UW,,every LLC needs underwriting approval before binding
 CDP-072,ownership_type;occupancy_type,occupancy_type == Tenant Occupied,ownership_type == LLC,CONDITION,,
@@ -128,7 +128,7 @@ HDP-001,year_built,home_age <= 100,always,DECLINES,,
 HDP-002,year_built,home_age <= 50 or FACT(proof of updates),always,CONDITION,proof of updates,
 HDP-003,ppc;dwelling_amount,dwelling_amount <= 500000,ppc_num <= 7,DECLINES,,
 HDP-004,ppc;dwelling_amount,dwelling_amount <= 300000,ppc_num >= 8,DECLINES,,
-LDP-001,occupancy_type,"occupancy_type in {Tenant Occupied, Vacant} || occupancy_type in {Tenant Occupied, Vacant, Seasonal}",always,DECLINES,,the form's Seasonal is the owner's seasonal home; the guide may mean a seasonal rental
+LDP-001,occupancy_type,"occupancy_type in {Tenant Occupied, Vacant}",always,DECLINES,,"the form's Seasonal and Secondary Home are the owner's own homes (decision 2, 2026-10-08); a seasonal rental is a tenant-occupied home. Vacant is decided by the guide's own vacancy row"
 LDP-002,occupancy_type,always,always,DECLINES,,decided by LDP-001 (the same rule); never a second flaw
 LDP-004,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 LDP-005,occupancy_type,always,always,DECLINES,,decided by LDP-001 (the same rule); never a second flaw
@@ -224,7 +224,7 @@ NCD-042,ppc;dwelling_amount,FACT(central station fire alarm),ppc_num <= 8 and dw
 NCD-043,ppc;dwelling_amount,FACT(central station fire alarm),ppc_num == 9 and dwelling_amount > 750000,CONDITION,alarm,
 NCD-044,ppc;dwelling_amount,FACT(central station fire alarm),ppc_num == 10 and dwelling_amount > 500000,CONDITION,alarm,
 NCD-045,NONE,,,CONDITION,,not asked by the form
-NCD-047,occupancy_type,"occupancy_type in {Tenant Occupied, Vacant} || occupancy_type in {Tenant Occupied, Vacant, Seasonal}",always,DECLINES,,the form's Seasonal is the owner's seasonal home; the guide may mean a seasonal rental
+NCD-047,occupancy_type,"occupancy_type in {Tenant Occupied, Vacant}",always,DECLINES,,"the form's Seasonal and Secondary Home are the owner's own homes (decision 2, 2026-10-08); a seasonal rental is a tenant-occupied home. Vacant is decided by the guide's own vacancy row"
 NCD-048,NONE,,,DECLINES,,not asked by the form
 NCD-049,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
 NCD-050,NONE,,,CONDITION,,"unit count, foundation and original use are not asked"
@@ -894,7 +894,7 @@ STD-069,roof_type,roof_type != Wood Shake,always,DECLINES,,
 STD-070,NONE,,,DECLINES,,roof condition and layers are not asked
 STD-071,NONE,,,DECLINES,,wiring and panels are not asked
 STD-072,NONE,,,DECLINES,,wiring and panels are not asked
-STD-073,plumbing_type,always || plumbing_type != Galvanized,always,DECLINES,,"'older homes' is not defined, so a galvanized home may or may not be one"
+STD-073,plumbing_type,plumbing_type != Galvanized,always,DECLINES,,'older homes' is not defined; a home with galvanized pipes is an older home (galvanized supply lines went out of use in the 1960s)
 STD-074,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 STD-075,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 STD-078,NONE,,,CONDITION,,"heating, cooling and water heater are not asked"

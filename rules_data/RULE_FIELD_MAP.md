@@ -352,11 +352,11 @@ is "1" (and the pilot is on). Its registry entry is `rules_evaluator.BATCHES["dp
 
 | Carrier | decided by a form field | gated-but-open | AMBIGUOUS | same rule as another row | NONE | total |
 |---|---|---|---|---|---|---|
-| Centauri DP3 | 10 | 3 | 4 | 2 | 63 | 82 |
+| Centauri DP3 | 10 | 4 | 3 | 2 | 63 | 82 |
 | Centauri HO3 (scanned, OCR) | 6 | 2 | 3 | 1 | 30 | 42 |
 | HOAIC Texas Dwelling (TDP3) | 3 | 1 | 0 | 0 | 0 | 4 |
-| Liberty Mutual / Safeco Landlord DP3 | 5 | 2 | 1 | 6 | 40 | 54 |
-| NatGen Custom360 Landlord | 8 | 12 | 3 | 8 | 96 | 127 |
+| Liberty Mutual / Safeco Landlord DP3 | 6 | 2 | 0 | 6 | 40 | 54 |
+| NatGen Custom360 Landlord | 9 | 12 | 2 | 8 | 96 | 127 |
 | NatGen Premier Dwelling Fire (closed) | 0 | 0 | 0 | 0 | 70 | 70 |
 | Progressive DP3 | 10 | 5 | 2 | 2 | 62 | 81 |
 | Progressive HO6 (condo) | 8 | 3 | 2 | 1 | 55 | 69 |
@@ -365,17 +365,19 @@ is "1" (and the pilot is on). Its registry entry is `rules_evaluator.BATCHES["dp
 | Sage SURE DP3 | 12 | 7 | 0 | 4 | 54 | 77 |
 | Sage SafePort DP3 | 13 | 6 | 0 | 4 | 57 | 80 |
 | Sage Vave DP3 | 6 | 3 | 0 | 4 | 28 | 41 |
-| Steadily DP3 | 7 | 2 | 2 | 3 | 91 | 105 |
+| Steadily DP3 | 8 | 2 | 1 | 3 | 91 | 105 |
 | Foremost Dwelling Fire (TDP-3) | 5 | 1 | 0 | 3 | 24 | 33 |
-| **all** | **106** | **55** | **17** | **40** | **772** | **990** |
+| **all** | **109** | **56** | **13** | **40** | **772** | **990** |
 
 **Readings used:**
 - **Dwelling fire is a landlord's policy.** Tenant Occupied passes every
   dwelling-fire occupancy line (tested both ways in test_remaining_batch_rules.py).
   The form's Seasonal and Secondary Home are the owner's own homes (decision 2,
   2026-10-08). The landlord-only guides (Liberty / Safeco LDP-001, NatGen
-  Custom360 NCD-047) fail Owner Occupied and Secondary Home; Seasonal is
-  AMBIGUOUS there, because those guides write seasonal RENTALS.
+  Custom360 NCD-047) fail Owner Occupied, Seasonal and Secondary Home. A
+  seasonal rental is a tenant-occupied home. (First version: Seasonal was
+  AMBIGUOUS; in the step 8 runs Luna then answered INELIGIBLE in one run and
+  INSUFFICIENT in the next for the same Liberty DP3 check.)
 - **Liability-only lists** ("ineligible for liability coverage": Steadily
   STD-082 / 088-090, Foremost FOD-045..048) are NONE: write without liability,
   never a decline of the home.
@@ -404,7 +406,15 @@ is "1" (and the pilot is on). Its registry entry is `rules_evaluator.BATCHES["dp
   Occupied or Vacant check; the FOR rows (homeowners) apply only to an owner's
   home. Foremost is one guide and one carrier name in the app, so the
   property's occupancy is the only thing that tells a DP check from an HO
-  check.
+  check. The guide states some rules once for both programs; those FOR rows
+  are marked "All use types (shared Dwelling Fire and Homeowners rule)" or
+  "(all programs)", and the FOD rows leave them out. A Foremost DP check
+  reads those FOR rows too (`BATCHES["dp"]["shares"]`), except FOR-012 and
+  FOR-074/076, whose facts FOD-020 and FOD-055 already decide. (First version:
+  a galvanized rental came back ELIGIBLE with the batch on.)
+- **Steadily STD-073** ("galvanized plumbing is ineligible in older homes";
+  older is not defined): a home with galvanized pipes is an older home, so
+  galvanized fails. (First version: AMBIGUOUS, which held the check.)
 - **Progressive HO6 (condo).** HO6 programs are homeowners programs, so they
   are routed for Owner Occupied only, and dropped when the dwelling type is
   House. They are not routed for Tenant, Vacant, Seasonal or Secondary Home.

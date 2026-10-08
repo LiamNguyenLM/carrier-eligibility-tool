@@ -13,8 +13,8 @@ Readings added here, listed in RULE_FIELD_MAP.md:
 - Dwelling fire is a landlord's policy: Tenant Occupied is the normal case and
   passes every occupancy line unless the guide's own row says otherwise. The
   form's Seasonal / Secondary Home are the OWNER's homes (Liam's decision 2,
-  2026-10-08), so a landlord-only guide fails Secondary Home; Seasonal is
-  AMBIGUOUS where the guide writes seasonal RENTALS.
+  2026-10-08), so a landlord-only guide fails Seasonal and Secondary Home
+  (a seasonal rental is a tenant-occupied home).
 - "Ineligible for liability coverage" lists (pools, dogs, stairs, trampolines)
   never decline the home: they are NONE (coverage only) here.
 - A condition that applies to the program's base case and that the form never
@@ -66,9 +66,9 @@ FOREMOST_COASTAL = ("{Aransas, Bee, Brazoria, Brooks, Calhoun, Cameron, Chambers
                     "Montgomery, Nueces, Orange, Refugio, San Patricio, Victoria, Wharton, Willacy}")
 # A landlord-only guide: the owner's own homes (Owner Occupied, Secondary Home) fail; Seasonal may be a
 # seasonal rental (AMBIGUOUS); Vacant is decided by the guide's own vacancy row.
-LANDLORD_ONLY = ("occupancy_type", "occupancy_type in {Tenant Occupied, Vacant} || "
-                                   "occupancy_type in {Tenant Occupied, Vacant, Seasonal}", "always", "",
-                 "the form's Seasonal is the owner's seasonal home; the guide may mean a seasonal rental")
+LANDLORD_ONLY = ("occupancy_type", "occupancy_type in {Tenant Occupied, Vacant}", "always", "",
+                 "the form's Seasonal and Secondary Home are the owner's own homes (decision 2, 2026-10-08); a "
+                 "seasonal rental is a tenant-occupied home. Vacant is decided by the guide's own vacancy row")
 PPC_1_8 = ("ppc", "ppc_num <= 8", "always", "", "")
 NO_BITES = ("has_dogs", "FACT(no dog with a bite history)", DOGS, "bite history", "")
 POOL_4FT = ("swimming_pool;pool_fence_4ft;pool_gate_locking", FENCED + " and " + POOL_OK, POOL,
@@ -109,8 +109,8 @@ MAP = {
     "CDP-058": NO_BITES,
     "CDP-066": ("occupancy_type", NOT_VACANT, "always", "", ""),
     "CDP-068": none("lease length is not asked; every rental needs a 12-month lease (confirm)"),
-    "CDP-069": ("ownership_type", "ownership_type != Trust || FACT(a family member living trust as an Additional "
-                                  "Named Insured)", "always", "family living trust",
+    "CDP-069": ("ownership_type", "FACT(a family member living trust as an Additional Named Insured)", TRUST,
+                "family living trust",
                 "LLCs are decided by CDP-071 / CDP-072"),
     "CDP-070": same_as("CDP-069", "ownership_type"),
     "CDP-071": ("ownership_type", "ownership_type != LLC", "always", "",
@@ -370,8 +370,9 @@ MAP = {
     "STD-065": same_as("STD-064", "roof_type"),
     "STD-067": ("roof_shape;roof_type", "FACT(proper drainage, no pooling)", FLAT, "flat roof drainage", ""),
     "STD-069": WOOD_ROOF,
-    "STD-073": ("plumbing_type", "always || plumbing_type != Galvanized", "always", "",
-                "'older homes' is not defined, so a galvanized home may or may not be one"),
+    "STD-073": ("plumbing_type", GALV, "always", "",
+                "'older homes' is not defined; a home with galvanized pipes is an older home (galvanized "
+                "supply lines went out of use in the 1960s)"),
     "STD-092": ("solar_panels", "FACT(panels cover 50% of the roof or less)", "solar_panels == Yes", "share of roof",
                 ""),
     "STD-095": PPC_1_8,

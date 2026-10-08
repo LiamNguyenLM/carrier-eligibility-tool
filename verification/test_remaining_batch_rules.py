@@ -69,7 +69,7 @@ def test_every_expression_parses(prof):
 
 def test_coverage():
     kinds = collections.Counter(builder.kind(builder.MAP.get(rid, ("NONE", "", "", "", ""))) for rid in FMAP)
-    assert kinds == {"decided by a form field": 106, "gated-but-open": 55, "AMBIGUOUS": 17,
+    assert kinds == {"decided by a form field": 109, "gated-but-open": 56, "AMBIGUOUS": 13,
                      "same rule as another row": 40, "NONE": 772}
 
 
@@ -93,12 +93,13 @@ def test_a_tenant_home_passes_every_dwelling_fire_occupancy_line():
     assert not out["FAIL"] and not out["OPEN"], dict(out)
 
 
-def test_the_owners_own_homes_fail_only_the_landlord_only_guides():
-    # the other direction: Liberty / Safeco and NatGen Custom360 write landlords only
-    assert _occupancy_outcomes("Owner Occupied", DP_PREFIXES)["FAIL"] == {"LDP-001", "NCD-047"}
-    assert _occupancy_outcomes("Secondary Home", DP_PREFIXES)["FAIL"] == {"LDP-001", "NCD-047"}
-    seasonal = _occupancy_outcomes("Seasonal", DP_PREFIXES)
-    assert not seasonal["FAIL"] and seasonal["OPEN"] == {"LDP-001", "NCD-047"}   # may be a seasonal rental
+@pytest.mark.parametrize("occupancy", ["Owner Occupied", "Secondary Home", "Seasonal"])
+def test_the_owners_own_homes_fail_only_the_landlord_only_guides(occupancy):
+    # the other direction: Liberty / Safeco and NatGen Custom360 write landlords only. The form's
+    # Seasonal is the owner's own home (decision 2); round 29 step 8 runs: left AMBIGUOUS, the model
+    # answered INELIGIBLE in one run and INSUFFICIENT in the next for the same Liberty DP3 check.
+    out = _occupancy_outcomes(occupancy, DP_PREFIXES)
+    assert out["FAIL"] == {"LDP-001", "NCD-047"} and not out["OPEN"], dict(out)
 
 
 def test_a_vacant_home_fails_each_guides_own_vacancy_row_once():
@@ -108,11 +109,57 @@ def test_a_vacant_home_fails_each_guides_own_vacancy_row_once():
     assert len({rid[:3] for rid in fails}) == len(fails)
 
 
+@pytest.mark.parametrize("ownership,occupancy", [("Individual Owner", "Tenant Occupied"),
+                                                 ("Individual Owner", "Vacant")])
+def test_an_individual_owner_passes_every_ownership_line(ownership, occupancy):
+    # round 29 step 8 runs: CDP-069 was written "X || FACT(...)" -- two READINGS, not a logical or --
+    # so an individual owner was left open and every Centauri DP3 check was held on "family living trust".
+    f = ev.facts(dict(STANDARD_PROFILE, county="Bexar", ownership_type=ownership, occupancy_type=occupancy))
+    bad = {rid: ev.evaluate_row(m, f)[0] for rid, m in FMAP.items()
+           if "ownership_type" in m["field"] and ev.evaluate_row(m, f)[0] not in ("PASS", "N/A")}
+    assert not bad
+
+
+def test_no_reading_is_a_bare_fact():
+    # "||" separates readings of an ambiguous rule; a reading that is only a FACT (or "always") next to a
+    # decided one is a logical "or" written as "||" -- the CDP-069 bug.
+    for rid, m in FMAP.items():
+        readings = [t.strip() for t in m["test"].split("||")] if m["field"] != "NONE" else []
+        if len(readings) > 1:
+            assert not any(t.startswith("FACT(") and " and " not in t for t in readings), rid
+
+
 @pytest.mark.parametrize("phrasing", ["liability coverage", "ineligible for liability"])
 def test_liability_only_rows_never_decline_the_home(phrasing):
     rows = [rid for rid, r in RULES.items() if rid in FMAP and phrasing in r["Plain rule"].lower()]
     assert rows
     assert all(FMAP[rid]["field"] == "NONE" for rid in rows), [rid for rid in rows if FMAP[rid]["field"] != "NONE"]
+
+
+@pytest.mark.parametrize("plumbing,row", [("Galvanized", "FOR-036"), ("Polybutylene", "FOR-035")])
+def test_a_foremost_tenant_check_reads_the_rules_the_guide_states_for_both_programs(plumbing, row):
+    # round 29 step 8 runs: the FOD rows leave shared rules out on purpose, so with the batch on a galvanized
+    # rental came back ELIGIBLE. The FOR rows marked "All use types (shared ...)" now apply to it too.
+    out = ev.evaluate_carrier(FOREMOST, dict(STANDARD_PROFILE, occupancy_type="Tenant Occupied",
+                                             plumbing_type=plumbing), wb="Foremost Dwelling Fire (TDP-3)")
+    assert out[row][0] == "FAIL"
+    assert ev._wb_of(FOREMOST, out) == "Foremost Dwelling Fire (TDP-3)"
+
+
+def test_a_shared_rule_an_fod_row_already_decides_fails_once():
+    out = ev.evaluate_carrier(FOREMOST, dict(STANDARD_PROFILE, occupancy_type="Tenant Occupied",
+                                             construction_type="Manufactured/Mobile"),
+                              wb="Foremost Dwelling Fire (TDP-3)")
+    assert out["FOD-020"][0] == "FAIL" and "FOR-012" not in out
+    # and the sharing runs one way: the homeowners check never reads an FOD row
+    assert not any(rid.startswith("FOD-") for rid in ev.evaluate_carrier(
+        FOREMOST, dict(STANDARD_PROFILE), wb="Foremost Choice Homeowners"))
+
+
+def test_steadily_declines_galvanized_plumbing():
+    # STD-073 "Galvanized plumbing is ineligible in older homes": a galvanized home is an older home
+    f = ev.facts(dict(STANDARD_PROFILE, plumbing_type="Galvanized", year_built=2005))
+    assert ev.evaluate_row(FMAP["STD-073"], f)[0] == "FAIL"
 
 
 def test_natgen_premier_dwelling_fire_is_closed_like_its_homeowners_program():
