@@ -88,6 +88,11 @@ def test_the_rules_check_asks_for_row_ids_only():
     assert "row id only" in ev.PILOT_INSTRUCTION and "never copy a rule's text" in ev.PILOT_INSTRUCTION
 
 
+def test_the_rules_check_asks_for_the_listed_carriers_only():
+    # round 31 step 3a follow-up: with the stable enum, one live check answered for all 29 programs
+    assert "no record for any other carrier" in ev.PILOT_INSTRUCTION
+
+
 def test_a_bare_row_id_still_gets_the_guides_words_from_code():
     outcomes = ev.evaluate_carrier("Allied_Trust_HO3", dict(LIVE_PD, solar_panels="Yes"))
     rec = ev.finish_model_record({"carrier": "Allied_Trust_HO3", "status": "ELIGIBLE", "reasons": ["Mounted panels."],

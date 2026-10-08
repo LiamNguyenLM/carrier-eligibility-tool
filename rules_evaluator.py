@@ -638,7 +638,8 @@ PILOT_INSTRUCTION = (
     "needs a fact PROPERTY DETAILS does not give makes the carrier INSUFFICIENT_INFORMATION; a fact that is "
     "given and breaks a rule decides by that rule's effect (DECLINES -> INELIGIBLE, REFERS_TO_UW or "
     "CONDITION -> REFER). Unknown is not a failure. Cite a rule by its row id only, e.g. \"[ALL-109]\": code "
-    "adds the guide's own words, so never copy a rule's text into citations.")
+    "adds the guide's own words, so never copy a rule's text into citations. Give exactly one record for each "
+    "carrier listed below under \"(rule check)\", and no record for any other carrier.")
 
 
 def _cell(v):
