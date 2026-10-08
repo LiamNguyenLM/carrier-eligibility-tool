@@ -66,7 +66,12 @@ def test_haiku_5_5_gets_the_production_schema_with_the_carrier_enum(monkeypatch)
     fmt = kw["output_config"]["format"]
     assert fmt["type"] == "json_schema"
     item = fmt["schema"]["properties"]["carriers"]["items"]
-    assert item["properties"]["carrier"]["enum"] == ["A_HO3", "B_HO3"]
+    # CHANGED 2026-10-08 (round 31 step 3a, Liam's decision 1: optimize for Haiku): the schema is part of
+    # Claude's cached prefix, so every call sends the same enum -- every store program plus the call's own
+    # carriers -- instead of only the call's carriers. Was: == ["A_HO3", "B_HO3"].
+    enum = item["properties"]["carrier"]["enum"]
+    assert {"A_HO3", "B_HO3"} <= set(enum) and enum == ec._stable_enum(["A_HO3", "B_HO3"])
+    assert {"Allied_Trust_HO3", "TWICO_HO3"} <= set(enum)
     assert item["properties"]["status"]["enum"] == ["ELIGIBLE", "INELIGIBLE", "REFER", "INSUFFICIENT_INFORMATION"]
     assert "maxItems" not in json.dumps(fmt["schema"])
     assert set(item["required"]) == set(ec.CARRIER_RESULTS_SCHEMA["properties"]["carriers"]["items"]["required"])

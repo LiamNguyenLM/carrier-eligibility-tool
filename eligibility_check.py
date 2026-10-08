@@ -321,12 +321,18 @@ def _stable_enum(carriers):
     did not ask about. None stays None (no enum)."""
     if carriers is None:
         return None
+    return sorted(set(_all_programs()) | set(carriers))
+
+
+def _all_programs():
+    """Every program in the store, read once. Round 31 fix: the unasked-record drop used to read
+    _ALL_PROGRAMS directly, so it only worked after some Claude call had filled it (order-dependent)."""
     if not _ALL_PROGRAMS:
         try:
             _ALL_PROGRAMS.extend(sorted(get_all_carriers()))
         except Exception:                        # noqa: BLE001 -- no store: the call's own enum
             pass
-    return sorted(set(_ALL_PROGRAMS) | set(carriers))
+    return _ALL_PROGRAMS
 
 
 def _trim_to_two(text):
@@ -3989,7 +3995,8 @@ def _check_eligibility(property_details, carrier_subset=None, checked_topics=Non
             parsed = []
         # Round 31 step 3a: the Claude enum is stable (every program), so drop a main-call record for a
         # program the main call was not asked about; a name that is no program stays for the old checks.
-        parsed = [r for r in parsed if not (isinstance(r, dict) and r.get("carrier") in _ALL_PROGRAMS
+        programs = _all_programs()
+        parsed = [r for r in parsed if not (isinstance(r, dict) and r.get("carrier") in programs
                                             and r.get("carrier") not in main_carriers)]
         parsed = [_normalize_record(r) for r in parsed + pilot["records"] if isinstance(r, dict)]
 

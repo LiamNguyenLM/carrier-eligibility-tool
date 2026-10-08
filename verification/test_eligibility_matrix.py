@@ -6262,9 +6262,16 @@ class TestStructuredOutput:
         """{"carriers": [...]} is what strict json_schema returns; the
         existing extraction must place every record."""
         import json
+        import eligibility_check as ec
         wrapped = json.dumps({"carriers": json.loads(_answer_for(_usable("Owner Occupied")))})
         results = _replayed_run(OWNERSHIP_BASE_PROFILE, wrapped)
-        assert usable_answer_count(results) == len(_usable("Owner Occupied"))
+        # CHANGED 2026-10-08 (round 31 step 3a, Liam's decision 1): a record for a program the call was
+        # not asked about is dropped. The fixture answers every Owner Occupied program, Progressive HO6
+        # too, but a house never asks the condo-unit form (round 30 step 4), so its record no longer
+        # makes an HO6 card on a house. Was: == len(_usable("Owner Occupied")).
+        asked = [c for c in _usable("Owner Occupied") if not ec._is_condo_program(c)]
+        assert usable_answer_count(results) == len(asked)
+        assert not any(ec._is_condo_program(r["carrier"]) for r in results)
         assert not assign_buckets(results)["unrecognised"]
         assert not assign_buckets(results)["not_evaluated"]
 

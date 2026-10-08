@@ -49,7 +49,7 @@ def test_the_stable_enum_always_holds_the_calls_own_carriers(carriers):
     assert set(carriers) <= set(ec._stable_enum(carriers)) and ec._stable_enum(None) is None
 
 
-def _run(pd, split=1, extra_main=None):
+def _run(pd, split=1, extra_main=None, batches=True):
     calls = []
 
     def fake(system, user, max_tokens):
@@ -62,7 +62,7 @@ def _run(pd, split=1, extra_main=None):
                                          "citations": [], "missing_info": [], "notes": ""} for n in names]}), dict(U)
     saved = (ec._complete, ec.RULES_PILOT, ec.RULES_SAGE_BATCH, ec.RULES_HO3_BATCH, ec.RULES_DP_BATCH, ec.RULES_SPLIT)
     ec._complete, ec.RULES_PILOT, ec.RULES_SAGE_BATCH, ec.RULES_HO3_BATCH, ec.RULES_DP_BATCH, ec.RULES_SPLIT = \
-        fake, True, True, True, True, split
+        fake, batches, batches, batches, batches, split
     try:
         return {r["carrier"]: r for r in ec.check_eligibility(dict(pd))}, calls
     finally:
@@ -81,6 +81,20 @@ def test_a_main_call_record_for_a_program_it_was_not_asked_about_is_dropped():
     _, calls = _run(pd)
     res, _ = _run(pd, extra_main="Allied_Trust_HO3")             # an HO3 program on a tenant check
     assert "Allied_Trust_HO3" not in res
+
+
+@pytest.mark.parametrize("pd,extra", [
+    (dict(LIVE_PD, dwelling_type="House"), "Progressive_HO6_-_10.01.2025"),       # the condo form, a house
+    (dict(LIVE_PD, dwelling_type="House", occupancy_type="Seasonal"), "Progressive_HO6_-_10.01.2025"),
+])
+def test_the_unasked_record_is_dropped_in_a_fresh_process(monkeypatch, pd, extra):
+    # round 31 fix: the drop read the program list only after some Claude call had filled it, so in a
+    # fresh process (or on the Luna path) the first check kept the unasked record (fast tier, 3e5da1d).
+    # Batches off, so the main call is made and answers for a program it was not asked about.
+    monkeypatch.setattr(ec, "_ALL_PROGRAMS", [])
+    res, calls = _run(pd, extra_main=extra, batches=False)
+    assert any(not c["rule"] for c in calls) and all(extra not in c["names"] for c in calls)
+    assert extra not in res
 
 
 # -- b. citations by row id ---------------------------------------------------------------------
