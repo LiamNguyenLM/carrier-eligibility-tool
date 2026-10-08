@@ -164,7 +164,7 @@ SAG-014,NONE,,,DECLINES,,the form has no field for this
 SAG-015,NONE,,,CONDITION,,the form has no field for this
 SAG-017,ownership_type,ownership_type != LLC,always,DECLINES,,
 SAG-018,NONE,,,DECLINES,,the form has no field for this
-SAG-019,ownership_type;occupancy_type,occupancy_type == Owner Occupied,ownership_type == Trust,CONDITION,,
+SAG-019,ownership_type;occupancy_type,"occupancy_type in {Owner Occupied, Seasonal, Secondary Home}",ownership_type == Trust,CONDITION,,as the Sage sister guides' trust-occupancy rows
 SAG-020,NONE,,,DECLINES,,the form has no field for this
 SAG-021,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,
 SAG-022,NONE,,,CONDITION,,the form has no field for this

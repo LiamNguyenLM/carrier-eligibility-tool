@@ -1821,6 +1821,29 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       | FOR-062 | Foremost Choice Homeowners | unchanged | the cure is a signed acknowledgement the form never asks: the form cannot show it unmet |
 
     - Tests: verification/test_requirement_rows.py.
+  - **Step 5 (ownership for every occupancy, decision 3):**
+    - The Ownership Structure question now shows for every occupancy. It used
+      to show only for Owner Occupied, so a rental owned by an LLC or a trust
+      could not be entered. The answer reaches the prompt ("Ownership
+      Structure: ...") and the rules tables for every occupancy.
+    - Owner Occupied, and every other occupancy left at Individual Owner, is
+      byte-identical (replay vs 4853cb5: 78/78).
+    - **Every ownership map line in the four tables (83) was checked** for a
+      gate that assumed owner occupancy. One changed:
+      - SAG-019 (Auros: "Residence Held in Trust if the residence is
+        occupied by the trustee, the grantor ... or the beneficiary") tested
+        Owner Occupied only. With step 4 that declined a trust's seasonal
+        home. It now passes Owner Occupied / Seasonal / Secondary Home, as
+        its Sage sister rows do.
+    - **Unchanged after checking:**
+      - NCD-002 / NCD-010..016 (LLC titled), PDP-049 / PDP-120 (LLC
+        refers): no occupancy gate;
+      - CDP-072: requires tenant occupancy;
+      - MDP-015: gated to primary / seasonal homes, as its guide says;
+      - VDP-062: a tenant trust home fails, as its guide says;
+      - Steadily STD-127 (land trusts): NONE; the form's Trust is not a land
+        trust.
+    - Tests: verification/test_ownership_every_occupancy.py.
 
 ## Open work, in priority order (updated 2026-10-02)
 

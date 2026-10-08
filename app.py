@@ -153,15 +153,14 @@ with tab1:
             "Vacant", "Secondary Home"
         ], key="occupancy")
 
-        if occupancy_type == "Owner Occupied":
-            ownership_type = st.radio(
-                "Ownership Structure",
-                options=["Individual Owner", "Trust", "LLC"],
-                horizontal=True,
-                key="ownership"
-            )
-        else:
-            ownership_type = "Individual Owner"
+        # Round 31 step 5 (Liam, 2026-10-08, decision 3): asked for every occupancy (was Owner Occupied
+        # only, so a rental owned by an LLC or a trust could not be entered).
+        ownership_type = st.radio(
+            "Ownership Structure",
+            options=["Individual Owner", "Trust", "LLC"],
+            horizontal=True,
+            key="ownership"
+        )
 
         # Round 30 step 1 (Liam, 2026-10-08, decision 1): only for the owner's other homes;
         # hidden (and absent from property_details) for every other occupancy.

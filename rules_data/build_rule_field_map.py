@@ -211,7 +211,10 @@ MAP = {
     "ALL-016": ("ownership_type", "ownership_type != Trust", "always", "", "trust: submit documents (REFER)"),
     "ALL-017": ("ownership_type", "ownership_type != LLC", "always", "", ""),
     "SAG-017": ("ownership_type", "ownership_type != LLC", "always", "", ""),
-    "SAG-019": ("ownership_type;occupancy_type", "occupancy_type == Owner Occupied", "ownership_type == Trust", "", ""),
+    # Round 31 step 5: "occupied by the trustee, the grantor ... or the beneficiary": a seasonal / secondary
+    # home is the owner's own home too (was Owner Occupied only, which declined a trust's seasonal home)
+    "SAG-019": ("ownership_type;occupancy_type", "occupancy_type in {Owner Occupied, Seasonal, Secondary Home}",
+                "ownership_type == Trust", "", "as the Sage sister guides' trust-occupancy rows"),
     "MER-005": ("ownership_type", "ownership_type != LLC || ownership_type not in {LLC, Trust}", "always", "",
                 "AMBIGUOUS: a form Trust may be a corporate trust"),
     "PRO-012": ("ownership_type", "ownership_type != LLC || ownership_type not in {LLC, Trust}", "always", "",
