@@ -31,7 +31,10 @@ batches = sys.argv[6] if len(sys.argv) > 6 else "pilot+sage"
 LIVE = dict(P.LIVE_PROFILE)
 PROFILES = {"LIVE": (LIVE, P.LIVE_CHECKED), "LIVE+Bexar": (dict(LIVE, county="Bexar", zip=""), P.LIVE_CHECKED),
             **{k: (M.PROFILES[k], None) for k in ("OLD", "CLEAN", "STRESS", "ALT", "COASTAL_PPC4",
-                                                    "OWNERSHIP_BASE")}}
+                                                    "OWNERSHIP_BASE")},
+            # round 31 step 3: an owner's second home and a rental, County Bexar
+            "SEASONAL": (dict(LIVE, county="Bexar", zip="", occupancy_type="Seasonal"), P.LIVE_CHECKED),
+            "TENANT": (dict(LIVE, county="Bexar", zip="", occupancy_type="Tenant Occupied"), P.LIVE_CHECKED)}
 PRICE = {"gpt": {"in": 0.10, "cached": 0.01, "write": 0.0, "out": 0.50},
          "claude": {"in": 0.10, "cached": 0.01, "write": 0.125, "out": 0.50}}
 pd, checked = PROFILES[prof]
@@ -53,6 +56,8 @@ def recording(system, user, max_tokens):
     except (ValueError, AttributeError):
         recs = None
     calls.append({"pilot": "RULE CHECK:" in user, "enum": enum, "wall": round(time.perf_counter() - t0, 1),
+                  "retry": "ANSWER ONLY FOR THESE CARRIERS" in user,          # round 31 step 3
+                  "system_chars": len(system), "user_chars": len(user),
                   "usage": {k: v for k, v in usage.items() if k != "stop_reason"},
                   "stop_reason": str(usage.get("stop_reason")),
                   "parsed": recs is not None,
@@ -76,6 +81,7 @@ cost = sum((c["usage"].get("input_tokens", 0) * price["in"] + c["usage"].get("ca
             + c["usage"].get("cache_creation_input_tokens", 0) * price["write"]
             + c["usage"].get("output_tokens", 0) * price["out"]) / 1e6 for c in calls)
 rec = {"model": model, "effort": effort, "profile": prof, "label": label, "batches": batches,
+       "timings": {k: round(v, 2) for k, v in ec.LAST_TIMINGS.items()},          # round 31 step 3
        "commit": os.popen("git rev-parse --short HEAD").read().strip(), "wall": wall, "cost": round(cost, 5),
        "calls": calls, "buckets": {k: len(v) for k, v in ec.assign_buckets(res).items()},
        # round 29: what the hold guard did (cards released, cards trimmed, items moved to notes)

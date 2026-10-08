@@ -78,6 +78,8 @@ NOT_ASKED = {
     "trampoline / play equipment": (r"\btrampoline", r"\bskateboard", r"\bplayground"),
     "business on premises": (r"\bbusiness (on|at) (the )?premises\b", r"\bhome business\b", r"\bdaycare\b",
                              r"\bday care\b"),
+    # Round 31 step 3c: Haiku held Swyfft (SWY-043, Tesla solar roofs) on the panels' maker.
+    "product brand / maker": (r"\bbrand\b", r"\btesla\b", r"\bmanufacturer\b", r"\bmake (and|or) model\b"),
 }
 # An item asking for the guide's own rules is a retrieval gap, not a property fact: kept.
 _GUIDE_GAP = re.compile(r"\b(eligibility|underwriting) (rules|criteria|guidelines|requirements)\b|"

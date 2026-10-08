@@ -43,6 +43,7 @@ import json
 import os
 import re
 
+import hold_guard
 import intake_fields
 from structured_rules import sage_county_in_territory
 
@@ -580,7 +581,8 @@ PILOT_INSTRUCTION = (
     "DETAILS. Its results are facts. Judge only the rules listed under \"Not decided by code\": a rule that "
     "needs a fact PROPERTY DETAILS does not give makes the carrier INSUFFICIENT_INFORMATION; a fact that is "
     "given and breaks a rule decides by that rule's effect (DECLINES -> INELIGIBLE, REFERS_TO_UW or "
-    "CONDITION -> REFER). Unknown is not a failure. Cite a rule as \"<carrier>: [row id] <rule>\".")
+    "CONDITION -> REFER). Unknown is not a failure. Cite a rule by its row id only, e.g. \"[ALL-109]\": code "
+    "adds the guide's own words, so never copy a rule's text into citations.")
 
 
 def _cell(v):
@@ -624,7 +626,33 @@ def finish_model_record(rec, canon, outcomes):
     rec["rules_table"] = True
     rec["also_confirm"] = also_confirm(canon, outcomes)
     _hold_unknown_as_insufficient(rec, outcomes, ids)
+    _release_unasked_holds(rec, outcomes)
     return rec
+
+
+def _release_unasked_holds(rec, outcomes):
+    """Round 31 step 3c (decision 2, 2026-10-08): the hold guard on a rules-check record. Only when every
+    row still open for the carrier is one the model was asked to decide (its readings disagree on known
+    facts, or its effect is UNKNOWN) -- never with a row Liam holds by name (HOLD_BY_DECISION) or a row
+    open on a blank form field -- the model's items about facts the form never asks become a "Confirm:"
+    note; with nothing else open the card is ELIGIBLE. Round 30: Haiku held SWY-043 on the panel maker."""
+    if rec.get("status") != "INSUFFICIENT_INFORMATION":
+        return
+    opens = [rid for rid, (o, _) in outcomes.items() if o == "OPEN"]
+    if not opens or any(rid in HOLD_BY_DECISION or not _model_can_decide(outcomes[rid][1]) for rid in opens):
+        return
+    items = list(rec.get("missing_info") or [])
+    confirm = [m for m in items if hold_guard.classify(m)[0] == "c"]
+    if not confirm:
+        return
+    keep = [m for m in items if m not in confirm]
+    note = "Confirm (not asked by the form; never a hold): " + "; ".join(confirm) + "."
+    rec["notes"] = ((rec.get("notes") or "") + " " + note).strip()
+    rec["missing_info"] = keep
+    if not keep:
+        rec["status"], rec["flaw_count"] = "ELIGIBLE", 0
+        rec["reasons"] = ["Only facts the intake form does not ask were open; they are listed to confirm, "
+                          "never as a hold."]
 
 
 def _model_can_decide(detail):

@@ -311,6 +311,24 @@ def _anthropic_schema(carriers):
     return schema
 
 
+_ALL_PROGRAMS = []
+
+
+def _stable_enum(carriers):
+    """Round 31 step 3a: the schema is part of Claude's cached prefix (measured 2026-10-08: a new enum
+    rewrote the whole ~9,800-token prefix and read nothing). So every Claude call gets the SAME enum --
+    every program in the store plus the call's own -- and code drops a record for a carrier the call
+    did not ask about. None stays None (no enum)."""
+    if carriers is None:
+        return None
+    if not _ALL_PROGRAMS:
+        try:
+            _ALL_PROGRAMS.extend(sorted(get_all_carriers()))
+        except Exception:                        # noqa: BLE001 -- no store: the call's own enum
+            pass
+    return sorted(set(_ALL_PROGRAMS) | set(carriers))
+
+
 def _trim_to_two(text):
     """(text, trimmed): reasons / citations cut to two per record, as Luna's
     strict maxItems does. Unparseable text is returned unchanged."""
@@ -351,7 +369,7 @@ def _complete_anthropic(system_text, user_content, max_tokens):
         output_config = {}
         if ELIGIBILITY_STRUCTURED:
             output_config["format"] = {"type": "json_schema",
-                                       "schema": _anthropic_schema(getattr(_CALL, "carriers", None))}
+                                       "schema": _anthropic_schema(_stable_enum(getattr(_CALL, "carriers", None)))}
         if ELIGIBILITY_EFFORT:
             output_config["effort"] = ELIGIBILITY_EFFORT
         if output_config:
@@ -3367,6 +3385,38 @@ def _rules_pilot_model_records(raw, open_carriers):
     return out
 
 
+# Round 31 step 3d: how many parallel calls the rules check may use (ELIGIBILITY_RULES_SPLIT).
+RULES_SPLIT = max(1, int(os.environ.get("ELIGIBILITY_RULES_SPLIT", "1") or 1))
+
+
+def _split_groups(carriers, n):
+    """carriers in up to n groups of near-equal size, order kept (n=1: one group)."""
+    n = max(1, min(n, len(carriers)))
+    size, extra = divmod(len(carriers), n)
+    out, i = [], 0
+    for k in range(n):
+        j = i + size + (1 if k < extra else 0)
+        out.append(carriers[i:j])
+        i = j
+    return [g for g in out if g]
+
+
+def _sum_usage(usages):
+    """One usage dict for several calls (token counts summed), or None when there were none."""
+    usages = [u for u in usages if u]
+    if not usages:
+        return None
+    if len(usages) == 1:
+        return usages[0]
+    out = {k: sum(u.get(k, 0) or 0 for u in usages)
+           for k in ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")}
+    out["calls"] = len(usages)
+    out["stop_reason"] = ",".join(str(u.get("stop_reason")) for u in usages)
+    if any(u.get("fallback") for u in usages):
+        out.update(fallback=True, model=next(u["model"] for u in usages if u.get("fallback")))
+    return out
+
+
 def _reply_records(raw):
     """The records of a JSON reply ({"carriers": [...]} or a bare list), or None."""
     body = (raw or "").replace("```json", "").replace("```", "").strip()
@@ -3407,17 +3457,30 @@ def _retry_omitted(raw, carriers, user_content):
     return json.dumps({"carriers": recs + extra}, ensure_ascii=False), usage2
 
 
+# Round 31 step 3a: the main call's reply when it has no carriers (it is not made).
+NO_CALL_REPLY = '{"carriers": []}'
+
 # Round 31 step 1: what the last check used, for the Database Fingerprint panel.
 LAST_CHECK_INFO = {}
+# Round 31 step 3: where a check's wall time goes (seconds): before the model calls (retrieval and
+# prompt building), the model calls (retries included), and the code after them.
+LAST_TIMINGS = {}
 
 
 def check_eligibility(property_details, carrier_subset=None, checked_topics=None):
     """The eligibility check (see _check_eligibility). Round 31: also records which model answered
     and stamps every record with model_fallback=True when any of the check's calls fell back."""
     LAST_CALL_USAGE.clear()
+    LAST_TIMINGS.clear()
     t0 = time.perf_counter()
+    LAST_TIMINGS["_t0"] = t0
     results = _check_eligibility(property_details, carrier_subset, checked_topics)
     wall = time.perf_counter() - t0
+    start, end = LAST_TIMINGS.pop("_t0"), LAST_TIMINGS.pop("_models_done", None)
+    if "before_models" in LAST_TIMINGS and end is not None:
+        LAST_TIMINGS["models"] = end - start - LAST_TIMINGS["before_models"]
+        LAST_TIMINGS["after_models"] = wall - (end - start)
+    LAST_TIMINGS["total"] = wall
     fallback = any(isinstance(u, dict) and u.get("fallback") for u in LAST_CALL_USAGE.values())
     if fallback:
         for r in results:
@@ -3839,26 +3902,41 @@ def _check_eligibility(property_details, carrier_subset=None, checked_topics=Non
     # this past that threshold. _complete_anthropic passes an explicit
     # timeout to skip that heuristic entirely; real calls have taken up to
     # ~180s observed this session, so 900s leaves large headroom.
+    if "_t0" in LAST_TIMINGS:
+        LAST_TIMINGS["before_models"] = time.perf_counter() - LAST_TIMINGS["_t0"]
     if pilot["open"]:
         # The pilot call sees the same PROPERTY DETAILS (and partial-check
         # line) and only the open rows; it runs alongside the main call.
-        pilot_content = (_property_details_text(property_details, home_age, occupancy, ownership, checked,
-                                                list(pilot["open"]))
-                         + _partial_check_instruction(checked) + "\n\n"
-                         + rules_evaluator.evidence_text(pilot["open"]))
-        with ThreadPoolExecutor(max_workers=2) as pool:
+        # Round 31 step 3d: the open carriers can be split into up to RULES_SPLIT parallel calls (each
+        # with its own carriers' property block and evidence); RULES_SPLIT=1 is the one call as before.
+        groups = _split_groups(list(pilot["open"]), RULES_SPLIT)
+
+        def group_content(g):
+            return (_property_details_text(property_details, home_age, occupancy, ownership, checked, g)
+                    + _partial_check_instruction(checked) + "\n\n"
+                    + rules_evaluator.evidence_text({c: pilot["open"][c] for c in g}))
+        with ThreadPoolExecutor(max_workers=1 + len(groups)) as pool:
+            # Round 31 step 3a: no main call when every carrier is on the rules table or a fixed row (the
+            # live configuration, most checks): it decided nothing and raced the rules call's cache write.
             main_future = pool.submit(_complete_named, relevant_carriers, SYSTEM_INSTRUCTIONS, user_content,
-                                      MAX_RESPONSE_TOKENS)
-            pilot_future = pool.submit(_complete_named, list(pilot["open"]), SYSTEM_INSTRUCTIONS,
-                                       pilot_content, MAX_RESPONSE_TOKENS)
-            raw, usage = main_future.result()
-            pilot_raw, pilot_usage = pilot_future.result()
-        pilot_raw, pilot_retry_usage = _retry_omitted(pilot_raw, list(pilot["open"]), pilot_content)
-        pilot["records"] += _rules_pilot_model_records(pilot_raw, pilot["open"])
+                                      MAX_RESPONSE_TOKENS) if relevant_carriers else None
+            futures = [(g, pool.submit(_complete_named, g, SYSTEM_INSTRUCTIONS, group_content(g),
+                                       MAX_RESPONSE_TOKENS)) for g in groups]
+            raw, usage = main_future.result() if main_future else (NO_CALL_REPLY, None)
+            answers = [(g, f.result()) for g, f in futures]
+        usages, retry_usages = [], []
+        for g, (g_raw, g_usage) in answers:
+            g_raw, g_retry = _retry_omitted(g_raw, g, group_content(g))
+            pilot["records"] += _rules_pilot_model_records(g_raw, {c: pilot["open"][c] for c in g})
+            usages.append(g_usage)
+            retry_usages.append(g_retry)
+        pilot_usage, pilot_retry_usage = _sum_usage(usages), _sum_usage(retry_usages)
     else:
-        raw, usage = _complete_named(relevant_carriers, SYSTEM_INSTRUCTIONS, user_content, MAX_RESPONSE_TOKENS)
+        raw, usage = (_complete_named(relevant_carriers, SYSTEM_INSTRUCTIONS, user_content, MAX_RESPONSE_TOKENS)
+                      if relevant_carriers else (NO_CALL_REPLY, None))
         pilot_usage = pilot_retry_usage = None
     raw, main_retry_usage = _retry_omitted(raw, relevant_carriers, user_content)
+    LAST_TIMINGS["_models_done"] = time.perf_counter()
     LAST_CALL_USAGE.clear()
     LAST_CALL_USAGE.update(main=usage, pilot=pilot_usage)
     if main_retry_usage:
@@ -3866,6 +3944,7 @@ def _check_eligibility(property_details, carrier_subset=None, checked_topics=Non
     if pilot_retry_usage:
         LAST_CALL_USAGE["pilot_retry"] = pilot_retry_usage
     LAST_GUARD_STATS.clear()
+    main_carriers = relevant_carriers          # round 31 step 3a: the carriers the main call was asked about
     relevant_carriers = all_carriers
 
     # CHANGED: cache visibility. cache_read_input_tokens > 0 means this call
@@ -3873,14 +3952,15 @@ def _check_eligibility(property_details, carrier_subset=None, checked_topics=Non
     # wrote the cache (normal on the first call, or after the ~5 min TTL
     # lapses between checks). Always 0/0 on the OpenAI path -- see
     # _complete's docstring.
-    print(
-        "Cache: read=%s created=%s input=%s"
-        % (
-            usage["cache_read_input_tokens"],
-            usage["cache_creation_input_tokens"],
-            usage["input_tokens"],
+    if usage:
+        print(
+            "Cache: read=%s created=%s input=%s"
+            % (
+                usage["cache_read_input_tokens"],
+                usage["cache_creation_input_tokens"],
+                usage["input_tokens"],
+            )
         )
-    )
 
     raw = raw.strip()
 
@@ -3907,6 +3987,10 @@ def _check_eligibility(property_details, carrier_subset=None, checked_topics=Non
         # than crash on r.get().
         if not isinstance(parsed, list):
             parsed = []
+        # Round 31 step 3a: the Claude enum is stable (every program), so drop a main-call record for a
+        # program the main call was not asked about; a name that is no program stays for the old checks.
+        parsed = [r for r in parsed if not (isinstance(r, dict) and r.get("carrier") in _ALL_PROGRAMS
+                                            and r.get("carrier") not in main_carriers)]
         parsed = [_normalize_record(r) for r in parsed + pilot["records"] if isinstance(r, dict)]
 
         # CHANGED: the model's own restated carrier name can drop a token
