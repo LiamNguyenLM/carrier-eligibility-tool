@@ -339,3 +339,90 @@ ELIGIBILITY_RULES_HO3_BATCH is "1" (and the pilot is on). Its registry entry is
   row decides.
 - **Galvanized:** ARA-050, ARB-048, SBS-030, STO-032, SLL-045, TWI-039 and
   TRV-054 decide galvanized plumbing. These are round 28's retrieval misses.
+
+## The remaining (dwelling fire) batch (round 29 step 8, 2026-10-08)
+
+`remaining_batch_field_map.csv` has one line for each of the 990 deciding rows
+of `carrier_rules_remaining_v1.csv` (15 guides; 1,655 rows; Claude's review
+applied 207 changes and added PDP-120). It is built by
+`build_remaining_batch_map.py`. It is read only when ELIGIBILITY_RULES_DP_BATCH
+is "1" (and the pilot is on). Its registry entry is `rules_evaluator.BATCHES["dp"]`
+(14 carriers: NatGen Premier Dwelling Fire is closed, see below). Boundary tests:
+`verification/test_remaining_batch_boundaries.py`.
+
+| Carrier | decided by a form field | gated-but-open | AMBIGUOUS | same rule as another row | NONE | total |
+|---|---|---|---|---|---|---|
+| Centauri DP3 | 10 | 3 | 4 | 2 | 63 | 82 |
+| Centauri HO3 (scanned, OCR) | 6 | 2 | 3 | 1 | 30 | 42 |
+| HOAIC Texas Dwelling (TDP3) | 3 | 1 | 0 | 0 | 0 | 4 |
+| Liberty Mutual / Safeco Landlord DP3 | 5 | 2 | 1 | 6 | 40 | 54 |
+| NatGen Custom360 Landlord | 8 | 12 | 3 | 8 | 96 | 127 |
+| NatGen Premier Dwelling Fire (closed) | 0 | 0 | 0 | 0 | 70 | 70 |
+| Progressive DP3 | 10 | 5 | 2 | 2 | 62 | 81 |
+| Progressive HO6 (condo) | 8 | 3 | 2 | 1 | 55 | 69 |
+| Sage Markel DP3 | 3 | 1 | 0 | 0 | 50 | 54 |
+| Sage Occidental DP3 | 10 | 7 | 0 | 2 | 52 | 71 |
+| Sage SURE DP3 | 12 | 7 | 0 | 4 | 54 | 77 |
+| Sage SafePort DP3 | 13 | 6 | 0 | 4 | 57 | 80 |
+| Sage Vave DP3 | 6 | 3 | 0 | 4 | 28 | 41 |
+| Steadily DP3 | 7 | 2 | 2 | 3 | 91 | 105 |
+| Foremost Dwelling Fire (TDP-3) | 5 | 1 | 0 | 3 | 24 | 33 |
+| **all** | **106** | **55** | **17** | **40** | **772** | **990** |
+
+**Readings used:**
+- **Dwelling fire is a landlord's policy.** Tenant Occupied passes every
+  dwelling-fire occupancy line (tested both ways in test_remaining_batch_rules.py).
+  The form's Seasonal and Secondary Home are the owner's own homes (decision 2,
+  2026-10-08). The landlord-only guides (Liberty / Safeco LDP-001, NatGen
+  Custom360 NCD-047) fail Owner Occupied and Secondary Home; Seasonal is
+  AMBIGUOUS there, because those guides write seasonal RENTALS.
+- **Liability-only lists** ("ineligible for liability coverage": Steadily
+  STD-082 / 088-090, Foremost FOD-045..048) are NONE: write without liability,
+  never a decline of the home.
+- **Base-case conditions the form never asks** (a 12-month lease on every
+  rental, the deed, the replacement-cost estimate) are NONE, i.e. "Also
+  confirm" notes, never holds (decision 1, 2026-10-08). A gated FACT is used
+  only behind a specific exposure the form shows: a pool, dogs, a trust or
+  LLC, a flat or metal roof, PPC 9-10, an old home, a townhome.
+- **The SURE (SDP-078..083) and SafePort (FDP-104..111) FPC tables.** The
+  merged cell covers FPC 4-10 "B" (station within 5 miles, hydrant over 1,000
+  ft or none) and FPC 4-8 "C" (station over 5 miles). A tenant home in those
+  bands fails "no rental exposures" (SDP-081, FDP-110). Secondary, seasonal and
+  vacant homes fail "primary occupancy" (SDP-081, FDP-109). A blank distance
+  or hydrant holds (decision 2026-10-07).
+- **Occidental (ODP-112..115).** Its cell says "primary occupancy dwellings
+  only" and has no rental line. ODP-115 reads it as primary vs secondary /
+  seasonal: a tenant home passes, a seasonal or secondary home fails.
+- **Territory** (ODP-003/004, SDP-002/003, FDP-001/002) follows the Sage
+  batch v2: the guide's Nueces exclusion is its own line, and the East Texas
+  list applies only to a county not entirely south of 31 N.
+- **NatGen Premier Dwelling Fire (NPD)** is closed to new business
+  (11/30/2023), like its HO3. It is in `eligibility_check.CLOSED_PROGRAMS` with
+  the guide's sentence (p.3, row NPD-001). All its map lines are NONE, and it
+  is not in the registry.
+- **Foremost.** The FOD rows (dwelling fire, TDP-3) apply only to a Tenant
+  Occupied or Vacant check; the FOR rows (homeowners) apply only to an owner's
+  home. Foremost is one guide and one carrier name in the app, so the
+  property's occupancy is the only thing that tells a DP check from an HO
+  check.
+- **Progressive HO6 (condo).** HO6 programs are homeowners programs, so they
+  are routed for Owner Occupied only, and dropped when the dwelling type is
+  House. They are not routed for Tenant, Vacant, Seasonal or Secondary Home.
+- **Centauri HO3 (CHO)** quotes are OCR text. They pass the quote check only
+  with round 29 step 5's store, which loads that OCR text.
+
+**Rows that look wrong (listed only; the data is not edited):**
+- SDP-012 ("Owner or Tenant occupied") and SDP-013 ("Primary or Secondary /
+  Seasonal residences") are statements of what is allowed, but are tagged
+  DECLINES / EVALUATE; they should be ALLOWS. Both map to same_as, so they
+  never fail.
+- FOD-005 (vacant is ineligible on TDP-3) is inferred from what the guide does
+  NOT list (the review note says so); Foremost writes vacant homes on TDP-1.
+  A Vacant Foremost DP check declines on it, with "write on TDP-1" as the
+  exception. Liam should confirm that this is the wanted answer.
+- PH6-078 ("flat roofs are acceptable if the unit was built in 2012 or
+  earlier") runs in an unusual direction and has effect UNKNOWN. It is NONE.
+- CDP-094 is REFERS_TO_UW. Over $2,000,000 is only implied as a cap ("not
+  addressed"), so its line refers above $2,000,000 rather than declining.
+- STD-045 has a gap between 100 and 101 years in the guide's own wording; 101
+  is read as "older than 100" (refer).

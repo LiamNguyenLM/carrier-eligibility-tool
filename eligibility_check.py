@@ -129,11 +129,15 @@ RULES_SAGE_BATCH = RULES_PILOT and os.environ.get("ELIGIBILITY_RULES_SAGE_BATCH"
 # Round 29 step 7 (2026-10-08): the HO3 batch (11 guides), the same pattern: exactly "1",
 # only with the pilot on, default OFF. Never set on Railway without Liam.
 RULES_HO3_BATCH = RULES_PILOT and os.environ.get("ELIGIBILITY_RULES_HO3_BATCH", "0") == "1"
+# Round 29 step 8 (2026-10-08): the remaining (dwelling fire) batch, 14 guides, the same
+# pattern. Never set on Railway without Liam.
+RULES_DP_BATCH = RULES_PILOT and os.environ.get("ELIGIBILITY_RULES_DP_BATCH", "0") == "1"
 # The batch registry's switches (rules_evaluator.BATCHES): registry name -> this module's flag
 # name and the panel's label. A further batch is one line here and one entry there.
 RULES_BATCH_SWITCHES = {
     "sage": ("RULES_SAGE_BATCH", "Sage batch"),
     "ho3": ("RULES_HO3_BATCH", "HO3 batch"),
+    "dp": ("RULES_DP_BATCH", "DP batch"),
 }
 
 
@@ -4424,6 +4428,9 @@ _NOT_EVALUATED_TEXT = "No answer came back for this carrier in this check -- run
 CLOSED_PROGRAMS = {
     "NatGen_Premier_OneChoice_HO3_-_02.26.2025": (
         3, "Homeowners policies are not eligible for new business effective 11/30/2023."),
+    # Round 29 step 8 (2026-10-08): the dwelling fire program is closed too (remaining batch row NPD-001).
+    "NatGen_Premier_OneChoice_DP3_-_02.26.2025": (
+        3, "Dwelling fire policies are not eligible for new business effective 11/30/2023."),
 }
 
 

@@ -56,6 +56,10 @@ SAGE_BATCH_MAP_CSV = os.path.join(HERE, "rules_data", "sage_batch_field_map.csv"
 # Round 29 step 7 (2026-10-08): the HO3 batch, read only when eligibility_check.RULES_HO3_BATCH is on.
 HO3_BATCH_RULES_CSV = os.path.join(HERE, "rules_data", "carrier_rules_ho3_batch_v1.csv")
 HO3_BATCH_MAP_CSV = os.path.join(HERE, "rules_data", "ho3_batch_field_map.csv")
+# Round 29 step 8 (2026-10-08): the remaining (dwelling fire) batch, read only when
+# eligibility_check.RULES_DP_BATCH is on.
+DP_BATCH_RULES_CSV = os.path.join(HERE, "rules_data", "carrier_rules_remaining_v1.csv")
+DP_BATCH_MAP_CSV = os.path.join(HERE, "rules_data", "remaining_batch_field_map.csv")
 
 # workbook carrier name -> pipeline carrier
 PILOT_CARRIERS = {
@@ -89,6 +93,26 @@ HO3_BATCH_CARRIERS = {
 }
 # An owner's own home (round 29 decision 2): the occupancies a homeowners program sees.
 OWNERS_HOMES = ("Owner Occupied", "Seasonal", "Secondary Home")
+# The remaining batch (round 29 step 8). NatGen Premier Dwelling Fire (NPD) is not here: it is
+# closed to new business, and eligibility_check.CLOSED_PROGRAMS decides it as it does the HO3.
+DP_BATCH_CARRIERS = {
+    "Centauri DP3": "Centauri_-_DP3_-_11.16.2022",
+    "Centauri HO3 (scanned, OCR)": "Centauri_-_HO3_-_05.01.2026",
+    "HOAIC Texas Dwelling (TDP3)": "HOAIC_-_DP_Guide_DP3",
+    "Liberty Mutual / Safeco Landlord DP3": "Liberty_Mutual_DP3_-_02.21.2026",
+    "NatGen Custom360 Landlord": "NatGen_Custom360_DP3_-_06.25.2026",
+    "Progressive DP3": "Progressive_DP3_-_10.01.2024",
+    "Progressive HO6 (condo)": "Progressive_HO6_-_10.01.2025",
+    "Sage Markel DP3": "Sage_-_Markel_DP3",
+    "Sage Occidental DP3": "Sage_-_Occidental_DP3",
+    "Sage SURE DP3": "Sage_-_SURE_DP-3_-_01.31.2026",
+    "Sage SafePort DP3": "Sage_-_SafePort_DP-3_-_01.31.2026",
+    "Sage Vave DP3": "Sage_-_Vave_DP3_-_07.01.2026",
+    "Steadily DP3": "Steadily_Underwriting_Guidelines_DP3",
+    "Foremost Dwelling Fire (TDP-3)": "Foremost_DP3_and_HO3_-_07.01.2026",
+}
+# A landlord's check (Foremost's one guide holds both programs; the occupancy tells them apart).
+NOT_OWNERS_HOMES = ("Tenant Occupied", "Vacant")
 
 # The batch registry (round 29 step 7): one entry per rules-table batch. "scope" is for a
 # pipeline carrier whose one guide holds two programs (Foremost: homeowners and dwelling
@@ -99,6 +123,8 @@ BATCHES = {
     "sage": {"rules": SAGE_BATCH_RULES_CSV, "map": SAGE_BATCH_MAP_CSV, "carriers": SAGE_BATCH_CARRIERS},
     "ho3": {"rules": HO3_BATCH_RULES_CSV, "map": HO3_BATCH_MAP_CSV, "carriers": HO3_BATCH_CARRIERS,
             "scope": {"Foremost Choice Homeowners": OWNERS_HOMES}},
+    "dp": {"rules": DP_BATCH_RULES_CSV, "map": DP_BATCH_MAP_CSV, "carriers": DP_BATCH_CARRIERS,
+           "scope": {"Foremost Dwelling Fire (TDP-3)": NOT_OWNERS_HOMES}},
 }
 WB_TO_CANON = {wb: canon for b in BATCHES.values() for wb, canon in b["carriers"].items()}
 CANON_TO_WB = {}

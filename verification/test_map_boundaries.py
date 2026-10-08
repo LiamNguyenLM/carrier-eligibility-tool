@@ -243,7 +243,9 @@ def test_boundary(rid, base, field, values):
 
 
 def test_every_numeric_map_line_has_a_boundary_case():
-    covered = {c[0] for c in CASES}
+    # round 29 step 8: the remaining batch's cases live in test_remaining_batch_boundaries.py
+    from test_remaining_batch_boundaries import CASES as REMAINING
+    covered = {c[0] for c in CASES + REMAINING}
     numeric = {rid for rid, m in ev._map().items()
                if m["field"] != "NONE" and NUMERIC.search(m["test"] + " " + m["gate"])}
     assert sorted(numeric - covered) == []

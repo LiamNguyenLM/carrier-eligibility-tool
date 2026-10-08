@@ -1,5 +1,6 @@
 """Round 27 step 7 (real API cost, cents): one real Luna check, pilot ON, Sage batch OFF or ON.
-usage: python measure_r27s7.py <PROFILE> <OFF|ON> <label> <out.jsonl>
+usage: python measure_sage_batch.py <PROFILE> <OFF|ON> <label> <out.jsonl> [HO3 OFF|ON] [DP OFF|ON]
+(round 29: the HO3 and DP batch switches; both default OFF)
 Records usage per call, wall, cost, buckets, every final record and every prompt."""
 import json
 import os
@@ -17,6 +18,8 @@ import measure_rules_pilot as M  # noqa: E402
 import profiles as P  # noqa: E402
 
 prof, batch, label, out = sys.argv[1:5]
+ho3 = sys.argv[5] if len(sys.argv) > 5 else "OFF"
+dp = sys.argv[6] if len(sys.argv) > 6 else "OFF"
 LIVE = dict(P.LIVE_PROFILE)
 BEXAR = dict(LIVE, county="Bexar", zip="")
 PROFILES = {"LIVE": (LIVE, P.LIVE_CHECKED), "LIVE+Bexar": (BEXAR, P.LIVE_CHECKED),
@@ -26,10 +29,19 @@ PROFILES = {"LIVE": (LIVE, P.LIVE_CHECKED), "LIVE+Bexar": (BEXAR, P.LIVE_CHECKED
             # round 28 step 4: occupancy and ownership on the live form's profile, County Bexar
             "SEASONAL": (dict(BEXAR, occupancy_type="Seasonal"), P.LIVE_CHECKED),
             "SECONDARY": (dict(BEXAR, occupancy_type="Secondary Home"), P.LIVE_CHECKED),
-            "TRUST": (dict(BEXAR, ownership_type="Trust"), P.LIVE_CHECKED)}
+            "TRUST": (dict(BEXAR, ownership_type="Trust"), P.LIVE_CHECKED),
+            # round 29 step 8: the dwelling fire (DP) batch's profiles
+            "LIVE+Tenant": (dict(LIVE, occupancy_type="Tenant Occupied"), P.LIVE_CHECKED),
+            "OLD+Tenant": (dict(M.PROFILES["OLD"], occupancy_type="Tenant Occupied"), None),
+            "Tenant+LLC": (dict(BEXAR, occupancy_type="Tenant Occupied", ownership_type="LLC"), P.LIVE_CHECKED),
+            "VACANT": (dict(BEXAR, occupancy_type="Vacant"), P.LIVE_CHECKED),
+            "CONDO": (dict(BEXAR, dwelling_type="Condo"), P.LIVE_CHECKED)}
 pd, checked = PROFILES[prof]
 ec.RULES_PILOT = True
 ec.RULES_SAGE_BATCH = batch == "ON"
+ec.RULES_HO3_BATCH = ho3 == "ON"
+if hasattr(ec, "RULES_DP_BATCH"):
+    ec.RULES_DP_BATCH = dp == "ON"
 prompts = []
 real = ec._complete
 
@@ -45,11 +57,11 @@ t0 = time.perf_counter()
 res = ec.check_eligibility(dict(pd), checked_topics=list(checked) if checked else None)
 wall = round(time.perf_counter() - t0, 1)
 usage = dict(ec.LAST_CALL_USAGE)
-rec = {"profile": prof, "batch": batch, "label": label, "commit": os.popen("git rev-parse --short HEAD").read().strip(),
+rec = {"profile": prof, "batch": batch, "ho3": ho3, "dp": dp, "label": label, "commit": os.popen("git rev-parse --short HEAD").read().strip(),
        "model": ec.ELIGIBILITY_MODEL, "wall": wall,
        "calls": {k: ({x: v.get(x) for x in ("input_tokens", "cache_read_input_tokens", "output_tokens")} if v else None)
                  for k, v in usage.items()},
-       "cost": round(sum(M._cost(v) for v in usage.values()), 5),
+       "cost": round(sum(M._cost(v) for v in usage.values() if v), 5),
        "buckets": {k: len(v) for k, v in ec.assign_buckets(res).items()},
        "records": res, "prompts": prompts}
 with open(out, "a", encoding="utf-8") as fh:
