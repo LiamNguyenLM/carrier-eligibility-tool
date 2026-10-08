@@ -147,15 +147,16 @@ def test_auros_owner_occupied_vacancy_rows_never_fail_twice():
     assert not any(x.startswith(("[SAG-001]", "[SAG-002]", "[SAG-005]")) for x in res["Sage_-_Auros_HO3"]["reasons"])
 
 
-@pytest.mark.xfail(strict=True, reason="round 28: _fits_occupancy sends every occupancy but Owner Occupied to DP "
-                                        "programs only, so an owner's Seasonal / Secondary home never reaches Sage "
-                                        "Auros (or any HO3), although its guide accepts them (SAG-001, v4). "
-                                        "Routing is Liam's call; not changed.")
+# Round 28 found the routing gap (strict xfail); round 29 step 4 (Liam's decision 2, 2026-10-08)
+# routes an owner's Seasonal / Secondary home to HO3 programs too, so this passes now.
 @pytest.mark.parametrize("occupancy", ["Seasonal", "Secondary Home"])
 def test_an_owners_seasonal_or_secondary_home_reaches_sage_auros(occupancy):
     res, _, _ = _run(dict(LIAM, county="Bexar", dwelling_amount=450000, occupancy_type=occupancy),
                      pilot_status="ELIGIBLE")
     assert "Sage_-_Auros_HO3" in res
+    sage = res["Sage_-_Auros_HO3"]
+    assert sage["status"] != "INELIGIBLE"                       # SAG-001 (v4) accepts the owner's seasonal home
+    assert not any(x.startswith("[SAG-001]") for x in sage["reasons"])
 
 
 @pytest.mark.parametrize("occupancy", ["Tenant Occupied", "Vacant"])

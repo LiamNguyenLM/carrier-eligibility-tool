@@ -383,11 +383,12 @@ SYSTEM_INSTRUCTIONS = """You are an insurance underwriting assistant for an inde
 Using ONLY the carrier documents provided in the user message, analyze the property for each carrier.
 
 POLICY TYPE AND OCCUPANCY CONTEXT:
-- HO3 (Homeowners 3): Designed for owner-occupied properties. Not appropriate for tenant-occupied or rental properties. If occupancy is not owner-occupied, HO3 policies should be marked INELIGIBLE for occupancy reason.
+- HO3 (Homeowners 3): Designed for owner-occupied properties. Not appropriate for tenant-occupied or rental properties. If occupancy is Tenant Occupied or Vacant, HO3 policies should be marked INELIGIBLE for occupancy reason. A Seasonal or Secondary Home is the owner's own home: apply each HO3 guide's own occupancy rules to it (many accept seasonal and secondary residences).
 - DP3 (Dwelling Fire 3): Designed for non-owner-occupied properties including rentals and tenant-occupied dwellings. If occupancy is Tenant Occupied, DP3 policies should be evaluated normally and not excluded.
 - HOA / HOB / HO6: Condominium and unit-owner programs. HO6 is specifically for condo unit owners.
 - If the property's Occupancy Type (given in PROPERTY DETAILS below) is Owner Occupied: Do NOT include DP3 carriers in your response at all. Exclude them entirely.
-- If the property's Occupancy Type is Tenant Occupied or any non-owner occupancy: Do NOT include HO3 or HOMEOWNERS carriers in your response at all. Exclude them entirely. Only evaluate DP3, HOA, HOB, and HO6 programs.
+- If the property's Occupancy Type is Tenant Occupied or Vacant: Do NOT include HO3 or HOMEOWNERS carriers in your response at all. Exclude them entirely. Only evaluate DP3, HOA, HOB, and HO6 programs.
+- If the property's Occupancy Type is Seasonal or Secondary Home (the owner's own second home): evaluate the HO3 and DP3 programs in CARRIER DOCUMENTS alike; each guide's own occupancy rules decide.
 - If Ownership Structure is LLC: Most HO3 carriers do not accept LLC or business-owned properties. Flag as INELIGIBLE if carrier guidelines prohibit business ownership.
 - If Ownership Structure is Trust: Some carriers allow trust-owned properties if the grantor lives in the dwelling and is the named insured. The trust itself cannot be listed as named insured. Check guidelines carefully and flag any trust-specific requirements.
 - If Ownership Structure is Individual Owner: No additional restrictions from ownership structure.
@@ -1329,9 +1330,20 @@ def _fits_occupancy(carrier, occupancy, combined):
     is_ho, is_dp = carrier_programs(carrier)
     if occupancy == "Owner Occupied" and is_dp:
         return False
-    if occupancy != "Owner Occupied" and is_ho:
+    if occupancy != "Owner Occupied" and is_ho and not _owners_other_home_fits(carrier, occupancy):
         return False
     return True
+
+
+# Round 29 step 4 (Liam's decision 2, 2026-10-08): a Seasonal or Secondary Home is the
+# owner's own home, so it is routed to HO3 programs as well as DP programs, and each
+# guide's occupancy rows decide. Tenant Occupied and Vacant stay DP-only; HO6 (condo
+# unit-owner) routing is unchanged.
+OWNERS_OTHER_HOMES = ("Seasonal", "Secondary Home")
+
+
+def _owners_other_home_fits(carrier, occupancy):
+    return occupancy in OWNERS_OTHER_HOMES and not _is_condo_program(carrier)
 
 
 def get_carriers_for_occupancy(occupancy):
@@ -1431,6 +1443,9 @@ def build_risk_factors(property_details, occupancy, checked=None):
         risk_factors.append("tenant occupied rental dwelling occupancy requirements")
         risk_factors.append("DP3 dwelling policy tenant rental occupancy eligibility")
         risk_factors.append("HO3 owner occupancy requirement restriction")
+    if occupancy in OWNERS_OTHER_HOMES:
+        # round 29 step 4: HO3 guides now see these homes; their seasonal / secondary rows decide
+        risk_factors.append("seasonal secondary residence owner occupied eligibility months unoccupied")
 
     if _on("risk:roof", checked):
         # A part about an unchecked roof topic is left out of the term.
@@ -3764,7 +3779,7 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
                 is_ho3, is_dp3 = carrier_programs(canon)
             else:
                 is_ho3, is_dp3 = carrier_programs(name)
-            if occupancy != "Owner Occupied" and is_ho3:
+            if occupancy != "Owner Occupied" and is_ho3 and not _owners_other_home_fits(canon or name, occupancy):
                 continue
             if occupancy == "Owner Occupied" and is_dp3:
                 continue

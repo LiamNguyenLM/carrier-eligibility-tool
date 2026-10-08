@@ -1246,6 +1246,23 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       `rm -rf carrier_docs_db && cp -r carrier_docs_db_seed carrier_docs_db`.
       On Railway it needs FORCE_RESEED=1 once (seed_db.sh), then remove it.
 
+  - **Step 4 (occupancy routing, decision 2):**
+    - _fits_occupancy and the post-parse HO/DP filter send Seasonal and
+      Secondary Home to HO3 programs as well as DP programs. HO6 (condo) is
+      unchanged; Tenant Occupied and Vacant stay DP-only.
+    - The system prompt's two occupancy lines now name Tenant Occupied /
+      Vacant, and say a Seasonal / Secondary Home is the owner's own home,
+      with each HO3 guide's occupancy rules deciding. **This is a
+      system-prompt change for every check.**
+    - Seasonal and Secondary homes get one more retrieval term, for the
+      guides' seasonal rows.
+    - The round 28 routing xfail now passes: a seasonal Auros home reaches
+      Auros and is not declined on SAG-001.
+    - Replay vs the parent commit (13 profiles x 3 model answers), pilot
+      OFF and ON: 33/39 identical. The 6 that differ are Seasonal and
+      Secondary, where 26 HO3-side carriers now appear and none are removed.
+      Tenant, Vacant and every Owner Occupied case are byte-identical.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
