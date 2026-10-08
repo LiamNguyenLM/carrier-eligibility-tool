@@ -1618,6 +1618,21 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     - Every non-condo profile, and an owner-occupied condo, routes as before.
       Replay vs 794cb1a: 78/78 byte-identical.
     - Tests: verification/test_condo_routing.py.
+  - **Step 5 (the live configuration):** pilot ON, Sage + HO3 + DP batches
+    ON, Luna.
+    - **Panel:** with the four variables "1", the Fingerprint panel line
+      reads "Rules pilot: ON (6 carriers) + Sage batch ON (6 more) + HO3
+      batch ON (11 more) + DP batch ON (14 more)".
+    - **Tier 2 on 3e0bfd3 (what Liam deploys):** 22 passed, 0 failed.
+    - **Tier 2 on cf48084 (steps 1-4):** 21 passed, 1 failed: "Trust: Allied
+      Trust surfaces the grantor condition", 0/3.
+      - The cause is step 2. ALL-015 ("eligible only if the grantor(s) still
+        reside in the dwelling and are the named insured(s)") asks a fact the
+        form never collects, so it is a "Confirm: trust grantor ([ALL-015]
+        ...)" line in Also confirm, which the check did not read. The card
+        refers on ALL-016, as before.
+      - Baseline updated (dated, decision 2): Also confirm counts as surfaced.
+        The recorded runs re-score 3/3 (REUSE_DUMPS).
 
 ## Open work, in priority order (updated 2026-10-02)
 

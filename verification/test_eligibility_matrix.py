@@ -4783,7 +4783,11 @@ def _score_ownership_runs(reps, universe=()):
                     # text offers a referral path for this situation.
                     ok = r.get("status") == "REFER" and _trust_referral_surfaced(r, c)
                 elif g.startswith("Trust: Allied Trust"):
-                    ok = "grantor" in " ".join(_record_units(r)).lower()
+                    # CHANGED DELIBERATELY (round 30 step 5, 2026-10-08; Liam's decision 2): ALL-015 "eligible
+                    # only if the grantor(s) still reside ... and are the named insured(s)" asks a fact the
+                    # form never collects, so it is a "Confirm:" note in the card's Also confirm list, not a
+                    # hold. Surfaced there counts; the condition must still reach the card.
+                    ok = "grantor" in " ".join(_record_units(r) + (r.get("also_confirm") or [])).lower()
                 else:
                     ok = r.get("status") != "INELIGIBLE"
                 checks.setdefault((g, c), []).append(bool(ok))
