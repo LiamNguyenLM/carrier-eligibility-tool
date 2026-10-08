@@ -72,8 +72,12 @@ def test_pass_fail_na():
 
 
 def test_open_on_a_fact_the_form_lacks():
+    # CHANGED DELIBERATELY (round 30 step 2, 2026-10-08; Liam's decision 2): a row open only on a fact the
+    # form never asks is a "Confirm:" NOTE, never a hold (was OPEN). Still never a PASS.
     m = line("ppc", "FACT(paved road)", gate="ppc_num between 9 and 10", open_fact="paved road")
-    assert run(m, ppc="9") == "OPEN" and run(m, ppc="3") == "N/A"
+    assert run(m, ppc="9") == "NOTE" and run(m, ppc="3") == "N/A"
+    # a blank form field in the same row still holds
+    assert run(m, ppc="N/A") == "OPEN"
 
 
 def test_unticked_pool_box_is_unknown():
@@ -120,9 +124,11 @@ def test_blank_county_on_sages_territory_rows_is_a_note_in_the_evaluator():
     assert out["SAG-081"][0] == "NOTE" and out["SAG-082"][0] == "NOTE"
 
 
-def test_a_real_fact_still_opens():
+def test_a_real_fact_is_a_confirm_note():
+    # CHANGED DELIBERATELY (round 30 step 2, 2026-10-08; decision 2): PRO-068 "paved road and visible to
+    # neighbors" (PC 9-10) is not asked -> a confirm note naming the row (was OPEN, a hold)
     out = ev.evaluate_carrier("Progressive_HO3_-_04.01.2026", dict(BASE, ppc="9"))
-    assert out["PRO-068"][0] == "OPEN"
+    assert out["PRO-068"][0] == "NOTE" and out["PRO-068"][1].startswith("confirm: ")
 
 
 # -- decision 2: condition standards are notes ----------------------------------
