@@ -1590,6 +1590,34 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     - FOD-020 ("Manufactured homes ... unless vacant/unoccupied", p.16) now
       passes a vacant manufactured home.
     - Deciding rows: 990 -> 985.
+  - **Step 4 (condo routing, decision 4):**
+    - A condo unit (dwelling type Condo) that is Tenant Occupied, Seasonal or
+      Secondary Home now also goes to Progressive HO6
+      (eligibility_check.CONDO_UNIT_OCCUPANCIES); its rows decide. Its guide
+      (p.2) writes both:
+      - "RENTER-OCCUPIED CONDOMINIUM UNIT ... Liability coverage for a
+        tenant-occupied condominium unit is limited to the premises only";
+      - "Liability coverage for a secondary/seasonal condominium unit is
+        limited to the premises only".
+    - **Not routed:**
+      - Vacant units: "Condominium units that are vacant, unoccupied, ... are
+        ineligible" (PH6-012).
+      - Liberty Mutual HO6: its file is the HO3 guide (DD-1), so there is
+        nothing to quote.
+    - **Scope of the occupancy rows (correction 4, page 2):**
+      - PH6-013 ("immediate family, no roomers or boarders") and PH6-017
+        ("three months per year") sit under "OWNER-OCCUPIED CONDOMINIUM UNIT".
+      - PH6-018 (one-week leases) and PH6-021 ("occupied less than three
+        months per year ... ineligible") sit under "RENTER-OCCUPIED
+        CONDOMINIUM UNIT".
+      - No gate was too wide. PH6-013 / 018 / 021 are NONE (not asked);
+        PH6-017 is gated to Seasonal / Secondary Home (a confirm note since
+        step 2).
+      - Test: a tenant-occupied condo with a one-year lease is not declined
+        by them.
+    - Every non-condo profile, and an owner-occupied condo, routes as before.
+      Replay vs 794cb1a: 78/78 byte-identical.
+    - Tests: verification/test_condo_routing.py.
 
 ## Open work, in priority order (updated 2026-10-02)
 

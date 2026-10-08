@@ -1378,6 +1378,21 @@ def _owners_other_home_fits(carrier, occupancy):
     return occupancy in OWNERS_OTHER_HOMES and not _is_condo_program(carrier)
 
 
+# Round 30 step 4 (Liam, 2026-10-08, decision 4): a condo unit that is not owner-occupied goes to an
+# HO6 program too, when that program's own guide writes the occupancy; its rows then decide. Only
+# Progressive HO6 has a guide on file for this (Liberty Mutual HO6's file is the HO3 guide: DD-1).
+# Progressive HO6 (p.2): "RENTER-OCCUPIED CONDOMINIUM UNIT ... Liability coverage for a tenant-occupied
+# condominium unit is limited to the premises only." / "Liability coverage for a secondary/seasonal
+# condominium unit is limited to the premises only." Vacant units are not routed: "Condominium units
+# that are vacant, unoccupied, under construction, or undergoing major renovations are ineligible."
+CONDO_UNIT_OCCUPANCIES = {"Progressive_HO6_-_10.01.2025": ("Tenant Occupied", "Seasonal", "Secondary Home")}
+
+
+def _condo_unit_fits(carrier, occupancy, property_details):
+    return (_dwelling_type(property_details) == "Condo"
+            and occupancy in CONDO_UNIT_OCCUPANCIES.get(carrier, ()))
+
+
 def get_carriers_for_occupancy(occupancy):
     combined = get_combined_program_carriers()
     return [c for c in sorted(get_all_carriers()) if _fits_occupancy(c, occupancy, combined)]
@@ -3373,6 +3388,10 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
     query = build_retrieval_query(property_details, home_age, checked)
 
     relevant_carriers = get_carriers_for_occupancy(occupancy)
+    # Round 30 step 4: a condo unit's HO6 program for a non-owner occupancy its guide writes.
+    if _dwelling_type(property_details) == "Condo":
+        relevant_carriers = sorted(set(relevant_carriers) | {
+            c for c in get_all_carriers() if _condo_unit_fits(c, occupancy, property_details)})
     # Carriers whose guide on file is unusable (data_defects: wrong document,
     # or none at all) are left out of the prompt entirely and shown as a fixed
     # warning row instead -- see _add_fixed_rows. Absent programs (Centauri
@@ -3841,7 +3860,8 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
                 is_ho3, is_dp3 = carrier_programs(canon)
             else:
                 is_ho3, is_dp3 = carrier_programs(name)
-            if occupancy != "Owner Occupied" and is_ho3 and not _owners_other_home_fits(canon or name, occupancy):
+            if (occupancy != "Owner Occupied" and is_ho3 and not _owners_other_home_fits(canon or name, occupancy)
+                    and not _condo_unit_fits(canon or name, occupancy, property_details)):
                 continue
             if occupancy == "Owner Occupied" and is_dp3:
                 continue
