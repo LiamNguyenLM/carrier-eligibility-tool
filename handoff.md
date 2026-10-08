@@ -1743,6 +1743,62 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       Nothing blocks a check, and a logging error never breaks one.
     - The suite logs to a temp file (conftest.py).
     - Tests: verification/test_usage_log.py.
+  - **Step 3 (tune for Haiku: measured first, then changed):** 10 live
+    checks each (Haiku low, all batches ON; LIVE, LIVE+Bexar, OLD, CLEAN,
+    STRESS, ALT, COASTAL_PPC4, OWNERSHIP_BASE, SEASONAL, TENANT), before
+    (effe32c) and after (4853cb5, quiet machine).
+
+    | Measure | Before | After |
+    |---|---|---|
+    | Main call | 10 calls, 0 records decided | not made (no carriers left for it) |
+    | Rules call cache-read share of input | 22% (~7,000 tokens written every call) | 68% |
+    | Rules output tokens per record | 431 | 414 |
+    | Rules records / extra records | 65 / 0 | 65 / 0 |
+    | Rules call wall (median) | 10.6 s | 9.2 s |
+    | Check wall (median): before calls / calls / after | 12.4 s: 1.7 / 10.6 / 0.1 | 10.4 s: 1.1 / 9.2 / 0.1 |
+    | Cost per check (mean) | $0.0030 | $0.0019 |
+
+    - **a. Cache:** the structured-output schema (its carrier enum) is part
+      of Claude's cached prefix. A probe sent the same prompt with two
+      different enums: each new enum wrote ~9,800 tokens and read none. Every
+      Claude call now sends the same enum (all programs plus the call's own),
+      so the prefix is reused across checks.
+      - The main call is not made when no carrier is left for it (live: every
+        carrier is a rules-table or fixed row).
+      - A record for a program the call did not ask about is dropped.
+      - The first after-run (3e5da1d) answered once for all 29 programs (24
+        extra records, discarded). The follow-up (4853cb5) tells the rules
+        check to answer only for its listed carriers: 0 extras in 10 checks.
+      - Verdicts: 4 of 268 statuses changed between before and after, all
+        explained (three step 3c releases; the Centauri CHO-013 ambiguous row
+        once).
+    - **b. Output:** the rules check now cites rows by id only (code adds the
+      guide's words): 431 → 414 tokens per record. Most of the rest is
+      thinking, which effort low already bounds. No status logic changed.
+    - **c. Hold guard:** missing_info items collected from Round 30 step 6
+      plus 20 new checks. The only never-asked fact not already covered:
+      - SWY-043's panel brand / Tesla. Added "product brand / maker" (brand,
+        tesla, manufacturer, make and/or model): 26 facts / 114 patterns, up
+        from 25 / 110.
+      - The guard now also reaches a rules-check record held only on
+        never-asked facts, when every open row is model-decidable (never a
+        named hold, never a blank form field).
+      - The other unclassified items in the after-run (25 of 42) are FPC
+        conditions: alarm, road visibility, year-round 10-ft access. These
+        stay named holds (Liam, 2026-10-06 / 2026-10-08).
+    - **d. Split:** the rules call is the long pole. ELIGIBILITY_RULES_SPLIT=N
+      splits it into up to N parallel calls. Measured on the 8 step 6
+      profiles × 2 runs, split 1 vs 3 alternating:
+      - median wall 10.9 s → 8.55 s (−22%; mean −24%);
+      - 216 / 216 carrier-profile verdicts identical;
+      - cost $0.0017 → $0.0025 per check.
+
+      That misses the ≥25% gate, so **the default stays 1** and the code
+      stays in as an option. Rate limits (10,000 requests/min, 10M input /
+      2M output tokens per minute) are far from reached either way.
+    - **e. Effort:** Haiku 5.5 accepts low / medium / high / xhigh / max.
+      There is nothing below low, so nothing to test.
+    - Tests: verification/test_haiku_tuning.py.
   - **Step 4 (requirement rows, decision 2):**
     - rules_evaluator.REQUIREMENT_OUTCOMES sets, row by row, what a failed
       requirement row reads:
@@ -1844,6 +1900,26 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       - Steadily STD-127 (land trusts): NONE; the form's Trust is not a land
         trust.
     - Tests: verification/test_ownership_every_occupancy.py.
+    - **Real runs** (0ba4f79, Haiku low, all batches ON, County Bexar,
+      Tenant Occupied; one check each). DP carriers:
+
+      | DP carrier | Individual | LLC | Trust | Deciding row (LLC / Trust) |
+      |---|---|---|---|---|
+      | Centauri DP3 | Eligible | **Refer** | Eligible + confirm | CDP-071 LLC needs UW approval / CDP-069 confirm "family living trust" |
+      | Progressive DP3 | Eligible | **Refer** | **Refer** | PDP-120 LLC prior approval / PDP-048 trust prior approval |
+      | Sage Vave DP3 | Eligible | Eligible + confirm | **Ineligible** | VDP-063 confirm entity purpose / VDP-062 trustee must reside |
+      | Foremost DP3 | Eligible | Eligible + confirm | Eligible + confirm | FOD-018 business on premises / FOR-097 land trust |
+      | Liberty Mutual DP3 | Eligible | Eligible + confirm | Eligible + confirm | LDP-019 who the entity benefits (both) |
+      | NatGen Custom360 DP3 | Eligible | Eligible + confirm | Eligible + confirm | NCD-004 LLC activities / NCD-006 trust's guarantor |
+      | Sage SURE DP3 | Insufficient | Insufficient | Insufficient | FPC hold (SDP-078); trust confirms SDP-008/009 |
+      | Sage SafePort DP3 | Insufficient | Insufficient | Insufficient | FPC hold (FDP-105); trust confirms FDP-025/026 |
+      | Sage Occidental DP3 | Insufficient | Insufficient | Insufficient | FPC hold (ODP-110/111); no ownership row fires |
+      | HOAIC DP3, Markel DP3, Steadily DP3 | Eligible | Eligible | Eligible | no ownership row fires |
+      | NatGen Premier OneChoice DP3 | Ineligible | Ineligible | Ineligible | closed to new business |
+
+      The three Sage FPC holds come from the profile's PPC 3 with no
+      station / hydrant distance, the same for all three ownerships.
+      Checks took 6.5–8.4 s and cost about $0.001 each.
 
 ## Open work, in priority order (updated 2026-10-02)
 
