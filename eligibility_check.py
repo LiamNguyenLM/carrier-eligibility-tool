@@ -3515,6 +3515,11 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
                 if key not in seen:
                     seen.add(key)
                     chunks.append(chunk)
+        # Round 29 step 9 (2026-10-08): a rules-table carrier is not retrieved, but its card still
+        # gets the [Solar check] note, so its whole-document classification is needed too (Tier 2:
+        # Allied Trust's card went silent on solar once the rules table decided it).
+        for carrier in pilot["carriers"]:
+            solar_classes[carrier] = classify_carrier_solar_text(collection, carrier)
 
     # CHANGED (round 14): guaranteed per-carrier ROOF SHAPE lookup. Same
     # pattern and same rationale as PPC/pool/solar/roof-age above -- see
@@ -3865,6 +3870,13 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
             _enforce_pool_spec_support(
                 filtered, relevant_carriers, property_details, pool_specs, skip=pilot["carriers"]
             )
+        # Round 29 step 9: the coverage notes of a rules-table card (rules_evaluator.coverage_notes).
+        for r in filtered:
+            canon = r.get("carrier")
+            if r.get("rules_table") and canon in pilot["outcomes"]:
+                for note in rules_evaluator.coverage_notes(canon, pilot["outcomes"][canon], property_details):
+                    if note not in (r.get("notes") or ""):
+                        _append_note(r, f"Coverage (not eligibility): {note}")
         if _on("check:_note_solar_roofing_does_not_apply", checked):
             # An unchecked roof type is not repeated back in the note.
             solar_pd = property_details if "roof_type" in checked else {

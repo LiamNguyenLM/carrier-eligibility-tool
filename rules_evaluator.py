@@ -670,6 +670,34 @@ def _wb_of(canon, outcomes):
     return CANON_TO_WB[canon]
 
 
+# Round 29 step 9 (2026-10-08): COVERAGE_ONLY rows are never eligibility, so the rules table
+# never evaluated them -- and two decided notes went missing from rules-table cards: Progressive
+# HO3's solar wind/hail exclusion (Liam, decision C, 2026-10-05) and Allied's replacement-cost
+# limit for a composite roof (round 26). A COVERAGE_ONLY row whose exposure the property shows is
+# a coverage note: solar rows when Solar panels is Yes; roof-settlement rows that name the
+# property's roof material. Never a status change.
+_ROOF_WORDS = {"Composition Shingle": ("composition", "composite", "3-tab", "asphalt"),
+               "Architectural Shingle": ("architectural", "dimensional", "laminate"),
+               "Metal": ("metal",), "Tile": ("tile",), "Slate": ("slate",), "Wood Shake": ("wood",),
+               "Flat/Built-Up": ("flat", "built-up", "built up")}
+
+
+def _coverage_note_applies(row, pd):
+    text = row["Plain rule"].lower()
+    if row["Topic"] == "SOLAR":
+        return pd.get("solar_panels") == "Yes"
+    if row["Topic"] == "ROOF_SETTLEMENT":
+        return any(w in text for w in _ROOF_WORDS.get(pd.get("roof_type"), ()))
+    return False
+
+
+def coverage_notes(canon, outcomes, pd):
+    """The carrier's COVERAGE_ONLY rows this property triggers, as "[id] plain rule" lines."""
+    wb = _wb_of(canon, outcomes)
+    return [f"[{r['Rule ID']}] {r['Plain rule']}" for r in _rules().values()
+            if r["Carrier"] == wb and r["Effect"] == "COVERAGE_ONLY" and _coverage_note_applies(r, pd)]
+
+
 def territory_rows(canon):
     """The carrier's map lines decided by the County alone: its territory
     rows (south of 31 N / East Texas, and Nueces)."""

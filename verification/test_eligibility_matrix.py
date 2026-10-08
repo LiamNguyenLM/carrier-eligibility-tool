@@ -5966,8 +5966,29 @@ def _held_only_on_county(r):
     # county hold -- and its "County hold" note -- need not fire. Held on
     # County ALONE (no other open item) is the same finding.
     county_only = bool(mi) and all(_county_item_present([m]) for m in mi)
-    return (_county_item_present(mi) and ("County hold" in (r.get("notes") or "") or county_only)
-            and not any("fire station" in m.lower() and "fpc 9" in m.lower() for m in mi))
+    # CHANGED DELIBERATELY (round 29 step 9, 2026-10-08; Liam's decision 2026-10-07: a blank
+    # station distance holds the FPC table's B / C rows). With the rules table deciding Auros
+    # (pilot) and Wilshire (Sage batch), a PPC 1 home with no distance is also held on the FPC 1-3
+    # B/C row's conditions (visibility, central alarm, 10-ft access) -- the right answer under that
+    # decision. Still never on the FPC >= 9 exclusion, which is what this test guards.
+    county_or_fpc13 = bool(mi) and all(_county_item_present([m]) or _fpc13_condition_item(m) for m in mi)
+    return (_county_item_present(mi) and ("County hold" in (r.get("notes") or "") or county_only
+                                          or county_or_fpc13)
+            and not any(_fpc9_item(m) for m in mi))
+
+
+_FPC13_ROWS = ("[SAG-073]", "[SAG-074]", "[WIL-116]", "[WIL-117]")
+_FPC13_WORDS = ("station", "hydrant", "visib", "public road", "main road", "alarm", "access", "fpc 1-3", "fpc 1–3")
+
+
+def _fpc9_item(m):
+    low = m.lower()
+    return any(k in low for k in ("fpc 9", "ppc 9", "class 9", "fpc>=9", "fpc 9+", "9 or higher", "9+"))
+
+
+def _fpc13_condition_item(m):
+    """A missing_info item about the FPC 1-3 B/C row: its row id, or its conditions / distances."""
+    return not _fpc9_item(m) and (any(r in m for r in _FPC13_ROWS) or any(w in m.lower() for w in _FPC13_WORDS))
 
 
 @pytest.mark.retrieval
@@ -5980,6 +6001,22 @@ def test_the_updated_alt_baseline_check_accepts_a_county_hold(carrier):
     assert _held_only_on_county(by[carrier])
     assert not _held_only_on_county(dict(by[carrier], notes="", missing_info=[
         "Driving distance to the responding fire station (needed to determine FPC 9+ eligibility)."]))
+
+
+@pytest.mark.retrieval
+@pytest.mark.parametrize("item", [
+    "station / hydrant distance if not given; visibility, alarm, access -- [SAG-073] With FPC 1-3 ...",
+    "Central station fire alarm",                                       # the Tier 2 run's own wording
+    "Year-round fire equipment access on roadway at least 10 feet wide"])
+def test_the_alt_baseline_check_accepts_the_fpc_1_3_distance_hold(item):
+    # round 29 step 9 (decision 2026-10-07): County plus the FPC 1-3 B/C row's conditions is accepted ...
+    county = "County -- this guide only writes in specific counties"
+    rec = {"status": "INSUFFICIENT_INFORMATION", "notes": "", "missing_info": [county, item]}
+    assert _held_only_on_county(rec)
+    # ... but an FPC >= 9 question, or a hold with no County item, never is (not loosened)
+    assert not _held_only_on_county(dict(rec, missing_info=[county, item, "Is the home FPC 9 or higher?"]))
+    assert not _held_only_on_county(dict(rec, missing_info=[item]))
+    assert not _held_only_on_county(dict(rec, missing_info=[county, "Roof covering material"]))
 
 
 # ---------------------------------------------------------------------------
