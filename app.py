@@ -12,6 +12,7 @@ except Exception:
 
 from eligibility_check import check_eligibility, assign_buckets, usable_answer_count
 import eligibility_check
+import usage_log
 import intake_fields
 import topics
 import cards
@@ -489,6 +490,10 @@ with tab2:
                 help=eligibility_check.RULES_PILOT_HELP)
     # Round 31 step 1: the model and effort in use, and whether the last check fell back.
     st.markdown("**" + eligibility_check.model_status_line() + "**", help=eligibility_check.MODEL_HELP)
+    # Round 31 step 2: this month's checks and cost, against ELIGIBILITY_MONTHLY_BUDGET (display only).
+    st.markdown(usage_log.panel_line(), help=(
+        "From the usage log (carrier_docs_db/usage_log.jsonl, on the persistent volume): one line per check, "
+        "tokens and cost only. Budget: ELIGIBILITY_MONTHLY_BUDGET (default 260 dollars). Nothing blocks a check."))
 
     st.divider()
 

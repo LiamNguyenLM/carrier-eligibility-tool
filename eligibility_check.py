@@ -9,6 +9,7 @@ import json
 import os
 import re
 import threading
+import time
 from datetime import date
 import streamlit as st
 
@@ -33,6 +34,7 @@ import quotes
 import hold_guard
 import rules_evaluator
 import topics
+import usage_log
 from concurrent.futures import ThreadPoolExecutor
 from structured_rules import (
     sage_family_fpc_eligibility,
@@ -3413,7 +3415,9 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
     """The eligibility check (see _check_eligibility). Round 31: also records which model answered
     and stamps every record with model_fallback=True when any of the check's calls fell back."""
     LAST_CALL_USAGE.clear()
+    t0 = time.perf_counter()
     results = _check_eligibility(property_details, carrier_subset, checked_topics)
+    wall = time.perf_counter() - t0
     fallback = any(isinstance(u, dict) and u.get("fallback") for u in LAST_CALL_USAGE.values())
     if fallback:
         for r in results:
@@ -3422,6 +3426,9 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
     LAST_CHECK_INFO.update(model=ELIGIBILITY_MODEL, effort=ELIGIBILITY_EFFORT if not _is_openai_model(
         ELIGIBILITY_MODEL) else ELIGIBILITY_REASONING_EFFORT, fallback=fallback,
         fallback_model=FALLBACK_MODEL if fallback else None)
+    # Round 31 step 2: one usage line per check (no property details, no client data).
+    usage_log.append(usage_log.record(ELIGIBILITY_MODEL, LAST_CHECK_INFO["effort"], dict(LAST_CALL_USAGE), wall,
+                                      len(results)))
     return results
 
 

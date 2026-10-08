@@ -1723,6 +1723,26 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       path. Tier 2 runs set ELIGIBILITY_MODEL / ELIGIBILITY_EFFORT
       explicitly.
     - Tests: verification/test_model_fallback.py.
+  - **Step 2 (usage and cost log):** usage_log.py.
+    - **One JSON line per check:** timestamp (UTC), model, effort, fallback,
+      each call's input / cache-read / cache-write / output tokens and cost,
+      total cost, wall time, number of carriers, number of retry calls. No
+      property details or client data (tested).
+    - **Prices** live in one place, usage_log.PRICES. Haiku 5.5 input /
+      output are from Anthropic's page; its cache read / write are ASSUMED at
+      0.1x / 1.25x of input. A model with no price (e.g. the suite's pinned
+      Sonnet) is logged at $0.
+    - **Where it lives:** ELIGIBILITY_USAGE_LOG, default
+      carrier_docs_db/usage_log.jsonl. On Railway carrier_docs_db is the
+      persistent volume, so the log survives redeploys and restarts.
+      seed_db.sh now keeps it across FORCE_RESEED=1, and a volume holding
+      only the log still counts as empty for seeding. Anywhere else on
+      Railway's disk would be lost on every deploy. No database was added.
+    - **Panel:** "This month: N checks, $X of the $260 budget (display only)".
+      The budget comes from ELIGIBILITY_MONTHLY_BUDGET (default 260).
+      Nothing blocks a check, and a logging error never breaks one.
+    - The suite logs to a temp file (conftest.py).
+    - Tests: verification/test_usage_log.py.
 
 ## Open work, in priority order (updated 2026-10-02)
 

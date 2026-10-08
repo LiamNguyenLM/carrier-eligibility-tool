@@ -12,6 +12,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # smoke-test Luna through the real suite) is not overridden.
 os.environ.setdefault("ELIGIBILITY_MODEL", "claude-sonnet-4-5")
 os.environ.setdefault("CHAT_MODEL", "claude-sonnet-4-5")
+# Round 31 step 2: checks made by the suite log to a throwaway file, never the real usage log.
+import tempfile  # noqa: E402
+os.environ.setdefault("ELIGIBILITY_USAGE_LOG", os.path.join(tempfile.gettempdir(), "eligibility_usage_test_log.jsonl"))
 
 
 def pytest_configure(config):

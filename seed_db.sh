@@ -35,7 +35,8 @@ else
   # Count real contents, ignoring lost+found -- which is auto-created by
   # the volume mount itself and must NOT count as "already populated",
   # or the seed will wrongly skip on a genuinely-empty fresh volume.
-  REAL_CONTENTS="$(ls -A carrier_docs_db 2>/dev/null | grep -v '^lost+found$' || true)"
+  # Round 31: the usage log lives on the volume too; it does not make the volume "populated".
+  REAL_CONTENTS="$(ls -A carrier_docs_db 2>/dev/null | grep -v '^lost+found$' | grep -v '^usage_log.jsonl$' || true)"
 fi
 
 # FORCE_RESEED=1 (set as a Railway env var) wipes and re-copies the seed
@@ -43,10 +44,13 @@ fi
 # empty stub database, then REMOVE the env var afterward so normal boots
 # don't wipe real uploaded data.
 if [ "$FORCE_RESEED" = "1" ]; then
-  echo "FORCE_RESEED=1 set -- wiping carrier_docs_db and re-copying seed"
+  echo "FORCE_RESEED=1 set -- wiping carrier_docs_db and re-copying seed (the usage log is kept)"
+  # Round 31: keep the usage log (carrier_docs_db/usage_log.jsonl) across a forced reseed.
+  if [ -f carrier_docs_db/usage_log.jsonl ]; then cp carrier_docs_db/usage_log.jsonl /tmp/usage_log.jsonl.keep; fi
   rm -rf carrier_docs_db/*
   mkdir -p carrier_docs_db
   cp -r carrier_docs_db_seed/. carrier_docs_db/
+  if [ -f /tmp/usage_log.jsonl.keep ]; then mv /tmp/usage_log.jsonl.keep carrier_docs_db/usage_log.jsonl; fi
   echo "Forced reseed complete. New contents of carrier_docs_db:"
   ls -la carrier_docs_db
 elif [ -z "$REAL_CONTENTS" ]; then
