@@ -297,7 +297,10 @@ def test_the_main_call_enum_is_exactly_the_carriers_in_its_prompt(monkeypatch):
     monkeypatch.setattr(ec, "_complete", fake)
     ec.check_eligibility(dict(LIVE_PROFILE), checked_topics=list(LIVE_CHECKED))
     assert seen["prompt"] and seen["prompt"] <= set(seen["enum"])
-    assert not any("Occidental_HO3" in c or "Centauri_-_HO3" in c for c in seen["enum"])   # wrong guides
+    assert not any("Occidental_HO3" in c for c in seen["enum"])                            # wrong guide
+    # Round 29 step 5 (2026-10-08, deliberate): Centauri HO3 now has its OCR text, so it is a
+    # real candidate (it was excluded only while its guide had no text).
+    assert "Centauri_-_HO3_-_05.01.2026" in seen["enum"]
     assert ec._CALL.carriers is None                                                       # reset after
 
 
