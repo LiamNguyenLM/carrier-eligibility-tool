@@ -80,3 +80,35 @@ def test_a_pilot_carrier_left_out_of_the_pilot_reply_is_retried_too():
         pytest.skip("Allied was decided by code on this profile; no pilot call carried it")
     assert any(r["enum"] == [allied] for r in retries)
     assert res[allied]["status"] != ec.NOT_EVALUATED
+
+
+# -- round 30 step 5 (2026-10-08): an empty / unparseable reply gets the same one retry ---------------
+def _run_empty(empties):
+    """The main call answers "" `empties` times, then a full answer."""
+    calls = []
+
+    def fake(system, user, max_tokens):
+        pilot = "RULE CHECK:" in user
+        calls.append(pilot)
+        if not pilot and calls.count(False) <= empties:
+            return "", dict(USAGE)
+        names = (re.findall(r"--- (.+?) \(rule check\) ---", user) if pilot
+                 else sorted(set(re.findall(r"\n--- (.+?) \(page", user))))
+        return json.dumps({"carriers": [{"carrier": n, "status": "ELIGIBLE", "flaw_count": 0, "reasons": ["x"],
+                                         "citations": [], "missing_info": [], "notes": ""} for n in names]}), dict(USAGE)
+    saved = ec._complete
+    ec._complete = fake
+    try:
+        return {r["carrier"]: r for r in ec.check_eligibility(dict(PD))}, calls
+    finally:
+        ec._complete = saved
+
+
+def test_an_empty_reply_is_retried_once_and_the_check_completes():
+    res, calls = _run_empty(1)
+    assert calls.count(False) == 2 and "Parse Error" not in res and LIB in res
+
+
+def test_two_empty_replies_still_show_the_parse_error_card():
+    res, calls = _run_empty(2)
+    assert calls.count(False) == 2 and "Parse Error" in res

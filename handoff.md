@@ -1633,6 +1633,16 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
         refers on ALL-016, as before.
       - Baseline updated (dated, decision 2): Also confirm counts as surfaced.
         The recorded runs re-score 3/3 (REUSE_DUMPS).
+    - **Tier 2 on 10867e9 (Luna):** 21 passed, 1 failed:
+      test_mercury_exactly_10yr_roof_consistency, "Mercury: not found in
+      output".
+      - Luna returned a 0-byte reply (stop_reason "stop"). An unparseable main
+        reply turned the whole check into the single Parse Error card,
+        code-decided rules-table carriers included.
+      - Fixed: _retry_omitted now gives an empty / unparseable reply the same
+        one retry. Still unparseable -> the Parse Error card, as before.
+        Tests in test_omitted_retry.py.
+    - **Tier 2 on 10867e9, Haiku 5.5 low:** 22 passed, 0 failed.
 
 ## Open work, in priority order (updated 2026-10-02)
 

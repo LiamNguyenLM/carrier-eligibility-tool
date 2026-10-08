@@ -3350,8 +3350,15 @@ def _retry_omitted(raw, carriers, user_content):
     NOT_EVALUATED ("run the check again") row. Round 28: Haiku low left out 4
     carriers in 24 checks, Luna 2. Returns (raw, retry usage or None)."""
     recs = _reply_records(raw)
-    if recs is None or not carriers:
+    if not carriers:
         return raw, None
+    if recs is None:
+        # Round 30 step 5 (2026-10-08): an empty or unparseable reply gets the same one retry. Tier 2
+        # (live configuration, Luna): a 0-byte reply turned the whole check into the Parse Error card,
+        # code-decided carriers included. Still unparseable -> the Parse Error card, as before.
+        print("UNPARSEABLE REPLY -- retrying once")
+        raw2, usage2 = _complete_named(carriers, SYSTEM_INSTRUCTIONS, user_content, MAX_RESPONSE_TOKENS)
+        return (raw2 if _reply_records(raw2) is not None else raw), usage2
     covered = {_resolve_structured_carrier(r.get("carrier", ""), carriers) for r in recs}
     missing = [c for c in carriers if c not in covered]
     if not missing:
