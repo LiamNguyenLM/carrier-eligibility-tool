@@ -96,10 +96,12 @@ def test_an_older_claude_model_keeps_its_exact_call(monkeypatch):
     assert json.loads(text) == ANSWER
 
 
-def test_the_default_model_is_still_luna_and_effort_is_unset():
+def test_the_default_model_is_haiku_at_low_effort():
+    # CHANGED DELIBERATELY (round 31 step 1, 2026-10-08; Liam's decision 1): the tool runs on Claude
+    # Haiku 5.5 at low effort; unset variables mean that (was gpt-6-luna with effort unset).
     env = {k: v for k, v in os.environ.items() if k not in ("ELIGIBILITY_MODEL", "ELIGIBILITY_EFFORT")}
     env.update(ANTHROPIC_API_KEY="x", OPENAI_API_KEY="x")
     out = subprocess.run([sys.executable, "-c", "import eligibility_check as e; print(e.ELIGIBILITY_MODEL, "
                                                 "e.ELIGIBILITY_EFFORT)"],
                          cwd=ROOT, env=env, capture_output=True, text=True, timeout=300)
-    assert out.stdout.strip().splitlines()[-1] == "gpt-6-luna None", out.stderr[-500:]
+    assert out.stdout.strip().splitlines()[-1] == "claude-haiku-5-5 low", out.stderr[-500:]

@@ -371,6 +371,9 @@ with tab1:
             st.subheader("CARRIER ELIGIBILITY ANALYSIS")
             # Liam, 2026-10-01: ELIGIBLE must never read as "no inspection needed".
             st.caption("Inspection requirements are not checked.")
+            # Round 31 step 1 (Liam, 2026-10-08): say so when Anthropic was down and Luna answered.
+            if any(r.get("model_fallback") for r in results):
+                st.caption(eligibility_check.FALLBACK_LINE)
             # Round 21 (Liam, 2026-10-02): say what was checked, partial mode only.
             if partial:
                 st.info(topics.partial_check_line(topics.normalize(checked_topics)))
@@ -484,6 +487,8 @@ with tab2:
     # Round 27 step 3 (Liam, 2026-10-06): did the Railway variable take effect?
     st.markdown("**" + eligibility_check.rules_pilot_status_line() + "**",
                 help=eligibility_check.RULES_PILOT_HELP)
+    # Round 31 step 1: the model and effort in use, and whether the last check fell back.
+    st.markdown("**" + eligibility_check.model_status_line() + "**", help=eligibility_check.MODEL_HELP)
 
     st.divider()
 

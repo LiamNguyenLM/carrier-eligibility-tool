@@ -82,7 +82,13 @@ client = anthropic.Anthropic(max_retries=6)
 # Sonnet in conftest.py regardless of this default, so the fast and baseline
 # tiers keep testing what they were calibrated against; only a real
 # deployment (or a test that overrides the env var itself) exercises Luna.
-ELIGIBILITY_MODEL = os.environ.get("ELIGIBILITY_MODEL", "gpt-6-luna")
+# Round 31 step 1 (Liam, 2026-10-08, decision 1): the tool runs on Claude Haiku 5.5 at low effort.
+# Unset ELIGIBILITY_MODEL / ELIGIBILITY_EFFORT mean exactly that; ELIGIBILITY_MODEL=gpt-6-luna still
+# selects Luna. Luna is otherwise only the fallback (_complete), used when Anthropic is unavailable.
+DEFAULT_MODEL, DEFAULT_EFFORT = "claude-haiku-5-5", "low"
+FALLBACK_MODEL = os.environ.get("ELIGIBILITY_FALLBACK_MODEL", "") or "gpt-6-luna"
+FALLBACK_LINE = "Checked with the fallback model (Anthropic unavailable)"
+ELIGIBILITY_MODEL = os.environ.get("ELIGIBILITY_MODEL", "") or DEFAULT_MODEL
 
 # Reasoning depth for the OpenAI path -- same values and same default as
 # chat.py's CHAT_REASONING_EFFORT ('minimal' is rejected; verified against
@@ -92,7 +98,8 @@ ELIGIBILITY_REASONING_EFFORT = os.environ.get("ELIGIBILITY_REASONING_EFFORT", "l
 # The Anthropic path's effort (round 28 step 5, 2026-10-07): unset = the model's
 # own default (medium on claude-haiku-5-5); "low" / "medium" / "high". Used only
 # by Claude 5-generation models (output_config.effort). Measurement only.
-ELIGIBILITY_EFFORT = os.environ.get("ELIGIBILITY_EFFORT", "") or None
+# Round 31: unset = "low" (was the model's own default, medium on claude-haiku-5-5).
+ELIGIBILITY_EFFORT = os.environ.get("ELIGIBILITY_EFFORT", "") or DEFAULT_EFFORT
 
 # Enforced output structure on the OpenAI path (Liam, 2026-09-30). Live
 # failure the same day: Luna wrote 23 complete records and left off status and
@@ -251,7 +258,33 @@ def _complete(system_text, user_content, max_tokens):
     """
     if _is_openai_model(ELIGIBILITY_MODEL):
         return _complete_openai(system_text, user_content, max_tokens)
-    return _complete_anthropic(system_text, user_content, max_tokens)
+    try:
+        return _complete_anthropic(system_text, user_content, max_tokens)
+    except Exception as exc:                       # noqa: BLE001 -- narrowed by _anthropic_unavailable
+        if not _anthropic_unavailable(exc):
+            raise
+        # Round 31 step 1: the SDK has spent its own retries (max_retries=6). This one call runs once
+        # on the fallback model; a parse problem never gets here (the empty-reply retry stays on Claude).
+        print(f"ANTHROPIC UNAVAILABLE ({type(exc).__name__}: {str(exc)[:160]}) -- this call runs once "
+              f"on {FALLBACK_MODEL}")
+        try:
+            text, usage = _complete_openai(system_text, user_content, max_tokens, model=FALLBACK_MODEL)
+        except Exception as fallback_exc:          # noqa: BLE001
+            print(f"FALLBACK FAILED too ({type(fallback_exc).__name__}: {str(fallback_exc)[:160]})")
+            raise exc from fallback_exc
+        return text, dict(usage, fallback=True, model=FALLBACK_MODEL, fallback_reason=type(exc).__name__)
+
+
+def _anthropic_unavailable(exc):
+    """Round 31 step 1: Anthropic could not answer -- overloaded, rate limited, a 5xx, a timeout, a
+    connection failure, or no / a rejected API key. Never a 400 (our own request) or a parse problem."""
+    if isinstance(exc, (anthropic.APITimeoutError, anthropic.APIConnectionError, anthropic.RateLimitError,
+                        anthropic.InternalServerError, anthropic.AuthenticationError,
+                        anthropic.PermissionDeniedError)):
+        return True
+    if isinstance(exc, anthropic.APIStatusError):
+        return exc.status_code in (429, 529) or exc.status_code >= 500
+    return isinstance(exc, TypeError) and "authentication method" in str(exc)
 
 
 def _is_claude_gen5(model):
@@ -337,13 +370,13 @@ def _complete_anthropic(system_text, user_content, max_tokens):
     }
 
 
-def _complete_openai(system_text, user_content, max_tokens):
+def _complete_openai(system_text, user_content, max_tokens, model=None):
     """The OpenAI path. A port of the SHAPE, not of the caching strategy --
     see chat.py's _complete_openai for the measured findings (Luna's cache
     keys on the WHOLE prompt, so this pipeline's single-call-per-check shape
     never benefits from it either way)."""
     kwargs = dict(
-        model=ELIGIBILITY_MODEL,
+        model=model or ELIGIBILITY_MODEL,
         messages=[
             {"role": "system", "content": system_text},
             {"role": "user", "content": user_content},
@@ -3372,7 +3405,43 @@ def _retry_omitted(raw, carriers, user_content):
     return json.dumps({"carriers": recs + extra}, ensure_ascii=False), usage2
 
 
+# Round 31 step 1: what the last check used, for the Database Fingerprint panel.
+LAST_CHECK_INFO = {}
+
+
 def check_eligibility(property_details, carrier_subset=None, checked_topics=None):
+    """The eligibility check (see _check_eligibility). Round 31: also records which model answered
+    and stamps every record with model_fallback=True when any of the check's calls fell back."""
+    LAST_CALL_USAGE.clear()
+    results = _check_eligibility(property_details, carrier_subset, checked_topics)
+    fallback = any(isinstance(u, dict) and u.get("fallback") for u in LAST_CALL_USAGE.values())
+    if fallback:
+        for r in results:
+            r["model_fallback"] = True
+    LAST_CHECK_INFO.clear()
+    LAST_CHECK_INFO.update(model=ELIGIBILITY_MODEL, effort=ELIGIBILITY_EFFORT if not _is_openai_model(
+        ELIGIBILITY_MODEL) else ELIGIBILITY_REASONING_EFFORT, fallback=fallback,
+        fallback_model=FALLBACK_MODEL if fallback else None)
+    return results
+
+
+def model_status_line():
+    """Round 31 step 1: the panel's model line."""
+    effort = ELIGIBILITY_REASONING_EFFORT if _is_openai_model(ELIGIBILITY_MODEL) else ELIGIBILITY_EFFORT
+    line = f"Model: {ELIGIBILITY_MODEL} (effort {effort}); fallback {FALLBACK_MODEL}"
+    if LAST_CHECK_INFO:
+        line += (" -- last check used the FALLBACK model" if LAST_CHECK_INFO.get("fallback")
+                 else " -- last check used the main model")
+    return line
+
+
+MODEL_HELP = ("Unset ELIGIBILITY_MODEL / ELIGIBILITY_EFFORT mean claude-haiku-5-5 at effort low (Liam, "
+              "2026-10-08), so both Railway variables can be deleted. ELIGIBILITY_MODEL=gpt-6-luna still "
+              "selects Luna. ANTHROPIC_API_KEY must be the key of the account that holds the API credit; "
+              "OPENAI_API_KEY is needed only for the Luna fallback.")
+
+
+def _check_eligibility(property_details, carrier_subset=None, checked_topics=None):
     """carrier_subset: optional iterable of carrier names to restrict
     evaluation to (intersected with the normal occupancy filter). Used to
     pilot splitting the combined multi-carrier completion into smaller

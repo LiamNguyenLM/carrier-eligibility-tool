@@ -1683,6 +1683,47 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       failures in test_rules_evaluator.py (FACT -> NOTE), fixed in 6a66d2f.
     - aa1ad14 (round 30 code head): 1,941 passed, 0 failed.
 
+- **2026-10-08 — Round 31 (Liam's decisions dated 2026-10-08).** Built on
+  984c442 (pushed by Liam). Live configuration after the push: pilot ON,
+  Sage + HO3 + DP batches ON, ELIGIBILITY_MODEL=claude-haiku-5-5,
+  ELIGIBILITY_EFFORT=low (FORCE_RESEED=1 used once, then removed).
+  Measurements run on Haiku 5.5 low unless a step says otherwise.
+  - **1. The tool runs on Claude Haiku 5.5 from now on.** About $260/month
+    of Anthropic API credit, so cost is not a constraint at about $0.002 per
+    check. Optimize for Haiku: reliability first, then speed. Luna is a
+    fallback only.
+  - **2. Requirement rows:** when the form shows a requirement is NOT met,
+    the card says Ineligible, unless the row's own guide text names an
+    underwriting / referral path; then it stays Refer (step 4).
+  - **3. The ownership question shows for every occupancy,** not only Owner
+    Occupied (step 5).
+  - **Step 1 (Haiku default, Luna fallback):**
+    - Unset ELIGIBILITY_MODEL / ELIGIBILITY_EFFORT now mean claude-haiku-5-5
+      at effort low. ELIGIBILITY_MODEL=gpt-6-luna still selects Luna.
+    - **Fallback** (eligibility_check._complete): when Anthropic fails after
+      the SDK's own retries (max_retries=6), that one call runs once on
+      gpt-6-luna. This covers overloaded / 529, 429, any 5xx, a timeout, a
+      connection failure, a rejected key (401 / 403), and no key at all.
+      - The card header then says "Checked with the fallback model (Anthropic
+        unavailable)".
+      - Never on a 400 (our own request) or a parse problem: the round 30
+        empty-reply retry stays on Claude.
+      - If Luna fails too, the original Anthropic error is shown, as before.
+    - **Database Fingerprint panel:** "Model: claude-haiku-5-5 (effort low);
+      fallback gpt-6-luna -- last check used the main / FALLBACK model".
+    - **Railway variables:**
+      - ELIGIBILITY_MODEL and ELIGIBILITY_EFFORT are now optional; Liam can
+        delete both.
+      - ANTHROPIC_API_KEY must be the key of the account that holds the
+        credit.
+      - OPENAI_API_KEY is needed only for the fallback.
+      - ELIGIBILITY_FALLBACK_MODEL (optional) changes the fallback model.
+    - verification/conftest.py still pins the suite to claude-sonnet-4-5
+      (setdefault), so the fast tier keeps testing the older-Claude request
+      path. Tier 2 runs set ELIGIBILITY_MODEL / ELIGIBILITY_EFFORT
+      explicitly.
+    - Tests: verification/test_model_fallback.py.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
