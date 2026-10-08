@@ -1211,6 +1211,14 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       exposure 17, number of mortgages 14, prior liability / fire loss 12,
       plumbing update date 11.
 
+  - **Step 2 (omitted carriers):** _retry_omitted. A carrier the main or
+    pilot reply left out gets ONE more call, for just the missing carriers:
+    the same prompt and schema, the carrier enum narrowed to them, and a
+    closing line naming them. The records are merged into the reply. A
+    carrier still missing keeps the NOT_EVALUATED card ("No answer came back
+    for this carrier in this check -- run the check again"). The retry's
+    usage is recorded as main_retry / pilot_retry.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"

@@ -3268,6 +3268,39 @@ def _rules_pilot_model_records(raw, open_carriers):
     return out
 
 
+def _reply_records(raw):
+    """The records of a JSON reply ({"carriers": [...]} or a bare list), or None."""
+    body = (raw or "").replace("```json", "").replace("```", "").strip()
+    try:
+        parsed = json.loads(body)
+    except ValueError:
+        return None
+    recs = parsed.get("carriers") if isinstance(parsed, dict) else parsed
+    return [r for r in recs if isinstance(r, dict)] if isinstance(recs, list) else None
+
+
+def _retry_omitted(raw, carriers, user_content):
+    """Round 29 step 2 (2026-10-08): carriers the reply left out get ONE more call,
+    for just them (same prompt and schema, the carrier enum narrowed to them).
+    Their records are merged into the reply; a carrier still missing keeps its
+    NOT_EVALUATED ("run the check again") row. Round 28: Haiku low left out 4
+    carriers in 24 checks, Luna 2. Returns (raw, retry usage or None)."""
+    recs = _reply_records(raw)
+    if recs is None or not carriers:
+        return raw, None
+    covered = {_resolve_structured_carrier(r.get("carrier", ""), carriers) for r in recs}
+    missing = [c for c in carriers if c not in covered]
+    if not missing:
+        return raw, None
+    print(f"OMITTED CARRIERS: {missing} -- retrying once for just these")
+    note = ("\n\nANSWER ONLY FOR THESE CARRIERS (your previous answer left them out; give one record each): "
+            + "; ".join(missing))
+    raw2, usage2 = _complete_named(missing, SYSTEM_INSTRUCTIONS, user_content + note, MAX_RESPONSE_TOKENS)
+    extra = [r for r in (_reply_records(raw2) or [])
+             if _resolve_structured_carrier(r.get("carrier", ""), missing) is not None]
+    return json.dumps({"carriers": recs + extra}, ensure_ascii=False), usage2
+
+
 def check_eligibility(property_details, carrier_subset=None, checked_topics=None):
     """carrier_subset: optional iterable of carrier names to restrict
     evaluation to (intersected with the normal occupancy filter). Used to
@@ -3641,12 +3674,18 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
                                        pilot_content, MAX_RESPONSE_TOKENS)
             raw, usage = main_future.result()
             pilot_raw, pilot_usage = pilot_future.result()
+        pilot_raw, pilot_retry_usage = _retry_omitted(pilot_raw, list(pilot["open"]), pilot_content)
         pilot["records"] += _rules_pilot_model_records(pilot_raw, pilot["open"])
     else:
         raw, usage = _complete_named(relevant_carriers, SYSTEM_INSTRUCTIONS, user_content, MAX_RESPONSE_TOKENS)
-        pilot_usage = None
+        pilot_usage = pilot_retry_usage = None
+    raw, main_retry_usage = _retry_omitted(raw, relevant_carriers, user_content)
     LAST_CALL_USAGE.clear()
     LAST_CALL_USAGE.update(main=usage, pilot=pilot_usage)
+    if main_retry_usage:
+        LAST_CALL_USAGE["main_retry"] = main_retry_usage
+    if pilot_retry_usage:
+        LAST_CALL_USAGE["pilot_retry"] = pilot_retry_usage
     LAST_GUARD_STATS.clear()
     relevant_carriers = all_carriers
 
