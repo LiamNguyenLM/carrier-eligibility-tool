@@ -22,7 +22,11 @@ BEXAR = dict(LIVE, county="Bexar", zip="")
 PROFILES = {"LIVE": (LIVE, P.LIVE_CHECKED), "LIVE+Bexar": (BEXAR, P.LIVE_CHECKED),
             "LIVE+Bexar+7mi/No": (dict(BEXAR, fire_station_miles="7", hydrant_1000ft="No"), P.LIVE_CHECKED),
             "OLD": (M.PROFILES["OLD"], None), "CLEAN": (M.PROFILES["CLEAN"], None),
-            "STRESS": (M.PROFILES["STRESS"], None)}
+            "STRESS": (M.PROFILES["STRESS"], None),
+            # round 28 step 4: occupancy and ownership on the live form's profile, County Bexar
+            "SEASONAL": (dict(BEXAR, occupancy_type="Seasonal"), P.LIVE_CHECKED),
+            "SECONDARY": (dict(BEXAR, occupancy_type="Secondary Home"), P.LIVE_CHECKED),
+            "TRUST": (dict(BEXAR, ownership_type="Trust"), P.LIVE_CHECKED)}
 pd, checked = PROFILES[prof]
 ec.RULES_PILOT = True
 ec.RULES_SAGE_BATCH = batch == "ON"

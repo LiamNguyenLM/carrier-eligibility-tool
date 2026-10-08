@@ -1082,6 +1082,36 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       runs for a blank distance, as it still does for Auros with the pilot
       OFF.
 
+  - **Step 4 (re-measure the Sage batch, real Luna, pilot ON, batch OFF -> ON,
+    2 runs each, on 5d600c9):** Round 27's six profiles, plus SEASONAL,
+    SECONDARY and TRUST (County Bexar).
+    - Wall times are inflated by fast tiers running in parallel. Prompt
+      tokens fall 10-30% with the batch ON.
+    - **Every Sage difference; the ON side is right in each:**
+      - **Blank distance:** SURE, SafePort, Wilshire and Trium go Eligible
+        -> Insufficient on LIVE+Bexar, CLEAN, OLD and TRUST. This is
+        decision 1. OLD also needs a home under 25 on rows B/C. TRUST also
+        needs SUR-020/021 (family-held, one trust).
+      - **Trium, Collin:** 2 flaws -> 1. OFF, the county hold adds a flaw
+        to the model's own location decline; it still does.
+      - **Markel:** OLD and CLEAN Ineligible -> Eligible. OFF applied the
+        HO5 $500k minimum; MKL-079 sets $100k for HO3. STRESS Insufficient
+        -> Eligible: OFF held on the pool fence, but MKL-053/054 make that a
+        pool exclusion (coverage only).
+      - **Vave:** OLD Eligible / Insufficient -> Ineligible on VAV-047
+        (galvanized). TRUST Insufficient -> Eligible: VAV-014 reads Owner
+        Occupied + Trust as occupied by the trust's people, as SAG-019 does.
+        That is an assumption, since the form does not name the occupant.
+    - **SEASONAL / SECONDARY:** no batch carrier appears ON or OFF. They are
+      HO3s, and the occupancy routing sends these homes to DP programs only
+      (step 1 xfail).
+    - **Other carriers:** results outside the OFF range per profile were 1,
+      0, 1, 2, 0, 1, 2, 2, 0. That is within the OFF-vs-OFF noise (0-4).
+    - **Rows still thought wrong:** none among the measured differences.
+      The VAV-014 occupant assumption (shared with SAG-019) is for Liam and
+      Claude to confirm.
+    - **Ready to switch on:** yes, on these runs.
+
   - **Step 5 (Anthropic path, production-equal, measurement only):** for
     Claude 5-generation models (claude-haiku-5-5). Older Claude models keep
     their exact call, and ELIGIBILITY_MODEL still defaults to gpt-6-luna.
