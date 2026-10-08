@@ -6108,10 +6108,13 @@ class TestChubbBelowMinimumRefer:
         assert _CHUBB_BELOW_MINIMUM_REFER_NOTE not in r["notes"]
 
     def test_insufficient_open_for_another_fact_is_untouched(self):
-        r = _chubb_record("INSUFFICIENT_INFORMATION", amount=450000,
-                          missing_info=["Flood Zone -- Zone A is subject to pre-approval."])[_CHUBB]
+        # Round 29 step 1 (Liam, 2026-10-08): a fact the form never asks (the flood zone this test
+        # used) is now a "confirm" note, never a hold (hold_guard). The other open fact is one the
+        # form asks: the fire-station distance, left blank.
+        other = "Driving distance to the nearest fire station -- needed for the protection class rule."
+        r = _chubb_record("INSUFFICIENT_INFORMATION", amount=450000, missing_info=[other])[_CHUBB]
         assert r["status"] == "INSUFFICIENT_INFORMATION"
-        assert r["missing_info"] == ["Flood Zone -- Zone A is subject to pre-approval."]
+        assert r["missing_info"] == [other]
         assert _CHUBB_BELOW_MINIMUM_REFER_NOTE not in r["notes"]
 
     def test_refer_from_the_model_stays_refer(self):
@@ -6355,7 +6358,9 @@ class TestPoolBoxes:
         assert item not in r["missing_info"]
 
     def test_an_unrelated_open_fact_keeps_the_record_insufficient(self):
-        other = "Roof condition -- 5+ years of remaining life must be confirmed."
+        # Round 29 step 1 (Liam, 2026-10-08): the roof's remaining life (this test's old fact) is not
+        # on the form, so it is now a "confirm" note (hold_guard); this fact is on the form.
+        other = "Driving distance to the nearest fire station -- needed for the protection class rule."
         r = _by_carrier(_replayed_run(_boxes(STANDARD_PROFILE, True, True),
                                       _pool_answer(_ALLIED, missing_info=[_MODEL_POOL_ITEM, other])))[_ALLIED]
         assert r["missing_info"] == [other] and r["status"] == "INSUFFICIENT_INFORMATION"
