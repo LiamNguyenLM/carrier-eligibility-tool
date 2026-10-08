@@ -357,3 +357,18 @@ def test_the_step_2_fpc_logic_still_fires_with_the_batch_off():
     r = res["Sage_-_SURE_HO-3_-_01.31.2026"]
     assert r["status"] == "INSUFFICIENT_INFORMATION" and not r.get("rules_table")
     assert any(x.startswith("Sage FPC table:") for x in r["reasons"])
+
+
+@pytest.mark.parametrize("carrier,row", [("Sage_-_SURE_HO-3_-_01.31.2026", "SUR-112"),
+                                         ("Sage_-_SafePort_HO-3_-_01.31.2026", "SFP-120")])
+def test_band_c_at_7_miles_holds_on_the_fpc_row_with_the_batch_on_and_off(carrier, row):
+    # Round 30 step 2 correction (Liam, 2026-10-08, re-affirming 2026-10-06): the FPC table's
+    # visibility / central alarm / year-round access conditions HOLD with the distance known, in
+    # class (c) by name. Batch ON (the rules table) and batch OFF (step 2's FPC logic) agree.
+    pd = dict(SP, ppc="3", fire_station_miles="7", hydrant_1000ft="No", swimming_pool="No Pool")
+    on = _run(pd, pilot_status="ELIGIBLE")[0][carrier]
+    off = _run(pd, batch_on=False)[0][carrier]
+    assert on["status"] == off["status"] == "INSUFFICIENT_INFORMATION"
+    assert any(f"[{row}]" in x for x in on["missing_info"])
+    assert any(x.startswith("Sage FPC table:") for x in off["reasons"])
+

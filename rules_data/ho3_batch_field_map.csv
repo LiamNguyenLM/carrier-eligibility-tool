@@ -39,7 +39,7 @@ ARA-043,NONE,,,DECLINES,,not asked by the form
 ARA-046,NONE,,,DECLINES,,wiring and panels are not asked
 ARA-047,NONE,,,DECLINES,,wiring and panels are not asked
 ARA-048,NONE,,,DECLINES,,wiring and panels are not asked
-ARA-049,plumbing_type,"plumbing_type in {Copper, PVC} || plumbing_type != Polybutylene",always,DECLINES,,exposed water lines; PEX is not named; galvanized is decided by its own row
+ARA-049,plumbing_type,"plumbing_type in {Copper, PVC} or FACT(no exposed water lines of another material)",always,DECLINES,no exposed water lines other than copper / PVC,exposed water lines; PEX is not named; galvanized is decided by its own row
 ARA-050,plumbing_type,plumbing_type != Galvanized,always,DECLINES,,mixed-galvanized / lead are not form options
 ARA-053,NONE,,,DECLINES,,roof condition and layers are not asked
 ARA-054,NONE,,,DECLINES,,roof condition and layers are not asked
@@ -100,7 +100,7 @@ ARB-040,year_built,home_age <= 20,always,DECLINES,,homes over 20 years go to HOA
 ARB-042,NONE,,,DECLINES,,wiring and panels are not asked
 ARB-044,NONE,,,DECLINES,,wiring and panels are not asked
 ARB-045,NONE,,,DECLINES,,wiring and panels are not asked
-ARB-046,plumbing_type,"plumbing_type in {Copper, PVC} || plumbing_type != Polybutylene",always,DECLINES,,exposed water lines; PEX is not named; galvanized is decided by its own row
+ARB-046,plumbing_type,"plumbing_type in {Copper, PVC} or FACT(no exposed water lines of another material)",always,DECLINES,no exposed water lines other than copper / PVC,exposed water lines; PEX is not named; galvanized is decided by its own row
 ARB-048,plumbing_type,plumbing_type != Galvanized,always,DECLINES,,mixed-galvanized / lead are not form options
 ARB-052,NONE,,,DECLINES,,roof condition and layers are not asked
 ARB-053,NONE,,,DECLINES,,roof condition and layers are not asked
@@ -503,7 +503,7 @@ STO-059,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
 STO-060,NONE,,,REFERS_TO_UW,,"unit count, foundation and original use are not asked"
 TWI-002,dwelling_amount,dwelling_amount <= 2000000,always,DECLINES,,
 TWI-004,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,
-TWI-005,occupancy_type;primary_home_carrier,primary_home_carrier == TWICO,"occupancy_type in {Seasonal, Secondary Home}",CONDITION,primary home written with TWICO,
+TWI-005,occupancy_type;primary_home_carrier,primary_home_carrier == TWICO,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,primary home written with TWICO,
 TWI-009,NONE,,,DECLINES,,the number of individual owners is not asked
 TWI-010,occupancy_type,always,always,DECLINES,,decided by TWI-004 (the same rule); never a second flaw
 TWI-011,ownership_type,"FACT(written in the trustee's name, the trust an Additional Insured)",ownership_type == Trust,CONDITION,trustee's name,

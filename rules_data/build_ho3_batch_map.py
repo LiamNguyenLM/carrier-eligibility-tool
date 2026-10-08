@@ -70,7 +70,10 @@ ARI_UNPROTECTED = ("ppc", "FACT(visible from another dwelling or on an all-weath
                    "visibility / all-weather road", "unprotected = class 10")
 ARI_POOL = ("swimming_pool;pool_gate_locking", FENCED + " and pool_gate_locking == True and FACT(fence at least 6 ft)",
             POOL, "6 ft fence; locked or self-locking gate", "the form's fence box is 4 ft")
-ARI_EXPOSED = ("plumbing_type", "plumbing_type in {Copper, PVC} || plumbing_type != Polybutylene", "always", "",
+# Round 30 step 2 (decision 2): whether any water line is exposed is not asked. Copper / PVC pass; any
+# other material is a "Confirm: no exposed lines" note, never a hold (round 29: PEX homes were held).
+ARI_EXPOSED = ("plumbing_type", "plumbing_type in {Copper, PVC} or FACT(no exposed water lines of another material)",
+               "always", "no exposed water lines other than copper / PVC",
                "exposed water lines; PEX is not named; galvanized is decided by its own row")
 POOL_4FT = ("swimming_pool;pool_fence_4ft;pool_gate_locking", FENCED + " and " + POOL_OK, POOL,
             "fence 4 ft; self-latching gate", "a pool cage also qualifies (not a form option)")
@@ -328,6 +331,12 @@ MAP = {
                 "coastal_tier in {Tier 1, Tier 2, Tier 3}", "hurricane UW class", ""),
 }
 
+# Round 30 step 2 correction 3 (Liam, 2026-10-08): the row's effect is CONDITION, and a failed
+# CONDITION reads "Refer" on the card. "Secondary must have an associated primary written in Twico" is
+# a requirement, not a referral: unmet, the home is ineligible. The workbook row is not edited; the
+# map line's outcome is. (Other CONDITION rows with the same issue are listed in handoff.md.)
+OUTCOME_OVERRIDE = {"TWI-005": "DECLINES"}
+
 HO3_NONE_NOTE = dict(BATCH_NONE_NOTE, SOLAR="solar shingles / solar roofs are not the form's (mounted) Solar panels",
                      PROTECTION_CLASS="response time, visibility and water source are not asked",
                      LIABILITY_HAZARDS="liability hazards are not asked")
@@ -360,7 +369,7 @@ def main():
         for r in ev:
             rid = r["Rule ID"]
             cure = r["Tool handling"] == "EVALUATE_CURE_IS_INSPECTION"
-            outcome = "NOTE" if cure else (r["Effect"] or "UNKNOWN")
+            outcome = "NOTE" if cure else OUTCOME_OVERRIDE.get(rid, r["Effect"] or "UNKNOWN")
             if rid in MAP:
                 field, test, gate, open_fact, note = MAP[rid]
             else:

@@ -66,7 +66,8 @@ def test_coverage():
     kinds = collections.Counter(builder.kind(builder.MAP.get(rid, ("NONE", "", "", "", ""))) for rid in FMAP)
     # CHANGED DELIBERATELY (round 30 step 1, 2026-10-08; Liam's decision 1): ARA-029, SBS-027, TWI-005
     # and TRV-039 are decided by the new primary-home questions (were 102 / 61).
-    assert kinds == {"decided by a form field": 106, "gated-but-open": 57, "AMBIGUOUS": 14,
+    # round 30 step 2: ARA-049 / ARB-046 "exposed water lines" -> a never-asked fact (were AMBIGUOUS)
+    assert kinds == {"decided by a form field": 106, "gated-but-open": 59, "AMBIGUOUS": 12,
                      "same rule as another row": 18, "NONE": 420}
 
 

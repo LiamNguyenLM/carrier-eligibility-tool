@@ -155,6 +155,23 @@ FIELD_TOPIC = {   # map field -> round 21 topic (always-on fields -> None)
     "fire_station_miles": "ppc", "hydrant_1000ft": "ppc",     # round 26, decision B
     "primary_home_carrier": None, "primary_home_miles": None,  # round 30 step 1 (with occupancy)
 }
+# Round 30 step 2, class (c): rows Liam decided by name stay HOLDS even when they are open only on
+# a fact the form never asks.
+# - The FPC tables (Liam, 2026-10-06, re-affirmed 2026-10-08): with the band B or C -- distance blank
+#   OR known -- the visibility / central-alarm / year-round-access / rentals / fire-loss conditions
+#   hold, as the batch-OFF path (structured_rules.sage_fpc_with_distance) does.
+# - Chubb's coastal sub-territories (with the CHUBB holds, 2026-10-08): the address decides.
+FPC_TABLE_HOLDS = (
+    "SAG-073", "SAG-074", "SAG-075", "SAG-076",                                  # pilot: Auros
+    "SUR-111", "SUR-112", "SUR-113", "SUR-114", "SUR-117",                       # Sage batch v2
+    "SFP-119", "SFP-120", "SFP-121", "SFP-122", "SFP-125",
+    "WIL-116", "WIL-117", "WIL-118", "WIL-119", "WIL-122", "WIL-123",
+    "TRI-020", "TRI-088", "TRI-089", "TRI-090", "TRI-091",
+    "ODP-110", "ODP-111", "ODP-112", "ODP-113", "ODP-115",                       # remaining (DP) batch
+    "SDP-078", "SDP-079", "SDP-082", "FDP-105", "FDP-111")
+CHUBB_TERRITORY_HOLDS = ("CHU-043", "CHU-044", "CHU-047")
+HOLD_BY_DECISION = {**{rid: "Sage FPC table (Liam, 2026-10-06 / 2026-10-08)" for rid in FPC_TABLE_HOLDS},
+                    **{rid: "Chubb coastal sub-territory (Liam, 2026-10-08)" for rid in CHUBB_TERRITORY_HOLDS}}
 # Decision 1: an OPEN that rests only on these blank fields is a NOTE.
 BLANK_IS_NOTE = {"dwelling_amount", "county", "zip", "sage_territory", "south_of_31"}
 
@@ -455,6 +472,15 @@ def evaluate_row(m, f, checked=None):
                                                      for u in blank})) + "; confirm"
     if result == "FAIL" and m["outcome_if_fail"] == "UNKNOWN":
         return "OPEN", "the row's effect is UNKNOWN"
+    # Round 30 step 2 (Liam, 2026-10-08, decision 2: the project rule, applied to the rules table):
+    # a row open ONLY on facts the form never asks (FACT(...); never a blank form field, never two
+    # readings that disagree, and no reading that fails) is a "Confirm:" note, never a hold. A blank
+    # form field (the station distance, PPC N/A, plumbing Unknown, an unticked pool box, a blank
+    # primary-home answer) still holds. Rows Liam decided by name (HOLD_BY_DECISION) still hold.
+    if (result == "OPEN" and not ambiguous and unknown and False not in vals
+            and all(u not in f for u in unknown) and m["outcome_if_fail"] != "UNKNOWN"
+            and m.get("row_id") not in HOLD_BY_DECISION):
+        return "NOTE", "confirm: " + (_open_fact_now(m["open_fact"], unknown) or "; ".join(dict.fromkeys(unknown)))
     return result, detail
 
 
@@ -501,7 +527,10 @@ def also_confirm(canon, outcomes):
     for r in rules.values():
         if r["Carrier"] == wb and r["Tool handling"] == "CONDITION_STANDARD":
             groups.setdefault(r["Topic"], []).append(r["Rule ID"])
-    notes = [f"[{rid}] {rules[rid]['Plain rule']} ({d})" for rid, (o, d) in outcomes.items() if o == "NOTE"]
+    # round 30 step 2: a never-asked fact reads "Confirm: <fact> ([row] <the guide's rule>)", so the
+    # consequence is visible on the card
+    notes = [f"Confirm: {d[len('confirm: '):]} ([{rid}] {rules[rid]['Plain rule']})" if d.startswith("confirm: ")
+             else f"[{rid}] {rules[rid]['Plain rule']} ({d})" for rid, (o, d) in outcomes.items() if o == "NOTE"]
     if groups:
         notes.append("Also confirm (not asked by the form; never a hold): " + "; ".join(
             f"{t}: {', '.join(ids)}" for t, ids in sorted(groups.items())) + ".")

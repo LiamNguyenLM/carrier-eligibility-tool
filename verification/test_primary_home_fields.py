@@ -73,7 +73,8 @@ def test_a_same_carrier_rule_passes_only_on_that_carrier(rid, own, extra, occupa
 
 def test_chubb_coastal_harris_still_needs_the_premium_fact():
     pd = dict(BASE, primary_home_carrier="Chubb")
-    assert ev.evaluate_row(ev._map()["CHU-046"], ev.facts(pd))[0] == "OPEN"     # $25,000 non-CAT premium
+    # the $25,000 non-CAT premium is never asked: a "Confirm:" note since round 30 step 2
+    assert ev.evaluate_row(ev._map()["CHU-046"], ev.facts(pd))[0] == "NOTE"
     pd = dict(BASE, primary_home_carrier="Travelers")
     assert ev.evaluate_row(ev._map()["CHU-046"], ev.facts(pd))[0] == "FAIL"
 

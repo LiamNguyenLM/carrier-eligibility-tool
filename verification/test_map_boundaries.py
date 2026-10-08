@@ -234,6 +234,29 @@ CASES += [(rid, {"occupancy_type": "Seasonal"}, "primary_home_miles", {"49.9": "
 NUMERIC = re.compile(r"\b\w+ (?:<=|>=|<|>|between)\s+[\d.]|\b\w+ ==\s*\d")
 
 
+def r30_label(rid, pd, values_out):
+    """CHANGED DELIBERATELY (round 30 step 2, 2026-10-08; Liam's decision 2: a fact the form never asks
+    is a "Confirm:" note, never a hold). A row that APPLIES and is open only on never-asked facts --
+    no blank form field in its gate or test -- is now NOTE where these cases said OPEN. The boundary
+    values themselves (where an outcome switches) are unchanged; the rule is pinned with literals in
+    test_confirm_not_hold.py. A blank form field's OPEN stays OPEN, and so does every row Liam decided by
+    name (rules_evaluator.HOLD_BY_DECISION: the FPC tables and Chubb's coastal sub-territories)."""
+    m = ev._map()[rid]
+    if "FACT(" not in m["test"] + m["gate"] or rid in ev.HOLD_BY_DECISION:   # (c): still holds
+        return values_out
+    out = {}
+    for v, want in values_out.items():
+        if want == "OPEN":
+            f = ev.facts(dict(pd(v)))
+            gate, gu = ev.evaluate_expr(m["gate"] or "always", f)
+            unknown = list(gu if gate is None else []) + [u for t in m["test"].split("||")
+                                                          for u in ev.evaluate_expr(t, f)[1]]
+            if unknown and not any(u in f for u in unknown) and "||" not in m["test"]:
+                want = "NOTE"
+        out[v] = want
+    return out
+
+
 def _outcome(rid, base, field, value):
     pd = dict(BASE, **base)
     pd[field] = value
@@ -243,7 +266,7 @@ def _outcome(rid, base, field, value):
 @pytest.mark.parametrize("rid,base,field,values", CASES, ids=[f"{c[0]}:{c[2]}" for c in CASES])
 def test_boundary(rid, base, field, values):
     got = {v: _outcome(rid, base, field, v) for v in values}
-    assert got == values
+    assert got == r30_label(rid, lambda v: {**BASE, **base, field: v}, values)
 
 
 def test_every_numeric_map_line_has_a_boundary_case():

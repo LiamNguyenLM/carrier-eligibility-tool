@@ -1502,6 +1502,70 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       (step 2's class a).
     - Tests: verification/test_primary_home_fields.py (32), and boundary
       cases for the 50-mile lines.
+  - **Step 2 (rules-table holds on facts the form never asks -> "Confirm:"):**
+    - rules_evaluator.evaluate_row: a row that applies and is open ONLY on
+      FACT(...) is a NOTE. It must have no blank form field in its gate or
+      test, no two readings that disagree, and no reading that fails. The card
+      reads "Confirm: <fact> ([row] <the guide's rule>)" under Also confirm;
+      its status comes from the other rows.
+    - A blank form field still holds: station distance, PPC N/A, plumbing
+      Unknown, an unticked pool box, a blank primary-home answer.
+    - ARA-049 / ARB-046 ("exposed water lines must be copper or PVC") now
+      read: copper / PVC pass; anything else is a confirm note. They were
+      AMBIGUOUS, and PEX homes were held.
+    - **Class (c), held by name** (rules_evaluator.HOLD_BY_DECISION):
+      - **The 35 FPC-table lines** hold with the band B or C, distance blank or
+        known (Liam, 2026-10-06, re-affirmed 2026-10-08). Batch ON and batch
+        OFF agree; a band C, 7-mile test pins it.
+        - pilot: SAG-073..076;
+        - Sage batch: SUR-111..114/117, SFP-119..122/125, WIL-116..119/122/123,
+          TRI-020/088..091;
+        - DP batch: ODP-110..113/115, SDP-078/079/082, FDP-105/111.
+      - **Chubb's coastal sub-territories,** CHU-043 / CHU-044 / CHU-047: kept
+        with the CHUBB holds (Liam, 2026-10-08).
+      - The Sage county hold and the CHUBB Coverage A hold are pipeline
+        checks, not map lines, and are unchanged.
+    - **Lines per table that can hold:**
+
+      | Table | (a) blank form field | (a)+(b) | (b) -> confirm | (c) by name | AMBIGUOUS |
+      |---|---|---|---|---|---|
+      | pilot v5 | 18 | 4 | 35 | 7 | 17 |
+      | Sage batch v2 | 25 | 0 | 50 | 21 | 3 |
+      | HO3 batch v1 | 32 | 15 | 42 | 0 | 12 |
+      | remaining batch v1 | 34 | 6 | 40 | 10 | 13 |
+
+      - (a)+(b): holds while the field is blank, otherwise a confirm note.
+      - Blank Coverage A / County was already a note (decision 2026-10-03):
+        21 / 21 / 19 / 33.
+    - **A failed CONDITION shows as Refer, everywhere.** code_record maps FAIL
+      CONDITION -> REFER ("condition not met"), and the pilot prompt tells the
+      model the same.
+      - Fixed for TWI-005 only: its map line declines (OUTCOME_OVERRIDE in
+        build_ho3_batch_map.py; the workbook row is not edited). "Secondary
+        must have an associated primary written in Twico" is a requirement.
+      - 56 CONDITION lines can fail on a form fact. **Not changed; these read
+        as requirements and need the same fix (Liam's call):**
+        - Chubb primary home: CHU-004 / 045 / 046 ("Secondary locations where
+          Chubb does not write the primary residence are unacceptable").
+        - Trust occupancy, "eligible only if occupied by the trustee...":
+          SAG-019, SUR-019, SFP-019, WIL-019, TRI-023, VAV-014, VDP-062.
+        - CDP-072 (LLC must be tenant occupied); ALL-019 (only single-family /
+          townhouse units may be bound); ALL-061 (re-plumbing in copper /
+          PVC); HDP-002 and VDP-042 (eligible only with updates / a gut rehab);
+          SLL-007 (diving board must meet code).
+        - Pool fences, "must have a fence...": ALL-093, PRO-051, SWY-035,
+          ARA-025, FOR-053, SBS-008, SLL-003, STO-004, CDP-053, NCD-104,
+          PDP-103.
+        - The FPC age / occupancy rows (SAG-075/076/078, SUR-113/114/116/117,
+          SFP-121/122/124/125, WIL-118/119/121/122, TRI-019/020/035/090/091,
+          ODP-114/115, SDP-080). Round 27 noted they REFER where the batch-OFF
+          path holds; this needs Liam's decision.
+      - **Refer is defensible:** the dog-breed rows cured by a signed
+        acknowledgement (SAG-067, SUR-069, SFP-070, TRI-081, FOR-062).
+    - Tests: verification/test_confirm_not_hold.py.
+      - Boundary files: OPEN -> NOTE only where a row is open purely on a
+        never-asked fact (dated helper r30_label). The (c) rows keep OPEN.
+      - test_sage_batch_rules.py is unchanged apart from the band C test.
 
 ## Open work, in priority order (updated 2026-10-02)
 

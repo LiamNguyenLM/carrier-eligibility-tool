@@ -10,7 +10,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import rules_evaluator as ev  # noqa: E402
-from test_map_boundaries import A_ROW, B410, BASE, C, YEAR, age, money  # noqa: E402
+from test_map_boundaries import A_ROW, B410, BASE, C, YEAR, age, money, r30_label  # noqa: E402
 
 pytestmark = pytest.mark.retrieval
 
@@ -182,4 +182,4 @@ def _outcome(rid, base, field, value):
 @pytest.mark.parametrize("rid,base,field,values", CASES, ids=[f"{c[0]}:{c[2]}" for c in CASES])
 def test_boundary(rid, base, field, values):
     got = {v: _outcome(rid, base, field, v) for v in values}
-    assert got == values
+    assert got == r30_label(rid, lambda v: {**DP_BASE, **base, field: v}, values)   # round 30 step 2
