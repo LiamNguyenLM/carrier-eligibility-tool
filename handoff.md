@@ -1219,6 +1219,33 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     for this carrier in this check -- run the check again"). The retry's
     usage is recorded as main_retry / pilot_retry.
 
+  - **Step 5 (store fixes):**
+    - **a. Centauri HO3:** the OCR text is committed as
+      ocr_text/Centauri_-_HO3_-_05.01.2026.txt. pdf_extraction.load_guide_documents
+      is the one entry point for load_docs.py and uploads: it uses
+      ocr_text/<pdf name>.txt when a PDF has no text layer. No Tesseract
+      dependency. The source is recorded in data_defects.ALTERNATE_TEXT_SOURCES.
+      Chunks: 0 -> 45.
+    - **b. Centauri DP3:** Word list labels sit 2 pt above the body text and
+      were interleaved by the default line clustering. The guide is now read
+      in content-stream order (FLOW_ORDER_FILES). Chunks: 38 -> 40.
+      - The overlap signature over all 41 PDFs also finds Travelers HO3. That
+        is a different cause (a large watermark); listed in DATA_DEFECTS.md
+        (DD-6), not changed.
+    - **c.** reindex_program.py re-ingests one program in place, and the seed
+      was copied from the result. All other 39 programs are identical in ids,
+      text, metadata and embeddings (compared per program).
+    - **d. App quote check over Carrier_Rules_Remaining_Batch_v1_rules.csv:**
+      - before: 1,501 pass, 26 fail (15 Centauri DP3), 88 Centauri HO3 with no
+        text;
+      - after: 1,602 pass, 13 fail (2 Centauri DP3: CDP-085 / CDP-086,
+        table text), 0 no text.
+    - DD-3 is fixed. The tests that assumed Centauri HO3 had no text are
+      updated, with dated notes.
+    - **Refresh a local store from the new seed:**
+      `rm -rf carrier_docs_db && cp -r carrier_docs_db_seed carrier_docs_db`.
+      On Railway it needs FORCE_RESEED=1 once (seed_db.sh), then remove it.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"

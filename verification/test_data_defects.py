@@ -33,7 +33,17 @@ class TestDataDefects:
         assert "Liberty_Mutual_HO3_-_02.21.2026" not in defects
         assert "NatGen_Custom360_DP3_-_06.25.2026" not in defects
 
-    def test_centauri_ho3_is_flagged_as_having_no_readable_text(self):
+    def test_centauri_ho3_has_text_now_and_is_not_flagged(self):
+        # Round 29 step 5 (2026-10-08): DD-3 fixed -- the scanned PDF's OCR text is in the store
+        # (data_defects.ALTERNATE_TEXT_SOURCES), so Centauri HO3 is no longer NO_TEXT.
+        assert "Centauri_-_HO3_-_05.01.2026" not in data_defects.defective_programs()
+        assert "Centauri_-_HO3_-_05.01.2026" in data_defects.ALTERNATE_TEXT_SOURCES
+
+    def test_a_listed_program_with_no_chunks_is_still_no_text(self, monkeypatch):
+        """The NO_TEXT detector, now that no real program trips it: Centauri HO3's chunks removed."""
+        grouped = {k: v for k, v in data_defects._chunks_by_carrier().items()
+                   if k != "Centauri_-_HO3_-_05.01.2026"}
+        monkeypatch.setattr(data_defects, "_chunks_by_carrier", lambda: grouped)
         defect = data_defects.defective_programs().get("Centauri_-_HO3_-_05.01.2026")
         assert defect is not None
         assert defect["kind"] == data_defects.NO_TEXT
@@ -69,13 +79,13 @@ class TestDataDefects:
         nearest miss when its floor was set."""
         assert program not in data_defects.defective_programs()
 
-    def test_exactly_the_four_known_defects_are_flagged(self):
-        """DD-1 to DD-4 and nothing else. Anything new flagged is either a new
-        mis-ingest (read the PDF) or a false positive (fix the rule)."""
+    def test_exactly_the_three_known_defects_are_flagged(self):
+        """DD-1, DD-2 and DD-4 and nothing else (DD-3, Centauri HO3, fixed in round 29 step 5,
+        2026-10-08). Anything new flagged is either a new mis-ingest (read the PDF) or a false
+        positive (fix the rule)."""
         assert set(data_defects.defective_programs()) == {
             "NatGen_Custom360_HO3_-_06.25.2026",    # DD-1
             "Liberty_Mutual_HO6_-_02.21.2026",      # DD-2
-            "Centauri_-_HO3_-_05.01.2026",          # DD-3
             "Sage_-_Occidental_HO3",                # DD-4
         }
 
@@ -93,6 +103,10 @@ class TestDataDefects:
         refuses a PDF with no text and writes nothing, so the list is the only
         way Centauri HO3 can appear."""
         monkeypatch.setattr(data_defects, "PDF_FOLDER", "./no-such-folder-in-production")
+        # Round 29: Centauri HO3 has text now; its chunks are removed to keep this case covered.
+        grouped = {k: v for k, v in data_defects._chunks_by_carrier().items()
+                   if k != "Centauri_-_HO3_-_05.01.2026"}
+        monkeypatch.setattr(data_defects, "_chunks_by_carrier", lambda: grouped)
         defect = data_defects.defective_programs().get("Centauri_-_HO3_-_05.01.2026")
         assert defect is not None and defect["kind"] == data_defects.NO_TEXT
 

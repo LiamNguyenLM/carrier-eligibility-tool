@@ -5333,7 +5333,8 @@ class TestProductCheckCalibration:
 _DEFECTIVE_HO = {
     "NatGen_Custom360_HO3_-_06.25.2026": "wrong document",   # DD-1, holds the DP3 guide
     "Liberty_Mutual_HO6_-_02.21.2026": "wrong document",     # DD-2, holds the HO3 guide
-    "Centauri_-_HO3_-_05.01.2026": "no readable text",       # DD-3, never in the store
+    # DD-3 (Centauri HO3, no readable text) fixed in round 29 step 5, 2026-10-08: its OCR text is in
+    # the store, so it is an ordinary carrier now.
     "Sage_-_Occidental_HO3": "wrong document",               # DD-4, holds the DP3 guide
 }
 

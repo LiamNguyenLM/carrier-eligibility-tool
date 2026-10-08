@@ -323,7 +323,17 @@ class TestDataDefects:
         assert "Liberty_Mutual_HO3_-_02.21.2026" not in defects
         assert "NatGen_Custom360_DP3_-_06.25.2026" not in defects
 
-    def test_centauri_ho3_is_flagged_as_having_no_readable_text(self):
+    def test_centauri_ho3_has_text_now_and_is_not_flagged(self):
+        # Round 29 step 5 (2026-10-08): DD-3 fixed -- the scanned PDF's OCR text is in the store
+        # (data_defects.ALTERNATE_TEXT_SOURCES), so Centauri HO3 is no longer NO_TEXT.
+        assert "Centauri_-_HO3_-_05.01.2026" not in data_defects.defective_programs()
+        assert "Centauri_-_HO3_-_05.01.2026" in data_defects.ALTERNATE_TEXT_SOURCES
+
+    def test_a_listed_program_with_no_chunks_is_still_no_text(self, monkeypatch):
+        """The NO_TEXT detector, now that no real program trips it: Centauri HO3's chunks removed."""
+        grouped = {k: v for k, v in data_defects._chunks_by_carrier().items()
+                   if k != "Centauri_-_HO3_-_05.01.2026"}
+        monkeypatch.setattr(data_defects, "_chunks_by_carrier", lambda: grouped)
         defect = data_defects.defective_programs().get("Centauri_-_HO3_-_05.01.2026")
         assert defect is not None
         assert defect["kind"] == data_defects.NO_TEXT
@@ -362,8 +372,7 @@ class TestDataDefects:
     @pytest.mark.parametrize("program", [
         "Liberty_Mutual_HO6_-_02.21.2026",
         "NatGen_Custom360_HO3_-_06.25.2026",
-        "Centauri_-_HO3_-_05.01.2026",
-        "Sage_-_Occidental_HO3",
+        "Sage_-_Occidental_HO3",            # (Centauri HO3: text since round 29 step 5, 2026-10-08)
     ])
     def test_asking_about_a_defective_program_refuses_instead_of_answering(self, program):
         """No model call happens at all -- the refusal is structural."""

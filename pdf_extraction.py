@@ -8,6 +8,9 @@ detects tables per page, converts them to Markdown grids, and keeps
 surrounding prose text separate so nothing gets duplicated or garbled.
 """
 
+import os
+import re
+
 import pdfplumber
 
 try:
@@ -65,7 +68,7 @@ def _is_full_page_bbox(bbox, page, tolerance=0.05):
     )
 
 
-def _extract_page_blocks(page, table_settings=None):
+def _extract_page_blocks(page, table_settings=None, text_flow=False):
     """Extract one page as a list of (text, is_table) tuples. Prose and
     table content are kept as SEPARATE blocks (rather than one merged
     string) so the caller can chunk them differently: prose gets the
@@ -83,7 +86,7 @@ def _extract_page_blocks(page, table_settings=None):
     tables = page.find_tables(table_settings=table_settings) if table_settings else page.find_tables()
     tables = [t for t in tables if not _is_full_page_bbox(t.bbox, page)]
     if not tables:
-        text = page.extract_text() or ""
+        text = page.extract_text(use_text_flow=text_flow) or ""
         return [(text, False)] if text.strip() else []
 
     table_bboxes = [t.bbox for t in tables]
@@ -99,7 +102,7 @@ def _extract_page_blocks(page, table_settings=None):
         return True
 
     prose_page = page.filter(not_in_table)
-    prose_text = (prose_page.extract_text() or "").strip()
+    prose_text = (prose_page.extract_text(use_text_flow=text_flow) or "").strip()
 
     blocks = []
     if prose_text:
@@ -220,7 +223,7 @@ def chunk_documents(pages, splitter):
     return chunks
 
 
-def load_pdf_as_documents(path_or_fileobj, table_settings=None):
+def load_pdf_as_documents(path_or_fileobj, table_settings=None, text_flow=False):
     """Drop-in replacement for `PyPDFLoader(path).load()`.
 
     Returns a list of langchain Document objects with
@@ -237,7 +240,7 @@ def load_pdf_as_documents(path_or_fileobj, table_settings=None):
     docs = []
     with pdfplumber.open(path_or_fileobj) as pdf:
         for i, page in enumerate(pdf.pages):
-            blocks = _extract_page_blocks(page, table_settings=table_settings)
+            blocks = _extract_page_blocks(page, table_settings=table_settings, text_flow=text_flow)
             for block_text, is_table in blocks:
                 if block_text and block_text.strip():
                     docs.append(Document(
@@ -248,6 +251,64 @@ def load_pdf_as_documents(path_or_fileobj, table_settings=None):
             # keeps peak memory down when processing large multi-page PDFs.
             page.flush_cache()
     return docs
+
+
+# --- Round 29 step 5 (2026-10-08): two kinds of guide the default path reads wrong ---------------
+#
+# 1. OVERLAPPING LIST LABELS. Centauri_-_DP3_-_11.16.2022.pdf draws Word's list labels ("b.", in
+#    Cambria-Bold) about 2 pt above the body text at the same x. pdfplumber's line clustering puts both
+#    on one line and sorts by x, interleaving them: "b."+"RO" -> "bR.O OFS/SIDING", and lines such as
+#    "i. Rolled Roofs" go missing. Reading in content-stream order (use_text_flow) gives the text as
+#    written. Opt-in per file, so every other guide's text stays byte-identical;
+#    overlapping_label_chars() is the signature, used to list any other guide with the pattern.
+FLOW_ORDER_FILES = {"Centauri_-_DP3_-_11.16.2022.pdf"}
+#
+# 2. SCANNED GUIDES with no text layer (Centauri_-_HO3_-_05.01.2026.pdf: 0 chunks). If an OCR text
+#    file exists at ocr_text/<pdf name without .pdf>.txt, with pages marked "=====PAGE n=====", it is
+#    the guide's text. No OCR engine is a dependency; the text file is made once, outside the app.
+OCR_TEXT_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_text")
+
+
+def overlapping_label_chars(page, max_dx=1.0, min_dy=0.5, max_dy=3.0):
+    """How many non-space characters sit almost on top of a DIFFERENT character
+    (x0 within max_dx, top 0.5-3 pt apart): the overlapping-list-label signature."""
+    chars = sorted((c for c in page.chars if c.get("text", "").strip()), key=lambda c: c["x0"])
+    hits = 0
+    for i, a in enumerate(chars):
+        for b in chars[i + 1:]:
+            if b["x0"] - a["x0"] > max_dx:
+                break
+            if a["text"] != b["text"] and min_dy <= abs(a["top"] - b["top"]) <= max_dy:
+                hits += 1
+    return hits
+
+
+def ocr_text_path(pdf_name):
+    return os.path.join(OCR_TEXT_FOLDER, os.path.splitext(os.path.basename(pdf_name))[0] + ".txt")
+
+
+def load_ocr_text_as_documents(path):
+    """Page Documents from an OCR text file ("=====PAGE n=====" markers), shaped like
+    load_pdf_as_documents' output: metadata={"page": n-1, "is_table": False}."""
+    with open(path, encoding="utf-8") as fh:
+        text = fh.read()
+    docs = []
+    for m in re.finditer(r"=====PAGE (\d+)=====\n(.*?)(?======PAGE \d+=====|\Z)", text, re.S):
+        body = m.group(2).strip()
+        if body:
+            docs.append(Document(page_content=body, metadata={"page": int(m.group(1)) - 1, "is_table": False}))
+    return docs
+
+
+def load_guide_documents(pdf_path, table_settings=None):
+    """(documents, source) for one guide PDF: "pdf", "pdf (text flow order)", or "ocr text".
+    The one entry point for load_docs.py and upload_carrier.py."""
+    name = os.path.basename(pdf_path)
+    flow = name in FLOW_ORDER_FILES
+    docs = load_pdf_as_documents(pdf_path, table_settings=table_settings, text_flow=flow)
+    if not any(d.page_content.strip() for d in docs) and os.path.exists(ocr_text_path(name)):
+        return load_ocr_text_as_documents(ocr_text_path(name)), "ocr text"
+    return docs, "pdf (text flow order)" if flow else "pdf"
 
 
 # pdfplumber's default find_tables() detects tables via ruling lines

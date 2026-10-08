@@ -159,6 +159,24 @@ trace.
 
 ---
 
+**FIXED 2026-10-08 (round 29 step 5).** The guide's text is the OCR text Claude
+made (Tesseract, 300 dpi, psm 4), committed as `ocr_text/Centauri_-_HO3_-_05.01.2026.txt`
+and loaded by `pdf_extraction.load_guide_documents` (load_docs.py and uploads use the
+text file whenever a PDF has no text layer). 45 chunks; the seed was rebuilt. The OCR
+misreads ("Centaurl", ...) are kept on purpose: the rules-table quotes come from this text.
+
+## DD-6 — `Centauri_-_DP3_-_11.16.2022`: list labels interleaved into the text (FIXED 2026-10-08)
+
+Word's list labels ("b.", Cambria-Bold) sit about 2 pt above the body text at the same x.
+pdfplumber's default line clustering puts both on one line and sorts by x, so they
+interleaved ("bR.O OFS/SIDING", "CoveragCeo nBtaining not more than 4 apartments") and
+some lines dropped out ("i. Rolled Roofs"). Fixed by reading this guide in content-stream
+order (`pdf_extraction.FLOW_ORDER_FILES`, use_text_flow): 38 -> 40 chunks. The signature
+(`pdf_extraction.overlapping_label_chars`) over all 41 PDFs: Centauri DP3 (46 characters,
+3 of 7 pages) and Travelers HO3 (14, 5 of 6 pages). Travelers is a different cause -- a
+55-68 pt ArialNarrow watermark behind the text plus tiny rotated text on page 5, which is
+where its stray letters ("l a DD.", "i i EE.") come from. Listed, not changed.
+
 ## DD-4 — `Sage_-_Occidental_HO3` holds Occidental's DP3 (Dwelling Fire) guide
 
 **Found round 17**, while checking the Sage family's trust/LLC rules against

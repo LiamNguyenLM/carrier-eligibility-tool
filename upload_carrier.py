@@ -5,7 +5,8 @@ from langchain_community.vectorstores import Chroma
 import gc
 
 from shared_resources import get_embeddings, get_vectorstore, DB_FOLDER
-from pdf_extraction import load_pdf_as_documents, chunk_documents
+from pdf_extraction import (load_pdf_as_documents, chunk_documents, FLOW_ORDER_FILES, ocr_text_path,
+                            load_ocr_text_as_documents)
 
 
 def detect_lob_from_name(carrier_name):
@@ -35,7 +36,12 @@ def add_carrier_to_database(pdf_bytes, carrier_name):
         # Underwriting matrices (roof age x roof type, etc.) survive as
         # Markdown tables instead of getting chopped into meaningless
         # fragments. See pdf_extraction.py for details.
-        pages = load_pdf_as_documents(tmp_path)
+        # Round 29 step 5: the overlapping-label guides read in text-flow order, and a
+        # scanned guide falls back to its OCR text file (pdf_extraction.load_guide_documents).
+        name = carrier_name + ".pdf"
+        pages = load_pdf_as_documents(tmp_path, text_flow=name in FLOW_ORDER_FILES)
+        if not any(p.page_content.strip() for p in pages) and os.path.exists(ocr_text_path(name)):
+            pages = load_ocr_text_as_documents(ocr_text_path(name))
     except Exception as e:
         os.unlink(tmp_path)
         return 0, str(e)

@@ -10,7 +10,7 @@ from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_community.vectorstores import Chroma
 import os
 
-from pdf_extraction import load_pdf_as_documents, chunk_documents
+from pdf_extraction import load_guide_documents, chunk_documents
 
 PDF_FOLDER = "Carrier_Eligibility_PDFs"
 DB_FOLDER = "./carrier_docs_db"  # point this at a fresh folder (e.g. ./carrier_docs_db_v2) to re-index without overwriting the live DB
@@ -31,51 +31,58 @@ def detect_lob(filename):
     return "Unknown"
 
 
-print("Looking for PDFs...")
-pdf_files = [f for f in os.listdir(PDF_FOLDER) if f.lower().endswith(".pdf")]
-print("Found " + str(len(pdf_files)) + " PDFs")
+def main():
+    print("Looking for PDFs...")
+    pdf_files = [f for f in os.listdir(PDF_FOLDER) if f.lower().endswith(".pdf")]
+    print("Found " + str(len(pdf_files)) + " PDFs")
 
-all_chunks = []
+    all_chunks = []
 
-splitter = RecursiveCharacterTextSplitter(
-    chunk_size=500,
-    chunk_overlap=75
-)
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500,
+        chunk_overlap=75
+    )
 
-for pdf_file in pdf_files:
-    print("Processing: " + pdf_file)
+    for pdf_file in pdf_files:
+        print("Processing: " + pdf_file)
 
-    try:
-        # CHANGED: table-aware extraction (pdfplumber) instead of PyPDFLoader.
-        pages = load_pdf_as_documents(os.path.join(PDF_FOLDER, pdf_file))
-        print("  Loaded " + str(len(pages)) + " pages")
-    except Exception as e:
-        print("  ERROR loading " + pdf_file + ": " + str(e))
-        continue
+        try:
+            # CHANGED: table-aware extraction (pdfplumber) instead of PyPDFLoader.
+            # Round 29 step 5: text-flow order for the overlapping-label guides, and the OCR
+            # text file (ocr_text/<name>.txt) for a scanned guide with no text layer.
+            pages, source = load_guide_documents(os.path.join(PDF_FOLDER, pdf_file))
+            print("  Loaded " + str(len(pages)) + " pages from " + source)
+        except Exception as e:
+            print("  ERROR loading " + pdf_file + ": " + str(e))
+            continue
 
-    chunks = chunk_documents(pages, splitter)
-    chunks = [c for c in chunks if c.page_content.strip() and len(c.page_content.strip()) > 20]
-    print("  Created " + str(len(chunks)) + " chunks")
+        chunks = chunk_documents(pages, splitter)
+        chunks = [c for c in chunks if c.page_content.strip() and len(c.page_content.strip()) > 20]
+        print("  Created " + str(len(chunks)) + " chunks")
 
-    carrier_name = pdf_file.replace(".pdf", "").replace(".PDF", "")
-    lob = detect_lob(pdf_file)
+        carrier_name = pdf_file.replace(".pdf", "").replace(".PDF", "")
+        lob = detect_lob(pdf_file)
 
-    for chunk in chunks:
-        chunk.metadata["carrier"] = carrier_name
-        chunk.metadata["source_file"] = pdf_file
-        chunk.metadata["lob"] = lob
-        chunk.metadata["state"] = "TX"
+        for chunk in chunks:
+            chunk.metadata["carrier"] = carrier_name
+            chunk.metadata["source_file"] = pdf_file
+            chunk.metadata["lob"] = lob
+            chunk.metadata["state"] = "TX"
 
-    all_chunks.extend(chunks)
+        all_chunks.extend(chunks)
 
-print("Total chunks: " + str(len(all_chunks)))
-print("Building database...")
+    print("Total chunks: " + str(len(all_chunks)))
+    print("Building database...")
 
-embeddings = FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5")
-vectorstore = Chroma.from_documents(
-    documents=all_chunks,
-    embedding=embeddings,
-    persist_directory=DB_FOLDER
-)
+    embeddings = FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5")
+    vectorstore = Chroma.from_documents(
+        documents=all_chunks,
+        embedding=embeddings,
+        persist_directory=DB_FOLDER
+    )
 
-print("Done. Database saved to " + DB_FOLDER)
+    print("Done. Database saved to " + DB_FOLDER)
+
+
+if __name__ == "__main__":
+    main()

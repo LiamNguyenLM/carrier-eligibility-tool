@@ -62,6 +62,24 @@ PDF_FOLDER = "./carrier_eligibility_pdfs"
 EXPECTED_PROGRAMS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                       "expected_programs.txt")
 
+# Round 29 step 5 (2026-10-08): programs whose stored text does not come from the
+# PDF's own text layer as pdfplumber reads it by default. Not defects -- both
+# programs are usable -- recorded so their text is never "corrected":
+ALTERNATE_TEXT_SOURCES = {
+    # DD-3, fixed: a scanned PDF with no text layer (0 chunks, NO_TEXT until now).
+    "Centauri_-_HO3_-_05.01.2026": (
+        "OCR text (Tesseract, 300 dpi, psm 4, made by Claude 2026-10-07) from "
+        "ocr_text/Centauri_-_HO3_-_05.01.2026.txt, loaded by pdf_extraction.load_guide_documents. "
+        "The OCR misreads (e.g. 'Centaurl') are in the text ON PURPOSE: the rules-table quotes "
+        "were taken from it and must match it."),
+    # Garbled stored text, fixed: Word's list labels sit 2 pt above the body text at the same x,
+    # so the default line clustering interleaved them ("bR.O OFS/SIDING", "CoveragCeo nBtaining")
+    # and dropped lines ("i. Rolled Roofs").
+    "Centauri_-_DP3_-_11.16.2022": (
+        "read in content-stream order (pdf_extraction.FLOW_ORDER_FILES; use_text_flow): overlapping "
+        "list labels made the default extraction interleave and drop text."),
+}
+
 DUPLICATE_DOCUMENT = "DUPLICATE_DOCUMENT"
 WRONG_PRODUCT = "WRONG_PRODUCT"
 NO_TEXT = "NO_TEXT"
