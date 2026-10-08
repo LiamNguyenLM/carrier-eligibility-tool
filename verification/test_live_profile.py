@@ -339,9 +339,13 @@ def test_the_row_clears_when_the_guide_no_longer_says_it(monkeypatch):
     assert not res[NATGEN].get("decided_by_code")
 
 
-def test_the_dp3_sibling_is_not_closed_by_code():
-    # Its guide says the same for dwelling fire; Liam decides (handoff.md).
-    assert ec.closed_programs(["NatGen_Premier_OneChoice_DP3_-_02.26.2025"]) == []
+def test_the_dp3_sibling_is_closed_too():
+    # CHANGED DELIBERATELY (round 29 step 8, 2026-10-08): Liam decided NatGen Premier Dwelling
+    # Fire is closed like its HO3 ("NPD is closed, decided like NatGen Premier HO3"). Its guide's
+    # own sentence (p.3, row NPD-001) must still be in the stored text for the row to show.
+    dp3 = "NatGen_Premier_OneChoice_DP3_-_02.26.2025"
+    assert ec.closed_programs([dp3]) == [dp3]
+    assert "Dwelling fire policies" in ec.CLOSED_PROGRAMS[dp3][1]
 
 
 def test_a_closed_row_is_not_a_usable_model_answer():
