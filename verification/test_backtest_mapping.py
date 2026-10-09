@@ -34,8 +34,11 @@ def test_a_complete_row():
     assert not {"roof_shape", "coastal", "dogs", "solar"} & set(checked) and not notes
 
 
-@pytest.mark.parametrize("raw,want", [("Metal", "Metal"), ("SteelPorcelainShingles", "Metal"), ("Tile", "Tile"),
-                                      ("ClayTile", "Tile"), ("WoodShakeShingle", "Wood Shake")])
+# CHANGED 2026-10-09 (round 35 step 3b, Liam's decision 1: the roof covering in detail): porcelain-enamel steel shingles are the metal shingle option; HawkSoft's bare "Metal" keeps the old
+# value (read as unknown). Was: SteelPorcelainShingles -> "Metal", WoodShakeShingle -> "Wood Shake".
+@pytest.mark.parametrize("raw,want", [("Metal", "Metal"),
+                                      ("SteelPorcelainShingles", "Metal: shingle / tile / shake (incl. stone-coated)"),
+                                      ("Tile", "Tile"), ("ClayTile", "Tile"), ("WoodShakeShingle", "Wood shake / wood shingle")])
 def test_roof_types_the_form_has(raw, want):
     pd, checked, _ = _p(roof_type_raw=raw)
     assert pd["roof_type"] == want and "roof_type" in checked

@@ -30,12 +30,12 @@ ALL-029,year_built,"FACT(completely renovated, all updates)",home_age >= 76,COND
 ALL-031,year_built,FACT(updates under 20 years old),home_age >= 76,CONDITION,update ages,
 ALL-034,roof_age,FACT(5+ years of useful life left),roof_age >= 15,DECLINES,remaining roof life,"assumption: no covering on the form ends its life before 20 years, so a roof under 15 is N/A"
 ALL-036,NONE,,,DECLINES,,the form has no field for this
-ALL-037,roof_type,"roof_type not in {Slate, Wood Shake} || roof_type not in {Slate, Wood Shake, Metal, Flat/Built-Up}",always,DECLINES,,"AMBIGUOUS: Metal may be tin/corrugated/copper; Flat/Built-Up may be tar and gravel, rubber, rolled"
-ALL-038,roof_shape;roof_type,FACT(poured reinforced concrete),(roof_shape == Flat or roof_type == Flat/Built-Up),DECLINES,flat roof material,
+ALL-037,roof_type,"roof_type not in {T-lock shingle, Slate, Metal: corrugated / exposed-fastener / tin / aluminum panels, Built-up (tar and gravel), Rolled roofing, Solar roof (solar shingles / tiles), Wood shake / wood shingle} and (roof_type not in {Membrane (rubber/EPDM / TPO / modified bitumen)} or FACT(the membrane is not rubber)) and (roof_type not in {Metal: standing seam, Metal: shingle / tile / shake (incl. stone-coated)} or FACT(the metal is not copper or tin))",always,DECLINES,membrane / metal kind,copper is not a form option: a confirm note on metal
+ALL-038,roof_shape;roof_type,FACT(poured reinforced concrete),"(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",DECLINES,flat roof material,
 ALL-039,NONE,,,DECLINES,,the form has no field for this
 ALL-040,NONE,,,DECLINES,,the form has no field for this
 ALL-041,NONE,,,DECLINES,,the form has no field for this
-ALL-042,roof_type,roof_type != Slate,always,DECLINES,,solar panel tiles: see ALL-110
+ALL-042,roof_type,"roof_type not in {Slate, Solar roof (solar shingles / tiles)} and (roof_type not in {Other} or FACT(not a unique or uncommon roof covering))",always,DECLINES,uncommon roof covering,"'Solar panel tiles, slate, unique/uncommon roof material' (round 35)"
 ALL-046,NONE,,,CONDITION,,the form has no field for this
 ALL-050,NONE,,,DECLINES,,siding / construction details are not form options
 ALL-052,NONE,,,DECLINES,,siding / construction details are not form options
@@ -170,8 +170,8 @@ SAG-022,NONE,,,CONDITION,,the form has no field for this
 SAG-023,NONE,,,DECLINES,,the form has no field for this
 SAG-026,year_built;occupancy_type,FACT(signed lead exclusion acknowledgement),occupancy_type == Tenant Occupied and year_built < 1980,CONDITION,signed acknowledgement,
 SAG-030,NONE,,,DECLINES,,the form has no field for this
-SAG-032,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)",(roof_shape == Flat or roof_type == Flat/Built-Up),REFERS_TO_UW,prior roof loss; renovation,
-SAG-033,roof_type,"FACT(steel, 29 gauge or heavier)",roof_type == Metal,DECLINES,metal roof gauge,
+SAG-032,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)","(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",REFERS_TO_UW,prior roof loss; renovation,
+SAG-033,roof_type,"FACT(steel, 29 gauge or heavier)","roof_type in {Metal: standing seam, Metal: corrugated / exposed-fastener / tin / aluminum panels, Metal: shingle / tile / shake (incl. stone-coated)}",DECLINES,metal roof gauge,
 SAG-034,NONE,,,DECLINES,,the form has no field for this
 SAG-035,NONE,,,DECLINES,,the form has no field for this
 SAG-037,NONE,,,DECLINES,,siding / construction details are not form options
@@ -257,13 +257,13 @@ CHU-004,occupancy_type;dwelling_type;primary_home_carrier,primary_home_carrier =
 CHU-005,occupancy_type,FACT(Chubb writes the primary residence),occupancy_type == Tenant Occupied,CONDITION,Chubb writes the primary,
 CHU-009,NONE,,,CONDITION,,the form has no field for this
 CHU-011,NONE,,,UNKNOWN,,the form has no field for this
-CHU-012,roof_shape;roof_type;county,not (roof_shape == Flat or roof_type == Flat/Built-Up),county != El Paso,DECLINES,,El Paso is CHU-111's
-CHU-111,roof_shape;roof_type;county,not (roof_shape == Flat or roof_type == Flat/Built-Up),county == El Paso,REFERS_TO_UW,,split from CHU-012 (round 35): underwriting consideration in El Paso
-CHU-014,roof_type,FACT(wildfire score not 10-50),roof_type == Wood Shake,DECLINES,wildfire score,
+CHU-012,roof_shape;roof_type;county,"not (roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",county != El Paso,DECLINES,,El Paso is CHU-111's
+CHU-111,roof_shape;roof_type;county,"not (roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",county == El Paso,REFERS_TO_UW,,split from CHU-012 (round 35): underwriting consideration in El Paso
+CHU-014,roof_type,FACT(wildfire score not 10-50),roof_type in {Wood shake / wood shingle},DECLINES,wildfire score,
 CHU-016,NONE,,,DECLINES,,the form has no field for this
 CHU-017,NONE,,,DECLINES,,the form has no field for this
-CHU-020,roof_type;county,roof_type != Wood Shake,"county not in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Harris, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy}",REFERS_TO_UW,,outside the coastal areas (CHU-021 is the coast's); tier ignored: other tiers are unacceptable
-CHU-021,roof_type;county,roof_type != Wood Shake,"county in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Harris, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy}",REFERS_TO_UW,,
+CHU-020,roof_type;county,roof_type not in {Wood shake / wood shingle},"county not in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Harris, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy}",REFERS_TO_UW,,outside the coastal areas (CHU-021 is the coast's); tier ignored: other tiers are unacceptable
+CHU-021,roof_type;county,roof_type not in {Wood shake / wood shingle},"county in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Harris, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy}",REFERS_TO_UW,,
 CHU-024,NONE,,,UNKNOWN,,"applies only to plumbing replaced as a required update, which the form does not ask"
 CHU-029,NONE,,,DECLINES,,liability hazards are not asked
 CHU-030,NONE,,,DECLINES,,liability hazards are not asked
@@ -334,9 +334,9 @@ MER-008,NONE,,,DECLINES,,the form has no field for this
 MER-009,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,
 MER-010,year_built,FACT(Functional Replacement Cost coverage),year_built < 1940,CONDITION,loss settlement,
 MER-011,NONE,,,REFERS_TO_UW,,the form has no field for this
-MER-012,roof_type,"roof_type != Wood Shake || roof_type not in {Wood Shake, Metal}",always,DECLINES,,AMBIGUOUS: Metal may be tin; asbestos and T-lock are not form options
+MER-012,roof_type,"roof_type not in {Asbestos shingle, T-lock shingle, Wood shake / wood shingle} and (roof_type not in {Metal: corrugated / exposed-fastener / tin / aluminum panels} or FACT(the panels are not tin))",always,DECLINES,tin,the panel option includes tin: a confirm note
 MER-013,NONE,,,DECLINES,,the form has no field for this
-MER-016,roof_shape;roof_type,not (roof_shape == Flat or roof_type == Flat/Built-Up),always,REFERS_TO_UW,,
+MER-016,roof_shape;roof_type,"not (roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",always,REFERS_TO_UW,,
 MER-017,NONE,,,DECLINES,,the form has no field for this
 MER-020,NONE,,,DECLINES,,siding / construction details are not form options
 MER-021,NONE,,,DECLINES,,siding / construction details are not form options
@@ -424,8 +424,8 @@ PRO-016,construction_type,construction_type != Manufactured/Mobile,always,DECLIN
 PRO-017,dwelling_type,FACT(4 or fewer units per fire division),dwelling_type == Townhome,DECLINES,fire division,
 PRO-022,roof_age,FACT(5+ years of life expectancy left),roof_age >= 15,DECLINES,remaining roof life,same assumption as ALL-034
 PRO-023,NONE,,,DECLINES,,the form has no field for this
-PRO-024,roof_type,"roof_type != Wood Shake || roof_type not in {Wood Shake, Metal, Flat/Built-Up}",always,DECLINES,,AMBIGUOUS: Metal may be tin/corrugated; Flat/Built-Up may be tar and gravel/rubber/rolled
-PRO-025,roof_shape;roof_type,FACT(poured concrete or rubber),(roof_shape == Flat or roof_type == Flat/Built-Up),DECLINES,flat roof material,
+PRO-024,roof_type,"roof_type not in {Wood shake / wood shingle, Built-up (tar and gravel), Rolled roofing, Metal: corrugated / exposed-fastener / tin / aluminum panels} and (roof_type not in {Membrane (rubber/EPDM / TPO / modified bitumen)} or FACT(the membrane is not rubber))",always,DECLINES,membrane kind,"'wood ..., tar and gravel, rubber membrane, tin, rolled roofing, and corrugated metal'"
+PRO-025,roof_shape;roof_type,FACT(poured concrete or rubber),"(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",DECLINES,flat roof material,
 PRO-026,NONE,,,DECLINES,,the form has no field for this
 PRO-027,NONE,,,DECLINES,,the form has no field for this
 PRO-029,NONE,,,CONDITION,,the form has no field for this

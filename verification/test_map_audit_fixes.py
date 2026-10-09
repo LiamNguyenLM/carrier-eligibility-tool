@@ -91,7 +91,7 @@ def test_chubb_does_not_ask_a_primary_condo_about_its_primary_home():
 def test_chubb_flat_roof_declines_outside_el_paso_and_refers_in_it(county, decline, refer):
     assert (row("CHU-012", roof_shape="Flat", county=county), row("CHU-111", roof_shape="Flat", county=county)) == \
         (decline, refer)
-    rec = card("CHUBB_HO_-_05.22.2026", roof_type="Flat/Built-Up", county=county, dwelling_amount=2000000)
+    rec = card("CHUBB_HO_-_05.22.2026", roof_type="Built-up (tar and gravel)", county=county, dwelling_amount=2000000)
     assert rec["status"] == ("INELIGIBLE" if county == "Travis" else "REFER")
 
 

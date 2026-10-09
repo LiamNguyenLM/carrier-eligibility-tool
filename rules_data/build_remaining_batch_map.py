@@ -39,6 +39,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from build_rule_field_map import DOGS, FLAT, NONE_NOTE, POOL_OK, SEASONAL, breed_line  # noqa: E402
 from build_rule_field_map import PEX_2011  # noqa: E402
+from build_rule_field_map import (ASBESTOS, BUILT_UP, METAL, MEMBRANE, NOT_WOOD, PANEL, PROG_ROOF, PROG_ROOF_NOTE,  # noqa: E402
+                                  ROLLED_ROOF, SEAM, MSHINGLE, TLOCK, WOOD, _roofs)
 from build_sage_batch_map import (BATCH_NONE_NOTE, EAST_TEXAS, FPC_7ROWS, FPC_B13, FPC_B410, FPC_BC,  # noqa: E402
                                   FPC_C13, FPC_C48, OPEN_B, OPEN_C, ROW_FACT_3, kind)
 
@@ -73,11 +75,9 @@ PPC_1_8 = ("ppc", "ppc_num <= 8", "always", "", "")
 NO_BITES = ("has_dogs", "FACT(no dog with a bite history)", DOGS, "bite history", "")
 POOL_4FT = ("swimming_pool;pool_fence_4ft;pool_gate_locking", FENCED + " and " + POOL_OK, POOL,
             "fence 4 ft; locking gate", "an approved alternative enclosure also qualifies (not a form option)")
-WOOD_ROOF = ("roof_type", "roof_type != Wood Shake", "always", "", "")
-ROLLED = ("roof_type", "always || roof_type != Flat/Built-Up", "always", "",
-          "rolled roofing may or may not be the form's Flat/Built-Up")
-CORRUGATED = ("roof_type", "always || roof_type != Metal", "always", "",
-              "corrugated / tin / aluminum metal may or may not be the form's Metal")
+WOOD_ROOF = ("roof_type", NOT_WOOD, "always", "", "")
+ROLLED = ("roof_type", "roof_type not in " + _roofs(ROLLED_ROOF), "always", "", "rolled roofing (round 35)")
+CORRUGATED = ("roof_type", "roof_type not in " + _roofs(PANEL), "always", "", "corrugated metal (round 35)")
 
 
 def same_as(rid, field="occupancy_type"):
@@ -96,8 +96,9 @@ def none(note):
 MAP = {
     # ================= Centauri DP3
     "CDP-021": CORRUGATED, "CDP-022": WOOD_ROOF,
-    "CDP-023": ("roof_shape;roof_type", "roof_type != Flat/Built-Up and FACT(poured concrete flat roof)", FLAT,
-                "poured concrete roof", "built-up is not poured concrete"),
+    "CDP-023": ("roof_shape;roof_type", "roof_type not in " + _roofs(BUILT_UP, MEMBRANE, ROLLED_ROOF)
+                + " and FACT(poured concrete flat roof)", FLAT, "poured concrete roof",
+                "built-up, membrane and rolled are not poured concrete"),
     "CDP-027": ROLLED,
     "CDP-032": ("plumbing_type", POLY, "always", "", ""),
     "CDP-038": ("construction_type", MOBILE, "always", "", "modular / pre-fabricated are not form options"),
@@ -130,9 +131,12 @@ MAP = {
                 "always", "", "a seasonal / secondary home is the owner's but not lived in full time; Vacant is "
                               "decided by CHO-049"),
     "CHO-017": ("swimming_pool;pool_accessories", NO_ACCESSORIES, POOL, "", ""),
-    "CHO-024": ("roof_type;roof_shape", "roof_type not in {Wood Shake, Flat/Built-Up} and roof_shape != Flat || "
-                                        "roof_type not in {Wood Shake, Flat/Built-Up, Metal} and roof_shape != Flat",
-                "always", "", "sheet tin / aluminum / galvanized may or may not be the form's Metal"),
+    # "Flat roofs, rock or tar roofs, gravel roofs or roofs with asbestos shingles, wood, rolled roofs, sheet tin,
+    # aluminum (including galvanized)" (round 35 step 3b)
+    "CHO-024": ("roof_type;roof_shape", "roof_type not in " + _roofs(WOOD, BUILT_UP, ROLLED_ROOF, ASBESTOS, MEMBRANE)
+                + " and roof_shape != Flat and (roof_type not in " + METAL
+                + " or FACT(the metal is not sheet tin or aluminum))", "always", "metal kind",
+                "membrane is a flat-roof covering"),
     "CHO-056": same_as("CHO-024", "roof_type;roof_shape"),
     "CHO-045": ("plumbing_type", GALV_POLY, "always", "", "cast iron is not a form option"),
     "CHO-049": ("occupancy_type", NOT_VACANT, "always", "", ""),
@@ -192,9 +196,11 @@ MAP = {
                 "dwelling_type == Townhome and construction_type == Frame and year_built < 1980", "number of units", ""),
     "NCD-060": ("dwelling_type", "FACT(firewall goes through the roof)", "dwelling_type == Townhome", "firewall", ""),
     "NCD-066": ("dwelling_type", "dwelling_type != Condo", "always", "", ""),
-    "NCD-097": ("roof_type;roof_shape", "roof_type not in {Wood Shake, Flat/Built-Up} and roof_shape != Flat || "
-                                        "roof_type not in {Wood Shake, Flat/Built-Up, Tile} and roof_shape != Flat",
-                "always", "", "Ludowici tile may or may not be the form's Tile"),
+    # "Tar paper, T-lock, Thermoplastic Polyolefin (TPO), rolled, wood, Ludowici tile, stapled, and flat roofs"
+    "NCD-097": ("roof_type;roof_shape", "roof_type not in " + _roofs(TLOCK, ROLLED_ROOF, WOOD, BUILT_UP)
+                + " and roof_shape != Flat and (roof_type not in " + _roofs(MEMBRANE)
+                + " or FACT(the membrane is not TPO)) and (roof_type not in {Tile} or FACT(not Ludowici tile))",
+                "always", "membrane kind; tile maker", "round 35"),
     "NCD-100": same_as("NCD-097", "roof_type"),
     "NCD-104": ("swimming_pool;pool_gate_locking", FENCED + " and pool_gate_locking == True", POOL,
                 "self-locking gate", ""),
@@ -225,9 +231,9 @@ MAP = {
     "PDP-088": ("plumbing_type", "plumbing_type not in {Galvanized, Polybutylene, PEX}", "always", "", ""),
     "PDP-096": ("roof_age", "FACT(5+ years of useful life left)", "roof_age >= 15", "remaining roof life",
                 "as ARA-059"),
-    "PDP-098": ("roof_type", "roof_type != Wood Shake || roof_type not in {Wood Shake, Flat/Built-Up, Metal}",
-                "always", "", "tar and gravel / rubber / rolled may be Flat/Built-Up; tin / corrugated may be Metal"),
-    "PDP-099": ("roof_shape;roof_type", "roof_type != Flat/Built-Up and FACT(poured concrete flat roof)", FLAT,
+    "PDP-098": ("roof_type", PROG_ROOF, "always", "membrane kind", PROG_ROOF_NOTE),
+    "PDP-099": ("roof_shape;roof_type", "roof_type not in " + _roofs(BUILT_UP, MEMBRANE, ROLLED_ROOF)
+                + " and FACT(poured concrete flat roof)", FLAT,
                 "poured concrete roof", ""),
     "PDP-103": POOL_4FT,
     "PDP-104": ("swimming_pool;pool_accessories", NO_ACCESSORIES, POOL, "", ""),
@@ -245,8 +251,7 @@ MAP = {
     "PH6-050": ("ppc", "FACT(visible to neighbors)", "ppc_num >= 9", "visibility", ""),
     "PH6-069": ("year_built", "home_age <= 100", "always", "", ""),
     "PH6-074": ("plumbing_type;year_built", PEX_2011, "always", "", "PEX installed before 2011: year built stands in"),
-    "PH6-077": ("roof_type", "roof_type != Wood Shake || roof_type not in {Wood Shake, Flat/Built-Up, Metal}",
-                "always", "", "as PDP-098"),
+    "PH6-077": ("roof_type", PROG_ROOF, "always", "membrane kind", PROG_ROOF_NOTE),
     "PH6-086": breed_line("progressive", "open", "'includes, but is not limited to'"),
     "PH6-092": money("dwelling_amount <= 500000"),
     "PH6-094": money("dwelling_amount >= 20000 and dwelling_amount <= 1000000"),
@@ -267,7 +272,7 @@ MAP = {
     "ODP-041": ("construction_type", MOBILE, "always", "", ""),
     "ODP-075": ("roof_shape;roof_type", "FACT(no prior roof wind/water loss, or fully renovated)", FLAT,
                 "prior roof loss; renovation", ""),
-    "ODP-077": ("roof_type", "FACT(steel, 29 gauge or heavier)", "roof_type == Metal", "metal roof gauge", ""),
+    "ODP-077": ("roof_type", "FACT(steel, 29 gauge or heavier)", "roof_type in " + METAL, "metal roof gauge", ""),
     "ODP-078": same_as("ODP-077", "roof_type"),
     "ODP-082": ("plumbing_type", POLY, "always", "", ""),
     "ODP-110": ("ppc;fire_station_miles;hydrant_1000ft", ROW_FACT_3, FPC_B13, OPEN_B + "; visibility, alarm, access",
@@ -320,7 +325,7 @@ MAP = {
     "SDP-100": ("plumbing_type", POLY, "always", "", ""),
     "SDP-112": ("roof_shape;roof_type", "FACT(no prior roof wind/water loss, or fully renovated)", FLAT,
                 "prior roof loss; renovation", ""),
-    "SDP-114": ("roof_type", "FACT(steel, 29 gauge or heavier)", "roof_type == Metal", "metal roof gauge", ""),
+    "SDP-114": ("roof_type", "FACT(steel, 29 gauge or heavier)", "roof_type in " + METAL, "metal roof gauge", ""),
     "SDP-115": same_as("SDP-114", "roof_type"),
     # ================= Sage SafePort DP3
     "FDP-001": ("county", "county != Nueces", "always", "", "this guide's Nueces exclusion; FDP-002 decides the rest"),
@@ -353,7 +358,7 @@ MAP = {
     "FDP-125": ("plumbing_type", POLY, "always", "", ""),
     "FDP-137": ("roof_shape;roof_type", "FACT(no prior roof wind/water loss, or fully renovated)", FLAT,
                 "prior roof loss; renovation", ""),
-    "FDP-139": ("roof_type", "FACT(steel, 29 gauge or heavier)", "roof_type == Metal", "metal roof gauge", ""),
+    "FDP-139": ("roof_type", "FACT(steel, 29 gauge or heavier)", "roof_type in " + METAL, "metal roof gauge", ""),
     # ================= Sage Vave DP3
     "VDP-005": money("dwelling_amount >= 100000"),
     "VDP-006": money("dwelling_amount <= 2000000"),
@@ -377,9 +382,10 @@ MAP = {
     "STD-042": same_as("STD-041", "construction_type"),
     "STD-045": ("year_built", "home_age <= 100", "always", "", ""),
     "STD-052": same_as("STD-067", "roof_shape;roof_type"),
-    "STD-064": ("roof_type", "always || roof_type != Metal", "always", "",
-                "aluminum / tin may or may not be the form's Metal"),
-    "STD-065": same_as("STD-064", "roof_type"),
+    "STD-064": ("roof_type", "roof_type not in " + METAL + " or FACT(the metal is not aluminum)", "always",
+                "metal kind", "'Aluminum' (round 35)"),
+    "STD-065": ("roof_type", "roof_type not in " + _roofs(PANEL) + " or FACT(the panels are not tin)", "always",
+                "tin", "'Tin' (round 35)"),
     "STD-067": ("roof_shape;roof_type", "FACT(proper drainage, no pooling)", FLAT, "flat roof drainage", ""),
     "STD-069": WOOD_ROOF,
     "STD-073": ("plumbing_type", GALV, "always", "",

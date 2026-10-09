@@ -209,10 +209,11 @@ with tab1:
     st.subheader("🛡️ Construction Details")
     col1, col2 = st.columns(2)
     with col1:
-        roof_type = st.selectbox("Roof Type", [
-            "Composition Shingle", "Architectural Shingle", "Metal",
-            "Tile", "Slate", "Wood Shake", "Flat/Built-Up", "Other"
-        ], key="rooftype", on_change=_autotick, args=("roof_type", "rooftype", "Composition Shingle"))
+        # Round 35 step 3b (Liam, 2026-10-09, decision 1): the covering in detail (three metal kinds, three
+        # low-slope kinds, asbestos, T-lock, solar roof); stored values hold no comma, labels may.
+        roof_type = st.selectbox("Roof Type", list(intake_fields.ROOF_TYPES),
+                                 format_func=lambda v: intake_fields.ROOF_LABELS.get(v, v),
+                                 key="rooftype", on_change=_autotick, args=("roof_type", "rooftype", "Composition Shingle"))
         _check_box("roof_type")
         construction_type = st.selectbox("Construction Type", [
             "Frame", "Masonry", "Masonry Veneer", "Superior", "Manufactured/Mobile"

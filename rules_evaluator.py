@@ -312,6 +312,9 @@ def facts(pd, today=None):
         f["coastal_tier"] = ct.split(" - ")[0].strip().title()
     # Round 35 step 3a: the breeds on the property (None = no answer / Not sure / only the old toggle)
     f["dog_breeds"] = intake_fields.dog_breeds(pd)
+    # Round 35 step 3b: an old saved "Metal" / "Flat/Built-Up" is unknown; "Wood Shake" is the wood option
+    if "roof_type" in pd:
+        f["roof_type"] = intake_fields.roof_type_answer(pd.get("roof_type"))
     yb = pd.get("year_built")
     f["home_age"] = year - int(yb) if yb not in (None, "") else None
     m = re.match(r"(\d+)", str(pd.get("ppc", "")).strip())
@@ -828,8 +831,12 @@ def _wb_of(canon, outcomes):
 # property's roof material. Never a status change.
 _ROOF_WORDS = {"Composition Shingle": ("composition", "composite", "3-tab", "asphalt"),
                "Architectural Shingle": ("architectural", "dimensional", "laminate"),
-               "Metal": ("metal",), "Tile": ("tile",), "Slate": ("slate",), "Wood Shake": ("wood",),
-               "Flat/Built-Up": ("flat", "built-up", "built up")}
+               "Tile": ("tile",), "Slate": ("slate",), intake_fields.ROOF_WOOD: ("wood",),
+               **{m: ("metal",) for m in intake_fields.ROOF_METALS},
+               intake_fields.ROOF_BUILT_UP: ("flat", "built-up", "built up"),
+               intake_fields.ROOF_MEMBRANE: ("flat", "membrane"), intake_fields.ROOF_ROLLED: ("rolled",),
+               # old saved values: a "Metal" roof is metal and "Flat/Built-Up" is flat, whatever the kind
+               "Metal": ("metal",), "Flat/Built-Up": ("flat", "built-up", "built up")}
 
 
 def _coverage_note_applies(row, pd):

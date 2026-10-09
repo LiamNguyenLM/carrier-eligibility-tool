@@ -100,9 +100,11 @@ def test_chubb_coastal_sub_territories_still_hold(rid, pd):
 
 # -- never touched: a failing reading, and AMBIGUOUS ----------------------------------------------
 @pytest.mark.parametrize("rid,pd,want", [
-    ("CDP-023", {"roof_shape": "Flat", "roof_type": "Flat/Built-Up"}, "FAIL"),   # built-up: not poured concrete
+    # CHANGED 2026-10-09 (round 35 step 3b, Liam's decision 1: the roof covering in detail): "Built-up (tar and gravel)" (an old saved "Flat/Built-Up" is unknown). Was: "Flat/Built-Up".
+    ("CDP-023", {"roof_shape": "Flat", "roof_type": "Built-up (tar and gravel)"}, "FAIL"),   # not poured concrete
     ("SAG-075", {"ppc": "6", "fire_station_miles": "3", "hydrant_1000ft": "No", "year_built": 1980}, "FAIL"),
-    ("ARA-007", {"roof_type": "Metal"}, "OPEN"),                                   # AMBIGUOUS: the model decides
+    # CHANGED 2026-10-09 (round 35 step 3b, Liam's decision 1: the roof covering in detail): ARA-007 is no longer AMBIGUOUS; corrugated metal fails. Was: ("ARA-007", {"roof_type": "Metal"}, "OPEN").
+    ("ARA-007", {"roof_type": "Metal: corrugated / exposed-fastener / tin / aluminum panels"}, "FAIL"),
 ])
 def test_a_failing_or_ambiguous_row_is_not_turned_into_a_note(rid, pd, want):
     out, detail = _row(rid, **pd)

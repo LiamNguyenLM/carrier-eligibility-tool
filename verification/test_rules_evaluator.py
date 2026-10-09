@@ -91,8 +91,12 @@ def test_unticked_pool_box_is_unknown():
 
 
 def test_ambiguous_readings():
-    m = line("roof_type", "roof_type != Wood Shake || roof_type not in {Wood Shake, Metal}")
-    assert [run(m, roof_type=t) for t in ("Composition Shingle", "Wood Shake", "Metal")] == ["PASS", "FAIL", "OPEN"]
+    # CHANGED 2026-10-09 (round 35 step 3b, Liam's decision 1: the roof covering in detail): the old "Wood Shake" / "Metal" strings are now read as the wood option / unknown, so the grammar
+    # test uses the new values. Was: "Wood Shake" and "Metal".
+    m = line("roof_type", "roof_type not in {Wood shake / wood shingle} || "
+                          "roof_type not in {Wood shake / wood shingle, Metal: standing seam}")
+    assert [run(m, roof_type=t) for t in ("Composition Shingle", "Wood shake / wood shingle", "Metal: standing seam")] \
+        == ["PASS", "FAIL", "OPEN"]
 
 
 def test_skip_when_the_topic_is_unchecked():

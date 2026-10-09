@@ -315,3 +315,33 @@ def aggressive_breed_answer(pd):
     b = dog_breeds(pd)
     return "Unknown" if b is None else ("Yes" if b else "No")
 
+
+# ---------------------------------------------------------------------------
+# Round 35 step 3b (Liam, 2026-10-09, decision 1): the roof covering. Stored values hold no comma (the map
+# grammar splits sets on commas); ROOF_LABELS is what the form shows. Rules that say "metal" in general read
+# all three metal kinds.
+ROOF_WOOD = "Wood shake / wood shingle"
+ROOF_METAL_SEAM = "Metal: standing seam"
+ROOF_METAL_PANEL = "Metal: corrugated / exposed-fastener / tin / aluminum panels"
+ROOF_METAL_SHINGLE = "Metal: shingle / tile / shake (incl. stone-coated)"
+ROOF_BUILT_UP = "Built-up (tar and gravel)"
+ROOF_ROLLED = "Rolled roofing"
+ROOF_MEMBRANE = "Membrane (rubber/EPDM / TPO / modified bitumen)"
+ROOF_ASBESTOS, ROOF_TLOCK, ROOF_SOLAR = "Asbestos shingle", "T-lock shingle", "Solar roof (solar shingles / tiles)"
+ROOF_TYPES = ("Composition Shingle", "Architectural Shingle", ROOF_METAL_SEAM, ROOF_METAL_PANEL, ROOF_METAL_SHINGLE,
+              "Tile", "Slate", ROOF_WOOD, ROOF_BUILT_UP, ROOF_ROLLED, ROOF_MEMBRANE, ROOF_ASBESTOS, ROOF_TLOCK,
+              ROOF_SOLAR, "Other")
+ROOF_LABELS = {ROOF_METAL_SHINGLE: "Metal: shingle, tile or shake (incl. stone-coated)",
+               ROOF_MEMBRANE: "Membrane (rubber/EPDM, TPO, modified bitumen)"}
+ROOF_METALS = (ROOF_METAL_SEAM, ROOF_METAL_PANEL, ROOF_METAL_SHINGLE)
+# Old saved values: Wood Shake is the same covering; Metal and Flat/Built-Up never said which kind, so they are
+# read as unknown (they hold or confirm, never guess).
+ROOF_LEGACY = {"Wood Shake": ROOF_WOOD, "Metal": None, "Flat/Built-Up": None}
+
+
+def roof_type_answer(value):
+    """The roof covering as the rules read it (None = unknown)."""
+    if value in ROOF_LEGACY:
+        return ROOF_LEGACY[value]
+    return value or None
+

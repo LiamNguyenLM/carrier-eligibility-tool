@@ -224,6 +224,7 @@ def sage_fpc_with_distance(ppc, distance_miles, hydrant, home_age=None, occupanc
 _MERCURY_UNCONDITIONALLY_INELIGIBLE_ROOFS = {
     "asbestos shingle", "asbestos shingles", "tin", "t-lock shingle", "t-lock shingles",
     "wood shake", "wood shakes", "wood shingle", "wood shingles",
+    "wood shake / wood shingle",                           # round 35 step 3b: the form's wood option
 }
 
 
@@ -403,6 +404,8 @@ def twico_roof_settlement(roof_type, roof_age):
     deliberately returns INSUFFICIENT_INFORMATION rather than picking one."""
     rt = roof_type.strip().lower()
 
+    if "solar" in rt:                                       # round 35 step 3b: a solar roof is not "tile"
+        return "INSUFFICIENT_INFORMATION", [f"Roof type {roof_type!r} not found in TWICO's roof settlement table."]
     if "metal" in rt and "shingle" in rt and "standing" not in rt:
         return "INELIGIBLE", ["Metal shingle roofing is ineligible regardless of age."]
     if any(k in rt for k in _TWICO_UNCONDITIONALLY_INELIGIBLE_KEYWORDS):

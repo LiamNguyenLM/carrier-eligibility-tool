@@ -30,7 +30,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from build_rule_field_map import DOGS, FLAT, NONE_NOTE, POOL_OK, SEASONAL, breed_line  # noqa: E402
+from build_rule_field_map import DOGS, FLAT, METAL, NONE_NOTE, POOL_OK, SEASONAL, breed_line  # noqa: E402
 
 RULES = os.path.join(HERE, "carrier_rules_sage_batch_v2.csv")
 OUT = os.path.join(HERE, "sage_batch_field_map.csv")
@@ -136,7 +136,8 @@ def sister(p, ids):
     put("poly", ("plumbing_type", "plumbing_type != Polybutylene", "always", "", ""))
     put("roof_flat", ("roof_shape;roof_type", "FACT(no prior roof wind/water loss, or fully renovated)", FLAT,
                       "prior roof loss; renovation", ""))
-    put("roof_metal", ("roof_type", "FACT(steel, 29 gauge or heavier)", "roof_type == Metal", "metal roof gauge", ""))
+    put("roof_metal", ("roof_type", "FACT(steel, 29 gauge or heavier)", "roof_type in " + METAL, "metal roof gauge",
+                       ""))
     put("cov_min_refer", ("dwelling_amount", "dwelling_amount >= 85000", "always", "", ""))
     return m
 

@@ -2,8 +2,8 @@
 row_id,field,test,gate,outcome_if_fail,open_fact,map_note
 ARA-002,NONE,,,CONDITION,,not asked by the form
 ARA-004,NONE,,,CONDITION,,flood zone is not asked
-ARA-007,roof_type,"roof_type != Wood Shake || roof_type not in {Wood Shake, Metal, Flat/Built-Up}",always,DECLINES,,"wood is decided; Metal may not be expensive or corrugated metal, Flat/Built-Up may not be tar and gravel"
-ARA-008,roof_shape;roof_type;county,county == El Paso,(roof_shape == Flat or roof_type == Flat/Built-Up),DECLINES,,'in or around El Paso': around is not decided
+ARA-007,roof_type,"roof_type not in {Wood shake / wood shingle, Asbestos shingle, Built-up (tar and gravel), Metal: corrugated / exposed-fastener / tin / aluminum panels} and (roof_type not in {Metal: standing seam, Metal: shingle / tile / shake (incl. stone-coated)} or FACT(not an expensive metal roof))",always,DECLINES,metal kind,tile and flat roofs: their own rows
+ARA-008,roof_shape;roof_type;county,county == El Paso,"(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",DECLINES,,'in or around El Paso': around is not decided
 ARA-009,roof_type,roof_type != Tile or FACT(High Value Home),always,DECLINES,High Value Home,
 ARA-010,roof_type,roof_type != Slate,always,DECLINES,,
 ARA-011,dwelling_type,FACT(meets the Single Building definition),dwelling_type == Townhome,DECLINES,Single Building definition,duplexes are not a form option
@@ -44,7 +44,7 @@ ARA-050,plumbing_type,plumbing_type != Galvanized,always,DECLINES,,mixed-galvani
 ARA-053,NONE,,,DECLINES,,roof condition and layers are not asked
 ARA-054,NONE,,,DECLINES,,roof condition and layers are not asked
 ARA-055,NONE,,,DECLINES,,roof condition and layers are not asked
-ARA-056,roof_type,roof_type != Metal,always,REFERS_TO_UW,,
+ARA-056,roof_type,"roof_type not in {Metal: standing seam, Metal: corrugated / exposed-fastener / tin / aluminum panels, Metal: shingle / tile / shake (incl. stone-coated)}",always,REFERS_TO_UW,,every metal roof (round 35)
 ARA-059,roof_age,FACT(5+ years of useful life left),roof_age >= 15,DECLINES,remaining roof life,as ALL-034: no covering on the form ends its life before 20 years
 ARA-062,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 ARA-063,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
@@ -65,8 +65,8 @@ ARA-085,ppc,always,always,DECLINES,,decided by ARA-014 (the same rule); never a 
 ARB-002,NONE,,,CONDITION,,not asked by the form
 ARB-004,NONE,,,CONDITION,,flood zone is not asked
 ARB-005,county,"county not in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy, Harris} || county not in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy}",always,DECLINES,,TWIA's Tier 1 counties; Harris only east of Highway 146 (not asked): AMBIGUOUS
-ARB-006,roof_type,"roof_type not in {Wood Shake, Slate} || roof_type not in {Wood Shake, Slate, Metal, Flat/Built-Up}",always,DECLINES,,"as ARA-007, slate included"
-ARB-007,roof_shape;roof_type;county,county == El Paso,(roof_shape == Flat or roof_type == Flat/Built-Up),DECLINES,,'in or around El Paso': around is not decided
+ARB-006,roof_type,"roof_type not in {Wood shake / wood shingle, Asbestos shingle, Built-up (tar and gravel), Metal: corrugated / exposed-fastener / tin / aluminum panels, Slate} and (roof_type not in {Metal: standing seam, Metal: shingle / tile / shake (incl. stone-coated)} or FACT(not an expensive metal roof))",always,DECLINES,metal kind,tile and flat roofs: their own rows; slate included
+ARB-007,roof_shape;roof_type;county,county == El Paso,"(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",DECLINES,,'in or around El Paso': around is not decided
 ARB-008,roof_type,roof_type != Tile or FACT(High Value Home),always,DECLINES,High Value Home,
 ARB-009,dwelling_type,FACT(meets the Single Building definition),dwelling_type == Townhome,DECLINES,Single Building definition,duplexes are not a form option
 ARB-010,NONE,,,REFERS_TO_UW,,acreage is not asked
@@ -105,7 +105,7 @@ ARB-048,plumbing_type,plumbing_type != Galvanized,always,DECLINES,,mixed-galvani
 ARB-052,NONE,,,DECLINES,,roof condition and layers are not asked
 ARB-053,NONE,,,DECLINES,,roof condition and layers are not asked
 ARB-054,NONE,,,DECLINES,,roof condition and layers are not asked
-ARB-055,roof_type,roof_type != Metal,always,REFERS_TO_UW,,
+ARB-055,roof_type,"roof_type not in {Metal: standing seam, Metal: corrugated / exposed-fastener / tin / aluminum panels, Metal: shingle / tile / shake (incl. stone-coated)}",always,REFERS_TO_UW,,every metal roof (round 35)
 ARB-058,roof_age,FACT(5+ years of useful life left),roof_age >= 15,DECLINES,remaining roof life,as ALL-034: no covering on the form ends its life before 20 years
 ARB-060,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 ARB-061,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
@@ -268,7 +268,7 @@ LIB-030,NONE,,,DECLINES,,siding / construction details are not form options
 LIB-031,NONE,,,DECLINES,,siding / construction details are not form options
 LIB-032,NONE,,,DECLINES,,not asked by the form
 LIB-033,year_built,"FACT(no fuses, knob and tube or aluminum wiring)",year_built < 1976,DECLINES,wiring,
-LIB-034,roof_type,roof_type != Wood Shake,always,DECLINES,,
+LIB-034,roof_type,roof_type not in {Wood shake / wood shingle},always,DECLINES,,
 LIB-035,NONE,,,DECLINES,,siding / construction details are not form options
 LIB-036,NONE,,,DECLINES,,not asked by the form
 LIB-037,NONE,,,DECLINES,,not asked by the form
@@ -307,8 +307,8 @@ ORI-005,dwelling_type,FACT(fire wall between units to the roof line),dwelling_ty
 ORI-007,dwelling_type,FACT(an individual residential unit),dwelling_type == Townhome,DECLINES,unit,
 ORI-009,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 ORI-010,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
-ORI-012,roof_type,"roof_type != Wood Shake and (roof_type != Other or FACT(roof material on Orion's list: architectural / composite shingle, tile, slate, poured concrete, adobe or metal))",always,DECLINES,roof material,Composition = asphalt fiberglass composite shingles; flat roofs are ORI-013's; Other is a confirm note (round 35)
-ORI-013,roof_shape;roof_type,FACT(poured concrete or adobe),(roof_shape == Flat or roof_type == Flat/Built-Up),DECLINES,flat roof material,
+ORI-012,roof_type,"roof_type not in {Wood shake / wood shingle, Built-up (tar and gravel), Rolled roofing, Membrane (rubber/EPDM / TPO / modified bitumen), Asbestos shingle, T-lock shingle, Solar roof (solar shingles / tiles)} and (roof_type not in {Other} or FACT(roof material on Orion's list: architectural / composite shingle, tile, slate, poured concrete, adobe or metal))",always,DECLINES,roof material,Composition = asphalt fiberglass composite shingles; Other is a confirm note (round 35)
+ORI-013,roof_shape;roof_type,FACT(poured concrete or adobe),"(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",DECLINES,flat roof material,
 ORI-016,NONE,,,DECLINES,,foundation is not asked
 ORI-017,NONE,,,DECLINES,,foundation is not asked
 ORI-019,NONE,,,DECLINES,,acreage is not asked
@@ -345,7 +345,7 @@ ORI-054,NONE,,,DECLINES,,siding / construction details are not form options
 ORI-055,NONE,,,DECLINES,,siding / construction details are not form options
 ORI-056,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,barndominiums are not a form option
 ORI-057,NONE,,,DECLINES,,siding / construction details are not form options
-ORI-059,roof_type,roof_type != Metal || always,always,DECLINES,,Metal may not be corrugated metal
+ORI-059,roof_type,"roof_type not in {Metal: corrugated / exposed-fastener / tin / aluminum panels, T-lock shingle}",always,DECLINES,,"'corrugated metal, T-lock shingles' (round 35)"
 ORI-060,NONE,,,DECLINES,,roof condition and layers are not asked
 ORI-061,NONE,,,DECLINES,,siding / construction details are not form options
 ORI-062,NONE,,,DECLINES,,siding / construction details are not form options
@@ -415,7 +415,7 @@ SLL-008,NONE,,,DECLINES,,liability hazards are not asked
 SLL-011,year_built,always,always,DECLINES,,decided by SLL-054 (the same rule); never a second flaw
 SLL-013,NONE,,,UNKNOWN,,siding / construction details are not form options
 SLL-014,NONE,,,DECLINES,,siding / construction details are not form options
-SLL-015,roof_type;roof_age,"(roof_type in {Tile, Slate} and roof_age <= 40) or roof_age <= 25 || (roof_type in {Tile, Slate, Metal} and roof_age <= 40) or roof_age <= 25",always,DECLINES,,"25 years (shingles, light metal, built-up, wood); 40 years (standing seam metal, tile, slate): Metal is AMBIGUOUS"
+SLL-015,roof_type;roof_age,"(roof_type in {Tile, Slate, Metal: standing seam} and roof_age <= 40) or roof_age <= 25",always,DECLINES,,"25 years (shingles, light metal, built-up, wood); 40 years (standing seam metal, tile, slate): the guide's own table, SLL-031..033 (round 35)"
 SLL-021,NONE,,,DECLINES,,loss / claims history is not asked
 SLL-035,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 SLL-036,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
@@ -521,7 +521,7 @@ TWI-032,NONE,,,DECLINES,,siding / construction details are not form options
 TWI-034,NONE,,,REFERS_TO_UW,,"unit count, foundation and original use are not asked"
 TWI-035,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,prefabricated homes are not a form option
 TWI-036,NONE,,,DECLINES,,acreage is not asked
-TWI-037,roof_type,"roof_type not in {Wood Shake, Slate} || roof_type not in {Wood Shake, Slate, Metal}",always,DECLINES,,Metal may not be metal tile / shake / shingle or corrugated metal
+TWI-037,roof_type,"roof_type not in {Wood shake / wood shingle, Asbestos shingle, Slate, Metal: shingle / tile / shake (incl. stone-coated), Metal: corrugated / exposed-fastener / tin / aluminum panels}",always,DECLINES,,standing seam is eligible (round 35)
 TWI-038,NONE,,,DECLINES,,roof condition and layers are not asked
 TWI-039,plumbing_type,"plumbing_type not in {Galvanized, Polybutylene}",always,DECLINES,,
 TWI-040,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
@@ -566,7 +566,7 @@ TRV-037,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or 
 TRV-038,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 TRV-039,occupancy_type;ppc;primary_home_carrier,primary_home_carrier == Travelers,"occupancy_type in {Seasonal, Secondary Home} and ppc_num >= 9",DECLINES,primary dwelling with Travelers,
 TRV-040,NONE,,,DECLINES,,siding / construction details are not form options
-TRV-041,roof_type,"roof_type != Wood Shake || roof_type not in {Wood Shake, Flat/Built-Up}",always,DECLINES,,rolled asphalt may or may not be the form's Flat/Built-Up
+TRV-041,roof_type,"roof_type not in {Asbestos shingle, T-lock shingle, Wood shake / wood shingle, Rolled roofing}",always,DECLINES,,Atlas Chalet is not a form option (round 35)
 TRV-042,NONE,,,DECLINES,,roof condition and layers are not asked
 TRV-043,NONE,,,DECLINES,,roof condition and layers are not asked
 TRV-044,roof_age;roof_type,FACT(not in Wind/Hail/Tornado UW Classification High 1 or High 2),"roof_age > 10 and roof_type not in {Tile, Slate}",NOTE,wind/hail UW class,cure: Roof Condition Questionnaire

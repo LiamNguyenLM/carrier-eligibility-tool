@@ -26,7 +26,24 @@ OUT = os.path.join(HERE, "rule_field_map.csv")
 
 NO_POOL = "swimming_pool != No Pool"
 POOL_OK = "pool_fence_4ft == True and pool_gate_locking == True"
-FLAT = "(roof_shape == Flat or roof_type == Flat/Built-Up)"
+# Round 35 step 3b: the roof covering in detail (intake_fields.ROOF_TYPES); values only ever inside {...}.
+def _roofs(*names):
+    bad = [n for n in names if n not in intake_fields.ROOF_TYPES]
+    assert not bad, bad
+    return "{" + ", ".join(names) + "}"
+
+
+I = intake_fields
+WOOD, SEAM, PANEL, MSHINGLE = I.ROOF_WOOD, I.ROOF_METAL_SEAM, I.ROOF_METAL_PANEL, I.ROOF_METAL_SHINGLE
+BUILT_UP, ROLLED_ROOF, MEMBRANE, ASBESTOS, TLOCK, SOLAR_ROOF = (I.ROOF_BUILT_UP, I.ROOF_ROLLED, I.ROOF_MEMBRANE,
+                                                                I.ROOF_ASBESTOS, I.ROOF_TLOCK, I.ROOF_SOLAR)
+METAL = _roofs(SEAM, PANEL, MSHINGLE)
+NOT_WOOD = "roof_type not in " + _roofs(WOOD)
+IS_WOOD = "roof_type in " + _roofs(WOOD)
+PROG_ROOF = ("roof_type not in " + _roofs(WOOD, BUILT_UP, ROLLED_ROOF, PANEL)
+             + " and (roof_type not in " + _roofs(MEMBRANE) + " or FACT(the membrane is not rubber))")
+PROG_ROOF_NOTE = "'wood ..., tar and gravel, rubber membrane, tin, rolled roofing, and corrugated metal'"
+FLAT = "(roof_shape == Flat or roof_type in " + _roofs(BUILT_UP, MEMBRANE) + ")"
 SEASONAL = "occupancy_type in {Seasonal, Secondary Home}"
 DOGS = "has_dogs == Yes"
 BREED = "always || aggressive_breed == No"      # before round 35: AMBIGUOUS (the form's list was not the carrier's)
@@ -137,28 +154,35 @@ MAP = {
     # ---------------- ROOF
     "ALL-034": ("roof_age", "FACT(5+ years of useful life left)", "roof_age >= 15", "remaining roof life",
                 "assumption: no covering on the form ends its life before 20 years, so a roof under 15 is N/A"),
-    "ALL-037": ("roof_type", "roof_type not in {Slate, Wood Shake} || roof_type not in {Slate, Wood Shake, Metal, Flat/Built-Up}",
-                "always", "", "AMBIGUOUS: Metal may be tin/corrugated/copper; Flat/Built-Up may be tar and gravel, rubber, rolled"),
+    # round 35 step 3b: "T-lock shingles, slate, corrugated metal, copper, tin, rubber membrane, rolled tar paper,
+    # built up tar and gravel, solar roof system and ... wood shingles or shakes"
+    "ALL-037": ("roof_type", "roof_type not in " + _roofs(TLOCK, "Slate", PANEL, BUILT_UP, ROLLED_ROOF, SOLAR_ROOF, WOOD)
+                + " and (roof_type not in " + _roofs(MEMBRANE) + " or FACT(the membrane is not rubber))"
+                + " and (roof_type not in " + _roofs(SEAM, MSHINGLE) + " or FACT(the metal is not copper or tin))",
+                "always", "membrane / metal kind", "copper is not a form option: a confirm note on metal"),
     "ALL-038": ("roof_shape;roof_type", "FACT(poured reinforced concrete)", FLAT, "flat roof material", ""),
-    "ALL-042": ("roof_type", "roof_type != Slate", "always", "", "solar panel tiles: see ALL-110"),
+    "ALL-042": ("roof_type", "roof_type not in " + _roofs("Slate", SOLAR_ROOF)
+                + " and (roof_type not in {Other} or FACT(not a unique or uncommon roof covering))", "always",
+                "uncommon roof covering", "'Solar panel tiles, slate, unique/uncommon roof material' (round 35)"),
     "SAG-032": ("roof_shape;roof_type", "FACT(no prior roof wind/water loss, or fully renovated)", FLAT,
                 "prior roof loss; renovation", ""),
-    "SAG-033": ("roof_type", "FACT(steel, 29 gauge or heavier)", "roof_type == Metal", "metal roof gauge", ""),
+    "SAG-033": ("roof_type", "FACT(steel, 29 gauge or heavier)", "roof_type in " + METAL, "metal roof gauge", ""),
     # round 35 step 2: El Paso flat roofs get "underwriting consideration" -- a referral (CHU-111), not a pass
     "CHU-012": ("roof_shape;roof_type;county", "not " + FLAT, "county != El Paso", "", "El Paso is CHU-111's"),
     "CHU-111": ("roof_shape;roof_type;county", "not " + FLAT, "county == El Paso", "",
                 "split from CHU-012 (round 35): underwriting consideration in El Paso"),
-    "CHU-014": ("roof_type", "FACT(wildfire score not 10-50)", "roof_type == Wood Shake", "wildfire score", ""),
-    "CHU-020": ("roof_type;county", "roof_type != Wood Shake", "county not in " + CHUBB_COASTAL, "",
+    "CHU-014": ("roof_type", "FACT(wildfire score not 10-50)", IS_WOOD, "wildfire score", ""),
+    "CHU-020": ("roof_type;county", NOT_WOOD, "county not in " + CHUBB_COASTAL, "",
                 "outside the coastal areas (CHU-021 is the coast's); tier ignored: other tiers are unacceptable"),
-    "CHU-021": ("roof_type;county", "roof_type != Wood Shake", "county in " + CHUBB_COASTAL, "", ""),
-    "MER-012": ("roof_type", "roof_type != Wood Shake || roof_type not in {Wood Shake, Metal}", "always", "",
-                "AMBIGUOUS: Metal may be tin; asbestos and T-lock are not form options"),
+    "CHU-021": ("roof_type;county", NOT_WOOD, "county in " + CHUBB_COASTAL, "", ""),
+    # round 35 step 3b: "Asbestos shingles, tin, T-lock shingles, wood shakes, wood shingles"
+    "MER-012": ("roof_type", "roof_type not in " + _roofs(ASBESTOS, TLOCK, WOOD)
+                + " and (roof_type not in " + _roofs(PANEL) + " or FACT(the panels are not tin))", "always",
+                "tin", "the panel option includes tin: a confirm note"),
     "MER-016": ("roof_shape;roof_type", "not " + FLAT, "always", "", ""),
     "PRO-022": ("roof_age", "FACT(5+ years of life expectancy left)", "roof_age >= 15", "remaining roof life",
                 "same assumption as ALL-034"),
-    "PRO-024": ("roof_type", "roof_type != Wood Shake || roof_type not in {Wood Shake, Metal, Flat/Built-Up}",
-                "always", "", "AMBIGUOUS: Metal may be tin/corrugated; Flat/Built-Up may be tar and gravel/rubber/rolled"),
+    "PRO-024": ("roof_type", PROG_ROOF, "always", "membrane kind", PROG_ROOF_NOTE),
     "PRO-025": ("roof_shape;roof_type", "FACT(poured concrete or rubber)", FLAT, "flat roof material", ""),
     "SWY-017": ("roof_age", "roof_age <= 30", "always", "", ""),
     # ---------------- HOME AGE

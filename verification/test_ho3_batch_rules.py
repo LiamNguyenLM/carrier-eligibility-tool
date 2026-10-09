@@ -71,7 +71,8 @@ def test_coverage():
     # ARB-093 are "same rule". Was: form field 106, gated-but-open 59, same rule 18.
     # CHANGED 2026-10-09 (round 35 step 3a, Liam's decision 1): the breed lines read the breed field (5 AMBIGUOUS lines decided; open lists carry a FACT).
     # Was: form field 102, gated-but-open 62, AMBIGUOUS 12.
-    assert kinds == {"decided by a form field": 104, "gated-but-open": 65, "AMBIGUOUS": 7,
+    # CHANGED 2026-10-09 (round 35 step 3b: the roof covering in detail): the roof lines decide on the new options. Was: form field 104, gated-but-open 65, AMBIGUOUS 7.
+    assert kinds == {"decided by a form field": 108, "gated-but-open": 67, "AMBIGUOUS": 1,
                      "same rule as another row": 19, "NONE": 420}
 
 

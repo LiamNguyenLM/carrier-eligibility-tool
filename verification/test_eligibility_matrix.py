@@ -7122,7 +7122,8 @@ class TestTopicForm:
 
     @pytest.mark.parametrize("widget, value, topic", [
         ("ppc", "3", "ppc"), ("coastal", "Tier 2 - Moderate coastal area", "coastal"),
-        ("rooftype", "Metal", "roof_type"), ("roofshape", "Hip", "roof_shape"),
+        # CHANGED 2026-10-09 (round 35 step 3b): "Metal" is no longer an option. Was: ("rooftype", "Metal", ...).
+        ("rooftype", "Metal: standing seam", "roof_type"), ("roofshape", "Hip", "roof_shape"),
         ("construction", "Masonry", "construction"), ("plumbing", "PEX", "plumbing"),
         ("pool", "In Ground - Fenced", "pool"), ("county", "Harris", "county"),
     ])

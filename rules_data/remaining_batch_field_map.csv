@@ -9,13 +9,13 @@ CDP-014,dwelling_amount,always,always,REFERS_TO_UW,,decided by CDP-096 (the same
 CDP-017,NONE,,,REFERS_TO_UW,,not asked by the form
 CDP-019,NONE,,,DECLINES,,roof condition and layers are not asked
 CDP-020,NONE,,,DECLINES,,roof condition and layers are not asked
-CDP-021,roof_type,always || roof_type != Metal,always,DECLINES,,corrugated / tin / aluminum metal may or may not be the form's Metal
-CDP-022,roof_type,roof_type != Wood Shake,always,DECLINES,,
-CDP-023,roof_shape;roof_type,roof_type != Flat/Built-Up and FACT(poured concrete flat roof),(roof_shape == Flat or roof_type == Flat/Built-Up),DECLINES,poured concrete roof,built-up is not poured concrete
+CDP-021,roof_type,roof_type not in {Metal: corrugated / exposed-fastener / tin / aluminum panels},always,DECLINES,,corrugated metal (round 35)
+CDP-022,roof_type,roof_type not in {Wood shake / wood shingle},always,DECLINES,,
+CDP-023,roof_shape;roof_type,"roof_type not in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen), Rolled roofing} and FACT(poured concrete flat roof)","(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",DECLINES,poured concrete roof,"built-up, membrane and rolled are not poured concrete"
 CDP-024,NONE,,,DECLINES,,roof condition and layers are not asked
 CDP-025,NONE,,,DECLINES,,siding / construction details are not form options
 CDP-026,NONE,,,DECLINES,,siding / construction details are not form options
-CDP-027,roof_type,always || roof_type != Flat/Built-Up,always,DECLINES,,rolled roofing may or may not be the form's Flat/Built-Up
+CDP-027,roof_type,roof_type not in {Rolled roofing},always,DECLINES,,rolled roofing (round 35)
 CDP-030,NONE,,,DECLINES,,wiring and panels are not asked
 CDP-031,NONE,,,DECLINES,,wiring and panels are not asked
 CDP-032,plumbing_type,plumbing_type != Polybutylene,always,DECLINES,,
@@ -93,7 +93,7 @@ CHO-014,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
 CHO-015,NONE,,,REFERS_TO_UW,,liability hazards are not asked
 CHO-017,swimming_pool;pool_accessories,pool_accessories == None,swimming_pool != No Pool,REFERS_TO_UW,,
 CHO-019,NONE,,,CONDITION,,flood zone is not asked
-CHO-024,roof_type;roof_shape,"roof_type not in {Wood Shake, Flat/Built-Up} and roof_shape != Flat || roof_type not in {Wood Shake, Flat/Built-Up, Metal} and roof_shape != Flat",always,DECLINES,,sheet tin / aluminum / galvanized may or may not be the form's Metal
+CHO-024,roof_type;roof_shape,"roof_type not in {Wood shake / wood shingle, Built-up (tar and gravel), Rolled roofing, Asbestos shingle, Membrane (rubber/EPDM / TPO / modified bitumen)} and roof_shape != Flat and (roof_type not in {Metal: standing seam, Metal: corrugated / exposed-fastener / tin / aluminum panels, Metal: shingle / tile / shake (incl. stone-coated)} or FACT(the metal is not sheet tin or aluminum))",always,DECLINES,metal kind,membrane is a flat-roof covering
 CHO-025,NONE,,,DECLINES,,roof condition and layers are not asked
 CHO-031,NONE,,,DECLINES,,loss / claims history is not asked
 CHO-033,NONE,,,DECLINES,,loss / claims history is not asked
@@ -157,7 +157,7 @@ LDP-031,NONE,,,DECLINES,,siding / construction details are not form options
 LDP-032,NONE,,,DECLINES,,foundation is not asked
 LDP-033,NONE,,,DECLINES,,foundation is not asked
 LDP-034,NONE,,,DECLINES,,foundation is not asked
-LDP-035,roof_type,roof_type != Wood Shake,always,DECLINES,,
+LDP-035,roof_type,roof_type not in {Wood shake / wood shingle},always,DECLINES,,
 LDP-036,NONE,,,DECLINES,,roof condition and layers are not asked
 LDP-043,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 LDP-044,NONE,,,CONDITION,,"heating, cooling and water heater are not asked"
@@ -266,7 +266,7 @@ NCD-093,NONE,,,CONDITION,,not asked by the form
 NCD-094,NONE,,,DECLINES,,foundation is not asked
 NCD-095,NONE,,,DECLINES,,foundation is not asked
 NCD-096,NONE,,,DECLINES,,foundation is not asked
-NCD-097,roof_type;roof_shape,"roof_type not in {Wood Shake, Flat/Built-Up} and roof_shape != Flat || roof_type not in {Wood Shake, Flat/Built-Up, Tile} and roof_shape != Flat",always,DECLINES,,Ludowici tile may or may not be the form's Tile
+NCD-097,roof_type;roof_shape,"roof_type not in {T-lock shingle, Rolled roofing, Wood shake / wood shingle, Built-up (tar and gravel)} and roof_shape != Flat and (roof_type not in {Membrane (rubber/EPDM / TPO / modified bitumen)} or FACT(the membrane is not TPO)) and (roof_type not in {Tile} or FACT(not Ludowici tile))",always,DECLINES,membrane kind; tile maker,round 35
 NCD-098,NONE,,,DECLINES,,roof condition and layers are not asked
 NCD-099,NONE,,,UNKNOWN,,roof condition and layers are not asked
 NCD-100,roof_type,always,always,DECLINES,,decided by NCD-097 (the same rule); never a second flaw
@@ -446,8 +446,8 @@ PDP-093,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 PDP-094,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 PDP-096,roof_age,FACT(5+ years of useful life left),roof_age >= 15,DECLINES,remaining roof life,as ARA-059
 PDP-097,NONE,,,DECLINES,,roof condition and layers are not asked
-PDP-098,roof_type,"roof_type != Wood Shake || roof_type not in {Wood Shake, Flat/Built-Up, Metal}",always,DECLINES,,tar and gravel / rubber / rolled may be Flat/Built-Up; tin / corrugated may be Metal
-PDP-099,roof_shape;roof_type,roof_type != Flat/Built-Up and FACT(poured concrete flat roof),(roof_shape == Flat or roof_type == Flat/Built-Up),DECLINES,poured concrete roof,
+PDP-098,roof_type,"roof_type not in {Wood shake / wood shingle, Built-up (tar and gravel), Rolled roofing, Metal: corrugated / exposed-fastener / tin / aluminum panels} and (roof_type not in {Membrane (rubber/EPDM / TPO / modified bitumen)} or FACT(the membrane is not rubber))",always,DECLINES,membrane kind,"'wood ..., tar and gravel, rubber membrane, tin, rolled roofing, and corrugated metal'"
+PDP-099,roof_shape;roof_type,"roof_type not in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen), Rolled roofing} and FACT(poured concrete flat roof)","(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",DECLINES,poured concrete roof,
 PDP-100,NONE,,,DECLINES,,roof condition and layers are not asked
 PDP-103,swimming_pool;pool_fence_4ft;pool_gate_locking,"swimming_pool not in {In Ground - Unfenced, Above Ground - Unfenced} and pool_fence_4ft == True and pool_gate_locking == True",swimming_pool != No Pool,CONDITION,fence 4 ft; locking gate,an approved alternative enclosure also qualifies (not a form option)
 PDP-104,swimming_pool;pool_accessories,pool_accessories == None,swimming_pool != No Pool,DECLINES,,
@@ -515,7 +515,7 @@ PH6-067,NONE,,,CONDITION,,not asked by the form
 PH6-069,year_built,home_age <= 100,always,REFERS_TO_UW,,
 PH6-073,NONE,,,DECLINES,,wiring and panels are not asked
 PH6-074,plumbing_type;year_built,"plumbing_type not in {Galvanized, Polybutylene} and (plumbing_type != PEX or year_built >= 2011)",always,DECLINES,,PEX installed before 2011: year built stands in
-PH6-077,roof_type,"roof_type != Wood Shake || roof_type not in {Wood Shake, Flat/Built-Up, Metal}",always,DECLINES,,as PDP-098
+PH6-077,roof_type,"roof_type not in {Wood shake / wood shingle, Built-up (tar and gravel), Rolled roofing, Metal: corrugated / exposed-fastener / tin / aluminum panels} and (roof_type not in {Membrane (rubber/EPDM / TPO / modified bitumen)} or FACT(the membrane is not rubber))",always,DECLINES,membrane kind,"'wood ..., tar and gravel, rubber membrane, tin, rolled roofing, and corrugated metal'"
 PH6-078,NONE,,,UNKNOWN,,roof condition and layers are not asked
 PH6-079,NONE,,,DECLINES,,roof condition and layers are not asked
 PH6-080,NONE,,,DECLINES,,roof condition and layers are not asked
@@ -624,9 +624,9 @@ ODP-064,NONE,,,REFERS_TO_UW,,siding / construction details are not form options
 ODP-066,NONE,,,DECLINES,,foundation is not asked
 ODP-067,NONE,,,DECLINES,,foundation is not asked
 ODP-074,NONE,,,DECLINES,,roof condition and layers are not asked
-ODP-075,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)",(roof_shape == Flat or roof_type == Flat/Built-Up),REFERS_TO_UW,prior roof loss; renovation,
+ODP-075,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)","(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",REFERS_TO_UW,prior roof loss; renovation,
 ODP-076,NONE,,,DECLINES,,roof condition and layers are not asked
-ODP-077,roof_type,"FACT(steel, 29 gauge or heavier)",roof_type == Metal,DECLINES,metal roof gauge,
+ODP-077,roof_type,"FACT(steel, 29 gauge or heavier)","roof_type in {Metal: standing seam, Metal: corrugated / exposed-fastener / tin / aluminum panels, Metal: shingle / tile / shake (incl. stone-coated)}",DECLINES,metal roof gauge,
 ODP-078,roof_type,always,always,DECLINES,,decided by ODP-077 (the same rule); never a second flaw
 ODP-082,plumbing_type,plumbing_type != Polybutylene,always,DECLINES,,
 ODP-083,NONE,,,DECLINES,,wiring and panels are not asked
@@ -715,9 +715,9 @@ SDP-104,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 SDP-105,NONE,,,NOTE,,"heating, cooling and water heater are not asked"
 SDP-106,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 SDP-111,NONE,,,DECLINES,,roof condition and layers are not asked
-SDP-112,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)",(roof_shape == Flat or roof_type == Flat/Built-Up),REFERS_TO_UW,prior roof loss; renovation,
+SDP-112,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)","(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",REFERS_TO_UW,prior roof loss; renovation,
 SDP-113,NONE,,,DECLINES,,roof condition and layers are not asked
-SDP-114,roof_type,"FACT(steel, 29 gauge or heavier)",roof_type == Metal,DECLINES,metal roof gauge,
+SDP-114,roof_type,"FACT(steel, 29 gauge or heavier)","roof_type in {Metal: standing seam, Metal: corrugated / exposed-fastener / tin / aluminum panels, Metal: shingle / tile / shake (incl. stone-coated)}",DECLINES,metal roof gauge,
 SDP-115,roof_type,always,always,CONDITION,,decided by SDP-114 (the same rule); never a second flaw
 SDP-118,NONE,,,DECLINES,,not asked by the form
 SDP-119,NONE,,,DECLINES,,not asked by the form
@@ -808,9 +808,9 @@ FDP-129,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 FDP-130,NONE,,,NOTE,,"heating, cooling and water heater are not asked"
 FDP-131,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 FDP-136,NONE,,,DECLINES,,roof condition and layers are not asked
-FDP-137,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)",(roof_shape == Flat or roof_type == Flat/Built-Up),REFERS_TO_UW,prior roof loss; renovation,
+FDP-137,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)","(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",REFERS_TO_UW,prior roof loss; renovation,
 FDP-138,NONE,,,DECLINES,,roof condition and layers are not asked
-FDP-139,roof_type,"FACT(steel, 29 gauge or heavier)",roof_type == Metal,DECLINES,metal roof gauge,
+FDP-139,roof_type,"FACT(steel, 29 gauge or heavier)","roof_type in {Metal: standing seam, Metal: corrugated / exposed-fastener / tin / aluminum panels, Metal: shingle / tile / shake (incl. stone-coated)}",DECLINES,metal roof gauge,
 VDP-005,dwelling_amount,dwelling_amount >= 100000,always,DECLINES,,
 VDP-006,dwelling_amount,dwelling_amount <= 2000000,always,DECLINES,,
 VDP-007,NONE,,,DECLINES,,"TIV, Coverage B and the HO5 form are not asked"
@@ -885,12 +885,12 @@ STD-052,roof_shape;roof_type,always,always,REFERS_TO_UW,,decided by STD-067 (the
 STD-055,NONE,,,REFERS_TO_UW,,roof condition and layers are not asked
 STD-060,NONE,,,REFERS_TO_UW,,roof condition and layers are not asked
 STD-062,NONE,,,REFERS_TO_UW,,roof condition and layers are not asked
-STD-064,roof_type,always || roof_type != Metal,always,DECLINES,,aluminum / tin may or may not be the form's Metal
-STD-065,roof_type,always,always,DECLINES,,decided by STD-064 (the same rule); never a second flaw
+STD-064,roof_type,"roof_type not in {Metal: standing seam, Metal: corrugated / exposed-fastener / tin / aluminum panels, Metal: shingle / tile / shake (incl. stone-coated)} or FACT(the metal is not aluminum)",always,DECLINES,metal kind,'Aluminum' (round 35)
+STD-065,roof_type,roof_type not in {Metal: corrugated / exposed-fastener / tin / aluminum panels} or FACT(the panels are not tin),always,DECLINES,tin,'Tin' (round 35)
 STD-066,NONE,,,DECLINES,,roof condition and layers are not asked
-STD-067,roof_shape;roof_type,"FACT(proper drainage, no pooling)",(roof_shape == Flat or roof_type == Flat/Built-Up),DECLINES,flat roof drainage,
+STD-067,roof_shape;roof_type,"FACT(proper drainage, no pooling)","(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",DECLINES,flat roof drainage,
 STD-068,NONE,,,DECLINES,,roof condition and layers are not asked
-STD-069,roof_type,roof_type != Wood Shake,always,DECLINES,,
+STD-069,roof_type,roof_type not in {Wood shake / wood shingle},always,DECLINES,,
 STD-070,NONE,,,DECLINES,,roof condition and layers are not asked
 STD-071,NONE,,,DECLINES,,wiring and panels are not asked
 STD-072,NONE,,,DECLINES,,wiring and panels are not asked

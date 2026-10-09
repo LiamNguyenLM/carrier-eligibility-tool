@@ -30,6 +30,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from build_rule_field_map import DOGS, FLAT, NONE_NOTE, POOL_OK, SEASONAL, breed_line  # noqa: E402
+from build_rule_field_map import (ASBESTOS, BUILT_UP, METAL, MEMBRANE, MSHINGLE, NOT_WOOD, PANEL, ROLLED_ROOF, SEAM,  # noqa: E402
+                                  SOLAR_ROOF, TLOCK, WOOD, _roofs)
 from build_sage_batch_map import BATCH_NONE_NOTE, coverage_table as _sage_coverage, kind  # noqa: E402,F401
 
 RULES = os.path.join(HERE, "carrier_rules_ho3_batch_v1.csv")
@@ -66,6 +68,15 @@ TOWNHOME = ("dwelling_type", "FACT(meets the Single Building definition)", "dwel
             "Single Building definition", "duplexes are not a form option")
 ARI_FLAT = ("roof_shape;roof_type;county", "county == El Paso", FLAT, "", "'in or around El Paso': around is not decided")
 ARI_TILE = ("roof_type", "roof_type != Tile or FACT(High Value Home)", "always", "High Value Home", "")
+# Round 35 step 3b: "wood, flat (...), asbestos, tar/gravel, expensive metal, corrugated metal, concrete or clay tile
+# roofs (...) and slate roofs" -- "expensive metal" is not a form option: a confirm note on the other metals
+def _ari_roof(*extra):
+    return ("roof_type", "roof_type not in " + _roofs(WOOD, ASBESTOS, BUILT_UP, PANEL, *extra)
+            + " and (roof_type not in " + _roofs(SEAM, MSHINGLE) + " or FACT(not an expensive metal roof))",
+            "always", "metal kind", "tile and flat roofs: their own rows" + ("" if not extra else "; slate included"))
+
+
+ARI_ROOF, ARI_ROOF_SLATE = _ari_roof(), _ari_roof("Slate")
 ARI_UNPROTECTED = ("ppc", "FACT(visible from another dwelling or on an all-weather road)", "ppc_num == 10",
                    "visibility / all-weather road", "unprotected = class 10")
 ARI_POOL = ("swimming_pool;pool_gate_locking", FENCED + " and pool_gate_locking == True and FACT(fence at least 6 ft)",
@@ -97,9 +108,7 @@ def money(test):
 
 MAP = {
     # ================= ARI HOA / HOA Plus
-    "ARA-007": ("roof_type", "roof_type != Wood Shake || roof_type not in {Wood Shake, Metal, Flat/Built-Up}", "always",
-                "", "wood is decided; Metal may not be expensive or corrugated metal, Flat/Built-Up may not be "
-                    "tar and gravel"),
+    "ARA-007": ARI_ROOF,
     "ARA-008": ARI_FLAT, "ARA-009": ARI_TILE,
     "ARA-010": ("roof_type", "roof_type != Slate", "always", "", ""),
     "ARA-011": TOWNHOME, "ARA-013": ARI_UNPROTECTED, "ARA-014": WITHIN_5,
@@ -120,7 +129,7 @@ MAP = {
     "ARA-042": same_as("ARA-029 / ARA-030"),
     "ARA-049": ARI_EXPOSED,
     "ARA-050": ("plumbing_type", GALV, "always", "", "mixed-galvanized / lead are not form options"),
-    "ARA-056": ("roof_type", "roof_type != Metal", "always", "", ""),
+    "ARA-056": ("roof_type", "roof_type not in " + METAL, "always", "", "every metal roof (round 35)"),
     "ARA-059": ROOF_LIFE,
     "ARA-078": money("dwelling_amount <= 700000"),
     "ARA-079": money("dwelling_amount <= 1000000"),
@@ -128,8 +137,7 @@ MAP = {
     # ================= ARI HOB
     "ARB-005": ("county", f"county not in {TWIA_TIER1[:-1]}, Harris}} || county not in {TWIA_TIER1}", "always", "",
                 "TWIA's Tier 1 counties; Harris only east of Highway 146 (not asked): AMBIGUOUS"),
-    "ARB-006": ("roof_type", "roof_type not in {Wood Shake, Slate} || roof_type not in {Wood Shake, Slate, Metal, "
-                             "Flat/Built-Up}", "always", "", "as ARA-007, slate included"),
+    "ARB-006": ARI_ROOF_SLATE,
     "ARB-007": ARI_FLAT, "ARB-008": ARI_TILE, "ARB-009": TOWNHOME, "ARB-011": ARI_UNPROTECTED, "ARB-012": WITHIN_5,
     "ARB-014": ("construction_type", MOBILE, "always", "", ""),
     "ARB-021": ARI_POOL,
@@ -149,7 +157,7 @@ MAP = {
     "ARB-040": ("year_built", "home_age <= 20", "always", "", "homes over 20 years go to HOA / HOA Plus"),
     "ARB-046": ARI_EXPOSED,
     "ARB-048": ("plumbing_type", GALV, "always", "", "mixed-galvanized / lead are not form options"),
-    "ARB-055": ("roof_type", "roof_type != Metal", "always", "", ""),
+    "ARB-055": ("roof_type", "roof_type not in " + METAL, "always", "", "every metal roof (round 35)"),
     "ARB-058": ROOF_LIFE,
     "ARB-083": money("dwelling_amount <= 700000"),
     "ARB-087": money("dwelling_amount <= 1000000"),
@@ -197,7 +205,7 @@ MAP = {
     "LIB-006": ("occupancy_type", NOT_TENANT, "always", "", "seasonal homes are referred (LIB-066); Vacant is LIB-043's"),
     "LIB-028": ("construction_type", MOBILE, "always", "", ""),
     "LIB-033": ("year_built", "FACT(no fuses, knob and tube or aluminum wiring)", "year_built < 1976", "wiring", ""),
-    "LIB-034": ("roof_type", "roof_type != Wood Shake", "always", "", ""),
+    "LIB-034": ("roof_type", NOT_WOOD, "always", "", ""),
     "LIB-048": ("ownership_type", "ownership_type != LLC", "always", "", ""),
     "LIB-051": ("ppc;dwelling_amount", "dwelling_amount <= 3000000", "ppc_num == 9", "", ""),
     "LIB-052": ("ppc;dwelling_amount", "dwelling_amount <= 1000000", "ppc_num == 10", "", ""),
@@ -221,10 +229,13 @@ MAP = {
     "ORI-005": ("dwelling_type", "FACT(fire wall between units to the roof line)", "dwelling_type == Townhome",
                 "fire wall", ""),
     "ORI-007": ("dwelling_type", "FACT(an individual residential unit)", "dwelling_type == Townhome", "unit", ""),
-    "ORI-012": ("roof_type", "roof_type != Wood Shake and (roof_type != Other or FACT(roof material on Orion's list: "
-                "architectural / composite shingle, tile, slate, poured concrete, adobe or metal))", "always",
-                "roof material", "Composition = asphalt fiberglass composite shingles; flat roofs are ORI-013's; "
-                "Other is a confirm note (round 35)"),
+    # "Architectural shingles, asphalt fiberglass composite shingles, clay or concrete tile, slate, poured
+    # concrete, adobe and metal. All other roof materials are ineligible."
+    "ORI-012": ("roof_type", "roof_type not in " + _roofs(WOOD, BUILT_UP, ROLLED_ROOF, MEMBRANE, ASBESTOS, TLOCK,
+                                                          SOLAR_ROOF)
+                + " and (roof_type not in {Other} or FACT(roof material on Orion's list: architectural / composite "
+                "shingle, tile, slate, poured concrete, adobe or metal))", "always", "roof material",
+                "Composition = asphalt fiberglass composite shingles; Other is a confirm note (round 35)"),
     "ORI-013": ("roof_shape;roof_type", "FACT(poured concrete or adobe)", FLAT, "flat roof material", ""),
     "ORI-024": ("ownership_type", "FACT(a trust for personal estate planning)", TRUST, "trust purpose", ""),
     "ORI-025": ("ownership_type;occupancy_type", NOT_TENANT, TRUST, "", ""),
@@ -234,7 +245,8 @@ MAP = {
     "ORI-048": ("ownership_type", "ownership_type != LLC", "always", "", ""),
     "ORI-050": ("year_built", "year_built >= 1900", "always", "", ""),
     "ORI-056": ("construction_type", MOBILE, "always", "", "barndominiums are not a form option"),
-    "ORI-059": ("roof_type", "roof_type != Metal || always", "always", "", "Metal may not be corrugated metal"),
+    "ORI-059": ("roof_type", "roof_type not in " + _roofs(PANEL, TLOCK), "always", "",
+                "'corrugated metal, T-lock shingles' (round 35)"),
     "ORI-092": ("has_dogs", "FACT(no animal with a bite history or aggression)", DOGS, "bite history", ""),
     "ORI-102": money("dwelling_amount between 350000 and 2000000"),
     # ================= Swyfft Benchmark (Surplus) HO3
@@ -257,10 +269,9 @@ MAP = {
     "SLL-054": ("year_built", "year_built >= 1950", "always", "", ""),
     "SLL-011": same_as("SLL-054", "year_built"),
     "SLL-015": ("roof_type;roof_age",
-                "(roof_type in {Tile, Slate} and roof_age <= 40) or roof_age <= 25 || "
-                "(roof_type in {Tile, Slate, Metal} and roof_age <= 40) or roof_age <= 25", "always", "",
+                "(roof_type in " + _roofs("Tile", "Slate", SEAM) + " and roof_age <= 40) or roof_age <= 25", "always", "",
                 "25 years (shingles, light metal, built-up, wood); 40 years (standing seam metal, tile, slate): "
-                "Metal is AMBIGUOUS"),
+                "the guide's own table, SLL-031..033 (round 35)"),
     "SLL-035": ("occupancy_type", NOT_VACANT, "always", "", ""),
     "SLL-042": ("occupancy_type", "always", SEASONAL, "", "the form's Seasonal / Secondary Home is owner-occupied"),
     "SLL-043": ("occupancy_type", "FACT(the owner's primary residence is in the United States)", SEASONAL,
@@ -303,8 +314,9 @@ MAP = {
     "TWI-039": ("plumbing_type", GALV_POLY, "always", "", ""),
     "TWI-020": same_as("TWI-039", "plumbing_type"),
     "TWI-035": ("construction_type", MOBILE, "always", "", "prefabricated homes are not a form option"),
-    "TWI-037": ("roof_type", "roof_type not in {Wood Shake, Slate} || roof_type not in {Wood Shake, Slate, Metal}",
-                "always", "", "Metal may not be metal tile / shake / shingle or corrugated metal"),
+    # "wood, asbestos, slate, aluminum shake, metal tile/shake/shingle, corrugated metal roofs"
+    "TWI-037": ("roof_type", "roof_type not in " + _roofs(WOOD, ASBESTOS, "Slate", MSHINGLE, PANEL), "always", "",
+                "standing seam is eligible (round 35)"),
     "TWI-055": same_as("TWI-037", "roof_type"), "TWI-057": same_as("TWI-037", "roof_type"),
     "TWI-042": ("occupancy_type", NOT_VACANT, "always", "", ""),
     "TWI-044": ("coastal_tier", "FACT(not on a barrier island)", TIER1, "barrier island", ""),
@@ -330,8 +342,9 @@ MAP = {
                                                  "5 road miles"),
     "TRV-039": ("occupancy_type;ppc;primary_home_carrier", "primary_home_carrier == Travelers",
                 "occupancy_type in {Seasonal, Secondary Home} and ppc_num >= 9", "primary dwelling with Travelers", ""),
-    "TRV-041": ("roof_type", "roof_type != Wood Shake || roof_type not in {Wood Shake, Flat/Built-Up}", "always", "",
-                "rolled asphalt may or may not be the form's Flat/Built-Up"),
+    # "asbestos shingles, T-lock shingles, Atlas Chalet shingles, wood shakes, wood shingles, rolled asphalt"
+    "TRV-041": ("roof_type", "roof_type not in " + _roofs(ASBESTOS, TLOCK, WOOD, ROLLED_ROOF), "always", "",
+                "Atlas Chalet is not a form option (round 35)"),
     "TRV-044": ("roof_age;roof_type", "FACT(not in Wind/Hail/Tornado UW Classification High 1 or High 2)",
                 "roof_age > 10 and roof_type not in {Tile, Slate}",
                 "wind/hail UW class", "cure: Roof Condition Questionnaire"),

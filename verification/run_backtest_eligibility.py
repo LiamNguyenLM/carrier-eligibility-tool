@@ -35,8 +35,12 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CURRENT_YEAR = 2026
 LIVE_SWITCHES = ("ELIGIBILITY_RULES_PILOT", "ELIGIBILITY_RULES_SAGE_BATCH", "ELIGIBILITY_RULES_HO3_BATCH",
                  "ELIGIBILITY_RULES_DP_BATCH")
-ROOF = {"Composition": "Composition Shingle", "Metal": "Metal", "SteelPorcelainShingle": "Metal",
-        "SteelPorcelainShingles": "Metal", "Tile": "Tile", "ClayTile": "Tile", "WoodShakeShingle": "Wood Shake"}
+# Round 35 step 3b: HawkSoft's "Metal" does not say which kind -- the old value, read as unknown; porcelain-enamel
+# steel shingles are the metal shingle option
+ROOF = {"Composition": "Composition Shingle", "Metal": "Metal",
+        "SteelPorcelainShingle": "Metal: shingle / tile / shake (incl. stone-coated)",
+        "SteelPorcelainShingles": "Metal: shingle / tile / shake (incl. stone-coated)", "Tile": "Tile", "ClayTile": "Tile",
+        "WoodShakeShingle": "Wood shake / wood shingle"}
 CONSTRUCTION = {"MasonryVeneer": "Masonry Veneer", "Frame": "Frame", "Masonry": "Masonry",
                 "JoistedMasonry": "Masonry"}
 DWELLING = {"Dwelling": "House", "Townhouse": "Townhome"}
