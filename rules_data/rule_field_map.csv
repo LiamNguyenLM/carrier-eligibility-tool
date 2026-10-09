@@ -42,9 +42,9 @@ ALL-052,NONE,,,DECLINES,,siding / construction details are not form options
 ALL-053,NONE,,,DECLINES,,siding / construction details are not form options
 ALL-054,NONE,,,DECLINES,,siding / construction details are not form options
 ALL-055,NONE,,,DECLINES,,siding / construction details are not form options
-ALL-057,plumbing_type;year_built,"plumbing_type not in {Galvanized, Polybutylene} || plumbing_type not in {Galvanized, Polybutylene} and (plumbing_type != PEX or year_built >= 2011)",always,DECLINES,,AMBIGUOUS only for PEX in a home built before 2011 (install year unknown); lead/cast iron not on the form
-ALL-058,plumbing_type;year_built,"plumbing_type not in {Galvanized, Polybutylene} || plumbing_type not in {Galvanized, Polybutylene} and (plumbing_type != PEX or year_built >= 2011)",home_age between 40 and 75,NOTE,,cure is a service inspection -> NOTE
-ALL-060,plumbing_type;year_built,"plumbing_type not in {Galvanized, Polybutylene} || plumbing_type not in {Galvanized, Polybutylene} and (plumbing_type != PEX or year_built >= 2011)",home_age >= 76,NOTE,,cure is a service inspection -> NOTE
+ALL-057,plumbing_type;year_built,"plumbing_type not in {Galvanized, Polybutylene} and pex_2011 == True",always,DECLINES,,AMBIGUOUS only for PEX in a home built before 2011 (install year unknown); lead/cast iron not on the form
+ALL-058,plumbing_type;year_built,"plumbing_type not in {Galvanized, Polybutylene, Cast iron} and pex_2011 == True",home_age between 40 and 75,NOTE,,cure is a service inspection -> NOTE
+ALL-060,plumbing_type;year_built,"plumbing_type not in {Galvanized, Polybutylene, Cast iron} and pex_2011 == True",home_age >= 76,NOTE,,cure is a service inspection -> NOTE
 ALL-062,NONE,,,DECLINES,,wiring and panels are not asked
 ALL-063,NONE,,,DECLINES,,wiring and panels are not asked
 ALL-064,NONE,,,DECLINES,,wiring and panels are not asked
@@ -346,8 +346,8 @@ MER-024,NONE,,,DECLINES,,siding / construction details are not form options
 MER-025,NONE,,,DECLINES,,siding / construction details are not form options
 MER-026,NONE,,,DECLINES,,siding / construction details are not form options
 MER-027,NONE,,,DECLINES,,siding / construction details are not form options
-MER-029,plumbing_type,"plumbing_type in {Copper, PVC, PEX}",always,NOTE,,"cure (plumber statement, over 50 years) is an inspection -> NOTE"
-MER-030,plumbing_type,"plumbing_type not in {Galvanized, Polybutylene}",always,DECLINES,,cast iron is not a form option
+MER-029,plumbing_type,"plumbing_type in {Copper, PVC, PEX: installed 2011 or later, PEX: installed before 2011, PEX: install year unknown}",always,NOTE,,"cure (plumber statement, over 50 years) is an inspection -> NOTE"
+MER-030,plumbing_type,"plumbing_type not in {Galvanized, Polybutylene, Cast iron}",always,DECLINES,,"'Galvanized, cast-iron and polybutylene' (round 35: cast iron is a form option)"
 MER-034,NONE,,,DECLINES,,wiring and panels are not asked
 MER-035,NONE,,,DECLINES,,wiring and panels are not asked
 MER-036,NONE,,,DECLINES,,wiring and panels are not asked
@@ -436,7 +436,7 @@ PRO-035,NONE,,,DECLINES,,siding / construction details are not form options
 PRO-036,NONE,,,DECLINES,,siding / construction details are not form options
 PRO-037,NONE,,,DECLINES,,siding / construction details are not form options
 PRO-038,NONE,,,CONDITION,,"applies only to plumbing replaced as a required update, which the form does not ask"
-PRO-039,plumbing_type;year_built,"plumbing_type not in {Galvanized, Polybutylene} || plumbing_type not in {Galvanized, Polybutylene} and (plumbing_type != PEX or year_built >= 2011)",always,DECLINES,,AMBIGUOUS only for PEX in a home built before 2011
+PRO-039,plumbing_type;year_built,"plumbing_type not in {Galvanized, Polybutylene} and pex_2011 == True",always,DECLINES,,AMBIGUOUS only for PEX in a home built before 2011
 PRO-040,NONE,,,DECLINES,,wiring and panels are not asked
 PRO-041,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 PRO-042,NONE,,,CONDITION,,"heating, cooling and water heater are not asked"

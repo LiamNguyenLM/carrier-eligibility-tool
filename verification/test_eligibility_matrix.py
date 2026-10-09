@@ -7124,7 +7124,8 @@ class TestTopicForm:
         ("ppc", "3", "ppc"), ("coastal", "Tier 2 - Moderate coastal area", "coastal"),
         # CHANGED 2026-10-09 (round 35 step 3b): "Metal" is no longer an option. Was: ("rooftype", "Metal", ...).
         ("rooftype", "Metal: standing seam", "roof_type"), ("roofshape", "Hip", "roof_shape"),
-        ("construction", "Masonry", "construction"), ("plumbing", "PEX", "plumbing"),
+        # CHANGED 2026-10-09 (round 35 step 3c): "PEX" is now three install-year options. Was: ("plumbing", "PEX", ...).
+        ("construction", "Masonry", "construction"), ("plumbing", "PEX: installed 2011 or later", "plumbing"),
         ("pool", "In Ground - Fenced", "pool"), ("county", "Harris", "county"),
     ])
     def test_changing_a_selectbox_ticks_only_its_box(self, monkeypatch, widget, value, topic):

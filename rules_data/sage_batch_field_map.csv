@@ -513,7 +513,7 @@ VAV-029,NONE,,,CONDITION,,rehab details are not asked
 VAV-042,NONE,,,DECLINES,,siding / construction details are not form options
 VAV-043,NONE,,,DECLINES,,siding / construction details are not form options
 VAV-044,NONE,,,DECLINES,,siding / construction details are not form options
-VAV-047,plumbing_type,"plumbing_type not in {Galvanized, Polybutylene}",always,DECLINES,,steel / iron are not form options (Unknown / Other stay unknown)
+VAV-047,plumbing_type,"plumbing_type not in {Galvanized, Polybutylene, Cast iron}",always,DECLINES,,"'galvanized, steel, iron or polybutylene': iron includes cast iron (round 35); steel is not a form option"
 VAV-048,NONE,,,DECLINES,,wiring and panels are not asked
 VAV-050,NONE,,,DECLINES,,wiring and panels are not asked
 VAV-051,NONE,,,DECLINES,,wiring and panels are not asked

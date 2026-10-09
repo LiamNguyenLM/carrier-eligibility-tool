@@ -345,3 +345,39 @@ def roof_type_answer(value):
         return ROOF_LEGACY[value]
     return value or None
 
+
+# ---------------------------------------------------------------------------
+# Round 35 step 3c (Liam, 2026-10-09, decision 1): plumbing. PEX by its install year (Allied, Progressive and
+# others decline PEX installed before 2011), and Cast iron (Allied, Mercury, Centauri, Vave list it). Stored
+# values hold no comma; PLUMBING_LABELS is what the form shows.
+PEX_2011_ON = "PEX: installed 2011 or later"
+PEX_PRE_2011 = "PEX: installed before 2011"
+PEX_YEAR_UNKNOWN = "PEX: install year unknown"
+PEX_TYPES = (PEX_2011_ON, PEX_PRE_2011, PEX_YEAR_UNKNOWN)
+PLUMBING_TYPES = ("Copper", "PVC", *PEX_TYPES, "Galvanized", "Polybutylene", "Cast iron", "Unknown", "Other")
+PLUMBING_LABELS = {PEX_2011_ON: "PEX, installed 2011 or later", PEX_PRE_2011: "PEX, installed before 2011",
+                   PEX_YEAR_UNKNOWN: "PEX, install year unknown"}
+PLUMBING_LEGACY = {"PEX": PEX_YEAR_UNKNOWN}      # an old saved "PEX" never said when it went in
+
+
+def plumbing_answer(value):
+    """The plumbing material as the rules read it (None = unknown)."""
+    value = PLUMBING_LEGACY.get(value, value)
+    return None if value in (None, "", "Unknown", "Other") else value
+
+
+def pex_2011(plumbing, year_built):
+    """For the "PEX installed before 2011" rules: True when the plumbing is not pre-2011 PEX, False when it is,
+    None when it is PEX of unknown install year in a home built before 2011 (or the year is not known). A home
+    built in 2011 or later cannot hold PEX installed before 2011."""
+    if plumbing is None:
+        return None
+    if plumbing == PEX_PRE_2011:
+        return False
+    if plumbing != PEX_YEAR_UNKNOWN:
+        return True
+    try:
+        return True if int(year_built) >= 2011 else None
+    except (TypeError, ValueError):
+        return None
+

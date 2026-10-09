@@ -38,7 +38,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from build_rule_field_map import DOGS, FLAT, NONE_NOTE, POOL_OK, SEASONAL, breed_line  # noqa: E402
-from build_rule_field_map import PEX_2011  # noqa: E402
+from build_rule_field_map import PEX_2011, PEX_ANY  # noqa: E402
 from build_rule_field_map import (ASBESTOS, BUILT_UP, METAL, MEMBRANE, NOT_WOOD, PANEL, PROG_ROOF, PROG_ROOF_NOTE,  # noqa: E402
                                   ROLLED_ROOF, SEAM, MSHINGLE, TLOCK, WOOD, _roofs)
 from build_sage_batch_map import (BATCH_NONE_NOTE, EAST_TEXAS, FPC_7ROWS, FPC_B13, FPC_B410, FPC_BC,  # noqa: E402
@@ -138,7 +138,8 @@ MAP = {
                 + " or FACT(the metal is not sheet tin or aluminum))", "always", "metal kind",
                 "membrane is a flat-roof covering"),
     "CHO-056": same_as("CHO-024", "roof_type;roof_shape"),
-    "CHO-045": ("plumbing_type", GALV_POLY, "always", "", "cast iron is not a form option"),
+    "CHO-045": ("plumbing_type", "plumbing_type not in {Galvanized, Polybutylene, Cast iron}", "always", "",
+                "'polybutylene, cast-iron or galvanized' (round 35)"),
     "CHO-049": ("occupancy_type", NOT_VACANT, "always", "", ""),
     "CHO-051": ("construction_type", MOBILE, "always", "", ""),
     "CHO-059": PPC_1_8,
@@ -162,7 +163,7 @@ MAP = {
                 ENTITY, "who the trust / LLC benefits", ""),
     "LDP-024": ("construction_type", MOBILE, "always", "", ""),
     "LDP-035": WOOD_ROOF,
-    "LDP-049": ("plumbing_type", "plumbing_type in {Copper, PEX, PVC}", "always", "", ""),
+    "LDP-049": ("plumbing_type", "plumbing_type in {Copper, PVC, " + PEX_ANY[1:], "always", "", ""),
     "LDP-050": NO_BITES,
     "LDP-069": money("dwelling_amount <= 1500000"),
     # ================= NatGen Custom360 Landlord
@@ -228,7 +229,8 @@ MAP = {
     "PDP-063": ("dwelling_type", "FACT(4 or fewer family units in the fire division)", "dwelling_type == Townhome",
                 "units per fire division", ""),
     "PDP-064": ("construction_type", MOBILE, "always", "", ""),
-    "PDP-088": ("plumbing_type", "plumbing_type not in {Galvanized, Polybutylene, PEX}", "always", "", ""),
+    "PDP-088": ("plumbing_type", "plumbing_type not in {Galvanized, Polybutylene, " + PEX_ANY[1:], "always", "",
+                "any PEX (round 35)"),
     "PDP-096": ("roof_age", "FACT(5+ years of useful life left)", "roof_age >= 15", "remaining roof life",
                 "as ARA-059"),
     "PDP-098": ("roof_type", PROG_ROOF, "always", "membrane kind", PROG_ROOF_NOTE),
@@ -250,7 +252,8 @@ MAP = {
                 "the form's tiers are not distances"),
     "PH6-050": ("ppc", "FACT(visible to neighbors)", "ppc_num >= 9", "visibility", ""),
     "PH6-069": ("year_built", "home_age <= 100", "always", "", ""),
-    "PH6-074": ("plumbing_type;year_built", PEX_2011, "always", "", "PEX installed before 2011: year built stands in"),
+    # round 35 step 3c (Claude's audit): the install year decides, not year built
+    "PH6-074": ("plumbing_type;year_built", PEX_2011, "always", "", "PEX installed before 2011: the form's install year"),
     "PH6-077": ("roof_type", PROG_ROOF, "always", "membrane kind", PROG_ROOF_NOTE),
     "PH6-086": breed_line("progressive", "open", "'includes, but is not limited to'"),
     "PH6-092": money("dwelling_amount <= 500000"),
@@ -375,7 +378,8 @@ MAP = {
                 "the entity's purpose, principals and holdings", ""),
     "VDP-064": same_as("VDP-063", "ownership_type"), "VDP-065": same_as("VDP-063", "ownership_type"),
     "VDP-066": same_as("VDP-063", "ownership_type"), "VDP-067": same_as("VDP-063", "ownership_type"),
-    "VDP-069": ("plumbing_type", GALV_POLY, "always", "", "steel / iron are not form options"),
+    "VDP-069": ("plumbing_type", "plumbing_type not in {Galvanized, Polybutylene, Cast iron}", "always", "",
+                "'galvanized, steel, iron or polybutylene': iron includes cast iron (round 35); steel is not a form option"),
     # ================= Steadily DP3
     "STD-024": ("occupancy_type", NOT_VACANT, "always", "", ""),
     "STD-041": ("construction_type", MOBILE, "always", "", ""),

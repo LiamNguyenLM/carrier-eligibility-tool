@@ -102,7 +102,7 @@ CHO-039,NONE,,,DECLINES,,wiring and panels are not asked
 CHO-040,NONE,,,DECLINES,,wiring and panels are not asked
 CHO-042,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 CHO-043,NONE,,,REFERS_TO_UW,,"heating, cooling and water heater are not asked"
-CHO-045,plumbing_type,"plumbing_type not in {Galvanized, Polybutylene}",always,DECLINES,,cast iron is not a form option
+CHO-045,plumbing_type,"plumbing_type not in {Galvanized, Polybutylene, Cast iron}",always,DECLINES,,"'polybutylene, cast-iron or galvanized' (round 35)"
 CHO-049,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 CHO-050,NONE,,,REFERS_TO_UW,,not asked by the form
 CHO-051,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,
@@ -164,7 +164,7 @@ LDP-044,NONE,,,CONDITION,,"heating, cooling and water heater are not asked"
 LDP-045,NONE,,,CONDITION,,"heating, cooling and water heater are not asked"
 LDP-047,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 LDP-048,NONE,,,DECLINES,,wiring and panels are not asked
-LDP-049,plumbing_type,"plumbing_type in {Copper, PEX, PVC}",always,DECLINES,,
+LDP-049,plumbing_type,"plumbing_type in {Copper, PVC, PEX: installed 2011 or later, PEX: installed before 2011, PEX: install year unknown}",always,DECLINES,,
 LDP-050,has_dogs,FACT(no dog with a bite history),has_dogs == Yes,DECLINES,bite history,
 LDP-051,NONE,,,DECLINES,,other animals and bite claims are not asked
 LDP-052,NONE,,,DECLINES,,other animals and bite claims are not asked
@@ -439,7 +439,7 @@ PDP-071,NONE,,,DECLINES,,siding / construction details are not form options
 PDP-079,NONE,,,DECLINES,,foundation is not asked
 PDP-083,NONE,,,DECLINES,,foundation is not asked
 PDP-087,NONE,,,DECLINES,,wiring and panels are not asked
-PDP-088,plumbing_type,"plumbing_type not in {Galvanized, Polybutylene, PEX}",always,DECLINES,,
+PDP-088,plumbing_type,"plumbing_type not in {Galvanized, Polybutylene, PEX: installed 2011 or later, PEX: installed before 2011, PEX: install year unknown}",always,DECLINES,,any PEX (round 35)
 PDP-090,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 PDP-091,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 PDP-093,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
@@ -514,7 +514,7 @@ PH6-066,NONE,,,CONDITION,,not asked by the form
 PH6-067,NONE,,,CONDITION,,not asked by the form
 PH6-069,year_built,home_age <= 100,always,REFERS_TO_UW,,
 PH6-073,NONE,,,DECLINES,,wiring and panels are not asked
-PH6-074,plumbing_type;year_built,"plumbing_type not in {Galvanized, Polybutylene} and (plumbing_type != PEX or year_built >= 2011)",always,DECLINES,,PEX installed before 2011: year built stands in
+PH6-074,plumbing_type;year_built,"plumbing_type not in {Galvanized, Polybutylene} and pex_2011 == True",always,DECLINES,,PEX installed before 2011: the form's install year
 PH6-077,roof_type,"roof_type not in {Wood shake / wood shingle, Built-up (tar and gravel), Rolled roofing, Metal: corrugated / exposed-fastener / tin / aluminum panels} and (roof_type not in {Membrane (rubber/EPDM / TPO / modified bitumen)} or FACT(the membrane is not rubber))",always,DECLINES,membrane kind,"'wood ..., tar and gravel, rubber membrane, tin, rolled roofing, and corrugated metal'"
 PH6-078,NONE,,,UNKNOWN,,roof condition and layers are not asked
 PH6-079,NONE,,,DECLINES,,roof condition and layers are not asked
@@ -850,7 +850,7 @@ VDP-064,ownership_type,always,always,CONDITION,,decided by VDP-063 (the same rul
 VDP-065,ownership_type,always,always,CONDITION,,decided by VDP-063 (the same rule); never a second flaw
 VDP-066,ownership_type,always,always,CONDITION,,decided by VDP-063 (the same rule); never a second flaw
 VDP-067,ownership_type,always,always,CONDITION,,decided by VDP-063 (the same rule); never a second flaw
-VDP-069,plumbing_type,"plumbing_type not in {Galvanized, Polybutylene}",always,DECLINES,,steel / iron are not form options
+VDP-069,plumbing_type,"plumbing_type not in {Galvanized, Polybutylene, Cast iron}",always,DECLINES,,"'galvanized, steel, iron or polybutylene': iron includes cast iron (round 35); steel is not a form option"
 VDP-070,NONE,,,DECLINES,,not asked by the form
 STD-009,NONE,,,DECLINES,,not asked by the form
 STD-010,NONE,,,DECLINES,,not asked by the form

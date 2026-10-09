@@ -102,7 +102,11 @@ def breed_line(carrier, kind, note=""):
             "open_ack": "other dangerous breeds; Animal Liability Exclusion endorsement"}[kind]
     return (DOG_FIELDS, test, DOGS, fact, note)
 NO_BAD_PLUMB = "plumbing_type not in {Galvanized, Polybutylene}"
-PEX_2011 = "plumbing_type not in {Galvanized, Polybutylene} and (plumbing_type != PEX or year_built >= 2011)"
+# Round 35 step 3c: "PEX installed before 2011" reads the form's install-year options (intake_fields.pex_2011):
+# before 2011 fails; unknown install year holds unless the home was built in 2011 or later.
+PEX_ANY = "{" + ", ".join(intake_fields.PEX_TYPES) + "}"
+PEX_2011 = "plumbing_type not in {Galvanized, Polybutylene} and pex_2011 == True"
+PEX_2011_CAST = "plumbing_type not in {Galvanized, Polybutylene, Cast iron} and pex_2011 == True"
 TIER2 = ("{Bee, Brooks, Fort Bend, Goliad, Hardin, Harris, Hidalgo, Jackson, Jim Wells, Liberty, Live Oak, "
          "Orange, Victoria, Wharton}")
 MER_HIGH = ("{77015, 77034, 77058, 77059, 77062, 77075, 77089, 77465, 77502, 77503, 77504, 77505, 77506, 77507, "
@@ -198,18 +202,20 @@ MAP = {
                 "station / hydrant distance if not given", ""),
     "MER-010": ("year_built", "FACT(Functional Replacement Cost coverage)", "year_built < 1940", "loss settlement", ""),
     # ---------------- PLUMBING
-    "ALL-057": ("plumbing_type;year_built", NO_BAD_PLUMB + " || " + PEX_2011, "always", "",
+    "ALL-057": ("plumbing_type;year_built", PEX_2011, "always", "",
                 "AMBIGUOUS only for PEX in a home built before 2011 (install year unknown); lead/cast iron not on the form"),
-    "ALL-058": ("plumbing_type;year_built", NO_BAD_PLUMB + " || " + PEX_2011, "home_age between 40 and 75", "",
+    "ALL-058": ("plumbing_type;year_built", PEX_2011_CAST, "home_age between 40 and 75", "",
                 "cure is a service inspection -> NOTE"),
-    "ALL-060": ("plumbing_type;year_built", NO_BAD_PLUMB + " || " + PEX_2011, "home_age >= 76", "",
+    "ALL-060": ("plumbing_type;year_built", PEX_2011_CAST, "home_age >= 76", "",
                 "cure is a service inspection -> NOTE"),
     # ALL-061: COVERAGE_ONLY since 2026-10-09 (round 32 step 1) -- the Limited Water Damage re-plumb, not a rule
     "SAG-042": ("plumbing_type", "plumbing_type != Polybutylene", "always", "", ""),
-    "MER-029": ("plumbing_type", "plumbing_type in {Copper, PVC, PEX}", "always", "",
+    "MER-029": ("plumbing_type", "plumbing_type in {Copper, PVC, " + ", ".join(intake_fields.PEX_TYPES) + "}",
+                "always", "",
                 "cure (plumber statement, over 50 years) is an inspection -> NOTE"),
-    "MER-030": ("plumbing_type", NO_BAD_PLUMB, "always", "", "cast iron is not a form option"),
-    "PRO-039": ("plumbing_type;year_built", NO_BAD_PLUMB + " || " + PEX_2011, "always", "",
+    "MER-030": ("plumbing_type", "plumbing_type not in {Galvanized, Polybutylene, Cast iron}", "always", "",
+                "'Galvanized, cast-iron and polybutylene' (round 35: cast iron is a form option)"),
+    "PRO-039": ("plumbing_type;year_built", PEX_2011, "always", "",
                 "AMBIGUOUS only for PEX in a home built before 2011"),
     "SWY-026": ("plumbing_type", NO_BAD_PLUMB, "always", "", ""),
     # ---------------- POOL

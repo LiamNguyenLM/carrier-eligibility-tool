@@ -329,8 +329,9 @@ def facts(pd, today=None):
     f["dwelling_amount"] = intake_fields.parse_dwelling_amount(pd.get("dwelling_amount"))
     f["zip"] = intake_fields.parse_zip(pd.get("zip"))[0] or None
     f["dwelling_type"] = intake_fields.normalize_dwelling_type(pd.get("dwelling_type")) or None
-    if f.get("plumbing_type") in ("Unknown", "Other"):
-        f["plumbing_type"] = None
+    # Round 35 step 3c: an old saved "PEX" is PEX of unknown install year; Unknown / Other are unknown
+    f["plumbing_type"] = intake_fields.plumbing_answer(pd.get("plumbing_type"))
+    f["pex_2011"] = intake_fields.pex_2011(f["plumbing_type"], pd.get("year_built"))
     if f.get("ppc") in ("N/A", ""):
         f["ppc"] = None
     # Round 26 (decision B): blank / Unknown is unknown, never "no".

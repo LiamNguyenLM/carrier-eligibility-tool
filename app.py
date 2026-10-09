@@ -219,9 +219,11 @@ with tab1:
             "Frame", "Masonry", "Masonry Veneer", "Superior", "Manufactured/Mobile"
         ], key="construction", on_change=_autotick, args=("construction", "construction", "Frame"))
         _check_box("construction")
-        plumbing_type = st.selectbox("Plumbing Type", [
-            "Copper", "PVC", "PEX", "Galvanized", "Polybutylene", "Unknown", "Other"
-        ], key="plumbing", on_change=_autotick, args=("plumbing", "plumbing", "Copper"))
+        # Round 35 step 3c (Liam, 2026-10-09, decision 1): PEX by install year (the "before 2011" rules), and
+        # Cast iron. Stored values hold no comma; the labels are Liam's wording.
+        plumbing_type = st.selectbox("Plumbing Type", list(intake_fields.PLUMBING_TYPES),
+                                     format_func=lambda v: intake_fields.PLUMBING_LABELS.get(v, v),
+                                     key="plumbing", on_change=_autotick, args=("plumbing", "plumbing", "Copper"))
         _check_box("plumbing")
     with col2:
         roof_shape = st.selectbox("Roof Shape", [
