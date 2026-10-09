@@ -23,7 +23,7 @@ ARA-025,swimming_pool;pool_gate_locking,"swimming_pool not in {In Ground - Unfen
 ARA-026,swimming_pool;pool_accessories,pool_accessories == None,swimming_pool != No Pool,DECLINES,,
 ARA-028,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 ARA-029,occupancy_type;primary_home_carrier,primary_home_carrier == ARI,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,ARI insures the primary home,round 30 step 1: the form's 'Primary home insured with'
-ARA-030,occupancy_type,occupancy_type == Owner Occupied,"occupancy_type in {Seasonal, Secondary Home}",REFERS_TO_UW,,a seasonal or secondary home is always referred (ineligible unless ARI insures the primary)
+ARA-030,occupancy_type;primary_home_carrier,occupancy_type == Owner Occupied,"occupancy_type in {Seasonal, Secondary Home} and primary_home_carrier == ARI",REFERS_TO_UW,,round 35: refer only when ARI insures the primary (else ARA-029 declines or holds)
 ARA-031,NONE,,,DECLINES,,siding / construction details are not form options
 ARA-032,NONE,,,DECLINES,,foundation is not asked
 ARA-033,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,DECLINES,,"the form's breed list is not ARI's (German Shepherd, Great Dane...)"
@@ -61,7 +61,7 @@ ARA-075,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
 ARA-078,dwelling_amount,dwelling_amount <= 700000,always,REFERS_TO_UW,,
 ARA-079,dwelling_amount,dwelling_amount <= 1000000,always,DECLINES,,
 ARA-083,NONE,,,DECLINES,,not asked by the form
-ARA-085,ppc,ppc_num <= 9,always,DECLINES,,class 10 is beyond 5 road miles of a fire station
+ARA-085,ppc,always,always,DECLINES,,decided by ARA-014 (the same rule); never a second flaw
 ARB-002,NONE,,,CONDITION,,not asked by the form
 ARB-004,NONE,,,CONDITION,,flood zone is not asked
 ARB-005,county,"county not in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy, Harris} || county not in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy}",always,DECLINES,,TWIA's Tier 1 counties; Harris only east of Highway 146 (not asked): AMBIGUOUS
@@ -83,7 +83,7 @@ ARB-020,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 ARB-021,swimming_pool;pool_gate_locking,"swimming_pool not in {In Ground - Unfenced, Above Ground - Unfenced} and pool_gate_locking == True and FACT(fence at least 6 ft)",swimming_pool != No Pool,DECLINES,6 ft fence; locked or self-locking gate,the form's fence box is 4 ft
 ARB-022,swimming_pool;pool_accessories,pool_accessories == None,swimming_pool != No Pool,DECLINES,,
 ARB-024,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
-ARB-025,occupancy_type,occupancy_type == Owner Occupied,"occupancy_type in {Seasonal, Secondary Home}",REFERS_TO_UW,,a seasonal or secondary home is always referred (ineligible unless ARI insures the primary)
+ARB-025,occupancy_type;primary_home_carrier,occupancy_type == Owner Occupied,"occupancy_type in {Seasonal, Secondary Home} and primary_home_carrier == ARI",REFERS_TO_UW,,round 35: refer only when ARI insures the primary (ARB-036 declines the others)
 ARB-026,NONE,,,DECLINES,,siding / construction details are not form options
 ARB-027,NONE,,,DECLINES,,foundation is not asked
 ARB-028,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,DECLINES,,the form's breed list is not ARI's
@@ -93,7 +93,7 @@ ARB-031,NONE,,,DECLINES,,other animals and bite claims are not asked
 ARB-032,NONE,,,DECLINES,,the number of individual owners is not asked
 ARB-034,NONE,,,CONDITION,,"TIV, Coverage B and the HO5 form are not asked"
 ARB-035,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,Vacant is decided by ARB-024
-ARB-036,occupancy_type,always,always,DECLINES,,decided by ARB-025 (the same rule); never a second flaw
+ARB-036,occupancy_type;primary_home_carrier,primary_home_carrier == ARI,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,ARI insures the primary home,the form's 'Primary home insured with'
 ARB-037,NONE,,,DECLINES,,not asked by the form
 ARB-039,occupancy_type,always,always,REFERS_TO_UW,,decided by ARB-025 (the same rule); never a second flaw
 ARB-040,year_built,home_age <= 20,always,DECLINES,,homes over 20 years go to HOA / HOA Plus
@@ -126,7 +126,7 @@ ARB-083,dwelling_amount,dwelling_amount <= 700000,always,REFERS_TO_UW,,
 ARB-084,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
 ARB-087,dwelling_amount,dwelling_amount <= 1000000,always,DECLINES,,
 ARB-091,NONE,,,DECLINES,,not asked by the form
-ARB-093,ppc,ppc_num <= 9,always,DECLINES,,class 10 is beyond 5 road miles of a fire station
+ARB-093,ppc,always,always,DECLINES,,decided by ARB-012 (the same rule); never a second flaw
 FOR-001,NONE,,,DECLINES,,product / binding status is not a property fact
 FOR-002,NONE,,,DECLINES,,product / binding status is not a property fact
 FOR-003,NONE,,,DECLINES,,product / binding status is not a property fact
@@ -165,7 +165,7 @@ FOR-047,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 FOR-048,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 FOR-049,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 FOR-051,NONE,,,REFERS_TO_UW,,foundation is not asked
-FOR-053,swimming_pool;pool_fence_4ft;pool_gate_locking,"swimming_pool not in {In Ground - Unfenced, Above Ground - Unfenced} and pool_fence_4ft == True and pool_gate_locking == True",swimming_pool != No Pool,CONDITION,fence 4 ft; self-latching gate,a pool cage also qualifies (not a form option)
+FOR-053,swimming_pool;pool_fence_4ft;pool_gate_locking,"(swimming_pool in {In Ground - Fenced, Above Ground - Fenced} and pool_fence_4ft == True and pool_gate_locking == True) or (swimming_pool == Above Ground - Unfenced and FACT(deck at least 4 ft with a self-locking gate, or sides at least 4 ft with a locking retractable ladder))",swimming_pool != No Pool,CONDITION,fence 4 ft; self-locking gate; above-ground deck / sides,a pool cage also qualifies (not a form option)
 FOR-054,NONE,,,DECLINES,,"pool rentals, ladders, decking and covers are not asked"
 FOR-056,NONE,,,CONDITION,,liability hazards are not asked
 FOR-059,NONE,,,DECLINES,,liability hazards are not asked
@@ -307,7 +307,7 @@ ORI-005,dwelling_type,FACT(fire wall between units to the roof line),dwelling_ty
 ORI-007,dwelling_type,FACT(an individual residential unit),dwelling_type == Townhome,DECLINES,unit,
 ORI-009,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 ORI-010,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
-ORI-012,roof_type,roof_type != Wood Shake,always,DECLINES,,Composition = asphalt fiberglass composite shingles; flat roofs are ORI-013's; Other is not decided
+ORI-012,roof_type,"roof_type != Wood Shake and (roof_type != Other or FACT(roof material on Orion's list: architectural / composite shingle, tile, slate, poured concrete, adobe or metal))",always,DECLINES,roof material,Composition = asphalt fiberglass composite shingles; flat roofs are ORI-013's; Other is a confirm note (round 35)
 ORI-013,roof_shape;roof_type,FACT(poured concrete or adobe),(roof_shape == Flat or roof_type == Flat/Built-Up),DECLINES,flat roof material,
 ORI-016,NONE,,,DECLINES,,foundation is not asked
 ORI-017,NONE,,,DECLINES,,foundation is not asked
@@ -373,7 +373,7 @@ SBS-001,dwelling_amount,dwelling_amount between 150000 and 2000000,always,DECLIN
 SBS-003,year_built,home_age <= 100 or FACT(completely renovated),always,DECLINES,renovation,a completely renovated home may use the renovation year
 SBS-004,NONE,,,REFERS_TO_UW,,siding / construction details are not form options
 SBS-005,roof_age,roof_age <= 30,always,DECLINES,,
-SBS-008,swimming_pool;pool_fence_4ft;pool_gate_locking,"swimming_pool not in {In Ground - Unfenced, Above Ground - Unfenced} and pool_fence_4ft == True and pool_gate_locking == True",swimming_pool != No Pool,CONDITION,fence 4 ft; self-latching gate,a pool cage also qualifies (not a form option)
+SBS-008,swimming_pool;pool_fence_4ft;pool_gate_locking,swimming_pool != Above Ground - Unfenced and pool_fence_4ft == True and pool_gate_locking == True,swimming_pool != No Pool,CONDITION,fence 4 ft; self-latching gate,an unfenced in-ground pool is the decline row's; a pool cage also qualifies
 SBS-020,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 SBS-021,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SBS-022,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
@@ -464,7 +464,7 @@ SLL-080,ownership_type,ownership_type != Trust,always,REFERS_TO_UW,,
 SLL-081,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
 STO-001,NONE,,,DECLINES,,"TIV, Coverage B and the HO5 form are not asked"
 STO-002,dwelling_amount,dwelling_amount between 150000 and 2000000,always,DECLINES,,
-STO-004,swimming_pool;pool_fence_4ft;pool_gate_locking,"swimming_pool not in {In Ground - Unfenced, Above Ground - Unfenced} and pool_fence_4ft == True and pool_gate_locking == True",swimming_pool != No Pool,CONDITION,fence 4 ft; self-latching gate,a pool cage also qualifies (not a form option)
+STO-004,swimming_pool;pool_fence_4ft;pool_gate_locking,swimming_pool != Above Ground - Unfenced and pool_fence_4ft == True and pool_gate_locking == True,swimming_pool != No Pool,CONDITION,fence 4 ft; self-latching gate,an unfenced in-ground pool is the decline row's; a pool cage also qualifies
 STO-010,year_built,home_age <= 100 or FACT(completely renovated),always,DECLINES,renovation,a completely renovated home may use the renovation year
 STO-012,roof_age,roof_age <= 30,always,DECLINES,,
 STO-018,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,DECLINES,,the form's breed list is not Swyfft's
@@ -558,7 +558,7 @@ TRV-028,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or 
 TRV-029,NONE,,,DECLINES,,foundation is not asked
 TRV-030,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,
 TRV-032,dwelling_amount,FACT(monitored central station fire and burglar alarm),dwelling_amount >= 1500000,CONDITION,alarm,
-TRV-033,occupancy_type;dwelling_amount,FACT(monitored low-temperature sensor and alarm),"occupancy_type in {Seasonal, Secondary Home} and dwelling_amount >= 500000",CONDITION,sensors,
+TRV-033,occupancy_type;dwelling_amount,FACT(monitored low-temperature sensor and either a monitored water-flow sensor or an automatic main water shut-off valve),"occupancy_type in {Seasonal, Secondary Home} and dwelling_amount >= 500000",CONDITION,sensors,
 TRV-034,NONE,,,CONDITION,,"TIV, Coverage B and the HO5 form are not asked"
 TRV-035,NONE,,,CONDITION,,"TIV, Coverage B and the HO5 form are not asked"
 TRV-036,ppc;fire_station_miles,station_miles_iso <= 7,always,DECLINES,station distance if not given,a stated distance decides; else ISO classes 1-9 are within 5 road miles
@@ -569,9 +569,9 @@ TRV-040,NONE,,,DECLINES,,siding / construction details are not form options
 TRV-041,roof_type,"roof_type != Wood Shake || roof_type not in {Wood Shake, Flat/Built-Up}",always,DECLINES,,rolled asphalt may or may not be the form's Flat/Built-Up
 TRV-042,NONE,,,DECLINES,,roof condition and layers are not asked
 TRV-043,NONE,,,DECLINES,,roof condition and layers are not asked
-TRV-044,roof_age,FACT(not in Wind/Hail/Tornado UW Classification High 1 or High 2),roof_age > 10,NOTE,wind/hail UW class,cure: Roof Condition Questionnaire
-TRV-045,roof_age,FACT(not in Wind/Hail/Tornado UW Classification High 3),roof_age > 15,NOTE,wind/hail UW class,cure: Roof Condition Questionnaire
-TRV-046,roof_age,roof_age <= 25,always,NOTE,,cure: Roof Condition Questionnaire
+TRV-044,roof_age;roof_type,FACT(not in Wind/Hail/Tornado UW Classification High 1 or High 2),"roof_age > 10 and roof_type not in {Tile, Slate}",NOTE,wind/hail UW class,cure: Roof Condition Questionnaire
+TRV-045,roof_age;roof_type,FACT(not in Wind/Hail/Tornado UW Classification High 3),"roof_age > 15 and roof_type not in {Tile, Slate}",NOTE,wind/hail UW class,cure: Roof Condition Questionnaire
+TRV-046,roof_age;roof_type,roof_age <= 25,"roof_type not in {Tile, Slate}",NOTE,,cure: Roof Condition Questionnaire; tile and slate are exempt (round 35)
 TRV-048,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 TRV-049,NONE,,,NOTE,,"heating, cooling and water heater are not asked"
 TRV-050,NONE,,,NOTE,,"heating, cooling and water heater are not asked"
@@ -598,7 +598,7 @@ TRV-071,NONE,,,REFERS_TO_UW,,not asked by the form
 TRV-072,NONE,,,REFERS_TO_UW,,rehab details are not asked
 TRV-073,occupancy_type;dwelling_amount,FACT(monitored central station fire and burglar alarm),"occupancy_type in {Seasonal, Secondary Home} and dwelling_amount >= 500000",REFERS_TO_UW,alarm,
 TRV-074,dwelling_amount,dwelling_amount < 2000000,always,REFERS_TO_UW,,
-TRV-075,dwelling_type;dwelling_amount,dwelling_amount < 500000,dwelling_type == Condo,REFERS_TO_UW,,"Coverage A + C combined; Coverage C is not asked, so A alone"
+TRV-075,dwelling_type;dwelling_amount,"dwelling_amount < 500000 and FACT(Coverage A + C combined under $500,000)",dwelling_type == Condo,REFERS_TO_UW,Coverage C,"Coverage A + C combined; Coverage C is not asked: A alone decides a fail, A + C is confirmed"
 TRV-076,NONE,,,REFERS_TO_UW,,"TIV, Coverage B and the HO5 form are not asked"
 TRV-077,NONE,,,REFERS_TO_UW,,"TIV, Coverage B and the HO5 form are not asked"
 TRV-079,NONE,,,CONDITION,,flood zone is not asked

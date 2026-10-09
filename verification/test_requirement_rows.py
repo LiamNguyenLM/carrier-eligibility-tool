@@ -36,7 +36,8 @@ def test_every_listed_row_is_a_mapped_line_and_the_list_is_complete():
     assert all(rid in m for rid in ev.REQUIREMENT_OUTCOMES)
     # CHANGED 2026-10-09 (round 32 step 1, Claude review): ALL-061 is a coverage row now, not a requirement
     # row (55 -> 54). Was: == 55.
-    assert len(ev.REQUIREMENT_OUTCOMES) + len(ev.REQUIREMENT_UNCHANGED) == 54
+    # CHANGED 2026-10-09 (round 35 step 2, Claude's map audit): ALL-094 refers (an underwriting-approved alternate enclosure, ALL-093). 54 -> 55.
+    assert len(ev.REQUIREMENT_OUTCOMES) + len(ev.REQUIREMENT_UNCHANGED) == 55
     assert "ALL-061" not in ev.REQUIREMENT_OUTCOMES and "ALL-061" not in ev.REQUIREMENT_UNCHANGED
     assert all(m[rid]["outcome_if_fail"] == out for rid, (out, _) in ev.REQUIREMENT_OUTCOMES.items())
     assert {out for out, _ in ev.REQUIREMENT_OUTCOMES.values()} == {"DECLINES", "REFERS_TO_UW"}
@@ -48,7 +49,10 @@ def test_every_listed_row_is_a_mapped_line_and_the_list_is_complete():
     ("Sage_-_SURE_HO-3_-_01.31.2026", "SUR-019", {"ownership_type": "Trust", "occupancy_type": "Tenant Occupied"}),
     ("Sage_-_Vave_HO3_-_07.01.2026", "VAV-014", {"ownership_type": "Trust", "occupancy_type": "Tenant Occupied"}),
     ("Centauri_-_DP3_-_11.16.2022", "CDP-072", {"ownership_type": "LLC", "occupancy_type": "Seasonal"}),
-    ("Swyfft_-_Benchmark_(Surplus)_HO3", "SBS-008", {"swimming_pool": "In Ground - Unfenced"}),
+    # CHANGED 2026-10-09 (round 35 step 2, Claude's map audit): an unfenced in-ground pool is SBS-049's decline (one fact, one flaw), so SBS-008 is shown
+    # unmet by an unfenced above-ground pool. Was: In Ground - Unfenced.
+    ("Swyfft_-_Benchmark_(Surplus)_HO3", "SBS-008", {"swimming_pool": "Above Ground - Unfenced"}),
+    ("Swyfft_-_Benchmark_(Surplus)_HO3", "SBS-049", {"swimming_pool": "In Ground - Unfenced"}),
     ("Swyfft_-_Benchmark_(Admitted)_HO3", "SWY-035", {"swimming_pool": "Above Ground - Unfenced"}),
     ("Sage_-_SURE_HO-3_-_01.31.2026", "SUR-116", {"ppc": "6", "fire_station_miles": "7", "year_built": 1990}),
 ])

@@ -1,6 +1,6 @@
 # source: rules_data/build_rule_field_map.py over rules_data/carrier_rules_pilot_v5.csv (pilot workbook version 5); built 2026-10-07 (round 28: SAG-001, one flaw per fact). Grammar: rules_data/RULE_FIELD_MAP.md.
 row_id,field,test,gate,outcome_if_fail,open_fact,map_note
-ALL-001,occupancy_type,always,occupancy_type == Owner Occupied,DECLINES,,Owner Occupied = primary residence
+ALL-001,occupancy_type,FACT(owner-occupied at least 9 months a year),occupancy_type == Owner Occupied,DECLINES,9 months a year,Owner Occupied = primary residence; the months are not asked (round 35)
 ALL-002,occupancy_type,"FACT(3+ months a year, no rental exposure)","occupancy_type in {Seasonal, Secondary Home}",CONDITION,months occupied; rentals,
 ALL-004,occupancy_type,"occupancy_type in {Owner Occupied, Seasonal, Secondary Home}",always,DECLINES,,
 ALL-005,occupancy_type,"occupancy_type not in {Tenant Occupied, Vacant}",always,DECLINES,,
@@ -163,7 +163,7 @@ SAG-014,NONE,,,DECLINES,,the form has no field for this
 SAG-015,NONE,,,CONDITION,,the form has no field for this
 SAG-017,ownership_type,ownership_type != LLC,always,DECLINES,,
 SAG-018,NONE,,,DECLINES,,the form has no field for this
-SAG-019,ownership_type;occupancy_type,"occupancy_type in {Owner Occupied, Seasonal, Secondary Home}",ownership_type == Trust,CONDITION,,as the Sage sister guides' trust-occupancy rows
+SAG-019,ownership_type;occupancy_type,"occupancy_type in {Owner Occupied, Seasonal, Secondary Home} and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there,as the Sage sister guides' trust-occupancy rows
 SAG-020,NONE,,,DECLINES,,the form has no field for this
 SAG-021,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,
 SAG-022,NONE,,,CONDITION,,the form has no field for this
@@ -189,7 +189,7 @@ SAG-049,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 SAG-052,NONE,,,DECLINES,,foundation is not asked
 SAG-053,NONE,,,DECLINES,,foundation is not asked
 SAG-055,swimming_pool;pool_fence_4ft;pool_gate_locking,swimming_pool != In Ground - Unfenced and pool_fence_4ft == True and pool_gate_locking == True,"swimming_pool in {In Ground - Fenced, In Ground - Unfenced}",DECLINES,fence 4 ft; gate,
-SAG-056,swimming_pool;pool_fence_4ft;pool_gate_locking,pool_fence_4ft == True and pool_gate_locking == True,"swimming_pool in {Above Ground - Fenced, Above Ground - Unfenced}",DECLINES,fence 4 ft; gate,a pool wall of 4 ft or more is not asked; read as needing the fence
+SAG-056,swimming_pool;pool_fence_4ft;pool_gate_locking,(swimming_pool == Above Ground - Fenced and pool_fence_4ft == True and pool_gate_locking == True) or FACT(above-ground pool wall 4 ft or higher),"swimming_pool in {Above Ground - Fenced, Above Ground - Unfenced}",DECLINES,fence 4 ft; gate; pool wall height,"round 35 step 2: the rule is for above-ground pools under 4 ft; an unfenced one is a confirm note on the wall height, never a hold on the fence boxes"
 SAG-057,NONE,,,DECLINES,,the form has no field for this
 SAG-058,NONE,,,DECLINES,,the form has no field for this
 SAG-059,NONE,,,DECLINES,,the form has no field for this
@@ -253,15 +253,16 @@ SAG-150,NONE,,,REFERS_TO_UW,,not asked by the form
 SAG-151,NONE,,,DECLINES,,not asked by the form
 CHU-002,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 CHU-003,NONE,,,DECLINES,,the form has no field for this
-CHU-004,occupancy_type;dwelling_type;primary_home_carrier,primary_home_carrier == Chubb,"occupancy_type in {Seasonal, Secondary Home} or occupancy_type == Tenant Occupied or dwelling_type == Condo",CONDITION,Chubb writes the primary,
+CHU-004,occupancy_type;dwelling_type;primary_home_carrier,primary_home_carrier == Chubb,"occupancy_type in {Seasonal, Secondary Home, Tenant Occupied}",CONDITION,Chubb writes the primary,
 CHU-005,occupancy_type,FACT(Chubb writes the primary residence),occupancy_type == Tenant Occupied,CONDITION,Chubb writes the primary,
 CHU-009,NONE,,,CONDITION,,the form has no field for this
 CHU-011,NONE,,,UNKNOWN,,the form has no field for this
-CHU-012,roof_shape;roof_type,not (roof_shape == Flat or roof_type == Flat/Built-Up) or county == El Paso,always,DECLINES,,"El Paso gets underwriting consideration, read as not declined"
+CHU-012,roof_shape;roof_type;county,not (roof_shape == Flat or roof_type == Flat/Built-Up),county != El Paso,DECLINES,,El Paso is CHU-111's
+CHU-111,roof_shape;roof_type;county,not (roof_shape == Flat or roof_type == Flat/Built-Up),county == El Paso,REFERS_TO_UW,,split from CHU-012 (round 35): underwriting consideration in El Paso
 CHU-014,roof_type,FACT(wildfire score not 10-50),roof_type == Wood Shake,DECLINES,wildfire score,
 CHU-016,NONE,,,DECLINES,,the form has no field for this
 CHU-017,NONE,,,DECLINES,,the form has no field for this
-CHU-020,roof_type,roof_type != Wood Shake,always,REFERS_TO_UW,,tier ignored: other tiers are unacceptable
+CHU-020,roof_type;county,roof_type != Wood Shake,"county not in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Harris, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy}",REFERS_TO_UW,,outside the coastal areas (CHU-021 is the coast's); tier ignored: other tiers are unacceptable
 CHU-021,roof_type;county,roof_type != Wood Shake,"county in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Harris, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy}",REFERS_TO_UW,,
 CHU-024,NONE,,,UNKNOWN,,"applies only to plumbing replaced as a required update, which the form does not ask"
 CHU-029,NONE,,,DECLINES,,liability hazards are not asked
@@ -273,8 +274,8 @@ CHU-037,NONE,,,CONDITION,,the form has no field for this
 CHU-040,NONE,,,DECLINES,,location detail beyond county / tier is not asked
 CHU-041,NONE,,,DECLINES,,location detail beyond county / tier is not asked
 CHU-042,NONE,,,CONDITION,,location detail beyond county / tier is not asked
-CHU-043,county,FACT(not Territory 8/9/10 or Harris 1A),"county in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Harris, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy}",DECLINES,Chubb territory,no ZIP list in the guide
-CHU-044,county,FACT(not Harris 1B/1C/1E),county == Harris,REFERS_TO_UW,Chubb territory,
+CHU-043,county;occupancy_type,FACT(not Territory 8/9/10 or Harris 1A),"county in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Harris, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy} and occupancy_type == Owner Occupied",DECLINES,Chubb territory,primary houses (round 35); CHU-047 is the others'; no ZIP list in the guide
+CHU-044,county;occupancy_type,FACT(not Harris 1B/1C/1E),county == Harris and occupancy_type == Owner Occupied,REFERS_TO_UW,Chubb territory,primary houses (round 35)
 CHU-045,county;occupancy_type;primary_home_carrier,primary_home_carrier == Chubb,"county == Harris and occupancy_type in {Seasonal, Secondary Home}",CONDITION,Chubb territory; primary,
 CHU-046,county;occupancy_type;primary_home_carrier,"primary_home_carrier == Chubb and FACT($25,000 non-CAT premium)","county == Harris and occupancy_type in {Seasonal, Secondary Home}",CONDITION,Chubb territory; premium,
 CHU-047,county;occupancy_type,FACT(not Harris 1A-east or Territory 8/9/10),"county in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Harris, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy} and occupancy_type in {Seasonal, Secondary Home}",DECLINES,Chubb territory,
@@ -283,8 +284,8 @@ CHU-051,NONE,,,DECLINES,,the form has no field for this
 CHU-052,NONE,,,DECLINES,,the form has no field for this
 CHU-053,NONE,,,DECLINES,,the form has no field for this
 CHU-054,NONE,,,DECLINES,,the form has no field for this
-CHU-056,dwelling_amount;dwelling_type,dwelling_amount >= 1000000,dwelling_type == House,REFERS_TO_UW,,below the Preferred minimum the Standard tier needs pre-approval (round 20 REFER)
-CHU-059,dwelling_type,dwelling_type != Condo,always,REFERS_TO_UW,,
+CHU-056,dwelling_amount;dwelling_type;occupancy_type,dwelling_amount between 1000000 and 30000000,dwelling_type == House and occupancy_type == Owner Occupied,REFERS_TO_UW,,primary houses (round 35); below the Preferred minimum or over the $30M maximum: pre-approval
+CHU-059,dwelling_type;occupancy_type,dwelling_type != Condo,occupancy_type == Owner Occupied,REFERS_TO_UW,,primary condominiums (round 35); others are CHU-004's
 CHU-060,NONE,,,REFERS_TO_UW,,the form has no field for this
 CHU-061,NONE,,,DECLINES,,the form has no field for this
 CHU-062,NONE,,,DECLINES,,loss / claims history is not asked
@@ -380,7 +381,7 @@ MER-082,NONE,,,REFERS_TO_UW,,the form has no field for this
 MER-083,NONE,,,REFERS_TO_UW,,the form has no field for this
 MER-084,NONE,,,CONDITION,,the form has no field for this
 MER-085,NONE,,,DECLINES,,the form has no field for this
-MER-086,dwelling_amount;county;zip,dwelling_amount <= 1000000,"county in {Bee, Brooks, Fort Bend, Goliad, Hardin, Harris, Hidalgo, Jackson, Jim Wells, Liberty, Live Oak, Orange, Victoria, Wharton}",DECLINES,,
+MER-086,dwelling_amount;county;zip,dwelling_amount <= 1000000,"county in {Bee, Brooks, Fort Bend, Goliad, Hardin, Harris, Hidalgo, Jackson, Jim Wells, Liberty, Live Oak, Orange, Victoria, Wharton} and zip in {77015, 77034, 77058, 77059, 77062, 77075, 77089, 77465, 77502, 77503, 77504, 77505, 77506, 77507, 77520, 77521, 77523, 77530, 77536, 77546, 77547, 77562, 77571, 77581, 77586, 77587, 77597, 77598, 77969, 77971, 77979, 77991, 77001, 77002, 77003, 77004, 77006, 77009, 77010, 77011, 77012, 77013, 77016, 77017, 77019, 77020, 77021, 77023, 77026, 77028, 77029, 77030, 77033, 77044, 77047, 77048, 77049, 77050, 77051, 77054, 77061, 77078, 77087, 77204, 77346, 77396, 77532, 77533, 77535, 77538, 77575, 77582, 77584, 77611, 77630, 77951, 77977, 78387}",DECLINES,ZIP,Tier II High / Moderate ZIP codes (MER-068 / MER-069)
 MER-087,NONE,,,DECLINES,,loss / claims history is not asked
 MER-088,NONE,,,DECLINES,,loss / claims history is not asked
 MER-089,NONE,,,DECLINES,,loss / claims history is not asked
@@ -489,7 +490,7 @@ PRO-098,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
 PRO-099,NONE,,,DECLINES,,loss / claims history is not asked
 PRO-100,NONE,,,CONDITION,,loss / claims history is not asked
 PRO-105,NONE,,,CONDITION,,the form has no field for this
-PRO-108,county,"county not in {Hidalgo, Webb}",always,DECLINES,,same rule as PRO-072
+PRO-108,county,always,always,DECLINES,,decided by PRO-072 (the same rule); never a second flaw
 PRO-109,NONE,,,CONDITION,,product / binding status is not a property fact
 PRO-110,NONE,,,DECLINES,,not asked by the form
 PRO-111,NONE,,,CONDITION,,not asked by the form

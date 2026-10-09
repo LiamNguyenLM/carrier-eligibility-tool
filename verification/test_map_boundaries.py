@@ -139,7 +139,12 @@ CASES += [
     money("MER-078", 750000, "max", {"dwelling_type": "Condo"}),
     money("MER-080", 1250000, "or_more_refers"),                          # "$1,250,000 or more"
     money("MER-081", 500000, "or_more_refers", {"dwelling_type": "Condo"}),
-    money("MER-086", 1000000, "max", {"county": "Harris"}),
+    # CHANGED 2026-10-09 (round 35 step 2, Claude's map audit): the $1M cap is for the Tier II High / Moderate ZIP lists only.
+    # Was: money("MER-086", 1000000, "max", {"county": "Harris"}) (every Harris home).
+    money("MER-086", 1000000, "max", {"county": "Harris", "zip": "77015"}),        # a High-list ZIP
+    ("MER-086", {"county": "Harris", "zip": "77002"}, "dwelling_amount", {1000001: "FAIL"}),   # Moderate list
+    ("MER-086", {"county": "Harris", "zip": "77095"}, "dwelling_amount", {1000001: "N/A"}),    # neither list
+    ("MER-086", {"county": "Harris"}, "dwelling_amount", {1000001: "NOTE"}),   # blank ZIP: decision 1 note
     # ---- Progressive
     ("PRO-068", {}, "ppc", {"8": "N/A", "9": "OPEN", "10": "OPEN"}),      # "protection class 9 or 10"
     ("PRO-088", {}, "dwelling_amount", {99999: "FAIL", 100000: "PASS", 5000000: "PASS", 5000001: "FAIL"}),
@@ -176,7 +181,10 @@ CASES += [
     *[(rid, {}, "roof_age", {14: "N/A", 15: "OPEN"}) for rid in ("ARA-059", "ARB-058")],      # 5 years' life left
     *[money(rid, 700000, "over_refers") for rid in ("ARA-078", "ARB-083")],                    # binding limit $700,000
     *[money(rid, 1000000, "max") for rid in ("ARA-079", "ARB-087")],                           # Coverage A max $1,000,000
-    *[(rid, {}, "ppc", {"9": "PASS", "10": "FAIL"}) for rid in ("ARA-085", "ARB-093", "ORI-029")],  # class 10 ineligible
+    ("ORI-029", {}, "ppc", {"9": "PASS", "10": "FAIL"}),                                 # class 10 ineligible
+    # CHANGED 2026-10-09 (round 35 step 2, Claude's map audit): ARA-085 / ARB-093 are the >5-mile split-class rows, ARA-014's / ARB-012's fact, and no longer
+    # decline every PPC 10 (ARA-013 / ARB-011 decide unprotected homes). Was: {"9": "PASS", "10": "FAIL"}.
+    *[(rid, {}, "ppc", {"9": "PASS", "10": "PASS"}) for rid in ("ARA-085", "ARB-093")],
     ("ARB-040", {}, "year_built", {age(20): "PASS", age(21): "FAIL"}),                        # "homes 0-20 years old"
     money("FOR-005", 100000, "min"), money("FOR-006", 750000, "max"),
     money("HOA-001", 150000, "min"), money("HOA-002", 2000000, "max"),
@@ -223,7 +231,9 @@ CASES += [
     ("TRV-045", {}, "roof_age", {15: "N/A", 16: "NOTE"}),
     ("TRV-046", {}, "roof_age", {25: "PASS", 26: "NOTE"}),                                     # cure: questionnaire
     money("TRV-074", 2000000, "or_more_refers"),                                               # "$2,000,000 or more"
-    money("TRV-075", 500000, "or_more_refers", {"dwelling_type": "Condo"}),
+    # CHANGED 2026-10-09 (round 35 step 2, Claude's map audit): Coverage A + C combined -- under $500,000 of A alone is a confirm note on A + C.
+    # Was: money("TRV-075", 500000, "or_more_refers", {"dwelling_type": "Condo"}) (499,999 PASS).
+    ("TRV-075", {"dwelling_type": "Condo"}, "dwelling_amount", {499999: "NOTE", 500000: "FAIL", 500001: "FAIL"}),
     ("TRV-082", {"coastal_tier": "Tier 2"}, "year_built", {1999: "OPEN", 2000: "PASS"}),       # "unless built in 2000 or newer"
     ("TRV-083", {"coastal_tier": "Tier 2"}, "dwelling_amount", {1000000: "PASS", 1000001: "OPEN"}),
 ]

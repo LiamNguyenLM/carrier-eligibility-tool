@@ -17,7 +17,7 @@ SUR-015,occupancy_type,always,always,DECLINES,,decided by SUR-024 (the same rule
 SUR-016,occupancy_type;dwelling_type,dwelling_type == House,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,,
 SUR-017,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SUR-018,occupancy_type,FACT(property checked while the owner is away),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,checks while away,
-SUR-019,ownership_type;occupancy_type,occupancy_type != Tenant Occupied,ownership_type == Trust,CONDITION,,
+SUR-019,ownership_type;occupancy_type,"occupancy_type != Tenant Occupied and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there,round 35 step 2: the occupant is not asked -- a confirm note
 SUR-020,ownership_type,FACT(family held trust),ownership_type == Trust,CONDITION,family held trust,
 SUR-021,ownership_type,FACT(only one trust on the property),ownership_type == Trust,DECLINES,number of trusts,
 SUR-022,NONE,,,REFERS_TO_UW,,"rentals, mailing address and occupancy dates are not asked"
@@ -52,11 +52,11 @@ SUR-055,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or 
 SUR-056,NONE,,,CONDITION,,liability hazards are not asked
 SUR-060,swimming_pool;pool_gate_locking,swimming_pool != In Ground - Unfenced and pool_gate_locking == True,"swimming_pool in {In Ground - Fenced, In Ground - Unfenced}",DECLINES,gate,
 SUR-061,swimming_pool;pool_fence_4ft,pool_fence_4ft == True,swimming_pool == In Ground - Fenced,DECLINES,fence 4 ft,"an unfenced in-ground pool fails the gate row once, not this row too"
-SUR-062,swimming_pool;pool_fence_4ft;pool_gate_locking,pool_fence_4ft == True and pool_gate_locking == True,"swimming_pool in {Above Ground - Fenced, Above Ground - Unfenced}",DECLINES,fence 4 ft; gate,the rule is for above-ground pools under 4 ft; pool height is not asked
+SUR-062,swimming_pool;pool_fence_4ft;pool_gate_locking,(swimming_pool == Above Ground - Fenced and pool_fence_4ft == True and pool_gate_locking == True) or FACT(above-ground pool wall 4 ft or higher),"swimming_pool in {Above Ground - Fenced, Above Ground - Unfenced}",DECLINES,fence 4 ft; gate; pool wall height,"round 35 step 2: the rule is for above-ground pools under 4 ft; an unfenced one is a confirm note on the wall height, never a hold on the fence boxes"
 SUR-063,NONE,,,DECLINES,,"pool rentals, ladders, decking and covers are not asked"
 SUR-064,NONE,,,DECLINES,,"pool rentals, ladders, decking and covers are not asked"
 SUR-065,NONE,,,DECLINES,,"pool rentals, ladders, decking and covers are not asked"
-SUR-066,pool_accessories,FACT(signed acknowledgement of the slide/diving board exclusion),pool_accessories != None,CONDITION,signed acknowledgement,
+SUR-066,swimming_pool;pool_accessories,FACT(signed acknowledgement of the slide/diving board exclusion),swimming_pool != No Pool and pool_accessories != None,CONDITION,signed acknowledgement,"round 35: no pool, no slide row"
 SUR-067,NONE,,,CONDITION,,liability hazards are not asked
 SUR-068,NONE,,,DECLINES,,liability hazards are not asked
 SUR-069,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,CONDITION,,a signed acknowledgement cures
@@ -130,7 +130,7 @@ SFP-015,occupancy_type,always,always,DECLINES,,decided by SFP-024 (the same rule
 SFP-016,occupancy_type;dwelling_type,dwelling_type == House,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,,
 SFP-017,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SFP-018,occupancy_type,FACT(property checked while the owner is away),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,checks while away,
-SFP-019,ownership_type;occupancy_type,occupancy_type != Tenant Occupied,ownership_type == Trust,CONDITION,,
+SFP-019,ownership_type;occupancy_type,"occupancy_type != Tenant Occupied and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there,round 35 step 2: the occupant is not asked -- a confirm note
 SFP-020,ownership_type,FACT(family held trust),ownership_type == Trust,CONDITION,family held trust,
 SFP-021,ownership_type,FACT(only one trust on the property),ownership_type == Trust,DECLINES,number of trusts,
 SFP-022,NONE,,,REFERS_TO_UW,,"rentals, mailing address and occupancy dates are not asked"
@@ -164,11 +164,11 @@ SFP-054,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or 
 SFP-055,NONE,,,CONDITION,,liability hazards are not asked
 SFP-059,swimming_pool;pool_gate_locking,swimming_pool != In Ground - Unfenced and pool_gate_locking == True,"swimming_pool in {In Ground - Fenced, In Ground - Unfenced}",DECLINES,gate,
 SFP-060,swimming_pool;pool_fence_4ft,pool_fence_4ft == True,swimming_pool == In Ground - Fenced,DECLINES,fence 4 ft,"an unfenced in-ground pool fails the gate row once, not this row too"
-SFP-061,swimming_pool;pool_fence_4ft;pool_gate_locking,pool_fence_4ft == True and pool_gate_locking == True,"swimming_pool in {Above Ground - Fenced, Above Ground - Unfenced}",DECLINES,fence 4 ft; gate,the rule is for above-ground pools under 4 ft; pool height is not asked
+SFP-061,swimming_pool;pool_fence_4ft;pool_gate_locking,(swimming_pool == Above Ground - Fenced and pool_fence_4ft == True and pool_gate_locking == True) or FACT(above-ground pool wall 4 ft or higher),"swimming_pool in {Above Ground - Fenced, Above Ground - Unfenced}",DECLINES,fence 4 ft; gate; pool wall height,"round 35 step 2: the rule is for above-ground pools under 4 ft; an unfenced one is a confirm note on the wall height, never a hold on the fence boxes"
 SFP-062,NONE,,,DECLINES,,"pool rentals, ladders, decking and covers are not asked"
 SFP-063,NONE,,,DECLINES,,"pool rentals, ladders, decking and covers are not asked"
 SFP-064,NONE,,,DECLINES,,"pool rentals, ladders, decking and covers are not asked"
-SFP-065,pool_accessories,FACT(signed acknowledgement of the slide/diving board exclusion),pool_accessories != None,CONDITION,signed acknowledgement,
+SFP-065,swimming_pool;pool_accessories,FACT(signed acknowledgement of the slide/diving board exclusion),swimming_pool != No Pool and pool_accessories != None,CONDITION,signed acknowledgement,"round 35: no pool, no slide row"
 SFP-067,NONE,,,CONDITION,,liability hazards are not asked
 SFP-069,NONE,,,DECLINES,,liability hazards are not asked
 SFP-070,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,CONDITION,,a signed acknowledgement cures
@@ -247,7 +247,7 @@ WIL-015,occupancy_type,always,always,DECLINES,,decided by WIL-024 (the same rule
 WIL-016,occupancy_type;dwelling_type,dwelling_type == House,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,,
 WIL-017,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 WIL-018,occupancy_type,FACT(property checked while the owner is away),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,checks while away,
-WIL-019,ownership_type;occupancy_type,occupancy_type != Tenant Occupied,ownership_type == Trust,CONDITION,,
+WIL-019,ownership_type;occupancy_type,"occupancy_type != Tenant Occupied and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there,round 35 step 2: the occupant is not asked -- a confirm note
 WIL-020,ownership_type,FACT(family held trust),ownership_type == Trust,CONDITION,family held trust,
 WIL-021,ownership_type,FACT(only one trust on the property),ownership_type == Trust,DECLINES,number of trusts,
 WIL-022,NONE,,,REFERS_TO_UW,,"rentals, mailing address and occupancy dates are not asked"
@@ -343,7 +343,7 @@ TRI-019,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,occupancy_type == O
 TRI-020,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,occupancy_type != Tenant Occupied and FACT(no rental exposures),(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given; rental exposures,
 TRI-021,ownership_type,ownership_type != LLC,always,DECLINES,,
 TRI-022,NONE,,,DECLINES,,the number of individual owners is not asked
-TRI-023,ownership_type;occupancy_type,occupancy_type != Tenant Occupied,ownership_type == Trust,CONDITION,,
+TRI-023,ownership_type;occupancy_type,"occupancy_type != Tenant Occupied and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there,round 35 step 2: the occupant is not asked -- a confirm note
 TRI-024,ownership_type,FACT(family held trust),ownership_type == Trust,CONDITION,family held trust,
 TRI-025,ownership_type,FACT(only one trust on the property),ownership_type == Trust,DECLINES,number of trusts,
 TRI-026,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
@@ -376,11 +376,11 @@ TRI-063,NONE,,,DECLINES,,foundation is not asked
 TRI-066,swimming_pool;pool_gate_locking,swimming_pool != In Ground - Unfenced and pool_gate_locking == True,"swimming_pool in {In Ground - Fenced, In Ground - Unfenced}",DECLINES,gate,
 TRI-067,swimming_pool,always,always,DECLINES,,decided by TRI-068 (the same rule); never a second flaw
 TRI-068,swimming_pool;pool_fence_4ft,pool_fence_4ft == True,swimming_pool == In Ground - Fenced,DECLINES,fence 4 ft,"an unfenced in-ground pool fails the gate row once, not this row too"
-TRI-069,swimming_pool;pool_fence_4ft;pool_gate_locking,pool_fence_4ft == True and pool_gate_locking == True,"swimming_pool in {Above Ground - Fenced, Above Ground - Unfenced}",DECLINES,fence 4 ft; gate,the rule is for above-ground pools under 4 ft; pool height is not asked
+TRI-069,swimming_pool;pool_fence_4ft;pool_gate_locking,(swimming_pool == Above Ground - Fenced and pool_fence_4ft == True and pool_gate_locking == True) or FACT(above-ground pool wall 4 ft or higher),"swimming_pool in {Above Ground - Fenced, Above Ground - Unfenced}",DECLINES,fence 4 ft; gate; pool wall height,"round 35 step 2: the rule is for above-ground pools under 4 ft; an unfenced one is a confirm note on the wall height, never a hold on the fence boxes"
 TRI-070,NONE,,,DECLINES,,"pool rentals, ladders, decking and covers are not asked"
 TRI-071,NONE,,,DECLINES,,"pool rentals, ladders, decking and covers are not asked"
 TRI-072,NONE,,,DECLINES,,"pool rentals, ladders, decking and covers are not asked"
-TRI-074,pool_accessories,FACT(signed acknowledgement of the slide/diving board exclusion),pool_accessories != None,CONDITION,signed acknowledgement,
+TRI-074,swimming_pool;pool_accessories,FACT(signed acknowledgement of the slide/diving board exclusion),swimming_pool != No Pool and pool_accessories != None,CONDITION,signed acknowledgement,"round 35: no pool, no slide row"
 TRI-075,NONE,,,DECLINES,,"pool rentals, ladders, decking and covers are not asked"
 TRI-077,NONE,,,CONDITION,,liability hazards are not asked
 TRI-078,NONE,,,DECLINES,,liability hazards are not asked

@@ -230,6 +230,10 @@ REQUIREMENT_OUTCOMES = {
     "CDP-072": ("DECLINES", "The home is tenant occupied (one of four conditions, all required; underwriting "
                             "approval is needed in addition, not instead)"),
     "PRO-051": ("REFERS_TO_UW", "... or approved alternate enclosure"),
+    # round 35 step 2: ALL-093, the bullet before it, allows "an underwriting approved alternate enclosure", and
+    # ALL-094's own exception reads "Underwriting may approve (see preceding bullet)": an underwriting path
+    "ALL-094": ("REFERS_TO_UW", "... or an underwriting approved alternate enclosure (ALL-093); Underwriting may "
+                                "approve"),
     "CDP-053": ("REFERS_TO_UW", "... or alternate approved enclosure"),
     "PDP-103": ("REFERS_TO_UW", "... or alternate approved enclosure"),
     "SWY-035": ("DECLINES", _POOL_NO_PATH), "SBS-008": ("DECLINES", _POOL_NO_PATH),
@@ -246,7 +250,7 @@ REQUIREMENT_OUTCOMES = {
 }
 # Looked at and left as they are (a row's map outcome is unchanged), with the reason:
 REQUIREMENT_UNCHANGED = {
-    "ALL-093": "ALL-094 already declines an unfenced pool (one failing row per fact); boxes unticked hold",
+    "ALL-093": "ALL-094 already refers an unfenced pool (one failing row per fact); boxes unticked hold",
     "ALL-019": "ALL-020 already declines anything but a single-family dwelling or townhouse unit (one row per fact)",
     "HDP-002": "proof of updates is never asked: it cannot fail on a form fact (a confirm note)",
     "VDP-042": "a gut rehab is never asked: it cannot fail on a form fact (a confirm note)",
@@ -391,19 +395,31 @@ class _Parser:
             raise ValueError(f"unexpected {self.peek()!r}")
         return v
 
+    # Round 35 step 2: an unknown inside a part that is already decided (an "and" with a false term, an
+    # "or" with a true one) cannot change the result, so it is dropped. Before, "(swimming_pool == Above
+    # Ground - Fenced and pool_fence_4ft == True ...) or FACT(...)" kept the unticked fence box as an
+    # unknown for an UNFENCED pool, and the row held on a form field instead of noting the unasked fact.
     def or_expr(self):
+        mark = len(self.unknown)
         vals = [self.and_expr()]
         while self.peek() == "or":
             self.take()
             vals.append(self.and_expr())
-        return _or(vals)
+        v = _or(vals)
+        if v is not None:
+            del self.unknown[mark:]
+        return v
 
     def and_expr(self):
+        mark = len(self.unknown)
         vals = [self.atom()]
         while self.peek() == "and":
             self.take()
             vals.append(self.atom())
-        return _and(vals)
+        v = _and(vals)
+        if v is not None:
+            del self.unknown[mark:]
+        return v
 
     def atom(self):
         tok = self.peek()

@@ -78,6 +78,11 @@ ARI_EXPOSED = ("plumbing_type", "plumbing_type in {Copper, PVC} or FACT(no expos
 POOL_4FT = ("swimming_pool;pool_fence_4ft;pool_gate_locking", FENCED + " and " + POOL_OK, POOL,
             "fence 4 ft; self-latching gate", "a pool cage also qualifies (not a form option)")
 UNFENCED_IN_GROUND = ("swimming_pool", "swimming_pool != In Ground - Unfenced", IN_GROUND, "", "")
+# round 35 step 2: one fact, one flaw -- as SWY-035, the in-ground unfenced pool is left to the decline row
+POOL_4FT_NOT_IN_GROUND_UNFENCED = ("swimming_pool;pool_fence_4ft;pool_gate_locking",
+                                   "swimming_pool != Above Ground - Unfenced and " + POOL_OK, POOL,
+                                   "fence 4 ft; self-latching gate",
+                                   "an unfenced in-ground pool is the decline row's; a pool cage also qualifies")
 RENOVATED_100 = ("year_built", "home_age <= 100 or FACT(completely renovated)", "always", "renovation",
                  "a completely renovated home may use the renovation year")
 
@@ -106,7 +111,9 @@ MAP = {
     "ARA-028": ("occupancy_type", NOT_VACANT, "always", "", ""),
     "ARA-029": ("occupancy_type;primary_home_carrier", "primary_home_carrier == ARI", SEASONAL,
                 "ARI insures the primary home", "round 30 step 1: the form's 'Primary home insured with'"),
-    "ARA-030": SEASONAL_REFER,
+    "ARA-030": ("occupancy_type;primary_home_carrier", "occupancy_type == Owner Occupied",
+                SEASONAL + " and primary_home_carrier == ARI", "",
+                "round 35: refer only when ARI insures the primary (else ARA-029 declines or holds)"),
     "ARA-033": ("has_dogs;aggressive_breed", BREED, DOGS, "", "the form's breed list is not ARI's (German Shepherd, "
                                                             "Great Dane...)"),
     "ARA-034": ("has_dogs", "FACT(no bite history)", DOGS, "bite history", ""),
@@ -118,7 +125,7 @@ MAP = {
     "ARA-059": ROOF_LIFE,
     "ARA-078": money("dwelling_amount <= 700000"),
     "ARA-079": money("dwelling_amount <= 1000000"),
-    "ARA-085": PPC_1_9,
+    "ARA-085": same_as("ARA-014", "ppc"),            # round 35: the >5-mile split-class row is ARA-014's fact
     # ================= ARI HOB
     "ARB-005": ("county", f"county not in {TWIA_TIER1[:-1]}, Harris}} || county not in {TWIA_TIER1}", "always", "",
                 "TWIA's Tier 1 counties; Harris only east of Highway 146 (not asked): AMBIGUOUS"),
@@ -129,11 +136,17 @@ MAP = {
     "ARB-021": ARI_POOL,
     "ARB-022": ("swimming_pool;pool_accessories", NO_ACCESSORIES, POOL, "", ""),
     "ARB-024": ("occupancy_type", NOT_VACANT, "always", "", ""),
-    "ARB-025": SEASONAL_REFER,
+    "ARB-025": ("occupancy_type;primary_home_carrier", "occupancy_type == Owner Occupied",
+                SEASONAL + " and primary_home_carrier == ARI", "",
+                "round 35: refer only when ARI insures the primary (ARB-036 declines the others)"),
     "ARB-028": ("has_dogs;aggressive_breed", BREED, DOGS, "", "the form's breed list is not ARI's"),
     "ARB-029": ("has_dogs", "FACT(no bite history)", DOGS, "bite history", ""),
     "ARB-035": ("occupancy_type", NOT_TENANT, "always", "", "Vacant is decided by ARB-024"),
-    "ARB-036": same_as("ARB-025"), "ARB-039": same_as("ARB-025"),
+    # round 35 step 2: as ARA-029 / ARA-030 -- a seasonal or secondary home declines unless ARI insures the
+    # primary (ARB-036, "Occupied at least 9 months per year"), and then it is referred (ARB-025)
+    "ARB-036": ("occupancy_type;primary_home_carrier", "primary_home_carrier == ARI", SEASONAL,
+                "ARI insures the primary home", "the form's 'Primary home insured with'"),
+    "ARB-039": same_as("ARB-025"),
     "ARB-040": ("year_built", "home_age <= 20", "always", "", "homes over 20 years go to HOA / HOA Plus"),
     "ARB-046": ARI_EXPOSED,
     "ARB-048": ("plumbing_type", GALV, "always", "", "mixed-galvanized / lead are not form options"),
@@ -141,14 +154,20 @@ MAP = {
     "ARB-058": ROOF_LIFE,
     "ARB-083": money("dwelling_amount <= 700000"),
     "ARB-087": money("dwelling_amount <= 1000000"),
-    "ARB-093": PPC_1_9,
+    "ARB-093": same_as("ARB-012", "ppc"),            # round 35: the >5-mile split-class row is ARB-012's fact
     # ================= Foremost Choice Homeowners (owner's homes only: the registry's scope)
     "FOR-005": money("dwelling_amount >= 100000"),
     "FOR-006": money("dwelling_amount <= 750000"),
     "FOR-012": ("construction_type", MOBILE, "always", "", ""),
     "FOR-035": ("plumbing_type", "plumbing_type != Polybutylene", "always", "", ""),
     "FOR-036": ("plumbing_type", GALV, "always", "", ""),
-    "FOR-053": POOL_4FT,
+    # round 35 step 2: the guide's above-ground exception (a 4-ft deck with a self-locking gate, or 4-ft sides
+    # with a locking retractable ladder) -- an unfenced above-ground pool is a confirm note, not a decline
+    "FOR-053": ("swimming_pool;pool_fence_4ft;pool_gate_locking",
+                "(swimming_pool in {In Ground - Fenced, Above Ground - Fenced} and " + POOL_OK + ") or "
+                "(swimming_pool == Above Ground - Unfenced and FACT(deck at least 4 ft with a self-locking gate, "
+                "or sides at least 4 ft with a locking retractable ladder))", POOL,
+                "fence 4 ft; self-locking gate; above-ground deck / sides", "a pool cage also qualifies (not a form option)"),
     "FOR-061": ("has_dogs", "FACT(no dangerous dog or animal that has caused harm)", DOGS, "dangerous dog / harm",
                 "the Animal Liability Exclusion endorsement is required if so"),
     "FOR-062": ("has_dogs;aggressive_breed", BREED, DOGS, "", "eligible with the Animal Liability Exclusion"),
@@ -202,8 +221,10 @@ MAP = {
     "ORI-005": ("dwelling_type", "FACT(fire wall between units to the roof line)", "dwelling_type == Townhome",
                 "fire wall", ""),
     "ORI-007": ("dwelling_type", "FACT(an individual residential unit)", "dwelling_type == Townhome", "unit", ""),
-    "ORI-012": ("roof_type", "roof_type != Wood Shake", "always", "",
-                "Composition = asphalt fiberglass composite shingles; flat roofs are ORI-013's; Other is not decided"),
+    "ORI-012": ("roof_type", "roof_type != Wood Shake and (roof_type != Other or FACT(roof material on Orion's list: "
+                "architectural / composite shingle, tile, slate, poured concrete, adobe or metal))", "always",
+                "roof material", "Composition = asphalt fiberglass composite shingles; flat roofs are ORI-013's; "
+                "Other is a confirm note (round 35)"),
     "ORI-013": ("roof_shape;roof_type", "FACT(poured concrete or adobe)", FLAT, "flat roof material", ""),
     "ORI-024": ("ownership_type", "FACT(a trust for personal estate planning)", TRUST, "trust purpose", ""),
     "ORI-025": ("ownership_type;occupancy_type", NOT_TENANT, TRUST, "", ""),
@@ -220,7 +241,7 @@ MAP = {
     "SBS-001": money("dwelling_amount between 150000 and 2000000"),
     "SBS-003": RENOVATED_100,
     "SBS-005": ("roof_age", "roof_age <= 30", "always", "", ""),
-    "SBS-008": POOL_4FT,
+    "SBS-008": POOL_4FT_NOT_IN_GROUND_UNFENCED,     # round 35: an unfenced in-ground pool is SBS-049's
     "SBS-020": ("occupancy_type", NOT_VACANT, "always", "", ""),
     "SBS-027": ("occupancy_type;primary_home_miles", "primary_home_miles >= 50", SEASONAL,
                 "distance from the primary home", ""),
@@ -257,7 +278,7 @@ MAP = {
     "SLL-080": ("ownership_type", "ownership_type != Trust", "always", "", ""),
     # ================= Swyfft Topa (Surplus) HO3
     "STO-002": money("dwelling_amount between 150000 and 2000000"),
-    "STO-004": POOL_4FT,
+    "STO-004": POOL_4FT_NOT_IN_GROUND_UNFENCED,     # round 35: an unfenced in-ground pool is STO-052's
     "STO-010": RENOVATED_100,
     "STO-012": ("roof_age", "roof_age <= 30", "always", "", ""),
     "STO-018": ("has_dogs;aggressive_breed", BREED, DOGS, "", "the form's breed list is not Swyfft's"),
@@ -301,7 +322,8 @@ MAP = {
     "TRV-030": ("construction_type", MOBILE, "always", "", ""),
     "TRV-032": ("dwelling_amount", "FACT(monitored central station fire and burglar alarm)",
                 "dwelling_amount >= 1500000", "alarm", ""),
-    "TRV-033": ("occupancy_type;dwelling_amount", "FACT(monitored low-temperature sensor and alarm)",
+    "TRV-033": ("occupancy_type;dwelling_amount", "FACT(monitored low-temperature sensor and either a monitored "
+                "water-flow sensor or an automatic main water shut-off valve)",
                 "occupancy_type in {Seasonal, Secondary Home} and dwelling_amount >= 500000", "sensors", ""),
     "TRV-036": ("ppc;fire_station_miles", "station_miles_iso <= 7", "always",
                 "station distance if not given", "a stated distance decides; else ISO classes 1-9 are within "
@@ -310,18 +332,22 @@ MAP = {
                 "occupancy_type in {Seasonal, Secondary Home} and ppc_num >= 9", "primary dwelling with Travelers", ""),
     "TRV-041": ("roof_type", "roof_type != Wood Shake || roof_type not in {Wood Shake, Flat/Built-Up}", "always", "",
                 "rolled asphalt may or may not be the form's Flat/Built-Up"),
-    "TRV-044": ("roof_age", "FACT(not in Wind/Hail/Tornado UW Classification High 1 or High 2)", "roof_age > 10",
+    "TRV-044": ("roof_age;roof_type", "FACT(not in Wind/Hail/Tornado UW Classification High 1 or High 2)",
+                "roof_age > 10 and roof_type not in {Tile, Slate}",
                 "wind/hail UW class", "cure: Roof Condition Questionnaire"),
-    "TRV-045": ("roof_age", "FACT(not in Wind/Hail/Tornado UW Classification High 3)", "roof_age > 15",
+    "TRV-045": ("roof_age;roof_type", "FACT(not in Wind/Hail/Tornado UW Classification High 3)",
+                "roof_age > 15 and roof_type not in {Tile, Slate}",
                 "wind/hail UW class", "cure: Roof Condition Questionnaire"),
-    "TRV-046": ("roof_age", "roof_age <= 25", "always", "", "cure: Roof Condition Questionnaire"),
+    "TRV-046": ("roof_age;roof_type", "roof_age <= 25", "roof_type not in {Tile, Slate}", "",
+                "cure: Roof Condition Questionnaire; tile and slate are exempt (round 35)"),
     "TRV-054": ("plumbing_type", GALV_POLY, "always", "", "lead is not a form option"),
     "TRV-059": ("occupancy_type", NOT_TENANT, "always", "", ""),
     "TRV-073": ("occupancy_type;dwelling_amount", "FACT(monitored central station fire and burglar alarm)",
                 "occupancy_type in {Seasonal, Secondary Home} and dwelling_amount >= 500000", "alarm", ""),
     "TRV-074": money("dwelling_amount < 2000000"),
-    "TRV-075": ("dwelling_type;dwelling_amount", "dwelling_amount < 500000", "dwelling_type == Condo", "",
-                "Coverage A + C combined; Coverage C is not asked, so A alone"),
+    "TRV-075": ("dwelling_type;dwelling_amount", "dwelling_amount < 500000 and FACT(Coverage A + C combined under "
+                "$500,000)", "dwelling_type == Condo", "Coverage C",
+                "Coverage A + C combined; Coverage C is not asked: A alone decides a fail, A + C is confirmed"),
     "TRV-080": ("coastal_tier", "FACT(not Hurricane UW Classification Extreme)", TIER1, "hurricane UW class", ""),
     "TRV-081": ("coastal_tier", "FACT(not Hurricane UW Classification High 1 or High 2)",
                 "coastal_tier in {Tier 1, Tier 2}", "hurricane UW class", ""),

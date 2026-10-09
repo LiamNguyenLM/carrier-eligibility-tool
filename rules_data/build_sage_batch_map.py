@@ -90,7 +90,9 @@ def sister(p, ids):
     put("seasonal_single", ("occupancy_type;dwelling_type", "dwelling_type == House", SEASONAL, "", ""))
     put("seasonal_checks", ("occupancy_type", "FACT(property checked while the owner is away)", SEASONAL,
                             "checks while away", ""))
-    put("trust_occupied", ("ownership_type;occupancy_type", OWNER, TRUST, "", ""))
+    put("trust_occupied", ("ownership_type;occupancy_type",
+                           OWNER + " and FACT(occupied by the trustee, grantor or beneficiary)", TRUST,
+                           "who lives there", "round 35 step 2: the occupant is not asked -- a confirm note"))
     put("trust_family", ("ownership_type", "FACT(family held trust)", TRUST, "family held trust", ""))
     put("trust_one", ("ownership_type", "FACT(only one trust on the property)", TRUST, "number of trusts", ""))
     put("llc", ("ownership_type", "ownership_type != LLC", "always", "", ""))
@@ -105,10 +107,11 @@ def sister(p, ids):
                        "swimming_pool == In Ground - Fenced", "fence 4 ft",
                        "an unfenced in-ground pool fails the gate row once, not this row too"))
     put("pool_surround", same_as(ids.get("pool_fence"), "swimming_pool"))
-    put("pool_above", ("swimming_pool;pool_fence_4ft;pool_gate_locking", POOL_OK, ABOVE, "fence 4 ft; gate",
-                       "the rule is for above-ground pools under 4 ft; pool height is not asked"))
-    put("pool_slide", ("pool_accessories", "FACT(signed acknowledgement of the slide/diving board exclusion)",
-                       "pool_accessories != None", "signed acknowledgement", ""))
+    put("pool_above", ("swimming_pool;pool_fence_4ft;pool_gate_locking", "(swimming_pool == Above Ground - Fenced and pool_fence_4ft == True and pool_gate_locking == True) or FACT(above-ground pool wall 4 ft or higher)", ABOVE,
+                       "fence 4 ft; gate; pool wall height", "round 35 step 2: the rule is for above-ground pools under 4 ft; an unfenced one is a confirm note on the wall height, never a hold on the fence boxes"))
+    put("pool_slide", ("swimming_pool;pool_accessories", "FACT(signed acknowledgement of the slide/diving board exclusion)",
+                       "swimming_pool != No Pool and pool_accessories != None", "signed acknowledgement",
+                       "round 35: no pool, no slide row"))
     put("dog_breed", ("has_dogs;aggressive_breed", BREED, DOGS, "", "a signed acknowledgement cures"))
     put("dog_bite", ("has_dogs", "FACT(no bite history)", DOGS, "bite history", ""))
     put("fpc_b13", ("ppc;fire_station_miles;hydrant_1000ft", ROW_FACT_3, FPC_B13,

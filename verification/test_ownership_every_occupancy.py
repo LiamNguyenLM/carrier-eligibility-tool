@@ -48,8 +48,10 @@ def test_a_tenant_home_owned_by_an_llc_reaches_the_dwelling_fire_rows(canon, row
     assert out[row][0] == want
 
 
-@pytest.mark.parametrize("occupancy,want", [("Owner Occupied", "PASS"), ("Seasonal", "PASS"),
-                                            ("Secondary Home", "PASS"), ("Tenant Occupied", "FAIL")])
+# CHANGED 2026-10-09 (round 35 step 2, Claude's map audit): who lives there (trustee, grantor or beneficiary) is not asked -- a confirm NOTE where the
+# occupancy fits. Was: PASS for Owner Occupied / Seasonal / Secondary Home.
+@pytest.mark.parametrize("occupancy,want", [("Owner Occupied", "NOTE"), ("Seasonal", "NOTE"),
+                                            ("Secondary Home", "NOTE"), ("Tenant Occupied", "FAIL")])
 def test_sag_019_a_trust_home_occupied_by_its_trustee_includes_a_seasonal_one(occupancy, want):
     # "Residence Held in Trust if the residence is occupied by the trustee, the grantor ... or the beneficiary"
     f = ev.facts(dict(BASE, ownership_type="Trust", occupancy_type=occupancy))

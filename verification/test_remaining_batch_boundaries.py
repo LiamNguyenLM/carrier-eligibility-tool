@@ -106,10 +106,15 @@ CASES = [
     ("ODP-111", {"fire_station_miles": "7"}, "ppc", {"3": "OPEN", "4": "N/A"}),
     # "FPC 4-10, station within 5 driving miles and no hydrant within 1,000 ft"
     ("ODP-112", B410, "ppc", {"3": "N/A", "4": "OPEN", "10": "OPEN"}),
-    ("ODP-112", {"hydrant_1000ft": "No", "ppc": "6"}, "fire_station_miles", {"5": "OPEN", "5.1": "N/A"}),
+    # CHANGED 2026-10-09 (round 35 step 2, Claude's map audit): with no hydrant at FPC 4-8 the home is in ODP-112's band or ODP-113's (same conditions)
+    # at any distance. Was: {"5": "OPEN", "5.1": "N/A"} at PPC 6.
+    ("ODP-112", {"hydrant_1000ft": "No", "ppc": "6"}, "fire_station_miles", {"5": "OPEN", "5.1": "OPEN", "": "OPEN"}),
+    ("ODP-112", {"hydrant_1000ft": "No", "ppc": "9"}, "fire_station_miles", {"5": "OPEN", "5.1": "N/A"}),
     # "FPC 4-8 and a fire station more than 5 driving miles away"
     ("ODP-113", C, "ppc", {"3": "N/A", "4": "OPEN", "8": "OPEN", "9": "N/A"}),
-    ("ODP-113", {"ppc": "6"}, "fire_station_miles", {"5": "N/A", "5.1": "OPEN"}),
+    # CHANGED 2026-10-09 (round 35 step 2, Claude's map audit): the gate also reads the hydrant. Was: {"5": "N/A", "5.1": "OPEN"} with the hydrant blank.
+    ("ODP-113", {"ppc": "6", "hydrant_1000ft": "Yes"}, "fire_station_miles", {"5": "N/A", "5.1": "OPEN"}),
+    ("ODP-113", {"ppc": "6", "hydrant_1000ft": "No"}, "fire_station_miles", {"5": "OPEN", "": "OPEN"}),
     *fpc_age("ODP-114"),
     # "only primary-occupancy dwellings with no prior fire losses": primary vs secondary / seasonal
     ("ODP-115", dict(C, ppc="6"), "occupancy_type",

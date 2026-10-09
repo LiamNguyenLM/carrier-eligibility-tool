@@ -70,7 +70,7 @@ CDP-084,NONE,,,REFERS_TO_UW,,foundation is not asked
 CDP-085,NONE,,,CONDITION,,foundation is not asked
 CDP-088,NONE,,,REFERS_TO_UW,,foundation is not asked
 CDP-089,NONE,,,REFERS_TO_UW,,foundation is not asked
-CDP-094,dwelling_amount,dwelling_amount <= 2000000,always,REFERS_TO_UW,,
+CDP-094,dwelling_amount;dwelling_type,"dwelling_amount <= 750000 or (dwelling_amount <= 2000000 and dwelling_type in {House, Townhome})",always,REFERS_TO_UW,,"single family = House or Townhome (Liam, 2026-10-09)"
 CDP-096,dwelling_amount,dwelling_amount <= 1000000,always,REFERS_TO_UW,,
 CDP-099,NONE,,,DECLINES,,loss / claims history is not asked
 CDP-100,NONE,,,DECLINES,,loss / claims history is not asked
@@ -637,8 +637,8 @@ ODP-087,NONE,,,NOTE,,"heating, cooling and water heater are not asked"
 ODP-088,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 ODP-110,ppc;fire_station_miles;hydrant_1000ft,"FACT(visible from road, central station alarm, 10-ft year-round access)",ppc_num between 1 and 3 and fire_station_miles <= 5 and hydrant_1000ft == No,CONDITION,"station / hydrant distance if not given; visibility, alarm, access",
 ODP-111,ppc;fire_station_miles,"FACT(visible from road, central station alarm, 10-ft year-round access)",ppc_num between 1 and 3 and fire_station_miles > 5,CONDITION,"station distance if not given; visibility, alarm, access",
-ODP-112,ppc;fire_station_miles;hydrant_1000ft,"FACT(visible from road, central station alarm, 10-ft year-round access)",ppc_num between 4 and 10 and fire_station_miles <= 5 and hydrant_1000ft == No,CONDITION,"station / hydrant distance if not given; visibility, alarm, access",
-ODP-113,ppc;fire_station_miles,"FACT(visible from road, central station alarm, 10-ft year-round access)",ppc_num between 4 and 8 and fire_station_miles > 5,CONDITION,"station distance if not given; visibility, alarm, access",
+ODP-112,ppc;fire_station_miles;hydrant_1000ft,"FACT(visible from road, central station alarm, 10-ft year-round access)",ppc_num between 4 and 10 and hydrant_1000ft == No and (fire_station_miles <= 5 or ppc_num <= 8),CONDITION,"station / hydrant distance if not given; visibility, alarm, access",
+ODP-113,ppc;fire_station_miles;hydrant_1000ft,"FACT(visible from road, central station alarm, 10-ft year-round access)",ppc_num between 4 and 8 and (fire_station_miles > 5 or hydrant_1000ft == No),CONDITION,"station distance if not given; visibility, alarm, access",round 35: as ODP-112
 ODP-114,year_built;ppc;fire_station_miles;hydrant_1000ft,home_age < 25,(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given,
 ODP-115,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,"occupancy_type in {Owner Occupied, Tenant Occupied} and FACT(no prior fire loss)",(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given; fire losses,"primary vs secondary / seasonal, not owner vs tenant: this cell has no rental line"
 ODP-116,ppc;fire_station_miles,fire_station_miles <= 5,ppc_num >= 9,DECLINES,station distance,
@@ -694,11 +694,11 @@ SDP-062,NONE,,,DECLINES,,loss / claims history is not asked
 SDP-063,NONE,,,DECLINES,,loss / claims history is not asked
 SDP-065,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
 SDP-069,dwelling_amount,dwelling_amount <= 4000000,always,DECLINES,,
-SDP-070,dwelling_amount;occupancy_type;fire_station_miles;hydrant_1000ft,dwelling_amount <= 2000000,occupancy_type == Vacant or ((fire_station_miles <= 5 and hydrant_1000ft == No) or fire_station_miles > 5),DECLINES,station / hydrant distance if not given,"vacant, or FPC B or C; TIV is not asked"
+SDP-070,dwelling_amount;occupancy_type;fire_station_miles;hydrant_1000ft,dwelling_amount <= 2000000,occupancy_type == Vacant or hydrant_1000ft == No or fire_station_miles > 5,DECLINES,station / hydrant distance if not given,"vacant, or FPC B or C (no hydrant is B or C at any distance, round 35); TIV is not asked"
 SDP-071,dwelling_amount,dwelling_amount <= 2000000,always,REFERS_TO_UW,,
 SDP-072,dwelling_amount,dwelling_amount >= 85000,always,REFERS_TO_UW,,
 SDP-073,NONE,,,CONDITION,,"TIV, Coverage B and the HO5 form are not asked"
-SDP-078,ppc;fire_station_miles;hydrant_1000ft,"FACT(visible from road, central station alarm, 10-ft year-round access)",(ppc_num between 1 and 3 and fire_station_miles <= 5 and hydrant_1000ft == No) or (ppc_num between 1 and 3 and fire_station_miles > 5),CONDITION,"station / hydrant distance if not given; visibility, alarm, access",
+SDP-078,ppc;fire_station_miles;hydrant_1000ft,"FACT(visible from road, central station alarm, 10-ft year-round access)",ppc_num between 1 and 3 and (hydrant_1000ft == No or fire_station_miles > 5),CONDITION,"station / hydrant distance if not given; visibility, alarm, access",
 SDP-079,ppc;fire_station_miles;hydrant_1000ft,"FACT(visible from road, central station alarm, 10-ft year-round access)",(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,"station / hydrant distance if not given; visibility, alarm, access",the merged cell: FPC 4-10 B and FPC 4-8 C
 SDP-080,year_built;ppc;fire_station_miles;hydrant_1000ft,home_age < 25,(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given,
 SDP-081,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,occupancy_type == Owner Occupied,(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),DECLINES,station / hydrant distance if not given,no rental exposures: a tenant home in these bands is ineligible
@@ -785,7 +785,7 @@ FDP-087,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
 FDP-091,NONE,,,REFERS_TO_UW,,not asked by the form
 FDP-092,NONE,,,DECLINES,,not asked by the form
 FDP-093,dwelling_amount,dwelling_amount <= 5000000,always,DECLINES,,
-FDP-094,dwelling_amount;occupancy_type;fire_station_miles;hydrant_1000ft,dwelling_amount <= 2000000,occupancy_type == Vacant or ((fire_station_miles <= 5 and hydrant_1000ft == No) or fire_station_miles > 5),DECLINES,station / hydrant distance if not given,"vacant, or FPC B or C; TIV is not asked"
+FDP-094,dwelling_amount;occupancy_type;fire_station_miles;hydrant_1000ft,dwelling_amount <= 2000000,occupancy_type == Vacant or hydrant_1000ft == No or fire_station_miles > 5,DECLINES,station / hydrant distance if not given,"vacant, or FPC B or C (no hydrant is B or C at any distance, round 35); TIV is not asked"
 FDP-095,dwelling_amount,dwelling_amount <= 2000000,always,REFERS_TO_UW,,
 FDP-097,dwelling_amount,dwelling_amount >= 85000,always,REFERS_TO_UW,,
 FDP-098,NONE,,,CONDITION,,"TIV, Coverage B and the HO5 form are not asked"

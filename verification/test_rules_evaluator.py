@@ -42,7 +42,8 @@ def test_every_deciding_row_has_exactly_one_map_line():
     deciding = {rid for rid, r in rules.items() if r["Tool handling"] in ev.DECIDING}
     # CHANGED 2026-10-09 (round 32 step 1, Claude review): ALL-061 is COVERAGE_ONLY / NOT_ELIGIBILITY,
     # so one deciding row fewer. Was: len(deciding) == 541.
-    assert len(rules) == 790 and len(deciding) == 540
+    # CHANGED 2026-10-09 (round 35 step 2, Claude's map audit): CHU-111 (El Paso flat roofs, split from CHU-012). Was: 790 rows, 540 deciding.
+    assert len(rules) == 791 and len(deciding) == 541
     assert set(fmap) == deciding
 
 
