@@ -276,7 +276,8 @@ MAP = {
                 "owner occupied = primary, seasonal or secondary residence; Vacant is decided by SAG-005"),
     # Round 28 (v4/v5, 2026-10-07): one failing row per fact, as the Sage batch.
     "SAG-002": ("occupancy_type", "always", "always", "", "decided by SAG-005 (the same rule); never a second flaw"),
-    "SAG-003": ("occupancy_type;dwelling_type", "dwelling_type == House", SEASONAL, "", ""),
+    # round 35 step 4 (Liam, 2026-10-09, decision 3): "single family" includes a Townhome; only a Condo fails
+    "SAG-003": ("occupancy_type;dwelling_type", "dwelling_type in {House, Townhome}", SEASONAL, "", "single family = House or Townhome"),
     "SAG-004": ("occupancy_type", "FACT(checked monthly while away)", SEASONAL, "monthly checks", ""),
     "SAG-005": ("occupancy_type", "occupancy_type != Vacant", "always", "", "for sale is not asked"),
     "CHU-002": ("occupancy_type", "occupancy_type != Vacant", "always", "", ""),

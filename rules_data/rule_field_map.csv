@@ -148,7 +148,7 @@ ALL-213,NONE,,,REFERS_TO_UW,,not asked by the form
 ALL-214,NONE,,,CONDITION,,not asked by the form
 SAG-001,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,"owner occupied = primary, seasonal or secondary residence; Vacant is decided by SAG-005"
 SAG-002,occupancy_type,always,always,DECLINES,,decided by SAG-005 (the same rule); never a second flaw
-SAG-003,occupancy_type;dwelling_type,dwelling_type == House,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,,
+SAG-003,occupancy_type;dwelling_type,"dwelling_type in {House, Townhome}","occupancy_type in {Seasonal, Secondary Home}",DECLINES,,single family = House or Townhome
 SAG-004,occupancy_type,FACT(checked monthly while away),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,monthly checks,
 SAG-005,occupancy_type,occupancy_type != Vacant,always,DECLINES,,for sale is not asked
 SAG-006,NONE,,,REFERS_TO_UW,,the form has no field for this

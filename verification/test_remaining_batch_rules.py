@@ -75,7 +75,9 @@ def test_coverage():
     # CHANGED 2026-10-09 (round 35 step 3a, Liam's decision 1): the breed lines read the breed field. Was: gated-but-open 56, AMBIGUOUS 13.
     # CHANGED 2026-10-09 (round 35 step 3b: the roof covering in detail): the roof lines decide on the new options (STD-065 tin is no longer "same rule").
     # Was: form field 108, gated-but-open 60, AMBIGUOUS 9, same rule 38.
-    assert kinds == {"decided by a form field": 110, "gated-but-open": 66, "AMBIGUOUS": 2,
+    # CHANGED 2026-10-09 (round 35 step 4, decision 2): CHO-013 is decided (a confirm note for the owner's second
+    # home). Was: gated-but-open 66, AMBIGUOUS 2.
+    assert kinds == {"decided by a form field": 110, "gated-but-open": 67, "AMBIGUOUS": 1,
                      "same rule as another row": 37, "NONE": 770}
 
 

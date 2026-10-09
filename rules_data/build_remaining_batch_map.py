@@ -127,9 +127,12 @@ MAP = {
     "CHO-007": ("ownership_type", "ownership_type == Individual Owner || ownership_type != LLC", "always", "",
                 "a trust-owned home may still have an individual named insured"),
     "CHO-009": money("dwelling_amount <= 1250000"),
-    "CHO-013": ("occupancy_type", "occupancy_type in {Owner Occupied, Vacant} || occupancy_type != Tenant Occupied",
-                "always", "", "a seasonal / secondary home is the owner's but not lived in full time; Vacant is "
-                              "decided by CHO-049"),
+    # round 35 step 4 (Liam, 2026-10-09, decision 2): "One or two -family, owner-occupied dwellings only" -- an
+    # owner's seasonal or secondary home counts as owner-occupied (Centauri bars "risks that are not primary
+    # residences" only from Scheduled Personal Property, p8): it passes with a confirm note
+    "CHO-013": ("occupancy_type", "occupancy_type != Tenant Occupied and (occupancy_type not in {Seasonal, Secondary Home} "
+                "or FACT(the owner lives there when the home is used))", "always", "the owner's own use",
+                "Vacant is decided by CHO-049"),
     "CHO-017": ("swimming_pool;pool_accessories", NO_ACCESSORIES, POOL, "", ""),
     # "Flat roofs, rock or tar roofs, gravel roofs or roofs with asbestos shingles, wood, rolled roofs, sheet tin,
     # aluminum (including galvanized)" (round 35 step 3b)

@@ -92,7 +92,10 @@ CASES = [
     # ---- Progressive HO6
     ("PH6-050", {}, "ppc", {"8": "N/A", "9": "OPEN", "10": "OPEN"}),
     ("PH6-069", {}, "year_built", {age(100): "PASS", age(101): "FAIL"}),            # "older than 100 years ... referred"
-    ("PH6-074", {"plumbing_type": "PEX"}, "year_built", {2010: "FAIL", 2011: "PASS"}),  # "PEX installed before 2011"
+    # CHANGED 2026-10-09 (round 35 step 3c, Claude's audit): the install year decides, not the year built. An old
+    # saved "PEX" is PEX of unknown install year: it holds in a pre-2011 home. Was: {2010: "FAIL", 2011: "PASS"}.
+    ("PH6-074", {"plumbing_type": "PEX"}, "year_built", {2010: "OPEN", 2011: "PASS"}),  # "PEX installed before 2011"
+    ("PH6-074", {"plumbing_type": "PEX: installed before 2011"}, "year_built", {2010: "FAIL", 2015: "FAIL"}),
     money("PH6-092", 500000, "over_refers"),                  # "Coverage A over $500,000 must be submitted"
     ("PH6-094", {}, "dwelling_amount", {19999: "FAIL", 20000: "PASS", 1000000: "PASS", 1000001: "FAIL"}),
     # ---- Sage Markel DP3

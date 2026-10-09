@@ -88,7 +88,7 @@ CHO-008,NONE,,,CONDITION,,"TIV, Coverage B and the HO5 form are not asked"
 CHO-009,dwelling_amount,dwelling_amount <= 1250000,always,REFERS_TO_UW,,
 CHO-011,NONE,,,DECLINES,,not asked by the form
 CHO-012,NONE,,,DECLINES,,not asked by the form
-CHO-013,occupancy_type,"occupancy_type in {Owner Occupied, Vacant} || occupancy_type != Tenant Occupied",always,DECLINES,,a seasonal / secondary home is the owner's but not lived in full time; Vacant is decided by CHO-049
+CHO-013,occupancy_type,"occupancy_type != Tenant Occupied and (occupancy_type not in {Seasonal, Secondary Home} or FACT(the owner lives there when the home is used))",always,DECLINES,the owner's own use,Vacant is decided by CHO-049
 CHO-014,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
 CHO-015,NONE,,,REFERS_TO_UW,,liability hazards are not asked
 CHO-017,swimming_pool;pool_accessories,pool_accessories == None,swimming_pool != No Pool,REFERS_TO_UW,,

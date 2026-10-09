@@ -14,7 +14,7 @@ SUR-011,NONE,,,DECLINES,,product / binding status is not a property fact
 SUR-013,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,"owner occupied = primary, seasonal or secondary residence; Vacant is decided by SUR-024"
 SUR-014,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SUR-015,occupancy_type,always,always,DECLINES,,decided by SUR-024 (the same rule); never a second flaw
-SUR-016,occupancy_type;dwelling_type,dwelling_type == House,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,,
+SUR-016,occupancy_type;dwelling_type,"dwelling_type in {House, Townhome}","occupancy_type in {Seasonal, Secondary Home}",DECLINES,,single family = House or Townhome
 SUR-017,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SUR-018,occupancy_type,FACT(property checked while the owner is away),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,checks while away,
 SUR-019,ownership_type;occupancy_type,"occupancy_type != Tenant Occupied and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there,round 35 step 2: the occupant is not asked -- a confirm note
@@ -127,7 +127,7 @@ SFP-011,NONE,,,DECLINES,,product / binding status is not a property fact
 SFP-013,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,"owner occupied = primary, seasonal or secondary residence; Vacant is decided by SFP-024"
 SFP-014,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SFP-015,occupancy_type,always,always,DECLINES,,decided by SFP-024 (the same rule); never a second flaw
-SFP-016,occupancy_type;dwelling_type,dwelling_type == House,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,,
+SFP-016,occupancy_type;dwelling_type,"dwelling_type in {House, Townhome}","occupancy_type in {Seasonal, Secondary Home}",DECLINES,,single family = House or Townhome
 SFP-017,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SFP-018,occupancy_type,FACT(property checked while the owner is away),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,checks while away,
 SFP-019,ownership_type;occupancy_type,"occupancy_type != Tenant Occupied and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there,round 35 step 2: the occupant is not asked -- a confirm note
@@ -244,7 +244,7 @@ WIL-011,NONE,,,DECLINES,,product / binding status is not a property fact
 WIL-013,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,"owner occupied = primary, seasonal or secondary residence; Vacant is decided by WIL-024"
 WIL-014,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 WIL-015,occupancy_type,always,always,DECLINES,,decided by WIL-024 (the same rule); never a second flaw
-WIL-016,occupancy_type;dwelling_type,dwelling_type == House,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,,
+WIL-016,occupancy_type;dwelling_type,"dwelling_type in {House, Townhome}","occupancy_type in {Seasonal, Secondary Home}",DECLINES,,single family = House or Townhome
 WIL-017,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 WIL-018,occupancy_type,FACT(property checked while the owner is away),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,checks while away,
 WIL-019,ownership_type;occupancy_type,"occupancy_type != Tenant Occupied and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there,round 35 step 2: the occupant is not asked -- a confirm note
@@ -325,7 +325,7 @@ WIL-188,NONE,,,CONDITION,,flood zone is not asked
 TRI-001,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 TRI-002,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,"owner occupied = primary, seasonal or secondary residence; Vacant is decided by TRI-008"
 TRI-003,occupancy_type,always,always,DECLINES,,decided by TRI-008 (the same rule); never a second flaw
-TRI-004,occupancy_type;dwelling_type,dwelling_type == House,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,,
+TRI-004,occupancy_type;dwelling_type,"dwelling_type in {House, Townhome}","occupancy_type in {Seasonal, Secondary Home}",DECLINES,,single family = House or Townhome
 TRI-005,occupancy_type,FACT(property checked while the owner is away),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,checks while away,
 TRI-006,NONE,,,REFERS_TO_UW,,"rentals, mailing address and occupancy dates are not asked"
 TRI-007,NONE,,,REFERS_TO_UW,,"rentals, mailing address and occupancy dates are not asked"

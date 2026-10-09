@@ -87,7 +87,9 @@ def sister(p, ids):
                   + ids["vacant"]))
     put("unoccupied_3mo", same_as(ids["vacant"]))
     put("vacant", ("occupancy_type", NOT_VACANT, "always", "", "for sale is not asked"))
-    put("seasonal_single", ("occupancy_type;dwelling_type", "dwelling_type == House", SEASONAL, "", ""))
+    # round 35 step 4 (Liam, 2026-10-09, decision 3): "single family" includes a Townhome; only a Condo fails
+    put("seasonal_single", ("occupancy_type;dwelling_type", "dwelling_type in {House, Townhome}", SEASONAL, "",
+                            "single family = House or Townhome"))
     put("seasonal_checks", ("occupancy_type", "FACT(property checked while the owner is away)", SEASONAL,
                             "checks while away", ""))
     put("trust_occupied", ("ownership_type;occupancy_type",
