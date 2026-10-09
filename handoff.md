@@ -1958,6 +1958,58 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     | 0ba4f79 | 5 | the same 2 failed, 2,024 passed |
     | f218992 | docs | not run (docs only) |
     | 9aa9874 | 3 fix | 2,028 passed, 0 failed, 9 xfailed |
+- **2026-10-09 — Round 32 (small).** Built on d7cc884; origin was still
+  984c442, unpushed.
+  - **Step 1 (57db99a): ALL-061 is a coverage row (Claude review).**
+    - "Copper tubing or PVC plumbing is required" sits inside Allied's
+      Limited Water Damage paragraph (p.10). It defines the re-plumb that
+      lifts that coverage limit; it is not a rule for writing the home.
+    - Now COVERAGE_ONLY / NOT_ELIGIBILITY, with a dated Review note. It is
+      out of the map and out of REQUIREMENT_OUTCOMES (54 rows).
+    - A 1945 home with galvanized plumbing is still Ineligible, declined by
+      ALL-057. ALL-060 is only a NOTE there, because its cure is a service
+      inspection.
+    - The untracked workbook still says CONDITION.
+  - **Step 2 (5efb498): the 7 xpassed baseline tests**, each re-run 3
+    times on Haiku low with all batches ON (38b4789):
+
+    | Test | 3 runs | Result | Why |
+    |---|---|---|---|
+    | test_ari_hoa_plus_no_age_cap_contamination_consistency | 3/3 | converted | HO3 batch decides ARI (HOA+); no main call; "0-20 years" in 0 prompts |
+    | test_ari_hoa_plus_does_not_quote_hob_age_cap | 3/3 | converted | same |
+    | test_prose_only_cross_carrier_bleed_is_absent | 3/3 | converted | Auros (pilot) and Wilshire (Sage batch) come from rules tables; Occidental HO3 is GUIDE_UNAVAILABLE; "Classification" appears only in the instruction that forbids it |
+    | test_chubb_reasoning_never_invents_a_dwelling_type | 3/3 | converted | code decides CHUBB on STANDARD (no open row); Dwelling type is given |
+    | test_allied_trust_trust_is_refer_on_its_approval_row | 3/3 (9/9 REFER) | converted | ALL-016 fails and code decides REFER |
+    | test_every_carrier_appears_in_every_recorded_run | 3/3 (27/27 checks) | converted | omitted-carrier retry + NOT_EVALUATED row |
+    | test_mercury_trust_is_not_declined_on_its_corporate_trust_rule | 3/3 (9/9 not declined) | **kept xfail** | MER-005 is AMBIGUOUS and the model decides it; no code prevents a decline |
+
+    The Foremost county-table xfail (TestBaselineStandardProfile) still
+    fails, so it was not part of this step.
+  - **Step 3 (38b4789): verdicts for the placement backtest.**
+    - verification/run_backtest_eligibility.py runs check_eligibility on
+      pilot_structured_rules/backtest/backtest_test_homes.csv. That folder
+      is git-ignored and must never be committed.
+    - Mapping: as Liam listed. Plumbing is Unknown for every home. A field
+      whose form control has no unknown value has its topic box unticked:
+      - roof shape, coastal, dogs and solar, always;
+      - roof type 130 homes, pool 72, roof age 44, construction 12, year
+        built 5.
+    - Dwelling type is blank for 91 homes. The app itself refuses a blank;
+      the check accepts it as unknown.
+    - A blank county comes from the ZIP (75 homes), as the form does.
+    - Run: 300 checks, 3 at a time, 0 failures, 0 fallbacks, 0 rate limits.
+      20.7 min elapsed; median 12.2 s per check; about $0.68 in total.
+    - The usage log holds 299 lines for 300 checks. One line was probably
+      lost to concurrent appends from the 3 processes.
+    - 7,988 rows. Statuses:
+
+      | INSUFFICIENT_INFORMATION | INELIGIBLE | ELIGIBLE | GUIDE_UNAVAILABLE | REFER | CLOSED |
+      |---|---|---|---|---|---|
+      | 4,630 | 1,030 | 953 | 641 | 431 | 303 |
+
+    - 291 of 300 homes have at least one Eligible program (median 3).
+    - Plumbing type is the hold item on 4,393 of the Insufficient cards,
+      because it is Unknown for every home.
 
 ## Open work, in priority order (updated 2026-10-02)
 
