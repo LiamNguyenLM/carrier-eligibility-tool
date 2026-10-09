@@ -16,6 +16,7 @@ import usage_log
 import intake_fields
 import topics
 import cards
+import placement
 
 FORM_SCOPE_CAPTION = "Only checked items are considered. Inspections and the condition of the home are not checked."
 from upload_carrier import (
@@ -384,6 +385,20 @@ with tab1:
             if usable_answer_count(results) == 0:
                 st.error("The check did not return usable answers. Run it again; if it repeats, tell Liam.")
 
+            # Round 33 step 2 (Liam, 2026-10-09): where we usually place homes like this. It ranks the
+            # markets the check did not rule out from our HawkSoft placements and never changes a verdict
+            # or the cards. Off unless ELIGIBILITY_PLACEMENT is exactly "1"; when off, nothing here runs.
+            if placement.enabled():
+                try:
+                    placement_panel = placement.panel(results, property_details)
+                except Exception as e:                  # noqa: BLE001 -- the panel never breaks a check
+                    placement_panel = None
+                    st.caption("Placement panel unavailable: " + str(e))
+                if placement_panel:
+                    with st.container(border=True):
+                        st.markdown(placement.panel_markdown(placement_panel))
+                        st.caption(placement_panel["footer"])
+
             buckets = assign_buckets(results)
             eligible = buckets["eligible"]
             refer = buckets["refer"]
@@ -493,6 +508,11 @@ with tab2:
     st.markdown(usage_log.panel_line(), help=(
         "From the usage log (carrier_docs_db/usage_log.jsonl, on the persistent volume): one line per check, "
         "tokens and cost only. Budget: ELIGIBILITY_MONTHLY_BUDGET (default 260 dollars). Nothing blocks a check."))
+    # Round 33 step 2: the placement panel's switch, and the month and size of its HawkSoft data.
+    st.markdown("**" + placement.status_line() + "**", help=(
+        "Where we usually place homes like this: ranks the carriers the check did not rule out from our "
+        "HawkSoft placements (rules_data/placement/, refreshed monthly). Never changes a verdict. "
+        "ON only when ELIGIBILITY_PLACEMENT is exactly 1."))
 
     st.divider()
 
