@@ -29,3 +29,6 @@ last_json_parse_failure.txt
 # Raw sweep run data (large scratch state). Condensed, committable
 # per-carrier baselines live in verification/baselines/ instead.
 verification/sweep_*.json
+
+# Round 32 step 3: the placement backtest's real-home data and results. Never commit.
+pilot_structured_rules/backtest/
