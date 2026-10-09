@@ -175,7 +175,9 @@ CHUBB_TERRITORY_HOLDS = ("CHU-043", "CHU-044", "CHU-047")
 HOLD_BY_DECISION = {**{rid: "Sage FPC table (Liam, 2026-10-06 / 2026-10-08)" for rid in FPC_TABLE_HOLDS},
                     **{rid: "Chubb coastal sub-territory (Liam, 2026-10-08)" for rid in CHUBB_TERRITORY_HOLDS}}
 # Decision 1: an OPEN that rests only on these blank fields is a NOTE.
-BLANK_IS_NOTE = {"dwelling_amount", "county", "zip", "sage_territory", "south_of_31"}
+# Round 35 step 6: the Harris east-of-146 answer is part of the county -- blank (no Harris county) or Unknown is a
+# confirm note as a blank county is. Found by the live check: OWNERSHIP_BASE (no county) held ARI HOB on ARB-005.
+BLANK_IS_NOTE = {"dwelling_amount", "county", "zip", "sage_territory", "south_of_31", "harris_east_146"}
 
 
 # --------------------------------------------------------------------------- data

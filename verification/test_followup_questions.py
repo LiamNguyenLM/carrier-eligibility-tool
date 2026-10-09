@@ -140,9 +140,11 @@ def test_an_old_trust_profile_without_a_type_holds(rid):
 
 
 # -- 3f Harris east of Highway 146 --------------------------------------------------------------------------
+# Round 35 step 6: an unknown answer -- like a blank county (decision 1) -- is a confirm note, not a hold.
 @pytest.mark.parametrize("county,east,want", [("Galveston", None, "FAIL"), ("Travis", None, "PASS"),
                                               ("Harris", "Yes", "FAIL"), ("Harris", "No", "PASS"),
-                                              ("Harris", "Unknown", "OPEN"), ("Harris", None, "OPEN")])
+                                              ("Harris", "Unknown", "NOTE"), ("Harris", None, "NOTE"),
+                                              ("", None, "NOTE")])
 def test_ari_hob_twia_area(county, east, want):
     pd = {"county": county}
     if east:
