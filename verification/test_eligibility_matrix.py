@@ -1625,25 +1625,12 @@ def test_swyfft_lloyds_and_orion_ppc9_consistency(record_property):
 
 
 @pytest.mark.baseline
-@pytest.mark.xfail(
-    reason="MEASURED 0% on STANDARD across 41 runs (0/16 pre-round-13, 0/25 fresh) -- the "
-    "'regressed from 60%' premise came from a stale n=5 sample. Not a regression and not "
-    "verdict-changing on this profile (home age 17 is UNDER the borrowed 0-20 cap, so the "
-    "clause reads as corroboration; status was INSUFFICIENT_INFORMATION in 25/25). The same "
-    "carrier measured 0/20 misattributed citations on COASTAL, where the clause WOULD be "
-    "adverse. Tracked, not silently green. "
-    "ROUND 15 MEASUREMENT (n=20, the sweep the round 14 XPASS asked for): 5/20 = 25% CLEAN, "
-    "up from 0/41 pooled before round 14. That improvement is real -- P(>=5 clean in 20 | the "
-    "old rate's 95% upper bound of 7%) = 1.1e-02 -- and the likely cause is round 14's "
-    "authoritative-input rule, which forbids carrying a property fact in from another "
-    "carrier's document. But 25% clean is NOT clean, so this STAYS xfail: the round 14 3/3 "
-    "XPASS was luck sitting on top of a genuine partial improvement, which is exactly the "
-    "trap this file keeps rediscovering. The contamination also CHANGED SHAPE: it was 25/25 "
-    "citation-level before, and is now 5 citation / 10 prose / 5 clean -- so the citation "
-    "form dropped sharply while a prose form took its place. Do not convert to a hard assert "
-    "until a sweep shows it actually clean.",
-    strict=False,
-)
+# xfail REMOVED 2026-10-09 (round 32 step 2): passed 3/3 runs on Haiku low, live configuration
+# (pilot + Sage + HO3 + DP batches ON), commit 38b4789.
+# Fixed by: ARI (HOA+) is decided from the HO3 batch rules table (round 29 step 7, 27b2363; ON live since
+# the 2026-10-08 push), and the main call is no longer made (round 31 step 3a, 3e5da1d). HOB's guide text
+# reaches no prompt: 'Homes 0-20 years old' occurs 0 times in the captured STANDARD prompts. The rules
+# check cites row ids and code adds the guide's words, so the borrowed sentence has nowhere to come from.
 def test_ari_hoa_plus_no_age_cap_contamination_consistency(record_property):
     """Round 12's audit found ARI (HOA+) had stopped borrowing ARI (HOB)'s
     age-cap citation ("Homes 0-20 years old are eligible...") in a single
@@ -1712,16 +1699,13 @@ def test_ari_hoa_plus_no_age_cap_contamination_consistency(record_property):
 
 
 @pytest.mark.baseline
-@pytest.mark.xfail(
-    reason="BACKLOG (round 12, open): the citation-attribution validator only catches "
-    "cross-carrier bleed that carries a carrier LABEL. Prose-only bleed -- another "
-    "carrier's terminology written into reasons/notes with no citation to attribute -- "
-    "is NOT covered, and is exactly the shape of the historical Sage 'Classification "
-    "A/B/C' issue. Covered today only by a prompt instruction and a retrieval-level "
-    "guard, both weaker than a mechanical check. Logged so 'cross-carrier contamination' "
-    "is never treated as fully solved by the P1 validator alone.",
-    strict=False,
-)
+# xfail REMOVED 2026-10-09 (round 32 step 2): passed 3/3 runs on Haiku low, live configuration
+# (pilot + Sage + HO3 + DP batches ON), commit 38b4789.
+# Fixed by: Auros (pilot) and Wilshire (Sage batch, round 27 step 6, 37f22b4) are decided from their rules
+# tables; Occidental HO3 is a GUIDE_UNAVAILABLE row (DD-4); and no main call is made (round 31 step 3a).
+# No Sage sibling's guide text is in any prompt: in the captured ALT prompts 'Classification' appears only
+# in the system instruction that forbids borrowing it. The mechanical check this backlog item asked for
+# is still not built; the source of the bleed is gone.
 def test_prose_only_cross_carrier_bleed_is_absent():
     """End-to-end counterpart to
     TestCitationAttributionValidator::test_DOCUMENTED_LIMITATION_prose_only_bleed_is_not_caught.
@@ -1829,24 +1813,12 @@ def test_mercury_exactly_10yr_roof_consistency(record_property):
 
 
 @pytest.mark.baseline
-@pytest.mark.xfail(
-    reason="BACKLOG (round 12, open -- MEASURED, do not treat as solved): ARI (HOA+) still "
-    "quotes ARI (HOB)'s age-cap rule in 7/8 STANDARD sweep runs. The P1 attribution "
-    "validator FIRED in 0/8 because the model labels the borrowed citation with HOA+'s OWN "
-    "name ('ARI_(HOA+): Homes 0-20 years old...') rather than HOB's -- no foreign label to "
-    "detect. It targets a real but different variant (correctly-labeled-as-foreign, seen in "
-    "earlier captures); a content-based check is what's actually needed. "
-    "IMPORTANT -- HOME AGE DETERMINES WHETHER THIS BUG CAN EVEN MANIFEST: the borrowed rule "
-    "is 'Homes 0-20 years old are eligible', so a home UNDER 20 satisfies it and the "
-    "contamination cannot flip the verdict. STANDARD is age 17 (under) -- its 8/8 "
-    "verdict-correct result measures a case where the bug is structurally unable to appear "
-    "and must NOT be read as evidence of safety. Profiles that actually exercise it: "
-    "COASTAL_PPC4 age 22 (pre-fix: 1/5 wrongly INELIGIBLE) and ALT age 32 (post-fix: 0/12 "
-    "wrong verdicts AND 0/12 any contamination text -- encouraging, and again with the "
-    "validator firing 0/12, so any gain is from the prompt rule, not the validator). "
-    "Next step: re-measure COASTAL_PPC4 post-fix for a clean same-profile before/after.",
-    strict=False,
-)
+# xfail REMOVED 2026-10-09 (round 32 step 2): passed 3/3 runs on Haiku low, live configuration
+# (pilot + Sage + HO3 + DP batches ON), commit 38b4789.
+# Fixed by: ARI (HOA+) is decided from the HO3 batch rules table (round 29 step 7, 27b2363; ON live since
+# the 2026-10-08 push), and the main call is no longer made (round 31 step 3a, 3e5da1d). HOB's guide text
+# reaches no prompt: 'Homes 0-20 years old' occurs 0 times in the captured STANDARD prompts. The rules
+# check cites row ids and code adds the guide's words, so the borrowed sentence has nowhere to come from.
 def test_ari_hoa_plus_does_not_quote_hob_age_cap():
     result = check_eligibility(STANDARD_PROFILE)
     by_carrier = {r["carrier"]: r for r in result}
@@ -4105,13 +4077,11 @@ def test_chubb_eligible_persons_never_decides_a_decline(chubb_standard_runs):
 
 
 @pytest.mark.baseline
-@pytest.mark.xfail(
-    reason="ACCEPTED WITH LIAM'S 2026-09-28 DECISION, not a new regression: the guarantee now runs "
-    "for Trust/LLC only, so this individual-owner STANDARD prompt is main's again, without clause 2. "
-    "Measured rates: main's prompt invented a dwelling type in 3/20 round-15 runs; with clause 2 "
-    "present, 0/3. Non-strict: a 3-run fixture at ~15%/run passes most of the time.",
-    strict=False,
-)
+# xfail REMOVED 2026-10-09 (round 32 step 2): passed 3/3 runs on Haiku low, live configuration
+# (pilot + Sage + HO3 + DP batches ON), commit 38b4789 (3 recorded STANDARD runs each).
+# Fixed by: CHUBB is decided by code from the pilot table (round 25; ON live since round 27). On STANDARD
+# no CHUBB row is left open, so the model writes no reasoning for it; and STANDARD now gives Dwelling type
+# House (the required form field, 2026-10-02), so there is nothing left to invent.
 def test_chubb_reasoning_never_invents_a_dwelling_type(chubb_standard_runs):
     """(c) -- the only part of the old backlog item that is a real reasoning
     error. Round 15's recorded runs did it 3/20."""
@@ -4897,14 +4867,11 @@ def _dumped_record(rep, ownership, carrier, universe):
 
 
 @pytest.mark.baseline
-@pytest.mark.xfail(
-    reason="VERDICT-CHANGING, INTERMITTENT (round 17, read by eye): Allied Trust/Trust is REFER "
-    "in 3/6 recorded runs -- 0/3 at 3caeb64, 3/3 at 1b446e2 on BYTE-IDENTICAL Allied evidence. "
-    "The misses follow the grantor clause and drop the 'Residence Held in Trust | Submit for "
-    "Approval with Trust documents' row, which is in the prompt. The other five "
-    "trust-referral carriers are REFER 6/6.",
-    strict=False,
-)
+# xfail REMOVED 2026-10-09 (round 32 step 2): passed 3/3 runs on Haiku low, live configuration
+# (pilot + Sage + HO3 + DP batches ON), commit 38b4789: REFER in 9/9 recorded Trust runs.
+# Fixed by: ALL-016 ('Homes held in a trust must be submitted for approval with trust documents') fails
+# for a Trust and code decides the card REFER (rules_evaluator.code_record: a failing cited row decides;
+# the model is not asked) -- pilot rules table, ON live since round 27. decided_by_code in 9/9.
 def test_allied_trust_trust_is_refer_on_its_approval_row():
     """The exact finding: status REFER (now the Refer to Underwriting bucket), with the
     referral stated about the trust -- the grantor condition alone is not
@@ -4924,7 +4891,11 @@ def test_allied_trust_trust_is_refer_on_its_approval_row():
     "owned by an LLC, Corporation, and/or Corporate Trust'. The intake's 'Trust' does not say "
     "corporate, so a decline over-reads the rule. Declined in 1/6 recorded Trust runs (0/3 at "
     "3caeb64, 1/3 at 1b446e2) on byte-identical Mercury evidence; the rest were not declined. "
-    "A trust-type intake field is Liam's call, like the grantor field.",
+    "A trust-type intake field is Liam's call, like the grantor field. "
+    "ROUND 32 (2026-10-09, Haiku low, live configuration, commit 38b4789): not declined in 9/9 Trust "
+    "runs (3 test runs x 3 reps), all INSUFFICIENT_INFORMATION -- but each one the MODEL's judgement of "
+    "MER-005, which is AMBIGUOUS and left to the model. No code change prevents a decline, so it stays "
+    "xfail.",
     strict=False,
 )
 def test_mercury_trust_is_not_declined_on_its_corporate_trust_rule():
@@ -4937,13 +4908,10 @@ def test_mercury_trust_is_not_declined_on_its_corporate_trust_rule():
 
 
 @pytest.mark.baseline
-@pytest.mark.xfail(
-    reason="SILENT, INTERMITTENT (round 17): rep 3 Trust at 1b446e2 returned 26 of 28 carriers -- "
-    "Foremost and NatGen Custom360 left out entirely, stop_reason end_turn, not a truncation. 1 of "
-    "48 recorded calls. Nothing in the pipeline notices, so an agent would never know; the fix is "
-    "a fixed 'not evaluated' row, the same machinery as the data-defect warning row.",
-    strict=False,
-)
+# xfail REMOVED 2026-10-09 (round 32 step 2): passed 3/3 runs on Haiku low, live configuration
+# (pilot + Sage + HO3 + DP batches ON), commit 38b4789: 29/29 carriers in 27/27 recorded checks.
+# Fixed by: a carrier the model leaves out gets one retry (round 29) and then a NOT_EVALUATED row
+# (2026-09-30), and with every batch ON each carrier also has a rules-table record.
 def test_every_carrier_appears_in_every_recorded_run():
     universe = get_carriers_for_occupancy("Owner Occupied")
     gaps = []
