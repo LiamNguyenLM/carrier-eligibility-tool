@@ -29,7 +29,7 @@ def tables(zip_sales=None, county_sales=None, other=None, profile=None, ago=1):
         T["zip"]["77494"].append((A0 - ago, m, n))
         T["all"].append((A0 - ago, m, n))
     for m, n in (county_sales or {}).items():
-        T["county"]["Fort Bend"].append((A0 - ago, m, n))
+        T["county"]["fort bend"].append((A0 - ago, m, n))         # as load_tables keys it (round 35 step 0)
     for m, n in (other or {}).items():
         T["zip"]["79999"].append((A0 - ago, m, n))
         T["all"].append((A0 - ago, m, n))

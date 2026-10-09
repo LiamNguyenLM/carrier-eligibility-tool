@@ -16,6 +16,7 @@ actually used was in the top 3 of the not-ruled-out carriers 63% of the time, vs
     total over the candidates is >= MIN_DIM:
         s[m] = (W_dim[m] + 5 * g[m]) / (W_dim_total + 5);  score += log(s[m] / g[m])
   * score[m] = log(z[m]) + those terms.
+  * County lookup is case-insensitive ("McLennan" = "Mclennan" = "MCLENNAN"; Claude 2026-10-09).
 """
 import csv, math, os
 from collections import defaultdict
@@ -46,7 +47,7 @@ def load_tables(d):
         T["zip"][r["zip"]].append((mi, r["market"], n))
         T["all"].append((mi, r["market"], n))
     for r in csv.DictReader(open(os.path.join(d, "placement_county.csv"), encoding="utf-8")):
-        T["county"][r["county"]].append((_mi(r["month"]), r["market"], int(r["n"])))
+        T["county"][r["county"].strip().lower()].append((_mi(r["month"]), r["market"], int(r["n"])))
     for r in csv.DictReader(open(os.path.join(d, "placement_profile.csv"), encoding="utf-8")):
         T["profile"][(r["dim"], r["value"])].append((_mi(r["month"]), r["market"], int(r["n"])))
     return T
@@ -71,7 +72,7 @@ def rank(T, candidates, zip5, county, year_built, cov_a, as_of, year=None):
     wa = _weighted(T["all"], asof, cands)
     tot = sum(wa.values())
     g = {m: (wa[m] + 0.5) / (tot + 0.5 * K) for m in cands}
-    wc = _weighted(T["county"].get((county or "").strip().title(), []), asof, cands)
+    wc = _weighted(T["county"].get((county or "").strip().lower(), []), asof, cands)
     nc = sum(wc.values())
     cty = {m: (wc[m] + K_COUNTY * g[m]) / (nc + K_COUNTY) for m in cands}
     wz = _weighted(T["zip"].get(zip5 or "", []), asof, cands)

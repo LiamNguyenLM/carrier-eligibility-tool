@@ -9,6 +9,8 @@ rank() is the reference scorer (pilot_structured_rules/placement/placement_score
 2026-10-09; a verbatim copy is verification/placement_score_reference.py) and must rank identically:
   * only whole months BEFORE as_of count, within WINDOW_MONTHS; a month's counts are weighted
     0.5 ** (months_ago / HALF_LIFE), the month just before as_of being months_ago = 1;
+  * the county is looked up case-insensitively: table and query keyed on county.strip().lower()
+    (Claude's reference, 2026-10-09; "McLennan" = "Mclennan" = "MCLENNAN");
   * g[m]   = (W_all[m] + 0.5) / (W_total + 0.5 * K) over the K candidate markets;
   * cty[m] = (W_county[m] + K_COUNTY * g[m]) / (W_county_total + K_COUNTY);
   * z[m]   = (W_zip[m] + K_ZIP * cty[m]) / (W_zip_total + K_ZIP);
@@ -68,7 +70,7 @@ def load_tables(data_dir=DATA_DIR):
         T["zip"][r["zip"]].append((mi, r["market"], n))
         T["all"].append((mi, r["market"], n))
     for r in rows("placement_county.csv"):
-        T["county"][r["county"]].append((month_index(r["month"]), r["market"], int(r["n"])))
+        T["county"][r["county"].strip().lower()].append((month_index(r["month"]), r["market"], int(r["n"])))
     for r in rows("placement_profile.csv"):
         T["profile"][(r["dim"], r["value"])].append((month_index(r["month"]), r["market"], int(r["n"])))
     T["markets"] = [(r["program_prefix"], r["market"]) for r in rows("placement_markets.csv")]
@@ -121,7 +123,7 @@ def rank(T, candidate_markets, zip5, county, year_built, cov_a, as_of, year=None
     wa = _weighted(T["all"], asof, cands)
     tot = sum(wa.values())
     g = {m: (wa[m] + 0.5) / (tot + 0.5 * K) for m in cands}
-    wc = _weighted(T["county"].get((county or "").strip().title(), []), asof, cands)
+    wc = _weighted(T["county"].get((county or "").strip().lower(), []), asof, cands)
     nc = sum(wc.values())
     cty = {m: (wc[m] + K_COUNTY * g[m]) / (nc + K_COUNTY) for m in cands}
     wz = _weighted(T["zip"].get(zip5 or "", []), asof, cands)
@@ -172,8 +174,8 @@ def nearby(T, zip5, county, asof):
     z = _recent(T["zip"].get(zip5 or "", []), asof)
     if zip5 and sum(z.values()) >= MIN_NEARBY:
         return f"ZIP {zip5}", z
-    name = (county or "").strip().title()
-    c = _recent(T["county"].get(name, []), asof)
+    name = (county or "").strip()
+    c = _recent(T["county"].get(name.lower(), []), asof)
     if name and sum(c.values()) >= MIN_NEARBY:
         return f"{name} County", c
     return None, {}

@@ -33,7 +33,7 @@ def tables(all_=(), zip_=None, county=None, profile=None):
     for k, v in (zip_ or {}).items():
         T["zip"][k] = idx(v)
     for k, v in (county or {}).items():
-        T["county"][k] = idx(v)
+        T["county"][k.strip().lower()] = idx(v)                  # as load_tables keys it (round 35 step 0)
     for k, v in (profile or {}).items():
         T["profile"][k] = idx(v)
     return T
@@ -186,13 +186,32 @@ def test_the_backtest_cleans_a_home_county_as_the_builder_does(county, zip5, wan
     assert v.county_cleaner()(county, zip5) == want
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "Round 34 (2026-10-09), OPEN for Claude: the cleaned tables keep the canonical spelling ('McLennan', "
-    "'DeWitt'), but rank() and the reference scorer look a county up as county.strip().title() "
-    "('Mclennan'), so McLennan (8 policies), DeWitt (2), McCulloch and McMullen never reach their county "
-    "rows and fall back to the statewide mix. Fixing it in placement.py alone would break 'rank "
-    "identically'; the reference lookup should be case-insensitive, then both change together."))
-def test_a_mclennan_home_reaches_its_county_rows():
+# xfail REMOVED 2026-10-09 (round 35 step 0): Claude's reference now keys the county table and the query on
+# county.strip().lower(), and placement.py does the same. Was: the .title() lookup ("Mclennan") missed the
+# tables' "McLennan" / "DeWitt" keys, so those homes fell back to the statewide mix.
+@pytest.mark.parametrize("county", ["McLennan", "Mclennan", "MCLENNAN", "DeWitt", "Dewitt", "dewitt"])
+def test_a_mc_or_de_county_home_reaches_its_county_rows_on_the_real_tables(county):
+    # the two of the four with policies in the data (McLennan 8, DeWitt 2; McCulloch and McMullen have none)
     T = placement.load_tables()
-    assert "McLennan" in T["county"]                                  # the rows are there ...
-    assert T["county"].get("McLennan".strip().title())                # ... under the key the lookup uses
+    assert T["county"].get(county.strip().lower())
+    res = [{"carrier": p, "status": "ELIGIBLE"} for p in ("Allied_Trust_HO3", "TWICO_HO3", "Travelers_HO3_-_06.12.2026")]
+    assert placement.rank(T, placement.candidates(res, T), "", county, None, None, "2026-10") == \
+        placement.rank(T, placement.candidates(res, T), "", county.upper(), None, None, "2026-10")
+
+
+@pytest.mark.parametrize("county", ["McLennan", "DeWitt", "McCulloch", "McMullen"])
+@pytest.mark.parametrize("casing", [str, str.title, str.upper, str.lower])
+def test_each_of_the_four_gets_its_local_history_whatever_the_casing(county, casing):
+    # synthetic: the county says B, the statewide mix says A
+    T = tables(all_=[(1, "A", 200), (1, "B", 60)], county={county: [(1, "B", 60)]})
+    assert order(T, county=casing(county)) == ["B", "A"]
+    assert order(T, county="") == ["A", "B"]
+    assert placement.nearby(T, "", casing(county), A0)[0] == f"{casing(county)} County"
+
+
+def test_the_app_and_the_reference_agree_on_the_four_counties():
+    T, R = placement.load_tables(), ref.load_tables(placement.DATA_DIR)
+    markets = sorted({m for _, m in T["markets"]})
+    for county in ("McLennan", "Mclennan", "DeWitt", "DEWITT", "McCulloch", "mcmullen"):
+        assert placement.rank(T, markets, "", county, 2015, 450000, "2026-10") == \
+            ref.rank(R, markets, "", county, 2015, 450000, "2026-10")
