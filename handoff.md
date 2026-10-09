@@ -2010,6 +2010,59 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     - 291 of 300 homes have at least one Eligible program (median 3).
     - Plumbing type is the hold item on 4,393 of the Insufficient cards,
       because it is Unknown for every home.
+- **2026-10-09 — Round 33: the placement panel (Liam's decision,
+  2026-10-09).** The panel is "Where we usually place homes like this".
+  - **The decision:** it ranks the carrier markets the check did NOT rule
+    out, using the agency's own HawkSoft placement history.
+    - It never changes a verdict, and never reorders or hides a card.
+    - It is off unless ELIGIBILITY_PLACEMENT is exactly "1".
+    - Why: Claude backtested it on 300 homeowners policies sold Apr-Oct 2026,
+      using only history from before April. The market we actually used
+      was in the panel's top 3 for 132 of 210 homes (63%). "Our most-used
+      carriers lately" scored 52% and random 16%.
+  - **Step 1 (ce38bb4): the data and the scorer.**
+    - rules_data/placement/ holds Claude's built tables: 14,398 policies,
+      data through 2026-10. sync_from_out.py copies them in.
+    - Claude refreshes the tables monthly
+      (pilot_structured_rules/placement/REFRESH.md, git-ignored). **Each
+      refresh needs a commit and a push to reach the app.**
+    - placement_county.csv leaves out every row whose county is not a Texas
+      county: 336 of 4,314 rows, 79 values. HawkSoft's county field holds
+      abbreviations, digits, and fragments of street names and lender
+      names. The app never looks those keys up, so no ranking changes.
+      test_placement fails if a refresh brings them back. **Claude's builder
+      should clean the county before counting.**
+    - placement.py ranks exactly as Claude's placement_score.py: 400 random
+      inputs give the same order, with scores within 1e-12. The backtest
+      (verification/verify_placement_backtest.py, as_of 2026-04) gives
+      132/210 in the top 3 and 37.6% top 1.
+  - **Step 2 (d3bb468): the panel.**
+    - It appears above the cards when the switch is ON and at least 2
+      markets are candidates. Each of the top 3 shows:
+      - its programs;
+      - "Held: confirm ..." when none of its programs is Eligible;
+      - one reason line in plain last-12-month counts (ZIP, or the county
+        when the ZIP had fewer than 10 sales, or the statewide wording);
+      - a fit line when the market's share in the home's age or Coverage A
+        band is at least 1.25x its overall share, with at least 10 sales
+        in the band.
+    - "Usually X here" appears when the nearby top seller is ruled out.
+    - A footer gives data_through. The Database Fingerprint panel shows
+      "Placement panel: ON / OFF (data through ..., N policies)".
+    - With the switch OFF nothing runs. The check never reads the switch.
+      Replay vs 9edcc3c with the switch ON: 78/78 identical.
+    - Real runs (Haiku low, all batches ON, panel ON):
+      - LIVE in Bexar: Auros (held: distance to fire station), Allied Trust,
+        ARI. Bexar County has 13 recent sales.
+      - CLEAN in 77494: Allied Trust, Auros (held), Trium (held).
+      - A 2015 home in Harris County with Coverage A $650K: Allied Trust,
+        Auros (held), Travelers.
+      - None showed a "usually here" line: the top recent seller nearby,
+        Auros, was a candidate each time.
+  - **Step 3: Tier 2 with the panel ON and OFF** (d3bb468): 28 passed, 0
+    failed, 7 xfailed, 1 xpassed (Mercury, as recorded in round 32) each
+    way. The ownership verdicts are identical in all 87 (ownership x
+    carrier) cells, 3 reps each.
 
 ## Open work, in priority order (updated 2026-10-02)
 
