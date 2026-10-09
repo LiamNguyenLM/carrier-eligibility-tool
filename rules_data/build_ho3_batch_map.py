@@ -30,6 +30,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from build_rule_field_map import DOGS, FLAT, NONE_NOTE, POOL_OK, SEASONAL, breed_line  # noqa: E402
+from build_rule_field_map import (CORP_OR_LLC, CORP_TRUST, LAND, SOLAR, SOLAR_FIELDS, SOLAR_ROOF_T, TESLA_ROOF,  # noqa: E402
+                                  not_owned_by)
 from build_rule_field_map import (ASBESTOS, BUILT_UP, METAL, MEMBRANE, MSHINGLE, NOT_WOOD, PANEL, ROLLED_ROOF, SEAM,  # noqa: E402
                                   SOLAR_ROOF, TLOCK, WOOD, _roofs)
 from build_sage_batch_map import BATCH_NONE_NOTE, coverage_table as _sage_coverage, kind  # noqa: E402,F401
@@ -135,8 +137,9 @@ MAP = {
     "ARA-079": money("dwelling_amount <= 1000000"),
     "ARA-085": same_as("ARA-014", "ppc"),            # round 35: the >5-mile split-class row is ARA-014's fact
     # ================= ARI HOB
-    "ARB-005": ("county", f"county not in {TWIA_TIER1[:-1]}, Harris}} || county not in {TWIA_TIER1}", "always", "",
-                "TWIA's Tier 1 counties; Harris only east of Highway 146 (not asked): AMBIGUOUS"),
+    # round 35 step 3f: "Tier 1 counties and designated portions of Harris County east of Highway 146"
+    "ARB-005": ("county;harris_east_146", f"county not in {TWIA_TIER1} and (county != Harris or harris_east_146 == No)",
+                "always", "", "TWIA's Tier 1 counties; Harris east of Highway 146 (the form asks it)"),
     "ARB-006": ARI_ROOF_SLATE,
     "ARB-007": ARI_FLAT, "ARB-008": ARI_TILE, "ARB-009": TOWNHOME, "ARB-011": ARI_UNPROTECTED, "ARB-012": WITHIN_5,
     "ARB-014": ("construction_type", MOBILE, "always", "", ""),
@@ -187,10 +190,23 @@ MAP = {
     "FOR-078": ("county", "county not in {Collin, Dallas, Denton, Fort Bend, Harris, Rockwall, Tarrant}", "always",
                 "", ""),
     "FOR-087": ("occupancy_type", NOT_VACANT, "always", "", ""),
-    "FOR-093": same_as("FOR-094", "ownership_type"), "FOR-095": same_as("FOR-094", "ownership_type"),
+    # round 35 step 3e: "a Governmental Entity, Land Trust, Conservatorship, Co-op, Condominium Association or a
+    # business, including a corporation or lending institution"
+    "FOR-093": ("ownership_type;trust_type", not_owned_by("Corporation / partnership", trusts=(LAND, CORP_TRUST)),
+                "always", "", "an LLC is FOR-094's"),
+    "FOR-095": same_as("FOR-093", "ownership_type"),
     "FOR-094": ("ownership_type", "FACT(no business associated with the LLC's name)", LLC, "LLC business", ""),
     "FOR-096": ("ownership_type", "FACT(the grantor or trustee lives in the home)", TRUST, "grantor / trustee", ""),
-    "FOR-097": ("ownership_type", "FACT(not a land trust)", TRUST, "land trust", ""),
+    "FOR-097": ("ownership_type;trust_type", "trust_type not in {Land trust}", TRUST, "",
+                "round 35: the trust type (an unknown type holds)"),
+    # round 35 step 3d: the solar type and the Tesla question decide these (no line before)
+    "SBS-040": (SOLAR_FIELDS, "solar_type not in " + SOLAR_ROOF_T + " and (solar_tesla != Yes or FACT(no Tesla parts "
+                "in a solar roof system))", SOLAR, "Tesla parts", "'No Tesla Solar Roofs or solar roofs ...'"),
+    "SLL-058": (SOLAR_FIELDS, TESLA_ROOF, SOLAR, "Tesla parts", "'No Tesla Solar Roofs including solar roofs ...'"),
+    "STO-043": (SOLAR_FIELDS, TESLA_ROOF, SOLAR, "Tesla parts", "'No Tesla Solar Roofs including solar roofs ...'"),
+    "FOR-066": (SOLAR_FIELDS, "solar_type not in " + SOLAR_ROOF_T, SOLAR, "", "'Solar shingles'"),
+    "TRV-023": (SOLAR_FIELDS, "solar_type not in {Ground-mounted} or FACT(the ground-mounted panels are protected)",
+                SOLAR, "ground panels protected", "'unprotected ground mounted solar panels'"),
     # ================= HOAIC HO3
     "HOA-001": money("dwelling_amount >= 150000"),
     "HOA-002": money("dwelling_amount <= 2000000"),
@@ -206,7 +222,8 @@ MAP = {
     "LIB-028": ("construction_type", MOBILE, "always", "", ""),
     "LIB-033": ("year_built", "FACT(no fuses, knob and tube or aluminum wiring)", "year_built < 1976", "wiring", ""),
     "LIB-034": ("roof_type", NOT_WOOD, "always", "", ""),
-    "LIB-048": ("ownership_type", "ownership_type != LLC", "always", "", ""),
+    "LIB-048": ("ownership_type", not_owned_by("LLC", "Corporation / partnership"), "always", "",
+                "'a corporation, company, LLC, etc.' (round 35)"),
     "LIB-051": ("ppc;dwelling_amount", "dwelling_amount <= 3000000", "ppc_num == 9", "", ""),
     "LIB-052": ("ppc;dwelling_amount", "dwelling_amount <= 1000000", "ppc_num == 10", "", ""),
     "LIB-064": ("ppc;dwelling_amount", "dwelling_amount < 1500000", "ppc_num == 9", "", ""),
@@ -242,7 +259,9 @@ MAP = {
     "ORI-028": ("ownership_type", "FACT(no rental, business or commercial use)", TRUST, "trust home use", ""),
     "ORI-029": PPC_1_9, "ORI-097": same_as("ORI-029", "ppc"), "ORI-098": WITHIN_5,
     "ORI-044": ("occupancy_type", NOT_VACANT, "always", "", ""),
-    "ORI-048": ("ownership_type", "ownership_type != LLC", "always", "", ""),
+    "ORI-048": ("ownership_type;trust_type", not_owned_by("LLC", "Corporation / partnership", "Estate",
+                                                          trusts=(CORP_TRUST,)), "always", "",
+                "'corporation, LLC, partnership, LLP, estate, association or any other business entity' (round 35)"),
     "ORI-050": ("year_built", "year_built >= 1900", "always", "", ""),
     "ORI-056": ("construction_type", MOBILE, "always", "", "barndominiums are not a form option"),
     "ORI-059": ("roof_type", "roof_type not in " + _roofs(PANEL, TLOCK), "always", "",
@@ -281,11 +300,12 @@ MAP = {
     "SLL-063": ("construction_type", MOBILE, "always", "", "barndominiums are not a form option"),
     "SLL-069": ("swimming_pool", "swimming_pool != In Ground - Unfenced and FACT(meets local code)", IN_GROUND,
                 "local code", ""),
-    "SLL-074": ("ownership_type", "ownership_type != LLC", "always", "", ""),
-    "SLL-075": ("ownership_type", "FACT(no more than 6 unrelated principals)", LLC, "LLC principals", ""),
-    "SLL-076": ("ownership_type", "FACT(owns no more than 10 properties)", LLC, "LLC properties", ""),
-    "SLL-077": ("ownership_type", "FACT(no fractional ownership properties)", LLC, "LLC timeshares", ""),
-    "SLL-078": ("ownership_type", "FACT(no business other than real estate)", LLC, "LLC business", ""),
+    "SLL-074": ("ownership_type", not_owned_by("LLC", "Corporation / partnership"), "always", "",
+                "'Corp, LLC or LLP' (round 35)"),
+    "SLL-075": ("ownership_type", "FACT(no more than 6 unrelated principals)", CORP_OR_LLC, "LLC principals", ""),
+    "SLL-076": ("ownership_type", "FACT(owns no more than 10 properties)", CORP_OR_LLC, "LLC properties", ""),
+    "SLL-077": ("ownership_type", "FACT(no fractional ownership properties)", CORP_OR_LLC, "LLC timeshares", ""),
+    "SLL-078": ("ownership_type", "FACT(no business other than real estate)", CORP_OR_LLC, "LLC business", ""),
     "SLL-080": ("ownership_type", "ownership_type != Trust", "always", "", ""),
     # ================= Swyfft Topa (Surplus) HO3
     "STO-002": money("dwelling_amount between 150000 and 2000000"),
@@ -327,7 +347,8 @@ MAP = {
     # ================= Travelers Quantum Home 2.0
     "TRV-015": ("has_dogs", "FACT(no animal that has bitten or injured)", DOGS, "bite history", ""),
     "TRV-016": breed_line("travelers", "closed", "any mix or variation of these breeds"),
-    "TRV-017": ("ownership_type", "FACT(no business or commercial exposure)", "ownership_type in {Trust, LLC}",
+    "TRV-017": ("ownership_type", "FACT(no business or commercial exposure)",
+                "ownership_type in {Trust, LLC, Corporation / partnership, Estate}",
                 "entity's business", ""),
     "TRV-025": ("swimming_pool", FENCED + " or FACT(secured by a retractable safety cover or locking ladder)", POOL,
                 "pool cover / ladder", ""),

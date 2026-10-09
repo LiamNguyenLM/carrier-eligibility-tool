@@ -1032,7 +1032,8 @@ MAX_OWNERSHIP_CHUNKS_PER_CARRIER = 6
 # itself costs an ordinary customer about +6.5K input tokens (+15%).
 MAX_OCCUPANCY_CHUNKS_PER_CARRIER = 3
 
-_OWNERSHIP_STRUCTURES_WITH_ENTITY_RULES = {"Trust", "LLC"}
+# Round 35 step 3e: Corporation / partnership and Estate are entity owners too.
+_OWNERSHIP_STRUCTURES_WITH_ENTITY_RULES = {"Trust", "LLC", "Corporation / partnership", "Estate"}
 
 
 # Liam's decision, 2026-09-28: the guarantee runs only where occupancy or
@@ -1126,6 +1127,21 @@ def _territory_fact_line(county, carriers):
             f"-- for {', '.join(inside)}.")
 
 
+def _followup_lines(pd, ownership):
+    """Round 35 steps 3d-f: the follow-up answers, each stated only when asked and answered, so every other
+    prompt is byte-identical."""
+    rows = []
+    if ownership == "Trust" and intake_fields.answer(pd.get("trust_type")):
+        rows.append((None, f"Trust Type: {pd['trust_type']}"))
+    if pd.get("solar_panels") == "Yes":
+        if intake_fields.answer(pd.get("solar_type")):
+            rows.append(("fact:solar_panels", f"Solar Type: {pd['solar_type']}"))
+        if intake_fields.answer(pd.get("solar_tesla")):
+            rows.append(("fact:solar_panels", f"Tesla Equipment (Solar Roof, Powerwall or other Tesla parts): "
+                                              f"{pd['solar_tesla']}"))
+    return rows
+
+
 def _property_details_text(pd, home_age, occupancy, ownership, checked, carriers=()):
     """The PROPERTY DETAILS block. A line whose topic is unchecked is left
     out (Liam: not considered at all); with everything checked the text is
@@ -1152,6 +1168,7 @@ def _property_details_text(pd, home_age, occupancy, ownership, checked, carriers
         ("fact:solar_panels", f"Solar Panels: {pd['solar_panels']}"),
         ("fact:ppc", f"PPC Number: {pd['ppc']}"),
     ]
+    rows += _followup_lines(pd, ownership)
     # Round 26 (Liam, 2026-10-05, decision B): stated only when filled, so a
     # blank / Unknown answer leaves the prompt byte-identical.
     miles = intake_fields.parse_station_miles(pd.get("fire_station_miles"))
@@ -1175,6 +1192,9 @@ def _property_details_text(pd, home_age, occupancy, ownership, checked, carriers
         territory = _territory_fact_line(county, carriers)
         if territory:
             rows.append(("fact:county_territory", territory))
+        east = intake_fields.answer(pd.get("harris_east_146")) if county == "Harris" else None
+        if east:                                            # round 35 step 3f
+            rows.append(("fact:county", f"East of Highway 146 (TWIA designated area): {east}"))
     if amount:
         rows.append(("fact:dwelling_amount", f"Dwelling Amount (Coverage A): ${amount:,}"))
     if dtype:
@@ -1290,6 +1310,9 @@ _OWNERSHIP_TERMS = {
         re.I),
     "Trust": re.compile(r"\btrusts?\b", re.I),
 }
+# Round 35 step 3e: the new entity owners.
+_OWNERSHIP_TERMS["Corporation / partnership"] = _OWNERSHIP_TERMS["LLC"]
+_OWNERSHIP_TERMS["Estate"] = re.compile(r"\bestates?\b|non-individual|non-personal entit", re.I)
 
 
 def _mentions_occupancy_eligibility(content):
@@ -1553,8 +1576,11 @@ def build_risk_factors(property_details, occupancy, checked=None):
     if _on("risk:dogs", checked) and intake_fields.aggressive_breed_answer(property_details) == 'Yes':
         risk_factors.append("aggressive dog breed ineligible prohibited liability")
 
-    if property_details.get('ownership_type') == 'LLC':
+    if property_details.get('ownership_type') in ('LLC', 'Corporation / partnership'):
         risk_factors.append("LLC business corporation owned property ineligible not eligible")
+
+    if property_details.get('ownership_type') == 'Estate':           # round 35 step 3e
+        risk_factors.append("estate owned property named insured ineligible not eligible")
 
     if property_details.get('ownership_type') == 'Trust':
         risk_factors.append("trust owned property eligibility requirements named insured grantor")

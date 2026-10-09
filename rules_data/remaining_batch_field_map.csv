@@ -52,7 +52,7 @@ CDP-065,NONE,,,DECLINES,,not asked by the form
 CDP-066,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 CDP-067,NONE,,,REFERS_TO_UW,,"rentals, mailing address and occupancy dates are not asked"
 CDP-068,NONE,,,DECLINES,,lease length is not asked; every rental needs a 12-month lease (confirm)
-CDP-069,ownership_type,FACT(a family member living trust as an Additional Named Insured),ownership_type == Trust,DECLINES,family living trust,LLCs are decided by CDP-071 / CDP-072
+CDP-069,ownership_type;trust_type,"ownership_type not in {Corporation / partnership, Estate} and (ownership_type != Trust or (trust_type not in {Land trust, Corporate or business trust} and FACT(a family member living trust as an Additional Named Insured)))",always,DECLINES,family living trust,LLCs are decided by CDP-071 / CDP-072
 CDP-070,ownership_type,always,always,CONDITION,,decided by CDP-069 (the same rule); never a second flaw
 CDP-071,ownership_type,ownership_type != LLC,always,REFERS_TO_UW,,every LLC needs underwriting approval before binding
 CDP-072,ownership_type;occupancy_type,occupancy_type == Tenant Occupied,ownership_type == LLC,CONDITION,,
@@ -83,7 +83,7 @@ CDP-107,NONE,,,CONDITION,,not asked by the form
 CDP-110,NONE,,,CONDITION,,not asked by the form
 CDP-113,NONE,,,CONDITION,,"location detail beyond county / tier is not asked, or the guide does not say"
 CHO-006,NONE,,,DECLINES,,not asked by the form
-CHO-007,ownership_type,ownership_type == Individual Owner || ownership_type != LLC,always,DECLINES,,a trust-owned home may still have an individual named insured
+CHO-007,ownership_type,"ownership_type not in {LLC, Corporation / partnership, Estate} and (ownership_type != Trust or FACT(an individual is the named insured))",always,DECLINES,named insured,
 CHO-008,NONE,,,CONDITION,,"TIV, Coverage B and the HO5 form are not asked"
 CHO-009,dwelling_amount,dwelling_amount <= 1250000,always,REFERS_TO_UW,,
 CHO-011,NONE,,,DECLINES,,not asked by the form
@@ -141,8 +141,8 @@ LDP-012,NONE,,,UNKNOWN,,"rentals, mailing address and occupancy dates are not as
 LDP-013,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 LDP-014,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 LDP-017,NONE,,,DECLINES,,not asked by the form
-LDP-018,ownership_type,always,always,DECLINES,,decided by LDP-019 (the same rule); never a second flaw
-LDP-019,ownership_type,FACT(owns it for the benefit of an individual owner who is the named insured),"ownership_type in {Trust, LLC}",CONDITION,who the trust / LLC benefits,
+LDP-018,ownership_type,"ownership_type != Corporation / partnership or FACT(a partnership, an LLP or LP, holding it for an individual owner)",always,DECLINES,corporation or partnership,
+LDP-019,ownership_type,FACT(owns it for the benefit of an individual owner who is the named insured),"ownership_type in {Trust, LLC, Estate}",CONDITION,who the trust / LLC benefits,
 LDP-020,NONE,,,CONDITION,,the number of individual owners is not asked
 LDP-022,NONE,,,DECLINES,,not asked by the form
 LDP-023,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
@@ -184,7 +184,7 @@ LDP-069,dwelling_amount,dwelling_amount <= 1500000,always,REFERS_TO_UW,,
 LDP-070,NONE,,,DECLINES,,"TIV, Coverage B and the HO5 form are not asked"
 NCD-001,ownership_type,always,always,DECLINES,,decided by NCD-006 / NCD-004 (the same rule); never a second flaw
 NCD-002,ownership_type,always,always,DECLINES,,decided by NCD-006 / NCD-004 (the same rule); never a second flaw
-NCD-003,ownership_type,always,always,DECLINES,,decided by NCD-004 (the same rule); never a second flaw
+NCD-003,ownership_type,ownership_type != Corporation / partnership,always,DECLINES,,"'corporations, ... partnerships' (round 35); an LLC is NCD-004's"
 NCD-004,ownership_type,FACT(no commercial activities; owned only by the insured and relatives),ownership_type == LLC,CONDITION,the LLC's activities and owners,
 NCD-005,NONE,,,CONDITION,,the number of individual owners is not asked
 NCD-006,ownership_type,"FACT(guarantor, trustee and named insured are the same person)",ownership_type == Trust,CONDITION,who the trust's guarantor and trustee are,a trust may only be an additional insured
@@ -414,7 +414,7 @@ PDP-044,NONE,,,CONDITION,,not asked by the form
 PDP-046,NONE,,,REFERS_TO_UW,,the number of individual owners is not asked
 PDP-047,NONE,,,DECLINES,,the number of individual owners is not asked
 PDP-048,ownership_type,ownership_type != Trust,always,REFERS_TO_UW,,trust or IRA: prior approval
-PDP-049,ownership_type,always,always,DECLINES,,decided by PDP-048 / PDP-120 (the same rule); never a second flaw
+PDP-049,ownership_type;trust_type,"ownership_type not in {Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Land trust, Corporate or business trust})",always,DECLINES,,
 PDP-050,NONE,,,REFERS_TO_UW,,the number of individual owners is not asked
 PDP-051,NONE,,,REFERS_TO_UW,,the number of individual owners is not asked
 PDP-052,NONE,,,DECLINES,,the number of individual owners is not asked
@@ -478,7 +478,7 @@ PH6-024,NONE,,,DECLINES,,the number of individual owners is not asked
 PH6-025,NONE,,,DECLINES,,the number of individual owners is not asked
 PH6-026,NONE,,,REFERS_TO_UW,,the number of individual owners is not asked
 PH6-027,ownership_type,ownership_type != Trust,always,REFERS_TO_UW,,trust or IRA: prior approval
-PH6-028,ownership_type,always,always,DECLINES,,decided by PH6-027 / PH6-029 (the same rule); never a second flaw
+PH6-028,ownership_type;trust_type,"ownership_type not in {Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Land trust, Corporate or business trust})",always,DECLINES,,LLC is PH6-029's
 PH6-029,ownership_type,ownership_type != LLC,always,REFERS_TO_UW,,
 PH6-030,NONE,,,DECLINES,,not asked by the form
 PH6-031,NONE,,,DECLINES,,not asked by the form
@@ -534,7 +534,7 @@ MDP-004,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not a
 MDP-005,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 MDP-006,occupancy_type,occupancy_type != Vacant,always,REFERS_TO_UW,,vacant is eligible on referral
 MDP-007,NONE,,,DECLINES,,MDP-006 refers every vacant home; demolition and heat are not asked
-MDP-015,ownership_type;occupancy_type,FACT(the occupant is the entity's principal),"ownership_type == LLC and occupancy_type in {Owner Occupied, Seasonal, Secondary Home}",CONDITION,who occupies the home,
+MDP-015,ownership_type;occupancy_type,FACT(the occupant is the entity's principal),"ownership_type in {LLC, Corporation / partnership} and occupancy_type in {Owner Occupied, Seasonal, Secondary Home}",CONDITION,who occupies the home,
 MDP-017,NONE,,,REFERS_TO_UW,,siding / construction details are not form options
 MDP-018,NONE,,,DECLINES,,siding / construction details are not form options
 MDP-019,NONE,,,REFERS_TO_UW,,"unit count, foundation and original use are not asked"
@@ -659,7 +659,7 @@ SDP-003,county,"county in {Bell, Falls, Robertson, Leon, Madison, Houston, Trini
 SDP-004,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 SDP-005,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 SDP-007,NONE,,,CONDITION,,the number of individual owners is not asked
-SDP-008,ownership_type,FACT(family held trust),ownership_type == Trust,DECLINES,family held trust,
+SDP-008,ownership_type;trust_type,"trust_type not in {Land trust, Corporate or business trust} and (trust_type in {Family trust} or FACT(family held trust))",ownership_type == Trust,DECLINES,family held trust,round 35: the trust type
 SDP-009,ownership_type,FACT(only one trust on the property),ownership_type == Trust,DECLINES,number of trusts,
 SDP-011,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
 SDP-012,occupancy_type,always,always,DECLINES,,decided by SDP-015 (the same rule); never a second flaw
@@ -747,7 +747,7 @@ FDP-014,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or 
 FDP-020,NONE,,,CONDITION,,flood zone is not asked
 FDP-021,NONE,,,CONDITION,,flood zone is not asked
 FDP-022,NONE,,,CONDITION,,flood zone is not asked
-FDP-025,ownership_type,FACT(family held trust),ownership_type == Trust,DECLINES,family held trust,
+FDP-025,ownership_type;trust_type,"trust_type not in {Land trust, Corporate or business trust} and (trust_type in {Family trust} or FACT(family held trust))",ownership_type == Trust,DECLINES,family held trust,round 35: the trust type
 FDP-026,ownership_type,FACT(only one trust on the property),ownership_type == Trust,DECLINES,number of trusts,
 FDP-028,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 FDP-031,NONE,,,REFERS_TO_UW,,"rentals, mailing address and occupancy dates are not asked"
@@ -845,7 +845,7 @@ VDP-056,NONE,,,DECLINES,,loss / claims history is not asked
 VDP-057,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,
 VDP-058,NONE,,,DECLINES,,not asked by the form
 VDP-062,ownership_type;occupancy_type,"occupancy_type in {Owner Occupied, Seasonal, Secondary Home} and FACT(the trustee, grantor or beneficiary lives there)",ownership_type == Trust,CONDITION,who lives there,a tenant-occupied or vacant trust home fails
-VDP-063,ownership_type,FACT(set up only for tax or real estate holding; 6 or fewer unrelated principals; 10 or fewer properties; no other business; no timeshares),ownership_type == LLC,CONDITION,"the entity's purpose, principals and holdings",
+VDP-063,ownership_type,FACT(set up only for tax or real estate holding; 6 or fewer unrelated principals; 10 or fewer properties; no other business; no timeshares),"ownership_type in {LLC, Corporation / partnership}",CONDITION,"the entity's purpose, principals and holdings",
 VDP-064,ownership_type,always,always,CONDITION,,decided by VDP-063 (the same rule); never a second flaw
 VDP-065,ownership_type,always,always,CONDITION,,decided by VDP-063 (the same rule); never a second flaw
 VDP-066,ownership_type,always,always,CONDITION,,decided by VDP-063 (the same rule); never a second flaw
@@ -905,8 +905,8 @@ STD-084,NONE,,,CONDITION,,liability coverage only (write without liability): nev
 STD-088,NONE,,,CONDITION,,liability coverage only (write without liability): never a decline of the home
 STD-089,NONE,,,CONDITION,,liability coverage only (write without liability): never a decline of the home
 STD-090,NONE,,,CONDITION,,liability coverage only (write without liability): never a decline of the home
-STD-092,solar_panels,FACT(panels cover 50% of the roof or less),solar_panels == Yes,DECLINES,share of roof,
-STD-093,NONE,,,DECLINES,,solar shingles / roofs are not the form's (mounted) Solar panels
+STD-092,solar_panels;solar_type,FACT(panels cover 50% of the roof or less),solar_panels == Yes and solar_type not in {Ground-mounted},DECLINES,share of roof,round 35: ground-mounted panels cover no roof
+STD-093,solar_panels;solar_type,solar_type not in {Ground-mounted} or FACT(10 or fewer ground-mounted panels),solar_panels == Yes,DECLINES,ground panel count,'more than 10 ground mounted solar panels'
 STD-095,ppc,ppc_num <= 8,always,REFERS_TO_UW,,
 STD-096,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 STD-097,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
@@ -961,7 +961,7 @@ FOD-013,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not a
 FOD-014,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 FOD-016,NONE,,,DECLINES,,the number of individual owners is not asked
 FOD-017,NONE,,,DECLINES,,the number of individual owners is not asked
-FOD-018,ownership_type,FACT(no business conducted from the premises),ownership_type == LLC,CONDITION,business on premises,
+FOD-018,ownership_type,FACT(no business conducted from the premises),"ownership_type in {LLC, Corporation / partnership}",CONDITION,business on premises,"'a business (LLC, corporation, partnership, sole proprietorship)' (round 35)"
 FOD-019,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
 FOD-020,construction_type;occupancy_type,construction_type != Manufactured/Mobile or occupancy_type == Vacant,always,DECLINES,,vacant manufactured homes are acceptable on TDP-1
 FOD-031,dwelling_amount,dwelling_amount >= 100000,always,DECLINES,,

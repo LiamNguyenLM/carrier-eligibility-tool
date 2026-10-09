@@ -65,9 +65,9 @@ TOPICS = (
           r"(?<!wind )\bpools?\b|swimming|\bfenc|\bgates?\b|diving|\bslides?\b|hot tub|\bspa\b"),
     Topic("dogs", "Dogs", "Dogs", ("has_dogs", "aggressive_breed", "dog_breeds"),
           r"\bdogs?\b|canine|breed|pit ?bull|rottweiler|\banimals?\b"),
-    Topic("solar", "Solar panels", "Solar", ("solar_panels",),
+    Topic("solar", "Solar panels", "Solar", ("solar_panels", "solar_type", "solar_tesla"),
           r"solar|photovoltaic|\bpv\b"),
-    Topic("county", "County", "County", ("county", "zip"),
+    Topic("county", "County", "County", ("county", "zip", "harris_east_146"),
           r"\bcounty\b|\bcounties\b|\bzip\b|territory|latitude|31 degrees|"
           r"property location|location of the property"),
     Topic("dwelling_amount", "Dwelling amount", "Coverage A", ("dwelling_amount",),
@@ -78,7 +78,7 @@ TOPICS = (
 # Always on (decision 2): never unchecked, never stripped.
 ALWAYS_ON = (
     Topic("occupancy", "Occupancy", "Occupancy", ("occupancy_type",), None),
-    Topic("ownership", "Ownership", "Ownership", ("ownership_type",), None),
+    Topic("ownership", "Ownership", "Ownership", ("ownership_type", "trust_type"), None),
     Topic("dwelling_type", "Dwelling type", "Dwelling type", ("dwelling_type",), None),
 )
 

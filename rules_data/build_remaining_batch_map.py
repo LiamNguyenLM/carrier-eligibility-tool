@@ -39,6 +39,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from build_rule_field_map import DOGS, FLAT, NONE_NOTE, POOL_OK, SEASONAL, breed_line  # noqa: E402
 from build_rule_field_map import PEX_2011, PEX_ANY  # noqa: E402
+from build_rule_field_map import CORP_OR_LLC, CORP_TRUST, FAMILY_TRUST, LAND, not_owned_by  # noqa: E402
 from build_rule_field_map import (ASBESTOS, BUILT_UP, METAL, MEMBRANE, NOT_WOOD, PANEL, PROG_ROOF, PROG_ROOF_NOTE,  # noqa: E402
                                   ROLLED_ROOF, SEAM, MSHINGLE, TLOCK, WOOD, _roofs)
 from build_sage_batch_map import (BATCH_NONE_NOTE, EAST_TEXAS, FPC_7ROWS, FPC_B13, FPC_B410, FPC_BC,  # noqa: E402
@@ -52,7 +53,7 @@ NOT_TENANT = "occupancy_type != Tenant Occupied"
 TENANT = "occupancy_type == Tenant Occupied"
 TRUST = "ownership_type == Trust"
 LLC = "ownership_type == LLC"
-ENTITY = "ownership_type in {Trust, LLC}"
+ENTITY = "ownership_type in {Trust, LLC, Estate}"   # round 35 step 3e: LDP-019 names estates too
 POOL = "swimming_pool != No Pool"
 FENCED = "swimming_pool not in {In Ground - Unfenced, Above Ground - Unfenced}"
 NO_ACCESSORIES = "pool_accessories == None"
@@ -110,9 +111,12 @@ MAP = {
     "CDP-058": NO_BITES,
     "CDP-066": ("occupancy_type", NOT_VACANT, "always", "", ""),
     "CDP-068": none("lease length is not asked; every rental needs a 12-month lease (confirm)"),
-    "CDP-069": ("ownership_type", "FACT(a family member living trust as an Additional Named Insured)", TRUST,
-                "family living trust",
-                "LLCs are decided by CDP-071 / CDP-072"),
+    # round 35 step 3e: "Dwellings in the name of a business, Living Trust, Limited Partnership, Corporation, land
+    # trust or estate are ineligible" -- a family member living trust as an Additional Named Insured is the exception
+    "CDP-069": ("ownership_type;trust_type",
+                "ownership_type not in {Corporation / partnership, Estate} and (ownership_type != Trust or (trust_type "
+                "not in {Land trust, Corporate or business trust} and FACT(a family member living trust as an "
+                "Additional Named Insured)))", "always", "family living trust", "LLCs are decided by CDP-071 / CDP-072"),
     "CDP-070": same_as("CDP-069", "ownership_type"),
     "CDP-071": ("ownership_type", "ownership_type != LLC", "always", "",
                 "every LLC needs underwriting approval before binding"),
@@ -124,8 +128,10 @@ MAP = {
     "CDP-096": money("dwelling_amount <= 1000000"),
     "CDP-014": same_as("CDP-096", "dwelling_amount"),
     # ================= Centauri HO3 (OCR text)
-    "CHO-007": ("ownership_type", "ownership_type == Individual Owner || ownership_type != LLC", "always", "",
-                "a trust-owned home may still have an individual named insured"),
+    # round 35 step 3e: "Named insured must be an individual(s)" -- an entity fails; a trust-owned home may still
+    # have an individual named insured (a confirm note)
+    "CHO-007": ("ownership_type", "ownership_type not in {LLC, Corporation / partnership, Estate} and "
+                "(ownership_type != Trust or FACT(an individual is the named insured))", "always", "named insured", ""),
     "CHO-009": money("dwelling_amount <= 1250000"),
     # round 35 step 4 (Liam, 2026-10-09, decision 2): "One or two -family, owner-occupied dwellings only" -- an
     # owner's seasonal or secondary home counts as owner-occupied (Centauri bars "risks that are not primary
@@ -161,7 +167,9 @@ MAP = {
     "LDP-009": same_as("LDP-001"),
     "LDP-010": same_as("LDP-013"),
     "LDP-013": ("occupancy_type", NOT_VACANT, "always", "", ""),
-    "LDP-018": same_as("LDP-019", "ownership_type"),
+    # round 35 step 3e: "Buildings owned by a corporation, company or other legal entity" -- LLPs / LPs are LDP-019's
+    "LDP-018": ("ownership_type", "ownership_type != Corporation / partnership or FACT(a partnership, an LLP or LP, "
+                "holding it for an individual owner)", "always", "corporation or partnership", ""),
     "LDP-019": ("ownership_type", "FACT(owns it for the benefit of an individual owner who is the named insured)",
                 ENTITY, "who the trust / LLC benefits", ""),
     "LDP-024": ("construction_type", MOBILE, "always", "", ""),
@@ -174,7 +182,8 @@ MAP = {
     "NCD-002": same_as("NCD-006 / NCD-004", "ownership_type"),
     "NCD-004": ("ownership_type", "FACT(no commercial activities; owned only by the insured and relatives)", LLC,
                 "the LLC's activities and owners", ""),
-    "NCD-003": same_as("NCD-004", "ownership_type"),
+    "NCD-003": ("ownership_type", "ownership_type != Corporation / partnership", "always", "",
+                "'corporations, ... partnerships' (round 35); an LLC is NCD-004's"),
     "NCD-006": ("ownership_type", "FACT(guarantor, trustee and named insured are the same person)", TRUST,
                 "who the trust's guarantor and trustee are", "a trust may only be an additional insured"),
     "NCD-027": ("ppc;dwelling_amount", "dwelling_amount <= 1500000", "ppc_num <= 8", "", ""),
@@ -228,7 +237,9 @@ MAP = {
     "PDP-030": ("occupancy_type", NOT_VACANT, "always", "", "under construction / renovation is not asked"),
     "PDP-048": ("ownership_type", "ownership_type != Trust", "always", "", "trust or IRA: prior approval"),
     "PDP-120": ("ownership_type", "ownership_type != LLC", "always", "", ""),
-    "PDP-049": same_as("PDP-048 / PDP-120", "ownership_type"),
+    # round 35 step 3e: "business, ..., Limited Partnership, Corporation, land trust, or estate"; LLC is PDP-120's
+    "PDP-049": ("ownership_type;trust_type", not_owned_by("Corporation / partnership", "Estate",
+                                                          trusts=(LAND, CORP_TRUST)), "always", "", ""),
     "PDP-063": ("dwelling_type", "FACT(4 or fewer family units in the fire division)", "dwelling_type == Townhome",
                 "units per fire division", ""),
     "PDP-064": ("construction_type", MOBILE, "always", "", ""),
@@ -250,7 +261,8 @@ MAP = {
     "PH6-017": ("occupancy_type", "FACT(occupied at least 3 months a year)", SEASONAL, "months occupied", ""),
     "PH6-027": ("ownership_type", "ownership_type != Trust", "always", "", "trust or IRA: prior approval"),
     "PH6-029": ("ownership_type", "ownership_type != LLC", "always", "", ""),
-    "PH6-028": same_as("PH6-027 / PH6-029", "ownership_type"),
+    "PH6-028": ("ownership_type;trust_type", not_owned_by("Corporation / partnership", "Estate",
+                                                          trusts=(LAND, CORP_TRUST)), "always", "", "LLC is PH6-029's"),
     "PH6-044": ("coastal_tier", "FACT(more than 1,000 ft from the Gulf of Mexico)", TIER1, "distance to the Gulf",
                 "the form's tiers are not distances"),
     "PH6-050": ("ppc", "FACT(visible to neighbors)", "ppc_num >= 9", "visibility", ""),
@@ -265,7 +277,7 @@ MAP = {
     "MDP-006": ("occupancy_type", NOT_VACANT, "always", "", "vacant is eligible on referral"),
     "MDP-007": none("MDP-006 refers every vacant home; demolition and heat are not asked"),
     "MDP-015": ("ownership_type;occupancy_type", "FACT(the occupant is the entity's principal)",
-                "ownership_type == LLC and occupancy_type in {Owner Occupied, Seasonal, Secondary Home}",
+                CORP_OR_LLC + " and occupancy_type in {Owner Occupied, Seasonal, Secondary Home}",
                 "who occupies the home", ""),
     "MDP-028": ("construction_type", MOBILE, "always", "", ""),
     "MDP-081": money("dwelling_amount >= 100000"),
@@ -305,7 +317,7 @@ MAP = {
     "SDP-002": ("county", "county != Nueces", "always", "", "this guide's Nueces exclusion; SDP-003 decides the rest"),
     "SDP-003": ("county", "county in {" + EAST_TEXAS + "}", "south_of_31 == False", "",
                 "a county not entirely south of 31 N (as the Sage batch v2)"),
-    "SDP-008": ("ownership_type", "FACT(family held trust)", TRUST, "family held trust", ""),
+    "SDP-008": ("ownership_type;trust_type", FAMILY_TRUST, TRUST, "family held trust", "round 35: the trust type"),
     "SDP-009": ("ownership_type", "FACT(only one trust on the property)", TRUST, "number of trusts", ""),
     "SDP-012": same_as("SDP-015"), "SDP-013": same_as("SDP-015"),
     "SDP-015": ("occupancy_type", NOT_VACANT, "always", "", "eligible on underwriter approval with a signed lease"),
@@ -337,7 +349,7 @@ MAP = {
     "FDP-001": ("county", "county != Nueces", "always", "", "this guide's Nueces exclusion; FDP-002 decides the rest"),
     "FDP-002": ("county", "county in {" + EAST_TEXAS + "}", "south_of_31 == False", "",
                 "a county not entirely south of 31 N (as the Sage batch v2)"),
-    "FDP-025": ("ownership_type", "FACT(family held trust)", TRUST, "family held trust", ""),
+    "FDP-025": ("ownership_type;trust_type", FAMILY_TRUST, TRUST, "family held trust", "round 35: the trust type"),
     "FDP-026": ("ownership_type", "FACT(only one trust on the property)", TRUST, "number of trusts", ""),
     "FDP-032": ("occupancy_type", NOT_VACANT, "always", "", "eligible on underwriter approval with a signed lease"),
     "FDP-033": same_as("FDP-032"), "FDP-034": same_as("FDP-032"),
@@ -377,7 +389,7 @@ MAP = {
                                                  "FACT(the trustee, grantor or beneficiary lives there)", TRUST,
                 "who lives there", "a tenant-occupied or vacant trust home fails"),
     "VDP-063": ("ownership_type", "FACT(set up only for tax or real estate holding; 6 or fewer unrelated principals; "
-                                  "10 or fewer properties; no other business; no timeshares)", LLC,
+                                  "10 or fewer properties; no other business; no timeshares)", CORP_OR_LLC,
                 "the entity's purpose, principals and holdings", ""),
     "VDP-064": same_as("VDP-063", "ownership_type"), "VDP-065": same_as("VDP-063", "ownership_type"),
     "VDP-066": same_as("VDP-063", "ownership_type"), "VDP-067": same_as("VDP-063", "ownership_type"),
@@ -398,15 +410,19 @@ MAP = {
     "STD-073": ("plumbing_type", GALV, "always", "",
                 "'older homes' is not defined; a home with galvanized pipes is an older home (galvanized "
                 "supply lines went out of use in the 1960s)"),
-    "STD-092": ("solar_panels", "FACT(panels cover 50% of the roof or less)", "solar_panels == Yes", "share of roof",
-                ""),
+    "STD-092": ("solar_panels;solar_type", "FACT(panels cover 50% of the roof or less)",
+                "solar_panels == Yes and solar_type not in {Ground-mounted}", "share of roof",
+                "round 35: ground-mounted panels cover no roof"),
+    "STD-093": ("solar_panels;solar_type", "solar_type not in {Ground-mounted} or FACT(10 or fewer ground-mounted "
+                "panels)", "solar_panels == Yes", "ground panel count", "'more than 10 ground mounted solar panels'"),
     "STD-095": PPC_1_8,
     "STD-102": money("dwelling_amount <= 1500000"),
     "STD-104": ("dwelling_type;dwelling_amount", "dwelling_amount < 350000", "dwelling_type == Condo", "", ""),
     # ================= Foremost Dwelling Fire (TDP-3): the registry applies FOD only to Tenant / Vacant checks
     # FOD-004/005/006/009/012: INFO_ONLY since round 30 step 3 (decision 3) -- not deciding rows; a Vacant
     # Foremost DP check gets rules_evaluator.PROGRAM_NOTES' "quote TDP-1" note instead.
-    "FOD-018": ("ownership_type", "FACT(no business conducted from the premises)", LLC, "business on premises", ""),
+    "FOD-018": ("ownership_type", "FACT(no business conducted from the premises)", CORP_OR_LLC,
+                "business on premises", "'a business (LLC, corporation, partnership, sole proprietorship)' (round 35)"),
     # "Manufactured homes ... unless vacant/unoccupied." (p.16): a vacant one is written on TDP-1 (round 30 step 3)
     "FOD-020": ("construction_type;occupancy_type", MOBILE + " or occupancy_type == Vacant", "always", "",
                 "vacant manufactured homes are acceptable on TDP-1"),

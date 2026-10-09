@@ -88,6 +88,27 @@ BREEDS = {
                            "German Shepherd", "Great Dane", *PIT, "Rottweiler", WOLF),
 }
 DOG_FIELDS = "has_dogs;dog_breeds"
+
+# Round 35 steps 3d-e: the follow-up answers.
+CORP_OR_LLC = "ownership_type in {LLC, Corporation / partnership}"
+
+
+def not_owned_by(*owners, trusts=()):
+    """Fails for the named owners, and for a trust of one of the named kinds (an unknown kind holds)."""
+    s = "ownership_type not in {" + ", ".join(owners) + "}"
+    return s + (" and (ownership_type != Trust or trust_type not in {" + ", ".join(trusts) + "})" if trusts else "")
+
+
+LAND, CORP_TRUST = "Land trust", "Corporate or business trust"
+FAMILY_TRUST = ("trust_type not in {Land trust, Corporate or business trust} and "
+                "(trust_type in {Family trust} or FACT(family held trust))")
+SOLAR = "solar_panels == Yes"
+SOLAR_ROOF_T = "{Solar roof (shingles or tiles)}"
+# Swyfft: "No Tesla Solar Roofs including solar roofs that include Tesla batteries and/or any Tesla parts" -- a
+# solar roof with Tesla parts fails; Tesla parts with panels are a confirm note; no Tesla parts passes
+TESLA_ROOF = ("(solar_type not in " + SOLAR_ROOF_T + " and (solar_tesla != Yes or FACT(no Tesla parts in a solar "
+              "roof system))) or solar_tesla == No")
+SOLAR_FIELDS = "solar_panels;solar_type;solar_tesla"
 OPEN_LIST = "FACT(no other breed the guide counts as dangerous)"
 ACK = "FACT(signed acknowledgement of the dog liability exclusion)"
 
@@ -256,10 +277,10 @@ MAP = {
     "SWY-040": breed_line("swyfft_benchmark", "closed"),
     "SWY-041": ("has_dogs", "FACT(no bite history or aggression)", DOGS, "bite history", ""),
     # ---------------- SOLAR
-    "ALL-109": ("solar_panels", "always || solar_panels == No", "solar_panels == Yes", "",
-                "AMBIGUOUS: the form's Solar Panels does not say mounted panels or a solar roof system"),
-    "ALL-110": ("solar_panels", "always || solar_panels == No", "solar_panels == Yes", "", "AMBIGUOUS: solar tiles"),
-    "SWY-043": ("solar_panels", "always || solar_panels == No", "solar_panels == Yes", "", "AMBIGUOUS: Tesla solar roof"),
+    # round 35 step 3d: the solar type decides ("solar roof system", "Solar panel tiles")
+    "ALL-109": (SOLAR_FIELDS, "solar_type not in " + SOLAR_ROOF_T, SOLAR, "", "mounted or ground panels pass"),
+    "ALL-110": (SOLAR_FIELDS, "always", "always", "", "decided by ALL-109 (solar panel tiles are a solar roof)"),
+    "SWY-043": (SOLAR_FIELDS, TESLA_ROOF, SOLAR, "Tesla parts", "round 35 step 3d: the Tesla question"),
     # ---------------- OCCUPANCY
     "ALL-001": ("occupancy_type", "FACT(owner-occupied at least 9 months a year)", "occupancy_type == Owner Occupied",
                 "9 months a year", "Owner Occupied = primary residence; the months are not asked (round 35)"),
@@ -300,17 +321,25 @@ MAP = {
     "ALL-015": ("ownership_type", "FACT(grantor resides and is the named insured)", "ownership_type == Trust",
                 "trust grantor", ""),
     "ALL-016": ("ownership_type", "ownership_type != Trust", "always", "", "trust: submit documents (REFER)"),
-    "ALL-017": ("ownership_type", "ownership_type != LLC", "always", "", ""),
-    "SAG-017": ("ownership_type", "ownership_type != LLC", "always", "", ""),
+    # round 35 step 3e: "business, corporation, LLC, partnership, estates or land trusts"
+    "ALL-017": ("ownership_type;trust_type", not_owned_by("LLC", "Corporation / partnership", "Estate",
+                                                          trusts=(LAND, CORP_TRUST)), "always", "", ""),
+    # round 35 step 3e: "Corporate / Business, LLC, association, partnership or other non-individual owned"
+    "SAG-017": ("ownership_type;trust_type", not_owned_by("LLC", "Corporation / partnership", "Estate",
+                                                          trusts=(CORP_TRUST,)), "always", "", ""),
     # Round 31 step 5: "occupied by the trustee, the grantor ... or the beneficiary": a seasonal / secondary
     # home is the owner's own home too (was Owner Occupied only, which declined a trust's seasonal home)
     "SAG-019": ("ownership_type;occupancy_type", "occupancy_type in {Owner Occupied, Seasonal, Secondary Home} and "
                 "FACT(occupied by the trustee, grantor or beneficiary)",
                 "ownership_type == Trust", "who lives there", "as the Sage sister guides' trust-occupancy rows"),
-    "MER-005": ("ownership_type", "ownership_type != LLC || ownership_type not in {LLC, Trust}", "always", "",
-                "AMBIGUOUS: a form Trust may be a corporate trust"),
-    "PRO-012": ("ownership_type", "ownership_type != LLC || ownership_type not in {LLC, Trust}", "always", "",
-                "AMBIGUOUS: a form Trust may be a land trust"),
+    # round 35 step 3e: "Properties owned by an LLC, Corporation, and/or Corporate Trust" -- the trust type decides
+    "MER-005": ("ownership_type;trust_type", not_owned_by("LLC", "Corporation / partnership", trusts=(CORP_TRUST,)),
+                "always", "", "an unknown trust type holds"),
+    # round 35 step 3e: "business, limited liability corporation, limited partnership, corporation, land trust, or
+    # estate"
+    "PRO-012": ("ownership_type;trust_type", not_owned_by("LLC", "Corporation / partnership", "Estate",
+                                                          trusts=(LAND, CORP_TRUST)), "always", "",
+                "an unknown trust type holds"),
     "PRO-013": ("ownership_type", "ownership_type != Trust", "always", "", "trust: refer"),
     "SWY-011": ("ownership_type", "ownership_type not in {Trust, LLC}", "always", "", "trust or LLC: refer"),
     # ---------------- DWELLING TYPE / CONSTRUCTION
@@ -375,7 +404,10 @@ MAP = {
     "CHU-046": ("county;occupancy_type;primary_home_carrier", "primary_home_carrier == Chubb and FACT($25,000 non-CAT premium)",
                 "county == Harris and " + SEASONAL,
                 "Chubb territory; premium", ""),
-    "CHU-047": ("county;occupancy_type", "FACT(not Harris 1A-east or Territory 8/9/10)",
+    # round 35 step 3f: a Harris home not east of Highway 146 cannot be "Harris County 1A-east Hwy 146"; any other
+    # coastal home stays Liam's named hold (the address decides)
+    "CHU-047": ("county;occupancy_type;harris_east_146",
+                "(county == Harris and harris_east_146 == No) or FACT(not Harris 1A-east or Territory 8/9/10)",
                 "county in " + CHUBB_COASTAL + " and " + SEASONAL, "Chubb territory", ""),
     # ---------------- ELECTRICAL / SYSTEMS by home age (the system ages are not asked)
     "ALL-065": ("year_built", "FACT(service panel updated or under 40 years old)", "home_age between 40 and 75", "panel age", ""),

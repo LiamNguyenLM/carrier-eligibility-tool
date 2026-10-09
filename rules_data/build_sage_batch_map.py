@@ -31,6 +31,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from build_rule_field_map import DOGS, FLAT, METAL, NONE_NOTE, POOL_OK, SEASONAL, breed_line  # noqa: E402
+from build_rule_field_map import CORP_OR_LLC, CORP_TRUST, FAMILY_TRUST, not_owned_by  # noqa: E402
 
 RULES = os.path.join(HERE, "carrier_rules_sage_batch_v2.csv")
 OUT = os.path.join(HERE, "sage_batch_field_map.csv")
@@ -95,9 +96,13 @@ def sister(p, ids):
     put("trust_occupied", ("ownership_type;occupancy_type",
                            OWNER + " and FACT(occupied by the trustee, grantor or beneficiary)", TRUST,
                            "who lives there", "round 35 step 2: the occupant is not asked -- a confirm note"))
-    put("trust_family", ("ownership_type", "FACT(family held trust)", TRUST, "family held trust", ""))
+    # round 35 step 3e: the trust type -- a family trust passes, a revocable living trust is a confirm note,
+    # a land or corporate trust fails, an unknown type holds
+    put("trust_family", ("ownership_type;trust_type", FAMILY_TRUST, TRUST, "family held trust", ""))
     put("trust_one", ("ownership_type", "FACT(only one trust on the property)", TRUST, "number of trusts", ""))
-    put("llc", ("ownership_type", "ownership_type != LLC", "always", "", ""))
+    put("llc", ("ownership_type;trust_type", not_owned_by("LLC", "Corporation / partnership", "Estate",
+                                                          trusts=(CORP_TRUST,)), "always", "",
+                "'Corporate / Business, LLC, association, partnership or other non-individual owned' (round 35)"))
     put("mobile", ("construction_type", "construction_type != Manufactured/Mobile", "always", "",
                    "modular / motor homes are not form options"))
     put("mobile_excl", same_as(ids["mobile"], "construction_type"))
@@ -225,7 +230,7 @@ MAP.update({
     "MKL-002": ("county", "always", "always", "", "the tool is Texas-only (State: TX)"),
     "MKL-009": ("occupancy_type", NOT_VACANT, "always", "", ""),
     "MKL-007": same_as("MKL-009"),
-    "MKL-016": ("ownership_type", "FACT(the occupant is the principal of the corporation / LLC)", LLC,
+    "MKL-016": ("ownership_type", "FACT(the occupant is the principal of the corporation / LLC)", CORP_OR_LLC,
                 "LLC principal occupies", "applies to a primary or seasonal home held by a corporation or LLC"),
     "MKL-022": ("construction_type", "construction_type != Manufactured/Mobile", "always", "", ""),
     "MKL-079": ("dwelling_amount", "dwelling_amount >= 100000", "always", "", ""),
@@ -237,12 +242,12 @@ MAP.update({
                 "VAV-010"),
     "VAV-010": ("occupancy_type", NOT_VACANT, "always", "", ""),
     "VAV-014": ("ownership_type;occupancy_type", OWNER, TRUST, "", ""),
-    "VAV-015": ("ownership_type", "always", LLC, "", "decided by VAV-016..VAV-020, its five criteria"),
-    "VAV-016": ("ownership_type", "FACT(formed solely for tax or real estate holding)", LLC, "LLC purpose", ""),
-    "VAV-017": ("ownership_type", "FACT(no more than 6 unrelated principals)", LLC, "LLC principals", ""),
-    "VAV-018": ("ownership_type", "FACT(owns no more than 10 properties)", LLC, "LLC property count", ""),
-    "VAV-019": ("ownership_type", "FACT(no business other than real estate)", LLC, "LLC business", ""),
-    "VAV-020": ("ownership_type", "FACT(no fractional ownership or time share properties)", LLC,
+    "VAV-015": ("ownership_type", "always", CORP_OR_LLC, "", "decided by VAV-016..VAV-020, its five criteria"),
+    "VAV-016": ("ownership_type", "FACT(formed solely for tax or real estate holding)", CORP_OR_LLC, "LLC purpose", ""),
+    "VAV-017": ("ownership_type", "FACT(no more than 6 unrelated principals)", CORP_OR_LLC, "LLC principals", ""),
+    "VAV-018": ("ownership_type", "FACT(owns no more than 10 properties)", CORP_OR_LLC, "LLC property count", ""),
+    "VAV-019": ("ownership_type", "FACT(no business other than real estate)", CORP_OR_LLC, "LLC business", ""),
+    "VAV-020": ("ownership_type", "FACT(no fractional ownership or time share properties)", CORP_OR_LLC,
                 "LLC time shares", ""),
     "VAV-021": ("construction_type", "construction_type != Manufactured/Mobile", "always", "",
                 "modular / motor homes are not form options"),

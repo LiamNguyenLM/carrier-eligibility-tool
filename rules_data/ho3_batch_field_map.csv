@@ -64,7 +64,7 @@ ARA-083,NONE,,,DECLINES,,not asked by the form
 ARA-085,ppc,always,always,DECLINES,,decided by ARA-014 (the same rule); never a second flaw
 ARB-002,NONE,,,CONDITION,,not asked by the form
 ARB-004,NONE,,,CONDITION,,flood zone is not asked
-ARB-005,county,"county not in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy, Harris} || county not in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy}",always,DECLINES,,TWIA's Tier 1 counties; Harris only east of Highway 146 (not asked): AMBIGUOUS
+ARB-005,county;harris_east_146,"county not in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy} and (county != Harris or harris_east_146 == No)",always,DECLINES,,TWIA's Tier 1 counties; Harris east of Highway 146 (the form asks it)
 ARB-006,roof_type,"roof_type not in {Wood shake / wood shingle, Asbestos shingle, Built-up (tar and gravel), Metal: corrugated / exposed-fastener / tin / aluminum panels, Slate} and (roof_type not in {Metal: standing seam, Metal: shingle / tile / shake (incl. stone-coated)} or FACT(not an expensive metal roof))",always,DECLINES,metal kind,tile and flat roofs: their own rows; slate included
 ARB-007,roof_shape;roof_type;county,county == El Paso,"(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",DECLINES,,'in or around El Paso': around is not decided
 ARB-008,roof_type,roof_type != Tile or FACT(High Value Home),always,DECLINES,High Value Home,
@@ -175,7 +175,7 @@ FOR-062,has_dogs;dog_breeds,"(dog_breeds none_of {Akita, Pit Bull (American Pit 
 FOR-063,has_dogs,FACT(no bite history),has_dogs == Yes,REFERS_TO_UW,bite history,
 FOR-064,NONE,,,REFERS_TO_UW,,other animals and bite claims are not asked
 FOR-065,NONE,,,DECLINES,,other animals and bite claims are not asked
-FOR-066,NONE,,,DECLINES,,solar shingles / solar roofs are not the form's (mounted) Solar panels
+FOR-066,solar_panels;solar_type;solar_tesla,solar_type not in {Solar roof (shingles or tiles)},solar_panels == Yes,DECLINES,,'Solar shingles'
 FOR-067,NONE,,,REFERS_TO_UW,,solar shingles / solar roofs are not the form's (mounted) Solar panels
 FOR-068,NONE,,,DECLINES,,"response time, visibility and water source are not asked"
 FOR-070,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
@@ -192,11 +192,11 @@ FOR-085,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not a
 FOR-086,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 FOR-087,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 FOR-092,NONE,,,DECLINES,,the number of individual owners is not asked
-FOR-093,ownership_type,always,always,DECLINES,,decided by FOR-094 (the same rule); never a second flaw
+FOR-093,ownership_type;trust_type,"ownership_type not in {Corporation / partnership} and (ownership_type != Trust or trust_type not in {Land trust, Corporate or business trust})",always,DECLINES,,an LLC is FOR-094's
 FOR-094,ownership_type,FACT(no business associated with the LLC's name),ownership_type == LLC,CONDITION,LLC business,
-FOR-095,ownership_type,always,always,DECLINES,,decided by FOR-094 (the same rule); never a second flaw
+FOR-095,ownership_type,always,always,DECLINES,,decided by FOR-093 (the same rule); never a second flaw
 FOR-096,ownership_type,FACT(the grantor or trustee lives in the home),ownership_type == Trust,CONDITION,grantor / trustee,
-FOR-097,ownership_type,FACT(not a land trust),ownership_type == Trust,DECLINES,land trust,
+FOR-097,ownership_type;trust_type,trust_type not in {Land trust},ownership_type == Trust,DECLINES,,round 35: the trust type (an unknown type holds)
 FOR-098,NONE,,,CONDITION,,the number of individual owners is not asked
 FOR-099,NONE,,,DECLINES,,the number of individual owners is not asked
 FOR-100,NONE,,,DECLINES,,the number of individual owners is not asked
@@ -280,7 +280,7 @@ LIB-043,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 LIB-045,NONE,,,DECLINES,,other animals and bite claims are not asked
 LIB-046,NONE,,,DECLINES,,other animals and bite claims are not asked
 LIB-047,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
-LIB-048,ownership_type,ownership_type != LLC,always,DECLINES,,
+LIB-048,ownership_type,"ownership_type not in {LLC, Corporation / partnership}",always,DECLINES,,"'a corporation, company, LLC, etc.' (round 35)"
 LIB-049,NONE,,,DECLINES,,not asked by the form
 LIB-050,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 LIB-051,ppc;dwelling_amount,dwelling_amount <= 3000000,ppc_num == 9,DECLINES,,
@@ -335,7 +335,7 @@ ORI-044,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 ORI-045,NONE,,,DECLINES,,not asked by the form
 ORI-046,NONE,,,DECLINES,,not asked by the form
 ORI-047,NONE,,,DECLINES,,not asked by the form
-ORI-048,ownership_type,ownership_type != LLC,always,DECLINES,,
+ORI-048,ownership_type;trust_type,"ownership_type not in {LLC, Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Corporate or business trust})",always,DECLINES,,"'corporation, LLC, partnership, LLP, estate, association or any other business entity' (round 35)"
 ORI-049,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 ORI-050,year_built,year_built >= 1900,always,DECLINES,,
 ORI-051,NONE,,,DECLINES,,siding / construction details are not form options
@@ -389,7 +389,7 @@ SBS-034,NONE,,,DECLINES,,wiring and panels are not asked
 SBS-035,NONE,,,DECLINES,,wiring and panels are not asked
 SBS-036,NONE,,,DECLINES,,wiring and panels are not asked
 SBS-037,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
-SBS-040,NONE,,,DECLINES,,solar shingles / solar roofs are not the form's (mounted) Solar panels
+SBS-040,solar_panels;solar_type;solar_tesla,solar_type not in {Solar roof (shingles or tiles)} and (solar_tesla != Yes or FACT(no Tesla parts in a solar roof system)),solar_panels == Yes,DECLINES,Tesla parts,'No Tesla Solar Roofs or solar roofs ...'
 SBS-041,NONE,,,DECLINES,,roof condition and layers are not asked
 SBS-042,NONE,,,DECLINES,,liability hazards are not asked
 SBS-043,NONE,,,DECLINES,,siding / construction details are not form options
@@ -438,7 +438,7 @@ SLL-052,NONE,,,DECLINES,,loss / claims history is not asked
 SLL-053,NONE,,,DECLINES,,"TIV, Coverage B and the HO5 form are not asked"
 SLL-054,year_built,year_built >= 1950,always,DECLINES,,
 SLL-056,ppc,ppc_num <= 8,always,DECLINES,,
-SLL-058,NONE,,,DECLINES,,solar shingles / solar roofs are not the form's (mounted) Solar panels
+SLL-058,solar_panels;solar_type;solar_tesla,(solar_type not in {Solar roof (shingles or tiles)} and (solar_tesla != Yes or FACT(no Tesla parts in a solar roof system))) or solar_tesla == No,solar_panels == Yes,DECLINES,Tesla parts,'No Tesla Solar Roofs including solar roofs ...'
 SLL-059,NONE,,,DECLINES,,roof condition and layers are not asked
 SLL-060,NONE,,,DECLINES,,liability hazards are not asked
 SLL-061,NONE,,,DECLINES,,siding / construction details are not form options
@@ -454,11 +454,11 @@ SLL-070,NONE,,,DECLINES,,liability hazards are not asked
 SLL-071,NONE,,,DECLINES,,loss / claims history is not asked
 SLL-072,NONE,,,DECLINES,,loss / claims history is not asked
 SLL-073,NONE,,,DECLINES,,loss / claims history is not asked
-SLL-074,ownership_type,ownership_type != LLC,always,REFERS_TO_UW,,
-SLL-075,ownership_type,FACT(no more than 6 unrelated principals),ownership_type == LLC,REFERS_TO_UW,LLC principals,
-SLL-076,ownership_type,FACT(owns no more than 10 properties),ownership_type == LLC,REFERS_TO_UW,LLC properties,
-SLL-077,ownership_type,FACT(no fractional ownership properties),ownership_type == LLC,REFERS_TO_UW,LLC timeshares,
-SLL-078,ownership_type,FACT(no business other than real estate),ownership_type == LLC,REFERS_TO_UW,LLC business,
+SLL-074,ownership_type,"ownership_type not in {LLC, Corporation / partnership}",always,REFERS_TO_UW,,"'Corp, LLC or LLP' (round 35)"
+SLL-075,ownership_type,FACT(no more than 6 unrelated principals),"ownership_type in {LLC, Corporation / partnership}",REFERS_TO_UW,LLC principals,
+SLL-076,ownership_type,FACT(owns no more than 10 properties),"ownership_type in {LLC, Corporation / partnership}",REFERS_TO_UW,LLC properties,
+SLL-077,ownership_type,FACT(no fractional ownership properties),"ownership_type in {LLC, Corporation / partnership}",REFERS_TO_UW,LLC timeshares,
+SLL-078,ownership_type,FACT(no business other than real estate),"ownership_type in {LLC, Corporation / partnership}",REFERS_TO_UW,LLC business,
 SLL-079,NONE,,,REFERS_TO_UW,,"unit count, foundation and original use are not asked"
 SLL-080,ownership_type,ownership_type != Trust,always,REFERS_TO_UW,,
 SLL-081,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
@@ -483,7 +483,7 @@ STO-036,NONE,,,DECLINES,,wiring and panels are not asked
 STO-037,NONE,,,DECLINES,,wiring and panels are not asked
 STO-038,NONE,,,DECLINES,,wiring and panels are not asked
 STO-039,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
-STO-043,NONE,,,DECLINES,,solar shingles / solar roofs are not the form's (mounted) Solar panels
+STO-043,solar_panels;solar_type;solar_tesla,(solar_type not in {Solar roof (shingles or tiles)} and (solar_tesla != Yes or FACT(no Tesla parts in a solar roof system))) or solar_tesla == No,solar_panels == Yes,DECLINES,Tesla parts,'No Tesla Solar Roofs including solar roofs ...'
 STO-044,NONE,,,DECLINES,,roof condition and layers are not asked
 STO-045,NONE,,,DECLINES,,liability hazards are not asked
 STO-046,NONE,,,DECLINES,,siding / construction details are not form options
@@ -545,12 +545,12 @@ TRV-013,NONE,,,NOTE,,loss / claims history is not asked
 TRV-014,NONE,,,DECLINES,,loss / claims history is not asked
 TRV-015,has_dogs,FACT(no animal that has bitten or injured),has_dogs == Yes,DECLINES,bite history,
 TRV-016,has_dogs;dog_breeds,"dog_breeds none_of {Akita, Alaskan Malamute, American Bull Terrier, Chow Chow, Doberman Pinscher, Mastiff, Bullmastiff, Neapolitan Mastiff, Pit Bull (American Pit Bull Terrier), American Staffordshire Terrier, Staffordshire Bull Terrier, Presa Canario, Rottweiler, Wolf hybrid or wild dog}",has_dogs == Yes,DECLINES,,any mix or variation of these breeds
-TRV-017,ownership_type,FACT(no business or commercial exposure),"ownership_type in {Trust, LLC}",DECLINES,entity's business,
+TRV-017,ownership_type,FACT(no business or commercial exposure),"ownership_type in {Trust, LLC, Corporation / partnership, Estate}",DECLINES,entity's business,
 TRV-018,NONE,,,DECLINES,,the number of individual owners is not asked
 TRV-019,NONE,,,CONDITION,,not asked by the form
 TRV-020,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 TRV-021,NONE,,,DECLINES,,liability hazards are not asked
-TRV-023,NONE,,,DECLINES,,solar shingles / solar roofs are not the form's (mounted) Solar panels
+TRV-023,solar_panels;solar_type;solar_tesla,solar_type not in {Ground-mounted} or FACT(the ground-mounted panels are protected),solar_panels == Yes,DECLINES,ground panels protected,'unprotected ground mounted solar panels'
 TRV-024,NONE,,,DECLINES,,liability hazards are not asked
 TRV-025,swimming_pool,"swimming_pool not in {In Ground - Unfenced, Above Ground - Unfenced} or FACT(secured by a retractable safety cover or locking ladder)",swimming_pool != No Pool,DECLINES,pool cover / ladder,
 TRV-026,NONE,,,DECLINES,,not asked by the form

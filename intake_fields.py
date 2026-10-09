@@ -381,3 +381,18 @@ def pex_2011(plumbing, year_built):
     except (TypeError, ValueError):
         return None
 
+
+# ---------------------------------------------------------------------------
+# Round 35 steps 3d-f (Liam, 2026-10-09, decision 1): the follow-up questions, each shown only when the earlier
+# answer needs it. "Unknown" (and a blank) is unknown: it holds, never guesses.
+OWNERSHIP_TYPES = ("Individual Owner", "Trust", "LLC", "Corporation / partnership", "Estate")
+TRUST_TYPES = ("Unknown", "Family trust", "Revocable living trust", "Land trust", "Corporate or business trust")
+SOLAR_TYPES = ("", "Roof-mounted panels", "Solar roof (shingles or tiles)", "Ground-mounted")
+TESLA_CHOICES = ("Unknown", "Yes", "No")
+HARRIS_146_CHOICES = ("Unknown", "Yes", "No")
+
+
+def answer(value):
+    """A follow-up answer as the rules read it: None for blank / Unknown."""
+    return None if value in (None, "", "Unknown") else value
+

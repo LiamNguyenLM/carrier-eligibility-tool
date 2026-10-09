@@ -6,7 +6,7 @@ SUR-003,county,"county in {Bell, Falls, Robertson, Leon, Madison, Houston, Trini
 SUR-004,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SUR-005,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
 SUR-006,NONE,,,DECLINES,,the number of individual owners is not asked
-SUR-007,ownership_type,ownership_type != LLC,always,DECLINES,,
+SUR-007,ownership_type;trust_type,"ownership_type not in {LLC, Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Corporate or business trust})",always,DECLINES,,"'Corporate / Business, LLC, association, partnership or other non-individual owned' (round 35)"
 SUR-008,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 SUR-009,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 SUR-010,NONE,,,DECLINES,,product / binding status is not a property fact
@@ -18,7 +18,7 @@ SUR-016,occupancy_type;dwelling_type,"dwelling_type in {House, Townhome}","occup
 SUR-017,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SUR-018,occupancy_type,FACT(property checked while the owner is away),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,checks while away,
 SUR-019,ownership_type;occupancy_type,"occupancy_type != Tenant Occupied and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there,round 35 step 2: the occupant is not asked -- a confirm note
-SUR-020,ownership_type,FACT(family held trust),ownership_type == Trust,CONDITION,family held trust,
+SUR-020,ownership_type;trust_type,"trust_type not in {Land trust, Corporate or business trust} and (trust_type in {Family trust} or FACT(family held trust))",ownership_type == Trust,CONDITION,family held trust,
 SUR-021,ownership_type,FACT(only one trust on the property),ownership_type == Trust,DECLINES,number of trusts,
 SUR-022,NONE,,,REFERS_TO_UW,,"rentals, mailing address and occupancy dates are not asked"
 SUR-023,NONE,,,REFERS_TO_UW,,"rentals, mailing address and occupancy dates are not asked"
@@ -119,7 +119,7 @@ SFP-003,county,"county in {Bell, Falls, Robertson, Leon, Madison, Houston, Trini
 SFP-004,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SFP-005,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
 SFP-006,NONE,,,DECLINES,,the number of individual owners is not asked
-SFP-007,ownership_type,ownership_type != LLC,always,DECLINES,,
+SFP-007,ownership_type;trust_type,"ownership_type not in {LLC, Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Corporate or business trust})",always,DECLINES,,"'Corporate / Business, LLC, association, partnership or other non-individual owned' (round 35)"
 SFP-008,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 SFP-009,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 SFP-010,NONE,,,DECLINES,,product / binding status is not a property fact
@@ -131,7 +131,7 @@ SFP-016,occupancy_type;dwelling_type,"dwelling_type in {House, Townhome}","occup
 SFP-017,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SFP-018,occupancy_type,FACT(property checked while the owner is away),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,checks while away,
 SFP-019,ownership_type;occupancy_type,"occupancy_type != Tenant Occupied and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there,round 35 step 2: the occupant is not asked -- a confirm note
-SFP-020,ownership_type,FACT(family held trust),ownership_type == Trust,CONDITION,family held trust,
+SFP-020,ownership_type;trust_type,"trust_type not in {Land trust, Corporate or business trust} and (trust_type in {Family trust} or FACT(family held trust))",ownership_type == Trust,CONDITION,family held trust,
 SFP-021,ownership_type,FACT(only one trust on the property),ownership_type == Trust,DECLINES,number of trusts,
 SFP-022,NONE,,,REFERS_TO_UW,,"rentals, mailing address and occupancy dates are not asked"
 SFP-023,NONE,,,REFERS_TO_UW,,"rentals, mailing address and occupancy dates are not asked"
@@ -236,7 +236,7 @@ WIL-003,county,"county in {Bell, Falls, Robertson, Leon, Madison, Houston, Trini
 WIL-004,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 WIL-005,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
 WIL-006,NONE,,,DECLINES,,the number of individual owners is not asked
-WIL-007,ownership_type,ownership_type != LLC,always,DECLINES,,
+WIL-007,ownership_type;trust_type,"ownership_type not in {LLC, Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Corporate or business trust})",always,DECLINES,,"'Corporate / Business, LLC, association, partnership or other non-individual owned' (round 35)"
 WIL-008,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 WIL-009,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 WIL-010,NONE,,,DECLINES,,product / binding status is not a property fact
@@ -248,7 +248,7 @@ WIL-016,occupancy_type;dwelling_type,"dwelling_type in {House, Townhome}","occup
 WIL-017,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 WIL-018,occupancy_type,FACT(property checked while the owner is away),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,checks while away,
 WIL-019,ownership_type;occupancy_type,"occupancy_type != Tenant Occupied and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there,round 35 step 2: the occupant is not asked -- a confirm note
-WIL-020,ownership_type,FACT(family held trust),ownership_type == Trust,CONDITION,family held trust,
+WIL-020,ownership_type;trust_type,"trust_type not in {Land trust, Corporate or business trust} and (trust_type in {Family trust} or FACT(family held trust))",ownership_type == Trust,CONDITION,family held trust,
 WIL-021,ownership_type,FACT(only one trust on the property),ownership_type == Trust,DECLINES,number of trusts,
 WIL-022,NONE,,,REFERS_TO_UW,,"rentals, mailing address and occupancy dates are not asked"
 WIL-023,NONE,,,REFERS_TO_UW,,"rentals, mailing address and occupancy dates are not asked"
@@ -341,10 +341,10 @@ TRI-016,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not a
 TRI-017,NONE,,,CONDITION,,"rentals, mailing address and occupancy dates are not asked"
 TRI-019,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,occupancy_type == Owner Occupied,(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given,
 TRI-020,occupancy_type;ppc;fire_station_miles;hydrant_1000ft,occupancy_type != Tenant Occupied and FACT(no rental exposures),(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station_miles > 5)) or (ppc_num between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5),CONDITION,station / hydrant distance if not given; rental exposures,
-TRI-021,ownership_type,ownership_type != LLC,always,DECLINES,,
+TRI-021,ownership_type;trust_type,"ownership_type not in {LLC, Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Corporate or business trust})",always,DECLINES,,"'Corporate / Business, LLC, association, partnership or other non-individual owned' (round 35)"
 TRI-022,NONE,,,DECLINES,,the number of individual owners is not asked
 TRI-023,ownership_type;occupancy_type,"occupancy_type != Tenant Occupied and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there,round 35 step 2: the occupant is not asked -- a confirm note
-TRI-024,ownership_type,FACT(family held trust),ownership_type == Trust,CONDITION,family held trust,
+TRI-024,ownership_type;trust_type,"trust_type not in {Land trust, Corporate or business trust} and (trust_type in {Family trust} or FACT(family held trust))",ownership_type == Trust,CONDITION,family held trust,
 TRI-025,ownership_type,FACT(only one trust on the property),ownership_type == Trust,DECLINES,number of trusts,
 TRI-026,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
 TRI-027,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,modular / motor homes are not form options
@@ -439,7 +439,7 @@ MKL-008,NONE,,,DECLINES,,not asked by the form
 MKL-009,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 MKL-012,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 MKL-013,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
-MKL-016,ownership_type,FACT(the occupant is the principal of the corporation / LLC),ownership_type == LLC,CONDITION,LLC principal occupies,applies to a primary or seasonal home held by a corporation or LLC
+MKL-016,ownership_type,FACT(the occupant is the principal of the corporation / LLC),"ownership_type in {LLC, Corporation / partnership}",CONDITION,LLC principal occupies,applies to a primary or seasonal home held by a corporation or LLC
 MKL-018,NONE,,,REFERS_TO_UW,,"unit count, foundation and original use are not asked"
 MKL-019,NONE,,,REFERS_TO_UW,,"unit count, foundation and original use are not asked"
 MKL-020,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
@@ -496,12 +496,12 @@ VAV-006,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not a
 VAV-007,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,"primary, secondary, seasonal and short-term rental homes are accepted; Vacant is decided by VAV-010"
 VAV-010,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 VAV-014,ownership_type;occupancy_type,occupancy_type != Tenant Occupied,ownership_type == Trust,CONDITION,,
-VAV-015,ownership_type,always,ownership_type == LLC,CONDITION,,"decided by VAV-016..VAV-020, its five criteria"
-VAV-016,ownership_type,FACT(formed solely for tax or real estate holding),ownership_type == LLC,DECLINES,LLC purpose,
-VAV-017,ownership_type,FACT(no more than 6 unrelated principals),ownership_type == LLC,DECLINES,LLC principals,
-VAV-018,ownership_type,FACT(owns no more than 10 properties),ownership_type == LLC,DECLINES,LLC property count,
-VAV-019,ownership_type,FACT(no business other than real estate),ownership_type == LLC,DECLINES,LLC business,
-VAV-020,ownership_type,FACT(no fractional ownership or time share properties),ownership_type == LLC,DECLINES,LLC time shares,
+VAV-015,ownership_type,always,"ownership_type in {LLC, Corporation / partnership}",CONDITION,,"decided by VAV-016..VAV-020, its five criteria"
+VAV-016,ownership_type,FACT(formed solely for tax or real estate holding),"ownership_type in {LLC, Corporation / partnership}",DECLINES,LLC purpose,
+VAV-017,ownership_type,FACT(no more than 6 unrelated principals),"ownership_type in {LLC, Corporation / partnership}",DECLINES,LLC principals,
+VAV-018,ownership_type,FACT(owns no more than 10 properties),"ownership_type in {LLC, Corporation / partnership}",DECLINES,LLC property count,
+VAV-019,ownership_type,FACT(no business other than real estate),"ownership_type in {LLC, Corporation / partnership}",DECLINES,LLC business,
+VAV-020,ownership_type,FACT(no fractional ownership or time share properties),"ownership_type in {LLC, Corporation / partnership}",DECLINES,LLC time shares,
 VAV-021,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,modular / motor homes are not form options
 VAV-022,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
 VAV-024,year_built,year_built >= 1900,always,DECLINES,,

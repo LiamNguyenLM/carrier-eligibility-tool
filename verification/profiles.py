@@ -43,6 +43,9 @@ ALT_PROFILE = {
     "has_dogs": "No",
     "dog_breeds": (),
     "solar_panels": "Yes",
+    # round 35 step 3d: standard roof-mounted panels with no Tesla parts (the case these profiles were built for)
+    "solar_type": "Roof-mounted panels",
+    "solar_tesla": "No",
     "ppc": "1",
     # Liam, 2026-10-05 (round 26 step 8): the live form always sends a
     # Dwelling type (round 21 made it required), so the Tier 2 profiles do too.
@@ -107,6 +110,9 @@ AUDIT_R13_PROFILE = {
     "has_dogs": "Yes",
     "dog_breeds": ("None of these",),   # round 35 step 3a (was aggressive_breed "No")
     "solar_panels": "Yes",
+    # round 35 step 3d: standard roof-mounted panels with no Tesla parts (the case these profiles were built for)
+    "solar_type": "Roof-mounted panels",
+    "solar_tesla": "No",
     "ppc": "4",
 }
 
@@ -189,6 +195,9 @@ LIVE_PROFILE = {
     "has_dogs": "No",
     "dog_breeds": (),
     "solar_panels": "Yes",
+    # round 35 step 3d: standard roof-mounted panels with no Tesla parts (the case these profiles were built for)
+    "solar_type": "Roof-mounted panels",
+    "solar_tesla": "No",
     "ppc": "3",
     "zip": "75094",
     "county": "Collin",

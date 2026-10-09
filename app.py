@@ -156,12 +156,20 @@ with tab1:
 
         # Round 31 step 5 (Liam, 2026-10-08, decision 3): asked for every occupancy (was Owner Occupied
         # only, so a rental owned by an LLC or a trust could not be entered).
+        # Round 35 step 3e (Liam, 2026-10-09, decision 1): Corporation / partnership and Estate (PRO-012, MER-005,
+        # PDP-049 name them); a trust's type when Trust.
         ownership_type = st.radio(
             "Ownership Structure",
-            options=["Individual Owner", "Trust", "LLC"],
+            options=list(intake_fields.OWNERSHIP_TYPES),
             horizontal=True,
             key="ownership"
         )
+        trust_type = None
+        if ownership_type == "Trust":
+            trust_type = st.selectbox(
+                "Trust type", list(intake_fields.TRUST_TYPES), key="trust_type",
+                help="Several guides decide on the kind of trust (family-held, land trust, corporate trust). "
+                     "Unknown is not a guess: those carriers hold.")
 
         # Round 30 step 1 (Liam, 2026-10-08, decision 1): only for the owner's other homes;
         # hidden (and absent from property_details) for every other occupancy.
@@ -260,6 +268,16 @@ with tab1:
         solar_panels = st.toggle("Solar Panels", key="solar",
             help="Does the property have solar panels installed?",
             on_change=_autotick, args=("solar", "solar", False))
+        # Round 35 step 3d (Liam, 2026-10-09, decision 1): what kind, and any Tesla equipment.
+        solar_type = solar_tesla = None
+        if solar_panels:
+            solar_type = st.selectbox(
+                "Solar type", list(intake_fields.SOLAR_TYPES), key="solar_type",
+                format_func=lambda v: v or "— pick one —",
+                on_change=_autotick, args=("solar", "solar_type", ""))
+            solar_tesla = st.selectbox(
+                "Tesla equipment (Solar Roof, Powerwall or other Tesla parts)?", list(intake_fields.TESLA_CHOICES),
+                key="solar_tesla", on_change=_autotick, args=("solar", "solar_tesla", "Unknown"))
         _check_box("solar")
 
     st.divider()
@@ -282,6 +300,12 @@ with tab1:
             format_func=lambda v: v or "— not given —",
             help="Some carriers only write in certain counties.",
             on_change=_autotick, args=("county", "county", ""))
+        # Round 35 step 3f (Liam, 2026-10-09, decision 1): TWIA's designated area in Harris County.
+        harris_east_146 = None
+        if county == "Harris":
+            harris_east_146 = st.selectbox(
+                "East of Highway 146 (TWIA designated area)?", list(intake_fields.HARRIS_146_CHOICES),
+                key="harris_east_146", on_change=_autotick, args=("county", "harris_east_146", "Unknown"))
         if zip_county and county == zip_county:
             # Round 22 (Liam, 2026-10-02): show the pick so an agent can
             # overrule it. Display only -- none of this reaches the prompt.
@@ -362,6 +386,14 @@ with tab1:
             if occupancy_type in intake_fields.OWNERS_OTHER_HOMES:
                 property_details["primary_home_carrier"] = primary_home_carrier or ""
                 property_details["primary_home_miles"] = primary_home_miles
+            # Round 35 steps 3d-f: present only when the question was shown (the same reason).
+            if ownership_type == "Trust":
+                property_details["trust_type"] = trust_type
+            if solar_panels:
+                property_details["solar_type"] = solar_type or ""
+                property_details["solar_tesla"] = solar_tesla
+            if county == "Harris":
+                property_details["harris_east_146"] = harris_east_146
 
             with st.spinner("Analyzing carrier eligibility..."):
                 results = check_eligibility(property_details, checked_topics=checked_topics)

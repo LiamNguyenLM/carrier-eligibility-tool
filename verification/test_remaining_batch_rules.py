@@ -77,8 +77,10 @@ def test_coverage():
     # Was: form field 108, gated-but-open 60, AMBIGUOUS 9, same rule 38.
     # CHANGED 2026-10-09 (round 35 step 4, decision 2): CHO-013 is decided (a confirm note for the owner's second
     # home). Was: gated-but-open 66, AMBIGUOUS 2.
-    assert kinds == {"decided by a form field": 110, "gated-but-open": 67, "AMBIGUOUS": 1,
-                     "same rule as another row": 37, "NONE": 770}
+    # CHANGED 2026-10-09 (round 35 steps 3d-f: the follow-up questions): CHO-007 is decided; LDP-018, NCD-003, PDP-049, PH6-028 read the new owners; STD-093 gains a line.
+    # Was: 110 / 67 / AMBIGUOUS 1 / same rule 37 / NONE 770.
+    assert kinds == {"decided by a form field": 113, "gated-but-open": 70,
+                     "same rule as another row": 33, "NONE": 769}
 
 
 # -- the map's readings ----------------------------------------------------------------------

@@ -15,7 +15,7 @@ ALL-013,NONE,,,DECLINES,,the form has no field for this
 ALL-014,NONE,,,DECLINES,,the form has no field for this
 ALL-015,ownership_type,FACT(grantor resides and is the named insured),ownership_type == Trust,CONDITION,trust grantor,
 ALL-016,ownership_type,ownership_type != Trust,always,REFERS_TO_UW,,trust: submit documents (REFER)
-ALL-017,ownership_type,ownership_type != LLC,always,DECLINES,,
+ALL-017,ownership_type;trust_type,"ownership_type not in {LLC, Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Land trust, Corporate or business trust})",always,DECLINES,,
 ALL-018,NONE,,,DECLINES,,the form has no field for this
 ALL-019,dwelling_type,"dwelling_type in {House, Townhome}",always,CONDITION,,
 ALL-020,dwelling_type,"dwelling_type in {House, Townhome}",always,DECLINES,,multi-family is not asked
@@ -78,8 +78,8 @@ ALL-105,NONE,,,DECLINES,,the form has no field for this
 ALL-106,has_dogs;dog_breeds,"dog_breeds none_of {Akita, Alaskan Malamute, American Bulldog, Belgian Malinois, Bullmastiff, Cane Corso, Chow Chow, Doberman Pinscher, German Shepherd, Great Dane, Trained guard / attack / police / military dog, Siberian Husky, Husky (other than Siberian), Pit Bull (American Pit Bull Terrier), American Staffordshire Terrier, Staffordshire Bull Terrier, Presa Canario, Rottweiler, Wolf hybrid or wild dog}",has_dogs == Yes,DECLINES,,Allied p7 'prohibited breeds' (round 35: the breed field)
 ALL-107,has_dogs;dog_breeds,always,always,DECLINES,,decided by ALL-106 (a picked breed is that breed or a mix)
 ALL-108,NONE,,,DECLINES,,the form has no field for this
-ALL-109,solar_panels,always || solar_panels == No,solar_panels == Yes,DECLINES,,AMBIGUOUS: the form's Solar Panels does not say mounted panels or a solar roof system
-ALL-110,solar_panels,always || solar_panels == No,solar_panels == Yes,DECLINES,,AMBIGUOUS: solar tiles
+ALL-109,solar_panels;solar_type;solar_tesla,solar_type not in {Solar roof (shingles or tiles)},solar_panels == Yes,DECLINES,,mounted or ground panels pass
+ALL-110,solar_panels;solar_type;solar_tesla,always,always,DECLINES,,decided by ALL-109 (solar panel tiles are a solar roof)
 ALL-112,ppc,ppc_num between 1 and 10,always,DECLINES,,class 10 is decided by ALL-113 (its exception)
 ALL-113,ppc;year_built,home_age <= 3 and FACT(Protected Subdivision Rule),ppc_num == 10,DECLINES,Protected Subdivision Rule,
 ALL-115,NONE,,,DECLINES,,location detail beyond county / tier is not asked
@@ -161,7 +161,7 @@ SAG-012,NONE,,,DECLINES,,the form has no field for this
 SAG-013,NONE,,,DECLINES,,the form has no field for this
 SAG-014,NONE,,,DECLINES,,the form has no field for this
 SAG-015,NONE,,,CONDITION,,the form has no field for this
-SAG-017,ownership_type,ownership_type != LLC,always,DECLINES,,
+SAG-017,ownership_type;trust_type,"ownership_type not in {LLC, Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Corporate or business trust})",always,DECLINES,,
 SAG-018,NONE,,,DECLINES,,the form has no field for this
 SAG-019,ownership_type;occupancy_type,"occupancy_type in {Owner Occupied, Seasonal, Secondary Home} and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there,as the Sage sister guides' trust-occupancy rows
 SAG-020,NONE,,,DECLINES,,the form has no field for this
@@ -278,7 +278,7 @@ CHU-043,county;occupancy_type,FACT(not Territory 8/9/10 or Harris 1A),"county in
 CHU-044,county;occupancy_type,FACT(not Harris 1B/1C/1E),county == Harris and occupancy_type == Owner Occupied,REFERS_TO_UW,Chubb territory,primary houses (round 35)
 CHU-045,county;occupancy_type;primary_home_carrier,primary_home_carrier == Chubb,"county == Harris and occupancy_type in {Seasonal, Secondary Home}",CONDITION,Chubb territory; primary,
 CHU-046,county;occupancy_type;primary_home_carrier,"primary_home_carrier == Chubb and FACT($25,000 non-CAT premium)","county == Harris and occupancy_type in {Seasonal, Secondary Home}",CONDITION,Chubb territory; premium,
-CHU-047,county;occupancy_type,FACT(not Harris 1A-east or Territory 8/9/10),"county in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Harris, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy} and occupancy_type in {Seasonal, Secondary Home}",DECLINES,Chubb territory,
+CHU-047,county;occupancy_type;harris_east_146,(county == Harris and harris_east_146 == No) or FACT(not Harris 1A-east or Territory 8/9/10),"county in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Harris, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy} and occupancy_type in {Seasonal, Secondary Home}",DECLINES,Chubb territory,
 CHU-050,NONE,,,DECLINES,,the form has no field for this
 CHU-051,NONE,,,DECLINES,,the form has no field for this
 CHU-052,NONE,,,DECLINES,,the form has no field for this
@@ -328,7 +328,7 @@ MER-001,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 MER-002,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 MER-003,occupancy_type;primary_home_carrier,primary_home_carrier == Mercury,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,Mercury writes the primary,round 30 step 1: the form's 'Primary home insured with'
 MER-004,NONE,,,DECLINES,,the form has no field for this
-MER-005,ownership_type,"ownership_type != LLC || ownership_type not in {LLC, Trust}",always,DECLINES,,AMBIGUOUS: a form Trust may be a corporate trust
+MER-005,ownership_type;trust_type,"ownership_type not in {LLC, Corporation / partnership} and (ownership_type != Trust or trust_type not in {Corporate or business trust})",always,DECLINES,,an unknown trust type holds
 MER-006,NONE,,,DECLINES,,the form has no field for this
 MER-008,NONE,,,DECLINES,,the form has no field for this
 MER-009,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,
@@ -416,7 +416,7 @@ PRO-008,NONE,,,DECLINES,,the form has no field for this
 PRO-009,NONE,,,DECLINES,,the form has no field for this
 PRO-010,NONE,,,REFERS_TO_UW,,the form has no field for this
 PRO-011,NONE,,,REFERS_TO_UW,,the form has no field for this
-PRO-012,ownership_type,"ownership_type != LLC || ownership_type not in {LLC, Trust}",always,DECLINES,,AMBIGUOUS: a form Trust may be a land trust
+PRO-012,ownership_type;trust_type,"ownership_type not in {LLC, Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Land trust, Corporate or business trust})",always,DECLINES,,an unknown trust type holds
 PRO-013,ownership_type,ownership_type != Trust,always,REFERS_TO_UW,,trust: refer
 PRO-014,NONE,,,REFERS_TO_UW,,the form has no field for this
 PRO-015,NONE,,,DECLINES,,the form has no field for this
@@ -530,7 +530,7 @@ SWY-036,swimming_pool,swimming_pool != In Ground - Unfenced,always,DECLINES,,
 SWY-039,NONE,,,DECLINES,,liability hazards are not asked
 SWY-040,has_dogs;dog_breeds,"dog_breeds none_of {Pit Bull (American Pit Bull Terrier), American Staffordshire Terrier, Staffordshire Bull Terrier, Chow Chow, Doberman Pinscher, Presa Canario, Rottweiler, Wolf hybrid or wild dog}",has_dogs == Yes,DECLINES,,
 SWY-041,has_dogs,FACT(no bite history or aggression),has_dogs == Yes,DECLINES,bite history,
-SWY-043,solar_panels,always || solar_panels == No,solar_panels == Yes,DECLINES,,AMBIGUOUS: Tesla solar roof
+SWY-043,solar_panels;solar_type;solar_tesla,(solar_type not in {Solar roof (shingles or tiles)} and (solar_tesla != Yes or FACT(no Tesla parts in a solar roof system))) or solar_tesla == No,solar_panels == Yes,DECLINES,Tesla parts,round 35 step 3d: the Tesla question
 SWY-045,NONE,,,DECLINES,,location detail beyond county / tier is not asked
 SWY-046,dwelling_amount,dwelling_amount between 125000 and 2000000,always,DECLINES,,
 SWY-047,NONE,,,DECLINES,,loss / claims history is not asked
