@@ -1920,6 +1920,44 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       The three Sage FPC holds come from the profile's PPC 3 with no
       station / hydrant distance, the same for all three ownerships.
       Checks took 6.5–8.4 s and cost about $0.001 each.
+  - **Step 3 fix (9aa9874), found by the fast tier on 3e5da1d:**
+    - The drop of a record for a program the main call was not asked about
+      read the program list only after some Claude call had filled it. On a
+      fresh process or the Luna path, the first check kept the record.
+      _all_programs() now fills the list first.
+    - Two dated test updates (the stable enum; no HO6 card on a house).
+  - **Step 6 (live configuration: Haiku low, pilot + Sage + HO3 + DP
+    batches ON):**
+    - **Tier 2** on 9aa9874: 22 passed, 0 failed, 7 xfailed, 7 xpassed.
+      This is the same as Round 30's Haiku-low run, so no baseline was
+      changed. (f218992 gave the same result.)
+    - **8 profiles × 3 runs** on 9aa9874, quiet machine, compared with
+      Round 30 step 6's Haiku-low runs:
+
+      | Run set | checks | wall s (mean / median) | cost / check | same verdict 3/3 | CLEAN holds | OLD declines | calls / check |
+      |---|---|---|---|---|---|---|---|
+      | Round 30 step 6 | 24 | 11.7 / 11.9 | $0.0023 | 215/216 | 5, 5, 5 | 15, 15, 15 | 2 |
+      | Round 31 step 6 | 24 | 11.6 / 11.6 | $0.0018 | 216/216 | 5, 5, 5 | 15, 15, 15 | 1 |
+
+      - No carrier's status is disjoint between the two rounds, and there
+        were 0 NOT_EVALUATED and 0 retries.
+      - Wall breakdown (median): 1.3 s before the call, 10.1 s in the rules
+        call, 0.1 s after.
+      - The steps 4 / 5 changes do not reach these 8 profiles: none has an
+        unfenced pool, a trust tenant, or the like.
+  - **Fast tier per commit** (verification/, not baseline; the commit's
+    own seed):
+
+    | Commit | Step | Result |
+    |---|---|---|
+    | 05eba88 | 1 | 1,957 passed, 0 failed |
+    | effe32c | 2 | 1,966 passed, 0 failed |
+    | 3e5da1d | 3 | 2 failed, 1,985 passed (fixed in 9aa9874) |
+    | 8daba6f | 4 | the same 2 failed, 2,005 passed |
+    | 4853cb5 | 3 follow-up | the same 2 failed, 2,006 passed |
+    | 0ba4f79 | 5 | the same 2 failed, 2,024 passed |
+    | f218992 | docs | not run (docs only) |
+    | 9aa9874 | 3 fix | 2,028 passed, 0 failed, 9 xfailed |
 
 ## Open work, in priority order (updated 2026-10-02)
 
