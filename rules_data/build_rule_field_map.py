@@ -255,8 +255,10 @@ MAP = {
     "SAG-083": ("county", "always", "always", "", "decided by SAG-081 (the same rule); never a second flaw"),
     "SAG-088": ("coastal_tier", "FACT(not an extreme hazard location)", "coastal_tier == Tier 1",
                 "distance to shoreline", "the form's tiers are not the guide's tiers"),
-    "SAG-089": ("coastal_tier", "FACT(not within the shoreline distances)", "coastal_tier in {Tier 1, Tier 2}",
-                "distance to shoreline", ""),
+    # round 35 step 1: "within 3 miles of the designated primary shoreline in a tier 1 county" can be the
+    # form's Tier 3 (the guide's tier is the county's, the form's is the distance band)
+    "SAG-089": ("coastal_tier", "FACT(not within the shoreline distances)",
+                "coastal_tier in {Tier 1, Tier 2, Tier 3}", "distance to shoreline", ""),
     "MER-061": ("coastal_tier", "FACT(1/2 mile or more from sea, bay, tidal water)", "coastal_tier == Tier 1",
                 "distance to water", "Tier 1 = within 1 mile of Gulf or bay water (form help text)"),
     "MER-068": ("county;zip", "zip not in " + MER_HIGH, "county in " + TIER2, "ZIP; Harris side of Hwy 146",

@@ -108,7 +108,7 @@ SUR-150,NONE,,,DECLINES,,roof condition and layers are not asked
 SUR-151,NONE,,,DECLINES,,roof condition and layers are not asked
 SUR-161,coastal_tier,FACT(not an extreme hazard location),coastal_tier == Tier 1,DECLINES,distance to shoreline,the form's tiers are not the guide's tiers
 SUR-162,coastal_tier,FACT(not on a barrier island or Bolivar / Matagorda peninsula),coastal_tier == Tier 1,DECLINES,barrier island / peninsula,
-SUR-163,coastal_tier,FACT(not within the primary shoreline distances),"coastal_tier in {Tier 1, Tier 2}",DECLINES,distance to shoreline,as SAG-089
+SUR-163,coastal_tier,FACT(not within the primary shoreline distances),"coastal_tier in {Tier 1, Tier 2, Tier 3}",DECLINES,distance to shoreline,as SAG-089
 SUR-164,coastal_tier,FACT(not within 0.04 miles of an inner shoreline),coastal_tier == Tier 1,DECLINES,distance to inner shoreline,
 SUR-165,coastal_tier,FACT(not in the front or first row of dwellings),coastal_tier == Tier 1,DECLINES,first row,
 SUR-166,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
@@ -224,7 +224,7 @@ SFP-157,NONE,,,DECLINES,,roof condition and layers are not asked
 SFP-169,coastal_tier,FACT(not an extreme hazard location),coastal_tier == Tier 1,DECLINES,distance to shoreline,the form's tiers are not the guide's tiers
 SFP-170,coastal_tier,FACT(not on a barrier island),coastal_tier == Tier 1,DECLINES,barrier island,
 SFP-171,coastal_tier,"FACT(not on Bolivar, Matagorda or a similar peninsula)",coastal_tier == Tier 1,DECLINES,peninsula,
-SFP-172,coastal_tier,FACT(not within 3 miles of the primary shoreline in a tier 1 county),"coastal_tier in {Tier 1, Tier 2}",DECLINES,distance to shoreline,as SAG-089
+SFP-172,coastal_tier,FACT(not within 3 miles of the primary shoreline in a tier 1 county),"coastal_tier in {Tier 1, Tier 2, Tier 3}",DECLINES,distance to shoreline,as SAG-089
 SFP-173,coastal_tier,FACT(not within 0.1 miles of the primary shoreline in a tier 2 county),coastal_tier == Tier 1,DECLINES,distance to shoreline,
 SFP-174,coastal_tier,FACT(not within 0.04 miles of an inner shoreline),coastal_tier == Tier 1,DECLINES,distance to inner shoreline,
 SFP-175,coastal_tier,FACT(not in the front or first row of dwellings),coastal_tier == Tier 1,DECLINES,first row,

@@ -44,6 +44,7 @@ IN_GROUND = "swimming_pool in {In Ground - Fenced, In Ground - Unfenced}"
 ABOVE = "swimming_pool in {Above Ground - Fenced, Above Ground - Unfenced}"
 TIER1 = "coastal_tier == Tier 1"
 TIER12 = "coastal_tier in {Tier 1, Tier 2}"
+TIER123 = "coastal_tier in {Tier 1, Tier 2, Tier 3}"   # round 35 step 1: a tier-1 county's 3-mile band
 # The Sage FPC table (round 26 decision B; the same rows as SAG-073..078).
 FPC_B13 = "ppc_num between 1 and 3 and fire_station_miles <= 5 and hydrant_1000ft == No"
 FPC_C13 = "ppc_num between 1 and 3 and fire_station_miles > 5"
@@ -185,7 +186,7 @@ MAP.update({
                 "the form's tiers are not the guide's tiers"),
     "SUR-162": ("coastal_tier", "FACT(not on a barrier island or Bolivar / Matagorda peninsula)", TIER1,
                 "barrier island / peninsula", ""),
-    "SUR-163": ("coastal_tier", "FACT(not within the primary shoreline distances)", TIER12, "distance to shoreline",
+    "SUR-163": ("coastal_tier", "FACT(not within the primary shoreline distances)", TIER123, "distance to shoreline",
                 "as SAG-089"),
     "SUR-164": ("coastal_tier", "FACT(not within 0.04 miles of an inner shoreline)", TIER1,
                 "distance to inner shoreline", ""),
@@ -200,7 +201,7 @@ MAP.update({
                 "the form's tiers are not the guide's tiers"),
     "SFP-170": ("coastal_tier", "FACT(not on a barrier island)", TIER1, "barrier island", ""),
     "SFP-171": ("coastal_tier", "FACT(not on Bolivar, Matagorda or a similar peninsula)", TIER1, "peninsula", ""),
-    "SFP-172": ("coastal_tier", "FACT(not within 3 miles of the primary shoreline in a tier 1 county)", TIER12,
+    "SFP-172": ("coastal_tier", "FACT(not within 3 miles of the primary shoreline in a tier 1 county)", TIER123,
                 "distance to shoreline", "as SAG-089"),
     "SFP-173": ("coastal_tier", "FACT(not within 0.1 miles of the primary shoreline in a tier 2 county)", TIER1,
                 "distance to shoreline", ""),

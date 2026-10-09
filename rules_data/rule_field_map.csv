@@ -219,7 +219,7 @@ SAG-085,NONE,,,DECLINES,,location detail beyond county / tier is not asked
 SAG-086,NONE,,,DECLINES,,location detail beyond county / tier is not asked
 SAG-087,NONE,,,DECLINES,,location detail beyond county / tier is not asked
 SAG-088,coastal_tier,FACT(not an extreme hazard location),coastal_tier == Tier 1,DECLINES,distance to shoreline,the form's tiers are not the guide's tiers
-SAG-089,coastal_tier,FACT(not within the shoreline distances),"coastal_tier in {Tier 1, Tier 2}",DECLINES,distance to shoreline,
+SAG-089,coastal_tier,FACT(not within the shoreline distances),"coastal_tier in {Tier 1, Tier 2, Tier 3}",DECLINES,distance to shoreline,
 SAG-096,dwelling_amount,dwelling_amount <= 1000000,always,DECLINES,,
 SAG-098,dwelling_amount,dwelling_amount >= 85000,always,REFERS_TO_UW,,
 SAG-099,NONE,,,CONDITION,,the form has no field for this

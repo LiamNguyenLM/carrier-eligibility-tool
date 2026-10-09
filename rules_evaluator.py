@@ -300,6 +300,12 @@ def facts(pd, today=None):
     """The values the grammar reads, from a property_details dict."""
     year = (today or datetime.date.today()).year
     f = dict(pd)
+    # Round 35 step 1 (Claude's map audit): the map lines compare "Tier 1" / "Tier 2" / "Tier 3". app.py
+    # sends that prefix already; any caller passing the form's full label ("Tier 1 - Closest to coast")
+    # gets it too, so no coastal line is ever N/A on the label's wording. "Not Coastal" stays as is.
+    ct = str(pd.get("coastal_tier") or "").strip()
+    if ct.lower().startswith("tier"):
+        f["coastal_tier"] = ct.split(" - ")[0].strip().title()
     yb = pd.get("year_built")
     f["home_age"] = year - int(yb) if yb not in (None, "") else None
     m = re.match(r"(\d+)", str(pd.get("ppc", "")).strip())
