@@ -175,3 +175,24 @@ def test_the_app_ranks_exactly_as_the_reference_on_the_tracked_tables():
         theirs = ref.rank(R, cands, z, c, yb, cova, as_of)
         assert [m for m, _ in mine] == [m for m, _ in theirs]
         assert [s for _, s in mine] == pytest.approx([s for _, s in theirs], abs=1e-12)
+
+
+# -- round 34 step 1 (2026-10-09): Claude's builder cleans the county; the backtest homes are cleaned alike ----
+@pytest.mark.parametrize("county,zip5,want", [("mclennan", "", "McLennan"), ("HARRIS", "77002", "Harris"),
+                                              ("Harrisk Home Mortg", "77494", "Fort Bend"), ("Ft Bend", "", ""),
+                                              ("", "77002", "Harris")])
+def test_the_backtest_cleans_a_home_county_as_the_builder_does(county, zip5, want):
+    import verify_placement_backtest as v
+    assert v.county_cleaner()(county, zip5) == want
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    "Round 34 (2026-10-09), OPEN for Claude: the cleaned tables keep the canonical spelling ('McLennan', "
+    "'DeWitt'), but rank() and the reference scorer look a county up as county.strip().title() "
+    "('Mclennan'), so McLennan (8 policies), DeWitt (2), McCulloch and McMullen never reach their county "
+    "rows and fall back to the statewide mix. Fixing it in placement.py alone would break 'rank "
+    "identically'; the reference lookup should be case-insensitive, then both change together."))
+def test_a_mclennan_home_reaches_its_county_rows():
+    T = placement.load_tables()
+    assert "McLennan" in T["county"]                                  # the rows are there ...
+    assert T["county"].get("McLennan".strip().title())                # ... under the key the lookup uses
