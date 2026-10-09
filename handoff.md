@@ -2063,6 +2063,34 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     failed, 7 xfailed, 1 xpassed (Mercury, as recorded in round 32) each
     way. The ownership verdicts are identical in all 87 (ownership x
     carrier) cells, 3 reps each.
+- **2026-10-09 — Round 34 (small): cleaned placement tables, panel
+  wording.**
+  - **Step 1 (c89bddf): cleaned tables.** Claude's builder now cleans
+    HawkSoft's county before counting:
+    - a Texas county as given, matched case-insensitively;
+    - else the ZIP's main county;
+    - else blank.
+
+    sync_from_out.py dropped 0 of 5,050 county rows; the filter and its
+    test stay as a guard. The backtest now cleans the test homes' counties
+    the same way and gives 131/210 in the top 3 (37.1% top 1), from both
+    placement.py and Claude's verify_backtest.py. It was 132/210 before.
+  - **OPEN, for Claude (strict xfail test_a_mclennan_home_reaches_its_county_rows):**
+    the tables keep "McLennan" / "DeWitt", but rank() and the reference
+    look a county up with .title() ("Mclennan"). So McLennan, DeWitt,
+    McCulloch and McMullen homes fall back to the statewide mix. The
+    reference lookup should become case-insensitive, and placement.py
+    should follow in the same change.
+  - **Step 2 (1ed5798): wording (Liam, 2026-10-09).**
+    - A market with no sales in the reason line's area says "No recent
+      sales with <market> in <area>; ranked on our statewide mix".
+    - The band line needs at least 10 band sales across all markets, at
+      least 5 of the market's own, and a share of at least 1.25x its
+      overall share.
+    - Real LIVE run in Bexar (Haiku low, all batches ON): Auros (held), ARI,
+      then Allied Trust with "No recent sales with Allied Trust in Bexar
+      County" plus its 10-19-year band line. Bexar now has 17 recent
+      sales, up from 13, because counties are filled from ZIPs.
 
 ## Open work, in priority order (updated 2026-10-02)
 
