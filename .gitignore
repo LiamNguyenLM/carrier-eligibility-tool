@@ -32,3 +32,7 @@ verification/sweep_*.json
 
 # Round 32 step 3: the placement backtest's real-home data and results. Never commit.
 pilot_structured_rules/backtest/
+
+# Round 33 step 1: Claude's placement refresh state and raw build (hashed ids only). Never commit.
+# The built tables are copied into the tracked rules_data/placement/ by its sync_from_out.py.
+pilot_structured_rules/placement/
