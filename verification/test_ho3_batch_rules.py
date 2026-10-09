@@ -69,7 +69,9 @@ def test_coverage():
     # round 30 step 2: ARA-049 / ARB-046 "exposed water lines" -> a never-asked fact (were AMBIGUOUS)
     # CHANGED 2026-10-09 (round 35 step 2, Claude's map audit): FOR-053, ORI-012, TRV-075 now carry a FACT; ARA-030 / ARB-025 / ARB-036 re-split; ARA-085 and
     # ARB-093 are "same rule". Was: form field 106, gated-but-open 59, same rule 18.
-    assert kinds == {"decided by a form field": 102, "gated-but-open": 62, "AMBIGUOUS": 12,
+    # CHANGED 2026-10-09 (round 35 step 3a, Liam's decision 1): the breed lines read the breed field (5 AMBIGUOUS lines decided; open lists carry a FACT).
+    # Was: form field 102, gated-but-open 62, AMBIGUOUS 12.
+    assert kinds == {"decided by a form field": 104, "gated-but-open": 65, "AMBIGUOUS": 7,
                      "same rule as another row": 19, "NONE": 420}
 
 

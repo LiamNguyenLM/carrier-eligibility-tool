@@ -16,8 +16,11 @@ usage: python rules_data/build_rule_field_map.py
 """
 import csv
 import os
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(HERE))
+import intake_fields  # noqa: E402
 RULES = os.path.join(HERE, "carrier_rules_pilot_v5.csv")
 OUT = os.path.join(HERE, "rule_field_map.csv")
 
@@ -26,7 +29,61 @@ POOL_OK = "pool_fence_4ft == True and pool_gate_locking == True"
 FLAT = "(roof_shape == Flat or roof_type == Flat/Built-Up)"
 SEASONAL = "occupancy_type in {Seasonal, Secondary Home}"
 DOGS = "has_dogs == Yes"
-BREED = "always || aggressive_breed == No"      # AMBIGUOUS: the form's breed list is not the carrier's
+BREED = "always || aggressive_breed == No"      # before round 35: AMBIGUOUS (the form's list was not the carrier's)
+
+
+# Round 35 step 3a (Liam, 2026-10-09, decision 1): each carrier's own breed list, as the form's options.
+# A generic "pit bull" covers the three pit-bull-type breeds (Markel, Vave and Swyfft Lloyd's spell that
+# out); a generic "mastiff(s)" covers Mastiff, Bullmastiff and Neapolitan Mastiff.
+def _breeds(*names):
+    bad = [n for n in names if n not in intake_fields.DOG_BREEDS]
+    assert not bad, bad
+    return "{" + ", ".join(dict.fromkeys(names)) + "}"
+
+
+PIT = ("Pit Bull (American Pit Bull Terrier)", "American Staffordshire Terrier", "Staffordshire Bull Terrier")
+MASTIFFS = ("Mastiff", "Bullmastiff", "Neapolitan Mastiff")
+HUSKIES = ("Siberian Husky", "Husky (other than Siberian)")
+GUARD, WOLF, OVCHARKA = ("Trained guard / attack / police / military dog", "Wolf hybrid or wild dog",
+                         "Caucasian Ovcharka (Caucasian Mountain Dog)")
+BREEDS = {
+    "allied": _breeds("Akita", "Alaskan Malamute", "American Bulldog", "Belgian Malinois", "Bullmastiff", "Cane Corso",
+                      "Chow Chow", "Doberman Pinscher", "German Shepherd", "Great Dane", GUARD, *HUSKIES, *PIT,
+                      "Presa Canario", "Rottweiler", WOLF),
+    # Sage's "Specified Dog Breeds" (HC4421305), guard dog breeds such as Doberman Pinscher and German Shepherd
+    "sage": _breeds("Akita", "Alaskan Malamute", "American Staffordshire Terrier", "Boxer", "Bull Terrier",
+                    "Bullmastiff", "Chow Chow", "Giant Schnauzer", "Great Dane", "Mastiff", "Neapolitan Mastiff",
+                    OVCHARKA, "Pit Bull (American Pit Bull Terrier)", "Presa Canario", "Rhodesian Ridgeback",
+                    "Rottweiler", "Siberian Husky", "Staffordshire Bull Terrier", WOLF, "Doberman Pinscher",
+                    "German Shepherd", GUARD),
+    "mercury": _breeds("Akita", "American Bully", "Cane Corso", "Chow Chow", "Dogo Argentino", *PIT, "Presa Canario",
+                       "Rottweiler", WOLF),
+    "progressive": _breeds("Akita", "American Bulldog", "Chow Chow", "Doberman Pinscher", *MASTIFFS, *PIT,
+                           "Rottweiler", WOLF),
+    "swyfft_benchmark": _breeds(*PIT, "Chow Chow", "Doberman Pinscher", "Presa Canario", "Rottweiler", WOLF),
+    "swyfft_topa": _breeds("Chow Chow", "Doberman Pinscher", *PIT, "Presa Canario", "Rottweiler", WOLF),
+    "ari": _breeds(*PIT, "German Shepherd", "Akita", "Doberman Pinscher", "Chow Chow", "Rottweiler", "Great Dane",
+                   "Bullmastiff", "Presa Canario", OVCHARKA, WOLF),
+    "foremost": _breeds("Akita", *PIT, "Chow Chow", "Doberman Pinscher", "Presa Canario", "Rottweiler", WOLF),
+    "travelers": _breeds("Akita", "Alaskan Malamute", "American Bull Terrier", "Chow Chow", "Doberman Pinscher",
+                         *MASTIFFS, *PIT, "Presa Canario", "Rottweiler", WOLF),
+    "centauri_dp": _breeds("Akita", "American Bulldog", "Beauceron", OVCHARKA, "Chow Chow", "Doberman Pinscher",
+                           "German Shepherd", "Great Dane", *PIT, "Rottweiler", WOLF),
+}
+DOG_FIELDS = "has_dogs;dog_breeds"
+OPEN_LIST = "FACT(no other breed the guide counts as dangerous)"
+ACK = "FACT(signed acknowledgement of the dog liability exclusion)"
+
+
+def breed_line(carrier, kind, note=""):
+    """closed: a listed breed fails. open ("includes, but is not limited to"): a listed breed fails; none of them
+    is a confirm note. ack: a listed breed is eligible with a signed acknowledgement (a confirm note)."""
+    s = "dog_breeds none_of " + BREEDS[carrier]
+    test = {"closed": s, "open": s + " and " + OPEN_LIST, "ack": s + " or " + ACK,
+            "open_ack": "(" + s + " and " + OPEN_LIST + ") or FACT(Animal Liability Exclusion endorsement)"}[kind]
+    fact = {"closed": "", "open": "other dangerous breeds", "ack": "signed acknowledgement",
+            "open_ack": "other dangerous breeds; Animal Liability Exclusion endorsement"}[kind]
+    return (DOG_FIELDS, test, DOGS, fact, note)
 NO_BAD_PLUMB = "plumbing_type not in {Galvanized, Polybutylene}"
 PEX_2011 = "plumbing_type not in {Galvanized, Polybutylene} and (plumbing_type != PEX or year_built >= 2011)"
 TIER2 = ("{Bee, Brooks, Fort Bend, Goliad, Hardin, Harris, Hidalgo, Jackson, Jim Wells, Liberty, Live Oak, "
@@ -156,18 +213,17 @@ MAP = {
     # ---------------- ANIMALS (dogs only: the form asks nothing about other animals)
     "ALL-102": ("has_dogs", "FACT(no dangerous propensities)", DOGS, "dog history", "other animals not asked"),
     "ALL-103": ("has_dogs", "FACT(no bite history)", DOGS, "bite history", ""),
-    "ALL-106": ("has_dogs;aggressive_breed", BREED, DOGS, "",
-                "AMBIGUOUS when aggressive_breed is Yes; No is read as PASS although Allied lists breeds the form's list lacks (Malamute, Bull Mastiff, Great Dane, Husky)"),
-    "ALL-107": ("has_dogs;aggressive_breed", BREED, DOGS, "", "as ALL-106"),
-    "SAG-067": ("has_dogs;aggressive_breed", BREED, DOGS, "", "a signed acknowledgement cures"),
+    "ALL-106": breed_line("allied", "closed", "Allied p7 'prohibited breeds' (round 35: the breed field)"),
+    "ALL-107": ("has_dogs;dog_breeds", "always", "always", "", "decided by ALL-106 (a picked breed is that breed or a mix)"),
+    "SAG-067": breed_line("sage", "ack", "Specified Dog Breeds: eligible with a signed acknowledgement"),
     "SAG-068": ("has_dogs", "FACT(no bite history)", DOGS, "bite history", ""),
-    "MER-054": ("has_dogs;aggressive_breed", BREED, DOGS, "", "as ALL-106"),
+    "MER-054": breed_line("mercury", "closed", "wolf hybrids are in the same sentence"),
     "MER-056": ("has_dogs", "FACT(no biting history)", DOGS, "bite history", ""),
-    "MER-057": ("has_dogs;aggressive_breed", BREED, DOGS, "", "as ALL-106"),
+    "MER-057": ("has_dogs;dog_breeds", "always", "always", "", "decided by MER-054 (a picked breed is that breed or a mix)"),
     "MER-058": ("has_dogs", "FACT(3 or fewer dogs)", DOGS, "number of dogs", ""),
-    "PRO-061": ("has_dogs;aggressive_breed", BREED, DOGS, "", "as ALL-106"),
+    "PRO-061": breed_line("progressive", "open", "'includes, but is not limited to'"),
     "PRO-062": ("has_dogs", "FACT(no bite history)", DOGS, "bite history", ""),
-    "SWY-040": ("has_dogs;aggressive_breed", BREED, DOGS, "", "as ALL-106"),
+    "SWY-040": breed_line("swyfft_benchmark", "closed"),
     "SWY-041": ("has_dogs", "FACT(no bite history or aggression)", DOGS, "bite history", ""),
     # ---------------- SOLAR
     "ALL-109": ("solar_panels", "always || solar_panels == No", "solar_panels == Yes", "",

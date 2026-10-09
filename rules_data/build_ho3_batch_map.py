@@ -29,7 +29,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from build_rule_field_map import BREED, DOGS, FLAT, NONE_NOTE, POOL_OK, SEASONAL  # noqa: E402
+from build_rule_field_map import DOGS, FLAT, NONE_NOTE, POOL_OK, SEASONAL, breed_line  # noqa: E402
 from build_sage_batch_map import BATCH_NONE_NOTE, coverage_table as _sage_coverage, kind  # noqa: E402,F401
 
 RULES = os.path.join(HERE, "carrier_rules_ho3_batch_v1.csv")
@@ -114,8 +114,7 @@ MAP = {
     "ARA-030": ("occupancy_type;primary_home_carrier", "occupancy_type == Owner Occupied",
                 SEASONAL + " and primary_home_carrier == ARI", "",
                 "round 35: refer only when ARI insures the primary (else ARA-029 declines or holds)"),
-    "ARA-033": ("has_dogs;aggressive_breed", BREED, DOGS, "", "the form's breed list is not ARI's (German Shepherd, "
-                                                            "Great Dane...)"),
+    "ARA-033": breed_line("ari", "open", "'Ineligible dogs include any mix of ...'"),
     "ARA-034": ("has_dogs", "FACT(no bite history)", DOGS, "bite history", ""),
     "ARA-041": ("occupancy_type", NOT_TENANT, "always", "", "Vacant is decided by ARA-028"),
     "ARA-042": same_as("ARA-029 / ARA-030"),
@@ -139,7 +138,7 @@ MAP = {
     "ARB-025": ("occupancy_type;primary_home_carrier", "occupancy_type == Owner Occupied",
                 SEASONAL + " and primary_home_carrier == ARI", "",
                 "round 35: refer only when ARI insures the primary (ARB-036 declines the others)"),
-    "ARB-028": ("has_dogs;aggressive_breed", BREED, DOGS, "", "the form's breed list is not ARI's"),
+    "ARB-028": breed_line("ari", "open", "'Ineligible dogs include any mix of ...'"),
     "ARB-029": ("has_dogs", "FACT(no bite history)", DOGS, "bite history", ""),
     "ARB-035": ("occupancy_type", NOT_TENANT, "always", "", "Vacant is decided by ARB-024"),
     # round 35 step 2: as ARA-029 / ARA-030 -- a seasonal or secondary home declines unless ARI insures the
@@ -170,7 +169,8 @@ MAP = {
                 "fence 4 ft; self-locking gate; above-ground deck / sides", "a pool cage also qualifies (not a form option)"),
     "FOR-061": ("has_dogs", "FACT(no dangerous dog or animal that has caused harm)", DOGS, "dangerous dog / harm",
                 "the Animal Liability Exclusion endorsement is required if so"),
-    "FOR-062": ("has_dogs;aggressive_breed", BREED, DOGS, "", "eligible with the Animal Liability Exclusion"),
+    "FOR-062": breed_line("foremost", "open_ack", "'include but are not limited to'; eligible with the Animal "
+                                                     "Liability Exclusion"),
     "FOR-063": ("has_dogs", "FACT(no bite history)", DOGS, "bite history", ""),
     "FOR-074": ("county", "FACT(served by TWIA, with a signed Acceptance of Windstorm or Hail Exclusion)",
                 f"county in {FOREMOST_COASTAL}", "TWIA area; signed wind/hail exclusion", ""),
@@ -281,7 +281,7 @@ MAP = {
     "STO-004": POOL_4FT_NOT_IN_GROUND_UNFENCED,     # round 35: an unfenced in-ground pool is STO-052's
     "STO-010": RENOVATED_100,
     "STO-012": ("roof_age", "roof_age <= 30", "always", "", ""),
-    "STO-018": ("has_dogs;aggressive_breed", BREED, DOGS, "", "the form's breed list is not Swyfft's"),
+    "STO-018": breed_line("swyfft_topa", "closed"),
     "STO-019": ("has_dogs", "FACT(no bite history or aggression)", DOGS, "bite history", ""),
     "STO-024": ("occupancy_type", NOT_VACANT, "always", "", "under construction / for sale are not asked"),
     "STO-029": ("occupancy_type", "always", SEASONAL, "", "the form's Seasonal / Secondary Home is owner-occupied"),
@@ -314,7 +314,7 @@ MAP = {
                 "signed liability exclusion", ""),
     # ================= Travelers Quantum Home 2.0
     "TRV-015": ("has_dogs", "FACT(no animal that has bitten or injured)", DOGS, "bite history", ""),
-    "TRV-016": ("has_dogs;aggressive_breed", BREED, DOGS, "", "the form's breed list is not Travelers'"),
+    "TRV-016": breed_line("travelers", "closed", "any mix or variation of these breeds"),
     "TRV-017": ("ownership_type", "FACT(no business or commercial exposure)", "ownership_type in {Trust, LLC}",
                 "entity's business", ""),
     "TRV-025": ("swimming_pool", FENCED + " or FACT(secured by a retractable safety cover or locking ladder)", POOL,

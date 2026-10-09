@@ -16,7 +16,7 @@ STANDARD_PROFILE = {
     "swimming_pool": "In Ground - Fenced",
     "pool_accessories": "None",
     "has_dogs": "No",
-    "aggressive_breed": "No",
+    "dog_breeds": (),
     "solar_panels": "No",
     "ppc": "9",
     # Liam, 2026-10-05 (round 26 step 8): the live form always sends a
@@ -41,7 +41,7 @@ ALT_PROFILE = {
     "swimming_pool": "No Pool",
     "pool_accessories": "None",
     "has_dogs": "No",
-    "aggressive_breed": "No",
+    "dog_breeds": (),
     "solar_panels": "Yes",
     "ppc": "1",
     # Liam, 2026-10-05 (round 26 step 8): the live form always sends a
@@ -67,7 +67,7 @@ COASTAL_PPC4_PROFILE = {
     "swimming_pool": "No Pool",
     "pool_accessories": "None",
     "has_dogs": "No",
-    "aggressive_breed": "No",
+    "dog_breeds": (),
     "solar_panels": "No",
     "ppc": "4",
     # Liam, 2026-10-05 (round 26 step 8): the live form always sends a
@@ -105,7 +105,7 @@ AUDIT_R13_PROFILE = {
     "swimming_pool": "In Ground - Fenced",
     "pool_accessories": "None",
     "has_dogs": "Yes",
-    "aggressive_breed": "No",
+    "dog_breeds": ("None of these",),   # round 35 step 3a (was aggressive_breed "No")
     "solar_panels": "Yes",
     "ppc": "4",
 }
@@ -130,7 +130,7 @@ AUDIT_R14_DP3_PROFILE = {
     "swimming_pool": "No Pool",
     "pool_accessories": "None",
     "has_dogs": "No",
-    "aggressive_breed": "No",
+    "dog_breeds": (),
     "solar_panels": "No",
     "ppc": "8A",
 }
@@ -159,7 +159,7 @@ OWNERSHIP_BASE_PROFILE = {
     "swimming_pool": "No Pool",
     "pool_accessories": "None",
     "has_dogs": "No",
-    "aggressive_breed": "No",
+    "dog_breeds": (),
     "solar_panels": "No",
     "ppc": "3",
     # Liam, 2026-10-05 (round 26 step 8): the live form always sends a
@@ -187,7 +187,7 @@ LIVE_PROFILE = {
     "pool_fence_4ft": False,
     "pool_gate_locking": False,
     "has_dogs": "No",
-    "aggressive_breed": "No",
+    "dog_breeds": (),
     "solar_panels": "Yes",
     "ppc": "3",
     "zip": "75094",

@@ -30,7 +30,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from build_rule_field_map import BREED, DOGS, FLAT, NONE_NOTE, POOL_OK, SEASONAL  # noqa: E402
+from build_rule_field_map import DOGS, FLAT, NONE_NOTE, POOL_OK, SEASONAL, breed_line  # noqa: E402
 
 RULES = os.path.join(HERE, "carrier_rules_sage_batch_v2.csv")
 OUT = os.path.join(HERE, "sage_batch_field_map.csv")
@@ -112,7 +112,7 @@ def sister(p, ids):
     put("pool_slide", ("swimming_pool;pool_accessories", "FACT(signed acknowledgement of the slide/diving board exclusion)",
                        "swimming_pool != No Pool and pool_accessories != None", "signed acknowledgement",
                        "round 35: no pool, no slide row"))
-    put("dog_breed", ("has_dogs;aggressive_breed", BREED, DOGS, "", "a signed acknowledgement cures"))
+    put("dog_breed", breed_line("sage", "ack", "Specified Dog Breeds: eligible with a signed acknowledgement"))
     put("dog_bite", ("has_dogs", "FACT(no bite history)", DOGS, "bite history", ""))
     put("fpc_b13", ("ppc;fire_station_miles;hydrant_1000ft", ROW_FACT_3, FPC_B13,
                     OPEN_B + "; visibility, alarm, access", "the FPC table row is chosen by station distance and hydrant"))

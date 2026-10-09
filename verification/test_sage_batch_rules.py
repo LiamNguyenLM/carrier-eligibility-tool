@@ -92,7 +92,9 @@ def test_coverage_per_carrier():
     kinds = collections.Counter(builder.kind(builder.MAP.get(rid, ("NONE", "", "", "", ""))) for rid in FMAP)
     # CHANGED 2026-10-09 (round 35 step 2, Claude's map audit): the above-ground pool rows (SUR-062, SFP-061, TRI-069) and the trust-occupant rows (SUR-019,
     # SFP-019, WIL-019, TRI-023) carry a FACT. Was: form field 79, gated-but-open 71.
-    assert kinds == {"decided by a form field": 72, "gated-but-open": 78, "AMBIGUOUS": 3,
+    # CHANGED 2026-10-09 (round 35 step 3a, Liam's decision 1): the three specified-breed lines read the breed field (a signed acknowledgement is a FACT).
+    # Was: gated-but-open 78, AMBIGUOUS 3.
+    assert kinds == {"decided by a form field": 72, "gated-but-open": 81,
                      "same rule as another row": 14, "NONE": 376}
     per = collections.Counter(rid[:3] for rid in FMAP)
     assert per == {"SUR": 113, "SFP": 117, "WIL": 92, "TRI": 111, "MKL": 56, "VAV": 54}

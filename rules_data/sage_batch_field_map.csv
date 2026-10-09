@@ -59,7 +59,7 @@ SUR-065,NONE,,,DECLINES,,"pool rentals, ladders, decking and covers are not aske
 SUR-066,swimming_pool;pool_accessories,FACT(signed acknowledgement of the slide/diving board exclusion),swimming_pool != No Pool and pool_accessories != None,CONDITION,signed acknowledgement,"round 35: no pool, no slide row"
 SUR-067,NONE,,,CONDITION,,liability hazards are not asked
 SUR-068,NONE,,,DECLINES,,liability hazards are not asked
-SUR-069,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,CONDITION,,a signed acknowledgement cures
+SUR-069,has_dogs;dog_breeds,"dog_breeds none_of {Akita, Alaskan Malamute, American Staffordshire Terrier, Boxer, Bull Terrier, Bullmastiff, Chow Chow, Giant Schnauzer, Great Dane, Mastiff, Neapolitan Mastiff, Caucasian Ovcharka (Caucasian Mountain Dog), Pit Bull (American Pit Bull Terrier), Presa Canario, Rhodesian Ridgeback, Rottweiler, Siberian Husky, Staffordshire Bull Terrier, Wolf hybrid or wild dog, Doberman Pinscher, German Shepherd, Trained guard / attack / police / military dog} or FACT(signed acknowledgement of the dog liability exclusion)",has_dogs == Yes,CONDITION,signed acknowledgement,Specified Dog Breeds: eligible with a signed acknowledgement
 SUR-070,has_dogs,FACT(no bite history),has_dogs == Yes,CONDITION,bite history,
 SUR-071,NONE,,,CONDITION,,other animals and bite claims are not asked
 SUR-072,NONE,,,CONDITION,,other animals and bite claims are not asked
@@ -171,7 +171,7 @@ SFP-064,NONE,,,DECLINES,,"pool rentals, ladders, decking and covers are not aske
 SFP-065,swimming_pool;pool_accessories,FACT(signed acknowledgement of the slide/diving board exclusion),swimming_pool != No Pool and pool_accessories != None,CONDITION,signed acknowledgement,"round 35: no pool, no slide row"
 SFP-067,NONE,,,CONDITION,,liability hazards are not asked
 SFP-069,NONE,,,DECLINES,,liability hazards are not asked
-SFP-070,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,CONDITION,,a signed acknowledgement cures
+SFP-070,has_dogs;dog_breeds,"dog_breeds none_of {Akita, Alaskan Malamute, American Staffordshire Terrier, Boxer, Bull Terrier, Bullmastiff, Chow Chow, Giant Schnauzer, Great Dane, Mastiff, Neapolitan Mastiff, Caucasian Ovcharka (Caucasian Mountain Dog), Pit Bull (American Pit Bull Terrier), Presa Canario, Rhodesian Ridgeback, Rottweiler, Siberian Husky, Staffordshire Bull Terrier, Wolf hybrid or wild dog, Doberman Pinscher, German Shepherd, Trained guard / attack / police / military dog} or FACT(signed acknowledgement of the dog liability exclusion)",has_dogs == Yes,CONDITION,signed acknowledgement,Specified Dog Breeds: eligible with a signed acknowledgement
 SFP-073,has_dogs,FACT(no bite history),has_dogs == Yes,CONDITION,bite history,
 SFP-074,NONE,,,REFERS_TO_UW,,other animals and bite claims are not asked
 SFP-075,NONE,,,CONDITION,,other animals and bite claims are not asked
@@ -386,7 +386,7 @@ TRI-077,NONE,,,CONDITION,,liability hazards are not asked
 TRI-078,NONE,,,DECLINES,,liability hazards are not asked
 TRI-079,NONE,,,DECLINES,,liability hazards are not asked
 TRI-080,NONE,,,CONDITION,,liability hazards are not asked
-TRI-081,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,CONDITION,,a signed acknowledgement cures
+TRI-081,has_dogs;dog_breeds,"dog_breeds none_of {Akita, Alaskan Malamute, American Staffordshire Terrier, Boxer, Bull Terrier, Bullmastiff, Chow Chow, Giant Schnauzer, Great Dane, Mastiff, Neapolitan Mastiff, Caucasian Ovcharka (Caucasian Mountain Dog), Pit Bull (American Pit Bull Terrier), Presa Canario, Rhodesian Ridgeback, Rottweiler, Siberian Husky, Staffordshire Bull Terrier, Wolf hybrid or wild dog, Doberman Pinscher, German Shepherd, Trained guard / attack / police / military dog} or FACT(signed acknowledgement of the dog liability exclusion)",has_dogs == Yes,CONDITION,signed acknowledgement,Specified Dog Breeds: eligible with a signed acknowledgement
 TRI-082,has_dogs,FACT(no bite history),has_dogs == Yes,CONDITION,bite history,
 TRI-083,NONE,,,CONDITION,,other animals and bite claims are not asked
 TRI-084,NONE,,,CONDITION,,other animals and bite claims are not asked

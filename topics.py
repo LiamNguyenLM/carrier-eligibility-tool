@@ -63,7 +63,7 @@ TOPICS = (
     Topic("pool", "Swimming pool", "Pool",
           ("swimming_pool", "pool_accessories", "pool_fence_4ft", "pool_gate_locking"),
           r"(?<!wind )\bpools?\b|swimming|\bfenc|\bgates?\b|diving|\bslides?\b|hot tub|\bspa\b"),
-    Topic("dogs", "Dogs", "Dogs", ("has_dogs", "aggressive_breed"),
+    Topic("dogs", "Dogs", "Dogs", ("has_dogs", "aggressive_breed", "dog_breeds"),
           r"\bdogs?\b|canine|breed|pit ?bull|rottweiler|\banimals?\b"),
     Topic("solar", "Solar panels", "Solar", ("solar_panels",),
           r"solar|photovoltaic|\bpv\b"),

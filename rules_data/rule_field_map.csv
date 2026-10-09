@@ -75,8 +75,8 @@ ALL-102,has_dogs,FACT(no dangerous propensities),has_dogs == Yes,DECLINES,dog hi
 ALL-103,has_dogs,FACT(no bite history),has_dogs == Yes,DECLINES,bite history,
 ALL-104,NONE,,,DECLINES,,the form has no field for this
 ALL-105,NONE,,,DECLINES,,the form has no field for this
-ALL-106,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,DECLINES,,"AMBIGUOUS when aggressive_breed is Yes; No is read as PASS although Allied lists breeds the form's list lacks (Malamute, Bull Mastiff, Great Dane, Husky)"
-ALL-107,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,DECLINES,,as ALL-106
+ALL-106,has_dogs;dog_breeds,"dog_breeds none_of {Akita, Alaskan Malamute, American Bulldog, Belgian Malinois, Bullmastiff, Cane Corso, Chow Chow, Doberman Pinscher, German Shepherd, Great Dane, Trained guard / attack / police / military dog, Siberian Husky, Husky (other than Siberian), Pit Bull (American Pit Bull Terrier), American Staffordshire Terrier, Staffordshire Bull Terrier, Presa Canario, Rottweiler, Wolf hybrid or wild dog}",has_dogs == Yes,DECLINES,,Allied p7 'prohibited breeds' (round 35: the breed field)
+ALL-107,has_dogs;dog_breeds,always,always,DECLINES,,decided by ALL-106 (a picked breed is that breed or a mix)
 ALL-108,NONE,,,DECLINES,,the form has no field for this
 ALL-109,solar_panels,always || solar_panels == No,solar_panels == Yes,DECLINES,,AMBIGUOUS: the form's Solar Panels does not say mounted panels or a solar roof system
 ALL-110,solar_panels,always || solar_panels == No,solar_panels == Yes,DECLINES,,AMBIGUOUS: solar tiles
@@ -199,7 +199,7 @@ SAG-063,NONE,,,CONDITION,,liability hazards are not asked
 SAG-064,NONE,,,DECLINES,,liability hazards are not asked
 SAG-065,NONE,,,DECLINES,,liability hazards are not asked
 SAG-066,NONE,,,CONDITION,,liability hazards are not asked
-SAG-067,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,CONDITION,,a signed acknowledgement cures
+SAG-067,has_dogs;dog_breeds,"dog_breeds none_of {Akita, Alaskan Malamute, American Staffordshire Terrier, Boxer, Bull Terrier, Bullmastiff, Chow Chow, Giant Schnauzer, Great Dane, Mastiff, Neapolitan Mastiff, Caucasian Ovcharka (Caucasian Mountain Dog), Pit Bull (American Pit Bull Terrier), Presa Canario, Rhodesian Ridgeback, Rottweiler, Siberian Husky, Staffordshire Bull Terrier, Wolf hybrid or wild dog, Doberman Pinscher, German Shepherd, Trained guard / attack / police / military dog} or FACT(signed acknowledgement of the dog liability exclusion)",has_dogs == Yes,CONDITION,signed acknowledgement,Specified Dog Breeds: eligible with a signed acknowledgement
 SAG-068,has_dogs,FACT(no bite history),has_dogs == Yes,CONDITION,bite history,
 SAG-069,NONE,,,CONDITION,,the form has no field for this
 SAG-070,NONE,,,CONDITION,,the form has no field for this
@@ -360,10 +360,10 @@ MER-047,swimming_pool,swimming_pool != In Ground - Unfenced,always,DECLINES,,
 MER-049,NONE,,,DECLINES,,liability hazards are not asked
 MER-050,NONE,,,DECLINES,,liability hazards are not asked
 MER-051,NONE,,,DECLINES,,liability hazards are not asked
-MER-054,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,DECLINES,,as ALL-106
+MER-054,has_dogs;dog_breeds,"dog_breeds none_of {Akita, American Bully, Cane Corso, Chow Chow, Dogo Argentino, Pit Bull (American Pit Bull Terrier), American Staffordshire Terrier, Staffordshire Bull Terrier, Presa Canario, Rottweiler, Wolf hybrid or wild dog}",has_dogs == Yes,DECLINES,,wolf hybrids are in the same sentence
 MER-055,NONE,,,DECLINES,,the form has no field for this
 MER-056,has_dogs,FACT(no biting history),has_dogs == Yes,DECLINES,bite history,
-MER-057,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,DECLINES,,as ALL-106
+MER-057,has_dogs;dog_breeds,always,always,DECLINES,,decided by MER-054 (a picked breed is that breed or a mix)
 MER-058,has_dogs,FACT(3 or fewer dogs),has_dogs == Yes,DECLINES,number of dogs,
 MER-060,ppc,ppc_num < 10,always,REFERS_TO_UW,,10W counts as 10
 MER-061,coastal_tier,"FACT(1/2 mile or more from sea, bay, tidal water)",coastal_tier == Tier 1,DECLINES,distance to water,Tier 1 = within 1 mile of Gulf or bay water (form help text)
@@ -454,7 +454,7 @@ PRO-057,NONE,,,DECLINES,,liability hazards are not asked
 PRO-058,NONE,,,CONDITION,,liability hazards are not asked
 PRO-059,NONE,,,DECLINES,,liability hazards are not asked
 PRO-060,NONE,,,CONDITION,,liability hazards are not asked
-PRO-061,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,DECLINES,,as ALL-106
+PRO-061,has_dogs;dog_breeds,"dog_breeds none_of {Akita, American Bulldog, Chow Chow, Doberman Pinscher, Mastiff, Bullmastiff, Neapolitan Mastiff, Pit Bull (American Pit Bull Terrier), American Staffordshire Terrier, Staffordshire Bull Terrier, Rottweiler, Wolf hybrid or wild dog} and FACT(no other breed the guide counts as dangerous)",has_dogs == Yes,DECLINES,other dangerous breeds,"'includes, but is not limited to'"
 PRO-062,has_dogs,FACT(no bite history),has_dogs == Yes,DECLINES,bite history,
 PRO-063,NONE,,,DECLINES,,the form has no field for this
 PRO-064,NONE,,,CONDITION,,the form has no field for this
@@ -528,7 +528,7 @@ SWY-030,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 SWY-035,swimming_pool;pool_fence_4ft;pool_gate_locking,swimming_pool != Above Ground - Unfenced and pool_fence_4ft == True and pool_gate_locking == True,swimming_pool != No Pool,CONDITION,fence 4 ft; self-latching gate,a pool cage also cures; an unfenced in-ground pool is SWY-036's (one failing row per fact)
 SWY-036,swimming_pool,swimming_pool != In Ground - Unfenced,always,DECLINES,,
 SWY-039,NONE,,,DECLINES,,liability hazards are not asked
-SWY-040,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,DECLINES,,as ALL-106
+SWY-040,has_dogs;dog_breeds,"dog_breeds none_of {Pit Bull (American Pit Bull Terrier), American Staffordshire Terrier, Staffordshire Bull Terrier, Chow Chow, Doberman Pinscher, Presa Canario, Rottweiler, Wolf hybrid or wild dog}",has_dogs == Yes,DECLINES,,
 SWY-041,has_dogs,FACT(no bite history or aggression),has_dogs == Yes,DECLINES,bite history,
 SWY-043,solar_panels,always || solar_panels == No,solar_panels == Yes,DECLINES,,AMBIGUOUS: Tesla solar roof
 SWY-045,NONE,,,DECLINES,,location detail beyond county / tier is not asked

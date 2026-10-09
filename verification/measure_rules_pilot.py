@@ -24,7 +24,7 @@ from profiles import (STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE,  # no
 LIAM = {"year_built": 2000, "roof_age": 10, "roof_type": "Composition Shingle", "roof_shape": "Gable",
         "construction_type": "Frame", "plumbing_type": "Copper", "occupancy_type": "Owner Occupied",
         "ownership_type": "Individual Owner", "coastal_tier": "Not Coastal", "swimming_pool": "No Pool",
-        "pool_accessories": "None", "has_dogs": "No", "aggressive_breed": "No", "solar_panels": "No",
+        "pool_accessories": "None", "has_dogs": "No", "dog_breeds": (), "solar_panels": "No",
         "ppc": "3"}
 PROFILES = {
     "STANDARD": dict(STANDARD_PROFILE, dwelling_type="House"),

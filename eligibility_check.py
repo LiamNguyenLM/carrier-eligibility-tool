@@ -1064,6 +1064,25 @@ def _dwelling_type(property_details):
     return intake_fields.normalize_dwelling_type(property_details.get("dwelling_type"))
 
 
+def _dog_breed_line(pd):
+    """Round 35 step 3a: the breeds when there are dogs. With no dogs (or an old saved profile that has only
+    the aggressive-breed toggle) the line is the one it always was, so those prompts stay byte-identical."""
+    if pd.get("has_dogs") != "Yes" or "dog_breeds" not in pd:
+        return f"Aggressive Breed Dogs: {intake_fields.aggressive_breed_answer(pd)}"
+    b = intake_fields.dog_breeds(pd)
+    if b is None:
+        return "Dog Breed(s): not known"
+    return "Dog Breed(s) (a mix counts as the breed): " + (", ".join(sorted(b)) if b else
+                                                          "none of the listed breeds")
+
+
+def _dog_breed_query(pd):
+    if pd.get("has_dogs") != "Yes" or "dog_breeds" not in pd:
+        return f"aggressive breed dogs {intake_fields.aggressive_breed_answer(pd)}"
+    b = intake_fields.dog_breeds(pd)
+    return "dog breeds " + (", ".join(sorted(b)) if b else "unknown" if b is None else "none listed")
+
+
 def _is_condo_program(carrier):
     """HO6 is the condominium unit-owners form (Progressive HO6, Liberty
     Mutual HO6)."""
@@ -1129,7 +1148,7 @@ def _property_details_text(pd, home_age, occupancy, ownership, checked, carriers
     rows += [("fact:pool_boxes", line) for line in _pool_fact_lines(pd).split("\n")[1:]]
     rows += [
         ("fact:has_dogs", f"Dogs on Premises: {pd['has_dogs']}"),
-        ("fact:aggressive_breed", f"Aggressive Breed Dogs: {pd['aggressive_breed']}"),
+        ("fact:aggressive_breed", _dog_breed_line(pd)),
         ("fact:solar_panels", f"Solar Panels: {pd['solar_panels']}"),
         ("fact:ppc", f"PPC Number: {pd['ppc']}"),
     ]
@@ -1490,7 +1509,7 @@ def build_retrieval_query(property_details, home_age, checked=None):
         ("query:swimming_pool", f"swimming pool {pd.get('swimming_pool')}"),
         ("query:swimming_pool", f"pool accessories {pd.get('pool_accessories')}"),
         ("query:dogs", f"dogs on premises {pd.get('has_dogs')}"),
-        ("query:dogs", f"aggressive breed dogs {pd.get('aggressive_breed')}"),
+        ("query:dogs", _dog_breed_query(pd)),
         ("query:solar_panels", f"solar panels {pd.get('solar_panels')}"),
         ("query:ppc", f"protection class PPC {pd.get('ppc')}"),
     ]
@@ -1531,7 +1550,7 @@ def build_risk_factors(property_details, occupancy, checked=None):
             "base flood elevation ineligible"
         )
 
-    if _on("risk:dogs", checked) and property_details['aggressive_breed'] == 'Yes':
+    if _on("risk:dogs", checked) and intake_fields.aggressive_breed_answer(property_details) == 'Yes':
         risk_factors.append("aggressive dog breed ineligible prohibited liability")
 
     if property_details.get('ownership_type') == 'LLC':
@@ -2680,7 +2699,8 @@ def _strip_contradicted_property_claims(results, property_details, checked=None)
     for check in _CONTRADICTION_CHECKS:
         if not _on("guard:" + check["field"], checked):
             continue
-        value = property_details.get(check["field"])
+        value = (intake_fields.aggressive_breed_answer(property_details) if check["field"] == "aggressive_breed"
+                 else property_details.get(check["field"]))
         if value is None or not _states_absence(value, check["absent_values"]):
             continue  # feature may be present, or unknown -- nothing decidable
 

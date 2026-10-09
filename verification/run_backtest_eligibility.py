@@ -85,7 +85,7 @@ def profile(row):
         pd["construction_type"] = "Frame"
         off.add("construction")
     # never in the export: the form's defaults, topics unticked
-    pd.update(roof_shape="Gable", coastal_tier="Not Coastal", has_dogs="No", aggressive_breed="No", solar_panels="No")
+    pd.update(roof_shape="Gable", coastal_tier="Not Coastal", has_dogs="No", dog_breeds=(), solar_panels="No")
     off.update(("roof_shape", "coastal", "dogs", "solar"))
     pd["plumbing_type"] = "Unknown"                                 # HawkSoft gives update status only
 

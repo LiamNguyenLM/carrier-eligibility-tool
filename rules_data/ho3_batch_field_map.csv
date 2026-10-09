@@ -26,7 +26,7 @@ ARA-029,occupancy_type;primary_home_carrier,primary_home_carrier == ARI,"occupan
 ARA-030,occupancy_type;primary_home_carrier,occupancy_type == Owner Occupied,"occupancy_type in {Seasonal, Secondary Home} and primary_home_carrier == ARI",REFERS_TO_UW,,round 35: refer only when ARI insures the primary (else ARA-029 declines or holds)
 ARA-031,NONE,,,DECLINES,,siding / construction details are not form options
 ARA-032,NONE,,,DECLINES,,foundation is not asked
-ARA-033,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,DECLINES,,"the form's breed list is not ARI's (German Shepherd, Great Dane...)"
+ARA-033,has_dogs;dog_breeds,"dog_breeds none_of {Pit Bull (American Pit Bull Terrier), American Staffordshire Terrier, Staffordshire Bull Terrier, German Shepherd, Akita, Doberman Pinscher, Chow Chow, Rottweiler, Great Dane, Bullmastiff, Presa Canario, Caucasian Ovcharka (Caucasian Mountain Dog), Wolf hybrid or wild dog} and FACT(no other breed the guide counts as dangerous)",has_dogs == Yes,DECLINES,other dangerous breeds,'Ineligible dogs include any mix of ...'
 ARA-034,has_dogs,FACT(no bite history),has_dogs == Yes,DECLINES,bite history,
 ARA-035,NONE,,,DECLINES,,other animals and bite claims are not asked
 ARA-036,NONE,,,DECLINES,,other animals and bite claims are not asked
@@ -86,7 +86,7 @@ ARB-024,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 ARB-025,occupancy_type;primary_home_carrier,occupancy_type == Owner Occupied,"occupancy_type in {Seasonal, Secondary Home} and primary_home_carrier == ARI",REFERS_TO_UW,,round 35: refer only when ARI insures the primary (ARB-036 declines the others)
 ARB-026,NONE,,,DECLINES,,siding / construction details are not form options
 ARB-027,NONE,,,DECLINES,,foundation is not asked
-ARB-028,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,DECLINES,,the form's breed list is not ARI's
+ARB-028,has_dogs;dog_breeds,"dog_breeds none_of {Pit Bull (American Pit Bull Terrier), American Staffordshire Terrier, Staffordshire Bull Terrier, German Shepherd, Akita, Doberman Pinscher, Chow Chow, Rottweiler, Great Dane, Bullmastiff, Presa Canario, Caucasian Ovcharka (Caucasian Mountain Dog), Wolf hybrid or wild dog} and FACT(no other breed the guide counts as dangerous)",has_dogs == Yes,DECLINES,other dangerous breeds,'Ineligible dogs include any mix of ...'
 ARB-029,has_dogs,FACT(no bite history),has_dogs == Yes,DECLINES,bite history,
 ARB-030,NONE,,,DECLINES,,other animals and bite claims are not asked
 ARB-031,NONE,,,DECLINES,,other animals and bite claims are not asked
@@ -171,7 +171,7 @@ FOR-056,NONE,,,CONDITION,,liability hazards are not asked
 FOR-059,NONE,,,DECLINES,,liability hazards are not asked
 FOR-060,NONE,,,DECLINES,,liability hazards are not asked
 FOR-061,has_dogs,FACT(no dangerous dog or animal that has caused harm),has_dogs == Yes,CONDITION,dangerous dog / harm,the Animal Liability Exclusion endorsement is required if so
-FOR-062,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,CONDITION,,eligible with the Animal Liability Exclusion
+FOR-062,has_dogs;dog_breeds,"(dog_breeds none_of {Akita, Pit Bull (American Pit Bull Terrier), American Staffordshire Terrier, Staffordshire Bull Terrier, Chow Chow, Doberman Pinscher, Presa Canario, Rottweiler, Wolf hybrid or wild dog} and FACT(no other breed the guide counts as dangerous)) or FACT(Animal Liability Exclusion endorsement)",has_dogs == Yes,CONDITION,other dangerous breeds; Animal Liability Exclusion endorsement,'include but are not limited to'; eligible with the Animal Liability Exclusion
 FOR-063,has_dogs,FACT(no bite history),has_dogs == Yes,REFERS_TO_UW,bite history,
 FOR-064,NONE,,,REFERS_TO_UW,,other animals and bite claims are not asked
 FOR-065,NONE,,,DECLINES,,other animals and bite claims are not asked
@@ -467,7 +467,7 @@ STO-002,dwelling_amount,dwelling_amount between 150000 and 2000000,always,DECLIN
 STO-004,swimming_pool;pool_fence_4ft;pool_gate_locking,swimming_pool != Above Ground - Unfenced and pool_fence_4ft == True and pool_gate_locking == True,swimming_pool != No Pool,CONDITION,fence 4 ft; self-latching gate,an unfenced in-ground pool is the decline row's; a pool cage also qualifies
 STO-010,year_built,home_age <= 100 or FACT(completely renovated),always,DECLINES,renovation,a completely renovated home may use the renovation year
 STO-012,roof_age,roof_age <= 30,always,DECLINES,,
-STO-018,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,DECLINES,,the form's breed list is not Swyfft's
+STO-018,has_dogs;dog_breeds,"dog_breeds none_of {Chow Chow, Doberman Pinscher, Pit Bull (American Pit Bull Terrier), American Staffordshire Terrier, Staffordshire Bull Terrier, Presa Canario, Rottweiler, Wolf hybrid or wild dog}",has_dogs == Yes,DECLINES,,
 STO-019,has_dogs,FACT(no bite history or aggression),has_dogs == Yes,DECLINES,bite history,
 STO-020,NONE,,,CONDITION,,flood zone is not asked
 STO-024,occupancy_type,occupancy_type != Vacant,always,DECLINES,,under construction / for sale are not asked
@@ -544,7 +544,7 @@ TRV-012,NONE,,,DECLINES,,loss / claims history is not asked
 TRV-013,NONE,,,NOTE,,loss / claims history is not asked
 TRV-014,NONE,,,DECLINES,,loss / claims history is not asked
 TRV-015,has_dogs,FACT(no animal that has bitten or injured),has_dogs == Yes,DECLINES,bite history,
-TRV-016,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,DECLINES,,the form's breed list is not Travelers'
+TRV-016,has_dogs;dog_breeds,"dog_breeds none_of {Akita, Alaskan Malamute, American Bull Terrier, Chow Chow, Doberman Pinscher, Mastiff, Bullmastiff, Neapolitan Mastiff, Pit Bull (American Pit Bull Terrier), American Staffordshire Terrier, Staffordshire Bull Terrier, Presa Canario, Rottweiler, Wolf hybrid or wild dog}",has_dogs == Yes,DECLINES,,any mix or variation of these breeds
 TRV-017,ownership_type,FACT(no business or commercial exposure),"ownership_type in {Trust, LLC}",DECLINES,entity's business,
 TRV-018,NONE,,,DECLINES,,the number of individual owners is not asked
 TRV-019,NONE,,,CONDITION,,not asked by the form

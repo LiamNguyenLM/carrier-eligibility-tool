@@ -16,6 +16,8 @@ A card is:
 import html
 from datetime import date
 
+import intake_fields
+
 STATUS_LABEL = {
     "ELIGIBLE": "Eligible",
     "INELIGIBLE": "Not eligible",
@@ -63,7 +65,7 @@ def checked_facts(property_details, checked=None):
         out.append("no pool" if pd["swimming_pool"] == "No Pool" else pd["swimming_pool"].lower())
     if _on("dogs", checked) and pd.get("has_dogs"):
         out.append("no dogs" if pd["has_dogs"] != "Yes" else
-                   ("aggressive breed" if pd.get("aggressive_breed") == "Yes" else "dogs"))
+                   ("aggressive breed" if intake_fields.aggressive_breed_answer(pd) == "Yes" else "dogs"))
     if _on("solar", checked) and pd.get("solar_panels"):
         out.append("solar panels" if pd["solar_panels"] == "Yes" else "no solar panels")
     if _on("coastal", checked) and pd.get("coastal_tier"):

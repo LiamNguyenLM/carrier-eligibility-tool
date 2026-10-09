@@ -150,7 +150,7 @@ FIELD_TOPIC = {   # map field -> round 21 topic (always-on fields -> None)
     "ppc": "ppc", "coastal_tier": "coastal", "year_built": "home_age", "roof_age": "roof_age",
     "roof_type": "roof_type", "roof_shape": "roof_shape", "construction_type": "construction",
     "plumbing_type": "plumbing", "swimming_pool": "pool", "pool_accessories": "pool",
-    "pool_fence_4ft": "pool", "pool_gate_locking": "pool", "has_dogs": "dogs", "aggressive_breed": "dogs",
+    "pool_fence_4ft": "pool", "pool_gate_locking": "pool", "has_dogs": "dogs", "aggressive_breed": "dogs", "dog_breeds": "dogs",
     "solar_panels": "solar", "county": "county", "zip": "county", "dwelling_amount": "dwelling_amount",
     "occupancy_type": None, "ownership_type": None, "dwelling_type": None,
     "fire_station_miles": "ppc", "hydrant_1000ft": "ppc",     # round 26, decision B
@@ -310,6 +310,8 @@ def facts(pd, today=None):
     ct = str(pd.get("coastal_tier") or "").strip()
     if ct.lower().startswith("tier"):
         f["coastal_tier"] = ct.split(" - ")[0].strip().title()
+    # Round 35 step 3a: the breeds on the property (None = no answer / Not sure / only the old toggle)
+    f["dog_breeds"] = intake_fields.dog_breeds(pd)
     yb = pd.get("year_built")
     f["home_age"] = year - int(yb) if yb not in (None, "") else None
     m = re.match(r"(\d+)", str(pd.get("ppc", "")).strip())
@@ -454,6 +456,13 @@ class _Parser:
             self.take()
             op = "not in"
         val = self.f.get(name, None)
+        if op == "none_of":
+            # Round 35 step 3a: a multi-answer field (the dog breeds) -- true when no picked value is in the set
+            items = {x.strip() for x in self.take().strip("{}").split(",")}
+            if val is None:
+                self.unknown.append(name)
+                return None
+            return not (set(val) & items)
         if op in ("in", "not in"):
             items = {x.strip() for x in self.take().strip("{}").split(",")}
             if val is None:

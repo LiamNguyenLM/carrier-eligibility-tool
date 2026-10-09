@@ -178,19 +178,15 @@ with tab1:
 
     has_dogs = st.toggle("Dogs on Premises", key="dogs",
                          on_change=_autotick, args=("dogs", "dogs", False))
+    # Round 35 step 3a (Liam, 2026-10-09, decision 1): the breeds, so each carrier's own list decides.
+    dog_breeds = []
     if has_dogs:
-        aggressive_breed = st.toggle(
-            "Aggressive Breed?",
-            help=(
-                "Aggressive breeds typically include: Pit Bull, American Bulldog, "
-                "Presa Canario, Cane Corso, Dogo Argentino (Gull Dong), Tosa Inu, "
-                "Fila Brasileiro, American Bandogge, Belgian Shepherd, German Shepherd, "
-                "Beauceron, Akita, Doberman Pinscher, Chow Chow, Rottweiler, Wolf Hybrid."
-            ),
-            key="aggressive", on_change=_autotick, args=("dogs", "aggressive", False)
-        )
-    else:
-        aggressive_breed = False
+        dog_breeds = st.multiselect(
+            "Breed(s) on the property", list(intake_fields.DOG_CHOICES), key="dog_breeds",
+            on_change=_autotick, args=("dogs", "dog_breeds", []),
+            placeholder="Pick every breed (a mix counts as the breed), None of these, or Not sure",
+            help="Every breed any carrier bans or names. A dog that is a mix of a listed breed counts as that "
+                 "breed. Blank or Not sure is unknown, never 'none'.")
     _check_box("dogs")
 
     st.divider()
@@ -346,7 +342,7 @@ with tab1:
                 "pool_fence_4ft": pool_fence_4ft,
                 "pool_gate_locking": pool_gate_locking,
                 "has_dogs": "Yes" if has_dogs else "No",
-                "aggressive_breed": "Yes" if aggressive_breed else "No",
+                "dog_breeds": list(dog_breeds) if has_dogs else [],
                 "solar_panels": "Yes" if solar_panels else "No",
                 "ppc": ppc,
                 # optional (decision B): None / "Unknown" mean unknown

@@ -72,7 +72,8 @@ def test_coverage():
     kinds = collections.Counter(builder.kind(builder.MAP.get(rid, ("NONE", "", "", "", ""))) for rid in FMAP)
     # round 30 step 3: FOD-005 (decided) and its two same-rule rows, and the scope NONE rows FOD-004 /
     # FOD-006, left the deciding set; FOD-020 now reads occupancy too (still decided)
-    assert kinds == {"decided by a form field": 108, "gated-but-open": 56, "AMBIGUOUS": 13,
+    # CHANGED 2026-10-09 (round 35 step 3a, Liam's decision 1): the breed lines read the breed field. Was: gated-but-open 56, AMBIGUOUS 13.
+    assert kinds == {"decided by a form field": 108, "gated-but-open": 60, "AMBIGUOUS": 9,
                      "same rule as another row": 38, "NONE": 770}
 
 

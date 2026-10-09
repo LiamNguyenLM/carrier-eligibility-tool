@@ -36,7 +36,7 @@ FORM_FIELDS = {
     "pool_fence_4ft": (r"\bfence\b", r"enclosure", r"pool cage", r"\bbarrier\b"),
     "pool_gate_locking": (r"\bgate\b", r"self[- ]latching", r"self[- ]locking", r"lockable"),
     "has_dogs": (r"\bdogs?\b", r"\bcanine\b"),
-    "aggressive_breed": (r"\bbreed\b",),
+    "dog_breeds": (r"\bbreed\b", r"pit ?bull", r"rottweil", r"\bmix of\b"),
     "solar_panels": (r"\bsolar\b",),
     "ppc": (r"\bppc\b", r"protection class", r"\bfpc\b"),
     "fire_station_miles": (r"fire station", r"station distance", r"miles to (the )?(nearest |responding )?fire"),
@@ -269,3 +269,49 @@ def hydrant_answer(value):
 
 def normalize_dwelling_type(value):
     return value if value in DWELLING_TYPES else ""
+
+
+# ---------------------------------------------------------------------------
+# Round 35 step 3a (Liam, 2026-10-09, decision 1): "Breed(s) on the property", asked when Dogs = Yes. The
+# union of every carrier's banned and specified breeds (the four rules tables plus the guides' own lists:
+# Sage's "Specified Dog Breeds", Travelers p1, Allied p7). Picking a breed means the dog is that breed or a
+# mix of it. No option holds a comma (the map grammar splits sets on commas).
+DOG_BREEDS = (
+    "Akita", "Alaskan Malamute", "American Bull Terrier", "American Bulldog", "American Bully",
+    "American Staffordshire Terrier", "Beauceron", "Belgian Malinois", "Boxer", "Bull Terrier", "Bullmastiff",
+    "Cane Corso", "Caucasian Ovcharka (Caucasian Mountain Dog)", "Chow Chow", "Doberman Pinscher",
+    "Dogo Argentino", "German Shepherd", "Giant Schnauzer", "Great Dane", "Husky (other than Siberian)",
+    "Mastiff", "Neapolitan Mastiff", "Pit Bull (American Pit Bull Terrier)", "Presa Canario",
+    "Rhodesian Ridgeback", "Rottweiler", "Siberian Husky", "St. Bernard", "Staffordshire Bull Terrier",
+    "Trained guard / attack / police / military dog", "Wolf hybrid or wild dog")
+DOG_NONE, DOG_UNSURE = "None of these", "Not sure"
+DOG_CHOICES = DOG_BREEDS + (DOG_NONE, DOG_UNSURE)
+
+
+def dog_breeds(pd):
+    """The breeds on the property as the rules read them:
+    - None: no answer (blank, "Not sure", or only the old aggressive-breed toggle) -- unknown, so it holds;
+    - frozenset(): "None of these";
+    - the frozenset of picked breeds otherwise.
+    With no dogs the field is never read (the rows are gated on Dogs = Yes)."""
+    picked = pd.get("dog_breeds")
+    if picked in (None, "", []):
+        return None                     # the old toggle (aggressive_breed) never says which breed: unknown
+    if isinstance(picked, str):
+        picked = [x.strip() for x in picked.split(";") if x.strip()]
+    picked = [x for x in picked if x]
+    if not picked or DOG_UNSURE in picked:
+        return None
+    return frozenset(x for x in picked if x in DOG_BREEDS)
+
+
+def aggressive_breed_answer(pd):
+    """The old Yes / No / Unknown answer, derived for the code that still reads it (the prompt line with no
+    dogs, the contradiction guard, the card's first line). An old saved profile keeps its own value."""
+    if pd.get("has_dogs") != "Yes":
+        return "No"
+    if "dog_breeds" not in pd:
+        return pd.get("aggressive_breed") or "Unknown"
+    b = dog_breeds(pd)
+    return "Unknown" if b is None else ("Yes" if b else "No")
+

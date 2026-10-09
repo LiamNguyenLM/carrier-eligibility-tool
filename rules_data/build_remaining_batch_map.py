@@ -37,7 +37,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from build_rule_field_map import BREED, DOGS, FLAT, NONE_NOTE, POOL_OK, SEASONAL  # noqa: E402
+from build_rule_field_map import DOGS, FLAT, NONE_NOTE, POOL_OK, SEASONAL, breed_line  # noqa: E402
 from build_rule_field_map import PEX_2011  # noqa: E402
 from build_sage_batch_map import (BATCH_NONE_NOTE, EAST_TEXAS, FPC_7ROWS, FPC_B13, FPC_B410, FPC_BC,  # noqa: E402
                                   FPC_C13, FPC_C48, OPEN_B, OPEN_C, ROW_FACT_3, kind)
@@ -105,7 +105,7 @@ MAP = {
     "CDP-051": ("coastal_tier", "FACT(more than 2,500 ft from tidal water, or a TWIA policy written excluding wind)",
                 TIER1, "distance to tidal water", "the form's tiers are not distances"),
     "CDP-053": POOL_4FT,
-    "CDP-057": ("has_dogs;aggressive_breed", BREED, DOGS, "", "the form's breed list is not Centauri's"),
+    "CDP-057": breed_line("centauri_dp", "open", "'vicious dogs including ...'"),
     "CDP-058": NO_BITES,
     "CDP-066": ("occupancy_type", NOT_VACANT, "always", "", ""),
     "CDP-068": none("lease length is not asked; every rental needs a 12-month lease (confirm)"),
@@ -202,7 +202,8 @@ MAP = {
                 "pool_accessories in {Diving board only, Both slide and diving board}", "diving board height", ""),
     "NCD-106": ("swimming_pool", "FACT(pull-up ladder)",
                 "swimming_pool in {Above Ground - Fenced, Above Ground - Unfenced}", "ladder", ""),
-    "NCD-111": ("has_dogs;aggressive_breed", BREED, DOGS, "", "the form's breed list is not NatGen's"),
+    "NCD-111": ("has_dogs", "FACT(no vicious or dangerous dog)", DOGS, "vicious or dangerous dog",
+                "NatGen names no breed list (round 35): a confirm note"),
     "NCD-112": NO_BITES,
     "NCD-113": same_as("NCD-112", "has_dogs"), "NCD-114": same_as("NCD-112", "has_dogs"),
     "NCD-115": same_as("NCD-112", "has_dogs"),
@@ -230,7 +231,7 @@ MAP = {
                 "poured concrete roof", ""),
     "PDP-103": POOL_4FT,
     "PDP-104": ("swimming_pool;pool_accessories", NO_ACCESSORIES, POOL, "", ""),
-    "PDP-109": ("has_dogs;aggressive_breed", BREED, DOGS, "", "the form's breed list is not Progressive's"),
+    "PDP-109": breed_line("progressive", "open", "'includes, but is not limited to'"),
     "PDP-116": ("ppc", "FACT(visible to neighbors)", "ppc_num >= 9", "visibility", ""),
     # ================= Progressive HO6 (condo unit-owners)
     "PH6-001": ("county", "county not in {Hidalgo, Webb}", "always", "", ""),
@@ -246,7 +247,7 @@ MAP = {
     "PH6-074": ("plumbing_type;year_built", PEX_2011, "always", "", "PEX installed before 2011: year built stands in"),
     "PH6-077": ("roof_type", "roof_type != Wood Shake || roof_type not in {Wood Shake, Flat/Built-Up, Metal}",
                 "always", "", "as PDP-098"),
-    "PH6-086": ("has_dogs;aggressive_breed", BREED, DOGS, "", "the form's breed list is not Progressive's"),
+    "PH6-086": breed_line("progressive", "open", "'includes, but is not limited to'"),
     "PH6-092": money("dwelling_amount <= 500000"),
     "PH6-094": money("dwelling_amount >= 20000 and dwelling_amount <= 1000000"),
     # ================= Sage Markel DP3

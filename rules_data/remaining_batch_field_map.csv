@@ -40,7 +40,7 @@ CDP-052,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or 
 CDP-053,swimming_pool;pool_fence_4ft;pool_gate_locking,"swimming_pool not in {In Ground - Unfenced, Above Ground - Unfenced} and pool_fence_4ft == True and pool_gate_locking == True",swimming_pool != No Pool,CONDITION,fence 4 ft; locking gate,an approved alternative enclosure also qualifies (not a form option)
 CDP-054,NONE,,,CONDITION,,"pool rentals, ladders, decking and covers are not asked"
 CDP-055,NONE,,,DECLINES,,not asked by the form
-CDP-057,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,DECLINES,,the form's breed list is not Centauri's
+CDP-057,has_dogs;dog_breeds,"dog_breeds none_of {Akita, American Bulldog, Beauceron, Caucasian Ovcharka (Caucasian Mountain Dog), Chow Chow, Doberman Pinscher, German Shepherd, Great Dane, Pit Bull (American Pit Bull Terrier), American Staffordshire Terrier, Staffordshire Bull Terrier, Rottweiler, Wolf hybrid or wild dog} and FACT(no other breed the guide counts as dangerous)",has_dogs == Yes,DECLINES,other dangerous breeds,'vicious dogs including ...'
 CDP-058,has_dogs,FACT(no dog with a bite history),has_dogs == Yes,DECLINES,bite history,
 CDP-059,NONE,,,DECLINES,,other animals and bite claims are not asked
 CDP-060,NONE,,,DECLINES,,not asked by the form
@@ -276,7 +276,7 @@ NCD-106,swimming_pool,FACT(pull-up ladder),"swimming_pool in {Above Ground - Fen
 NCD-108,NONE,,,CONDITION,,liability hazards are not asked
 NCD-109,NONE,,,DECLINES,,liability hazards are not asked
 NCD-110,NONE,,,DECLINES,,liability hazards are not asked
-NCD-111,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,DECLINES,,the form's breed list is not NatGen's
+NCD-111,has_dogs,FACT(no vicious or dangerous dog),has_dogs == Yes,DECLINES,vicious or dangerous dog,NatGen names no breed list (round 35): a confirm note
 NCD-112,has_dogs,FACT(no dog with a bite history),has_dogs == Yes,DECLINES,bite history,
 NCD-113,has_dogs,always,always,DECLINES,,decided by NCD-112 (the same rule); never a second flaw
 NCD-114,has_dogs,always,always,DECLINES,,decided by NCD-112 (the same rule); never a second flaw
@@ -454,7 +454,7 @@ PDP-104,swimming_pool;pool_accessories,pool_accessories == None,swimming_pool !=
 PDP-105,NONE,,,CONDITION,,"pool rentals, ladders, decking and covers are not asked"
 PDP-107,NONE,,,DECLINES,,liability hazards are not asked
 PDP-108,NONE,,,CONDITION,,liability hazards are not asked
-PDP-109,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,DECLINES,,the form's breed list is not Progressive's
+PDP-109,has_dogs;dog_breeds,"dog_breeds none_of {Akita, American Bulldog, Chow Chow, Doberman Pinscher, Mastiff, Bullmastiff, Neapolitan Mastiff, Pit Bull (American Pit Bull Terrier), American Staffordshire Terrier, Staffordshire Bull Terrier, Rottweiler, Wolf hybrid or wild dog} and FACT(no other breed the guide counts as dangerous)",has_dogs == Yes,DECLINES,other dangerous breeds,"'includes, but is not limited to'"
 PDP-110,NONE,,,DECLINES,,other animals and bite claims are not asked
 PDP-113,NONE,,,DECLINES,,"response time, visibility and water source are not asked"
 PDP-115,NONE,,,DECLINES,,"response time, visibility and water source are not asked"
@@ -522,7 +522,7 @@ PH6-080,NONE,,,DECLINES,,roof condition and layers are not asked
 PH6-081,NONE,,,DECLINES,,siding / construction details are not form options
 PH6-084,NONE,,,CONDITION,,liability hazards are not asked
 PH6-085,NONE,,,DECLINES,,other animals and bite claims are not asked
-PH6-086,has_dogs;aggressive_breed,always || aggressive_breed == No,has_dogs == Yes,DECLINES,,the form's breed list is not Progressive's
+PH6-086,has_dogs;dog_breeds,"dog_breeds none_of {Akita, American Bulldog, Chow Chow, Doberman Pinscher, Mastiff, Bullmastiff, Neapolitan Mastiff, Pit Bull (American Pit Bull Terrier), American Staffordshire Terrier, Staffordshire Bull Terrier, Rottweiler, Wolf hybrid or wild dog} and FACT(no other breed the guide counts as dangerous)",has_dogs == Yes,DECLINES,other dangerous breeds,"'includes, but is not limited to'"
 PH6-087,NONE,,,DECLINES,,other animals and bite claims are not asked
 PH6-090,NONE,,,REFERS_TO_UW,,"TIV, Coverage B and the HO5 form are not asked"
 PH6-091,NONE,,,CONDITION,,"TIV, Coverage B and the HO5 form are not asked"
