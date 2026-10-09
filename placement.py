@@ -148,7 +148,11 @@ TITLE = "Where we usually place homes like this"
 FOOTER = ("From our HawkSoft placements through {through}. Where we have placed similar homes, "
           "not a price comparison.")
 STATEWIDE = "Few recent sales nearby; ranked mostly on our statewide mix"
-RECENT_MONTHS, MIN_NEARBY, MIN_BAND, FIT_LIFT = 12, 10, 10, 1.25
+# Round 34 step 2 (Liam, 2026-10-09): a market with no sales in the area is not "0 of N (0%)".
+NONE_NEARBY = "No recent sales with {market} in {area}; ranked on our statewide mix"
+# MIN_BAND: the band's sales across all markets; MIN_BAND_OWN: this market's own sales in the band
+# (round 34 step 2, Liam, 2026-10-09: both are required).
+RECENT_MONTHS, MIN_NEARBY, MIN_BAND, MIN_BAND_OWN, FIT_LIFT = 12, 10, 10, 5, 1.25
 _AGE_WORDS = {"60+": "60-plus-year-old"}       # else "10-19" -> "10-19-year-old"
 _COVA_WORDS = {"<200K": "under-$200K", "1M+": "$1M-plus"}
 
@@ -181,7 +185,8 @@ def _pct(a, b):
 
 def fit_line(T, market, year_built, cov_a, asof, year):
     """The home's age or Coverage A band when the market is a strong fit there (last 12 months: its
-    share of the band >= 1.25x its overall share, the band holding at least 10 sales); else None.
+    share of the band >= 1.25x its overall share, the band holding at least 10 sales and the market at
+    least 5 of them); else None.
     With both, the larger lift."""
     overall = _recent(T["all"], asof)
     total = sum(overall.values())
@@ -199,7 +204,7 @@ def fit_line(T, market, year_built, cov_a, asof, year):
         if n < MIN_BAND:
             continue
         share = b.get(market, 0) / n
-        if share >= FIT_LIFT * base:
+        if b.get(market, 0) >= MIN_BAND_OWN and share >= FIT_LIFT * base:
             lines.append((share / base, f"{_pct(b.get(market, 0), n)} of our {_band_words(dim, val)} homes "
                                         f"vs {_pct(overall[market], total)} overall"))
     return max(lines)[1] if lines else None
@@ -246,8 +251,12 @@ def panel(results, property_details, as_of=None, T=None, year=None):
         if recs[0]["status"] != "ELIGIBLE":
             items = [x for x in recs[0].get("missing_info") or [] if isinstance(x, str) and x.strip()]
             held = "Held: confirm " + (_compact(items[0], 90) if items else "the open items on its card")
-        reason = (f"Our homeowners sales in {where}: {sales.get(m, 0)} of {total} with {m} "
-                  f"({_pct(sales.get(m, 0), total)})") if where else STATEWIDE
+        if not where:
+            reason = STATEWIDE
+        elif not sales.get(m):
+            reason = NONE_NEARBY.format(market=m, area=where)
+        else:
+            reason = f"Our homeowners sales in {where}: {sales[m]} of {total} with {m} ({_pct(sales[m], total)})"
         picks.append({"market": m, "programs": [r["carrier"] for r in recs], "held": held, "reason": reason,
                       "fit": fit_line(T, m, year_built, cov_a, asof, year)})
     usual = None

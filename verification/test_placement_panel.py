@@ -133,10 +133,14 @@ def test_no_usually_line_when_the_top_market_is_a_candidate():
     assert p["usual"] is None
 
 
+# CHANGED 2026-10-09 (round 34 step 2, Liam): the band also needs 5 of the market's own sales. Was a 1.5x
+# case with 3 of 10 ("30% of our 10-19-year-old homes vs 20% overall"); now 5 of 10, and 3 or 4 of 10 is no line.
 @pytest.mark.parametrize("band_sales,band_n,want", [
-    ({"Allied Trust": 3, "Mercury": 7}, 10, "30% of our 10-19-year-old homes vs 20% overall"),   # 1.5x, 10 in band
-    ({"Allied Trust": 3, "Mercury": 6}, 9, None),                                                # 9 in band
-    ({"Allied Trust": 2, "Mercury": 6, "TWICO": 2}, 10, None)])                                 # 20% vs 20%: 1.0x
+    ({"Allied Trust": 5, "Mercury": 5}, 10, "50% of our 10-19-year-old homes vs 20% overall"),   # 2.5x, 10 in band, 5 own
+    ({"Allied Trust": 4, "Mercury": 6}, 10, None),                                               # 40% (2x) but 4 own
+    ({"Allied Trust": 3, "Mercury": 7}, 10, None),                                               # 30% (1.5x) but 3 own
+    ({"Allied Trust": 5, "Mercury": 4}, 9, None),                                                # 9 in band
+    ({"Allied Trust": 5, "Mercury": 15, "TWICO": 5}, 25, None)])                                # 20% vs 20%: 1.0x
 def test_the_fit_line(band_sales, band_n, want):
     assert sum(band_sales.values()) == band_n
     T = tables(zip_sales={"Allied Trust": 4, "Mercury": 16}, profile={("age_band", "10-19"): band_sales})
@@ -186,3 +190,23 @@ def test_the_real_tables_build_a_panel():
     p = placement.panel(res, {"zip": "77494", "county": "Fort Bend", "year_built": 2015, "dwelling_amount": 450000},
                         as_of="2026-10")
     assert len(p["picks"]) == 3 and p["footer"].startswith("From our HawkSoft placements through 2026-10.")
+
+
+# -- round 34 step 2 (Liam, 2026-10-09): no "0 of N (0%)" -------------------------------------------------------
+@pytest.mark.parametrize("zip_sales,county_sales,area", [
+    ({"Mercury": 12}, None, "ZIP 77494"),                                   # the ZIP is the area
+    ({"Mercury": 3}, {"Mercury": 13}, "Fort Bend County")])                 # the county fallback is the area
+def test_a_market_with_no_sales_in_the_area_says_so(zip_sales, county_sales, area):
+    T = tables(zip_sales=zip_sales, county_sales=county_sales, other={"Allied Trust": 40})
+    p = build(ALL_ELIGIBLE, T)
+    allied = next(x for x in p["picks"] if x["market"] == "Allied Trust")
+    assert allied["reason"] == f"No recent sales with Allied Trust in {area}; ranked on our statewide mix"
+    assert not any(" 0 of " in x["reason"] or "(0%)" in x["reason"] for x in p["picks"])
+
+
+def test_the_band_line_stays_with_no_sales_in_the_area():
+    T = tables(zip_sales={"Mercury": 12}, other={"Allied Trust": 8, "TWICO": 20},
+               profile={("age_band", "10-19"): {"Allied Trust": 6, "Mercury": 4}})
+    allied = next(x for x in build(ALL_ELIGIBLE, T, dict(PD, dwelling_amount=None))["picks"] if x["market"] == "Allied Trust")
+    assert allied["reason"].startswith("No recent sales with Allied Trust in ZIP 77494")
+    assert allied["fit"] == "60% of our 10-19-year-old homes vs 20% overall"
