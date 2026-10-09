@@ -2091,6 +2091,115 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       then Allied Trust with "No recent sales with Allied Trust in Bexar
       County" plus its 10-19-year band line. Bexar now has 17 recent
       sales, up from 13, because counties are filled from ZIPs.
+- **2026-10-09 — Round 35 (Liam's decisions dated 2026-10-09).** Built on
+  e273c0b, unpushed.
+  - **Decisions:**
+    1. Add the follow-up questions so the 47 rules the model still judged
+       ("||" map lines) are decided in code. Each follow-up shows only when
+       the earlier answer needs it.
+    2. Centauri HO3 (CHO-013, "one or two-family, owner-occupied dwellings
+       only"): an owner's Seasonal or Secondary Home counts as
+       owner-occupied. It passes with a confirm note. Centauri bars "risks
+       that are not primary residences" only from Scheduled Personal
+       Property (p8).
+    3. "Single family" includes Townhome: House and Townhome pass, only
+       Condo fails.
+  - **Step 0 (cf6ff65): placement lookup.** placement.py looks up the county
+    case-insensitively, as Claude's re-saved reference does. McLennan /
+    DeWitt / McCulloch / McMullen are passing tests. Backtest unchanged:
+    131/210.
+  - **Step 1 (87f8b1d): coastal tier.**
+    - app.py already sent "Tier N", so the 27 coastal lines did fire live.
+      facts() now also reduces a full label, as a guard.
+    - SAG-089, SUR-163 and SFP-172 widen to Tier 1-3: the guide's "3 miles
+      ... in a tier 1 county" can be the form's Tier 3.
+    - Galveston, Tier 1, real run: coastal confirm notes on ARI HOA+
+      (ARA-024), Mercury (MER-061), Progressive (PRO-073, PRO-087), Auros
+      (SAG-088/089), SURE (SUR-161..165), SafePort (SFP-169..175), Trium
+      (TRI-100), TWICO (TWI-044) and Travelers (TRV-080/081/083).
+  - **Step 2 (e06e190): map-line audit fixes.**
+    - Every line in Liam's table was applied, except:
+      - ARA-085 / ARB-093: made "same rule" as ARA-014 / ARB-012 instead of
+        the suggested test, which would fail twice for one fact;
+      - PH6-074: moved to step 3c.
+    - Applied beyond the table:
+      - SFP-061 (same quote as SUR-062);
+      - FDP-094 (twin of SDP-070);
+      - the Sage trust-occupant role (SUR/WIL/TRI) and SAG-019, alongside
+        SFP-019.
+    - Added row CHU-111 (El Paso flat roofs refer, split from CHU-012).
+    - ODP-112/113 and SDP-078 no longer need the distance when the hydrant
+      decides. They stay Liam's named FPC holds.
+    - Grammar: an unknown in an already-decided part is dropped. Across 256
+      profile variants this moved only the new above-ground pool lines.
+  - **Step 3 (decision 1): the follow-up questions.**
+    - "||" lines: **47 -> 0**.
+    - Carriers the model still decides: LIVE 2 -> 0, OLD 8 -> 8, CLEAN
+      8 -> 8, STRESS 13 -> 13. The rest are Liam's named FPC holds and
+      unticked pool boxes; both hold on purpose.
+    - **3a (3e8638f): "Breed(s) on the property".** 31 breeds, None of
+      these, Not sure.
+      - Closed lists decide.
+      - Open lists ("includes, but is not limited to": Progressive, ARI,
+        Centauri DP3) pass None of these with a confirm note.
+      - Sage and Foremost (acknowledgement / endorsement cures): a confirm
+        note.
+      - NatGen C360 (no list): always a confirm note.
+      - Readings: a generic "pit bull" covers APBT, American Staffordshire
+        and Staffordshire Bull Terrier; "mastiff(s)" covers Mastiff,
+        Bullmastiff and Neapolitan.
+    - **3b (1a47eea): the roof covering.**
+      - Three metal kinds; built-up / rolled / membrane; asbestos, T-lock,
+        solar roof; wood shake / wood shingle.
+      - All 68 roof lines remapped. A kind the form cannot pin down
+        (copper, "expensive" metal, rubber vs TPO, tin vs aluminum,
+        Ludowici) is a confirm note.
+      - SLL-015 uses the guide's own table: 40 years for standing seam,
+        tile and slate.
+    - **3c (63b684f): plumbing.**
+      - PEX installed 2011 or later / before 2011 / install year unknown,
+        and Cast iron.
+      - The pre-2011 rules (ALL-057/058/060, PRO-039, PH6-074) read the
+        install year.
+      - Cast iron fails where the guide names iron.
+    - **3d-f (c063c11):**
+      - Solar type and Tesla equipment: Allied, Swyfft, Foremost,
+        Travelers, Steadily. TWICO's 2026-10-06 decision is unchanged.
+      - Trust type; Corporation / partnership and Estate. The entity lines
+        read the owners each guide names; Sage's "family held trust" reads
+        the trust type.
+      - Harris "East of Highway 146 (TWIA designated area)?": ARB-005 and
+        CHU-047. Mercury's Tier II ZIP lists decide their own rows.
+    - Old saved values (Metal, Flat/Built-Up, PEX, Wood Shake, the
+      aggressive-breed toggle, solar or trust without a type) load and hold
+      or confirm, never guess.
+    - Profiles moved to the new values. ALT / AUDIT_R13 / LIVE: roof-mounted
+      panels, Tesla No (assumed: standard panels).
+  - **Step 4 (dbfe3c3): decisions 2 and 3.**
+    - CHO-013: Seasonal / Secondary give a confirm note.
+    - SAG-003, SUR-016, SFP-016, WIL-016 and TRI-004 read House or
+      Townhome. ALL-019/020 and CDP-094 already did.
+  - **Step 5 (b12d973): the usage log.**
+    - One os.write per line under a cross-process lock.
+    - 50 writer processes: 1,000 of 1,000 lines. The old code under the same
+      load: 407 lines, 388 whole.
+  - **Step 6.**
+    - Replay of old (e273c0b) vs new on the old profiles:
+      - batches OFF: 39/39 byte-identical;
+      - batches ON: every profile differs, by design (steps 1-4 change the
+        rules tables).
+    - 8 profiles x 2 runs, Haiku low, live (panel ON), Round 34 vs Round
+      35: one verdict differed, ARI HOB on OWNERSHIP_BASE (no county): the
+      new ARB-005 read the unasked 146 answer and held.
+      - Fixed in 04039b8: harris_east_146 joins Liam's decision-1 blank
+        fields. After the fix, 0 of 216 carrier verdicts differ.
+      - Same verdict in both runs: 216/216 each round.
+    - Tier 2 at 04039b8 (Haiku low, all batches ON, panel ON): 28 passed,
+      0 failed, 7 xfailed, 1 xpassed. No baseline failed, so none was
+      updated.
+    - The xpass was Mercury / Trust. It is now a normal test (dated): the
+      trust-type question means code decides MER-005; an unknown type
+      holds, and a model decline citing it no longer stands.
 
 ## Open work, in priority order (updated 2026-10-02)
 

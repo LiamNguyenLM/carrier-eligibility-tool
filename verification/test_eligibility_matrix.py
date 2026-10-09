@@ -4886,18 +4886,12 @@ def test_allied_trust_trust_is_refer_on_its_approval_row():
 
 
 @pytest.mark.baseline
-@pytest.mark.xfail(
-    reason="VERDICT-CHANGING, INTERMITTENT (round 17, read by eye): Mercury excludes 'Properties "
-    "owned by an LLC, Corporation, and/or Corporate Trust'. The intake's 'Trust' does not say "
-    "corporate, so a decline over-reads the rule. Declined in 1/6 recorded Trust runs (0/3 at "
-    "3caeb64, 1/3 at 1b446e2) on byte-identical Mercury evidence; the rest were not declined. "
-    "A trust-type intake field is Liam's call, like the grantor field. "
-    "ROUND 32 (2026-10-09, Haiku low, live configuration, commit 38b4789): not declined in 9/9 Trust "
-    "runs (3 test runs x 3 reps), all INSUFFICIENT_INFORMATION -- but each one the MODEL's judgement of "
-    "MER-005, which is AMBIGUOUS and left to the model. No code change prevents a decline, so it stays "
-    "xfail.",
-    strict=False,
-)
+# xfail REMOVED 2026-10-09 (round 35 step 6): passed in Tier 2 at 04039b8 (Haiku low, live configuration), and in
+# rounds 32-33 (9/9, then 2 runs). Fixed by: the trust-type question (round 35 step 3e, Liam's decision 1).
+# MER-005 now reads the trust type: an unknown type holds on a blank form field, the model may not decide that
+# row, and a model decline citing it becomes Insufficient (rules_evaluator._hold_unknown_as_insufficient).
+# Only a corporate or business trust is declined. Was xfail: "MER-005 is AMBIGUOUS and left to the model. No
+# code change prevents a decline."
 def test_mercury_trust_is_not_declined_on_its_corporate_trust_rule():
     universe = get_carriers_for_occupancy("Owner Occupied")
     statuses = []

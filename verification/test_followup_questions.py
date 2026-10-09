@@ -188,3 +188,24 @@ def test_the_form_asks_the_follow_ups_only_when_needed():
 def test_new_owners_get_the_entity_ownership_retrieval():
     assert {"Corporation / partnership", "Estate"} <= ec._OWNERSHIP_STRUCTURES_WITH_ENTITY_RULES
     assert ec._OWNERSHIP_TERMS["Estate"].search("owned by an estate")
+
+
+@pytest.mark.parametrize("trust,want", [(None, "INSUFFICIENT_INFORMATION"), ("Unknown", "INSUFFICIENT_INFORMATION"),
+                                        ("Family trust", "INSUFFICIENT_INFORMATION")])
+def test_a_model_decline_on_mercury_s_corporate_trust_rule_does_not_stand(trust, want):
+    # round 35 step 6: why the Mercury trust xfail became a normal test -- code, not the model, decides MER-005.
+    # (Family trust: MER-005 passes; the card is still held by another open row or the model's own hold.)
+    pd = {"ownership_type": "Trust", "occupancy_type": "Owner Occupied"}
+    if trust:
+        pd["trust_type"] = trust
+    out = ev.evaluate_carrier("Mercury_HO3_-_01.01.2026", pd)
+    rec = ev.finish_model_record({"carrier": "Mercury_HO3_-_01.01.2026", "status": "INELIGIBLE",
+                                  "reasons": ["[MER-005] declines corporate trusts"], "citations": ["[MER-005]"],
+                                  "missing_info": [], "notes": ""}, "Mercury_HO3_-_01.01.2026", out)
+    assert rec["status"] != "INELIGIBLE"
+
+
+def test_a_corporate_trust_is_declined_by_mercury():
+    out = ev.evaluate_carrier("Mercury_HO3_-_01.01.2026", {"ownership_type": "Trust", "trust_type":
+                                                          "Corporate or business trust", "occupancy_type": "Owner Occupied"})
+    assert out["MER-005"][0] == "FAIL"
