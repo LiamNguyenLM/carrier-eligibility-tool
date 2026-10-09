@@ -111,7 +111,8 @@ CASES += [
      {age(39): "N/A", age(40): "NOTE", age(75): "NOTE", age(76): "N/A"}),
     ("ALL-058", {"plumbing_type": "Copper"}, "year_built", {age(40): "PASS"}),
     ("ALL-060", {"plumbing_type": "Galvanized"}, "year_built", {age(75): "N/A", age(76): "NOTE"}),
-    ("ALL-061", {"plumbing_type": "PEX"}, "year_built", {age(75): "N/A", age(76): "FAIL"}),
+    # ALL-061 left the map 2026-10-09 (round 32 step 1, Claude review): a coverage row, not a rule.
+    # Was: ("ALL-061", {"plumbing_type": "PEX"}, "year_built", {age(75): "N/A", age(76): "FAIL"}).
     # "Pre-2011 PEX": PEX in a home built 2010 is pre-2011 on the original-plumbing reading
     *[(rid, {"plumbing_type": "PEX"}, "year_built", {2010: "OPEN", 2011: "PASS", 2012: "PASS"})
       for rid in ("ALL-057", "PRO-039")],

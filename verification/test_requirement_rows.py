@@ -34,7 +34,10 @@ def _row(rid, **pd):
 def test_every_listed_row_is_a_mapped_line_and_the_list_is_complete():
     m = ev._map()
     assert all(rid in m for rid in ev.REQUIREMENT_OUTCOMES)
-    assert len(ev.REQUIREMENT_OUTCOMES) + len(ev.REQUIREMENT_UNCHANGED) == 55
+    # CHANGED 2026-10-09 (round 32 step 1, Claude review): ALL-061 is a coverage row now, not a requirement
+    # row (55 -> 54). Was: == 55.
+    assert len(ev.REQUIREMENT_OUTCOMES) + len(ev.REQUIREMENT_UNCHANGED) == 54
+    assert "ALL-061" not in ev.REQUIREMENT_OUTCOMES and "ALL-061" not in ev.REQUIREMENT_UNCHANGED
     assert all(m[rid]["outcome_if_fail"] == out for rid, (out, _) in ev.REQUIREMENT_OUTCOMES.items())
     assert {out for out, _ in ev.REQUIREMENT_OUTCOMES.values()} == {"DECLINES", "REFERS_TO_UW"}
 
@@ -98,3 +101,29 @@ def test_rows_the_form_cannot_show_unmet_are_unchanged(row, pd, want):
 def test_the_rules_check_prompt_shows_the_effect_code_applies():
     line = ev._row_line(ev._rules()["SUR-117"])
     assert " | DECLINES | " in line and " | CONDITION | " not in line
+
+
+# -- round 32 step 1 (Claude review, 2026-10-09): ALL-061 is a coverage row, not a requirement ----
+# Allied p.10: "Homes 76 years and older are subject to Limited Water Damage Coverage unless they have been
+# completely re-plumbed above the slab within the last 20 years ... Copper tubing or PVC plumbing is
+# required." Copper / PVC is what counts as the re-plumb; it is not a rule for writing the home.
+@pytest.mark.parametrize("plumbing", ["PEX", "Other"])
+def test_a_76_year_old_home_without_copper_or_pvc_is_not_declined_by_all_061(plumbing):
+    out = ev.evaluate_carrier("Allied_Trust_HO3", dict(BASE, year_built=1945, plumbing_type=plumbing))
+    assert "ALL-061" not in out and "ALL-061" not in ev._map()
+    rec, _ = ev.code_record("Allied_Trust_HO3", out)
+    assert not any("ALL-061" in x for x in rec["reasons"] + rec.get("citations", [])), rec["reasons"]
+
+
+def test_galvanized_in_the_same_home_is_still_declined():
+    # ALL-057 (every age) declines it; ALL-060 (76+) is a NOTE because its cure is a service inspection
+    out = ev.evaluate_carrier("Allied_Trust_HO3", dict(BASE, year_built=1945, plumbing_type="Galvanized"))
+    rec, _ = ev.code_record("Allied_Trust_HO3", out)
+    assert rec["status"] == "INELIGIBLE" and any(x.startswith("[ALL-057] declines") for x in rec["reasons"])
+    assert out["ALL-060"][0] == "NOTE"
+
+
+def test_all_061_is_a_coverage_row_in_the_table():
+    r = ev._rules()["ALL-061"]
+    assert (r["Effect"], r["Tool handling"]) == ("COVERAGE_ONLY", "NOT_ELIGIBILITY")
+    assert r["Review note"].startswith("CHANGED 2026-10-09")

@@ -229,7 +229,6 @@ REQUIREMENT_OUTCOMES = {
     "VAV-014": ("DECLINES", _TRUST_OCCUPIED), "VDP-062": ("DECLINES", _TRUST_OCCUPIED),
     "CDP-072": ("DECLINES", "The home is tenant occupied (one of four conditions, all required; underwriting "
                             "approval is needed in addition, not instead)"),
-    "ALL-061": ("DECLINES", "Copper tubing or PVC plumbing is required (no path named)"),
     "PRO-051": ("REFERS_TO_UW", "... or approved alternate enclosure"),
     "CDP-053": ("REFERS_TO_UW", "... or alternate approved enclosure"),
     "PDP-103": ("REFERS_TO_UW", "... or alternate approved enclosure"),

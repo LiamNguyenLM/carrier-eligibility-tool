@@ -120,7 +120,7 @@ MAP = {
                 "cure is a service inspection -> NOTE"),
     "ALL-060": ("plumbing_type;year_built", NO_BAD_PLUMB + " || " + PEX_2011, "home_age >= 76", "",
                 "cure is a service inspection -> NOTE"),
-    "ALL-061": ("plumbing_type;year_built", "plumbing_type in {Copper, PVC}", "home_age >= 76", "", ""),
+    # ALL-061: COVERAGE_ONLY since 2026-10-09 (round 32 step 1) -- the Limited Water Damage re-plumb, not a rule
     "SAG-042": ("plumbing_type", "plumbing_type != Polybutylene", "always", "", ""),
     "MER-029": ("plumbing_type", "plumbing_type in {Copper, PVC, PEX}", "always", "",
                 "cure (plumber statement, over 50 years) is an inspection -> NOTE"),

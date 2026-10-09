@@ -40,7 +40,9 @@ def test_data_files_carry_their_source_header():
 def test_every_deciding_row_has_exactly_one_map_line():
     rules, fmap = ev.load_rules(), ev.load_map()
     deciding = {rid for rid, r in rules.items() if r["Tool handling"] in ev.DECIDING}
-    assert len(rules) == 790 and len(deciding) == 541
+    # CHANGED 2026-10-09 (round 32 step 1, Claude review): ALL-061 is COVERAGE_ONLY / NOT_ELIGIBILITY,
+    # so one deciding row fewer. Was: len(deciding) == 541.
+    assert len(rules) == 790 and len(deciding) == 540
     assert set(fmap) == deciding
 
 

@@ -1831,7 +1831,7 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       | VAV-014 | Sage Vave HO3 | Ineligible | eligible only when the trustee, grantor, or beneficiary resides at the residence (no path named) |
       | VDP-062 | Sage Vave DP3 | Ineligible | eligible only when the trustee, grantor, or beneficiary resides at the residence (no path named) |
       | CDP-072 | Centauri DP3 | Ineligible | The home is tenant occupied (one of four conditions, all required; underwriting approval is needed in addition, not instead) |
-      | ALL-061 | Allied Trust HO3 | Ineligible | Copper tubing or PVC plumbing is required (no path named) |
+      | ALL-061 | Allied Trust HO3 | ~~Ineligible~~ coverage row (Claude review, 2026-10-09; round 32 step 1) | Copper tubing or PVC plumbing is required -- inside the Limited Water Damage paragraph (p.10): it says what counts as a re-plumb, not what Allied writes |
       | PRO-051 | Progressive HO3 | Refer | ... or approved alternate enclosure |
       | CDP-053 | Centauri DP3 | Refer | ... or alternate approved enclosure |
       | PDP-103 | Progressive DP3 | Refer | ... or alternate approved enclosure |
