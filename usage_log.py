@@ -67,14 +67,60 @@ def record(model, effort, calls, wall_s, carriers, now=None):
 
 
 def append(line):
-    """Append one line; a logging problem never breaks a check."""
+    """Append one line; a logging problem never breaks a check.
+
+    Round 35 step 5: 300 checks in 3 processes wrote 299 lines (round 32). Each append is now one os.write
+    of the whole line on an O_APPEND descriptor, under a lock every process shares: flock on the log itself
+    (Linux, Railway), msvcrt.locking on a lock file beside it (Windows, where O_APPEND is a seek then a
+    write, not atomic). The thread lock still orders writers inside one process."""
     try:
         p = path()
-        os.makedirs(os.path.dirname(p), exist_ok=True)
-        with _LOCK, open(p, "a", encoding="utf-8") as fh:
-            fh.write(json.dumps(line, ensure_ascii=False) + "\n")
+        os.makedirs(os.path.dirname(p) or ".", exist_ok=True)
+        data = (json.dumps(line, ensure_ascii=False) + "\n").encode("utf-8")
+        with _LOCK, _process_lock(p):
+            fd = os.open(p, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_BINARY", 0), 0o644)
+            try:
+                os.write(fd, data)
+            finally:
+                os.close(fd)
     except OSError as e:
         print("USAGE LOG: could not write --", e)
+
+
+class _process_lock:
+    """An exclusive lock shared by every process writing the log."""
+
+    def __init__(self, log_path):
+        self.lock_path = log_path + ".lock"
+        self.fd = None
+
+    def __enter__(self):
+        self.fd = os.open(self.lock_path, os.O_RDWR | os.O_CREAT, 0o644)
+        try:
+            import fcntl
+            fcntl.flock(self.fd, fcntl.LOCK_EX)
+        except ImportError:                                  # Windows
+            import msvcrt
+            while True:
+                try:
+                    msvcrt.locking(self.fd, msvcrt.LK_LOCK, 1)   # retries for about 10 s, then raises
+                    break
+                except OSError:
+                    continue
+        return self
+
+    def __exit__(self, *exc):
+        try:
+            try:
+                import fcntl
+                fcntl.flock(self.fd, fcntl.LOCK_UN)
+            except ImportError:
+                import msvcrt
+                os.lseek(self.fd, 0, 0)
+                msvcrt.locking(self.fd, msvcrt.LK_UNLCK, 1)
+        finally:
+            os.close(self.fd)
+        return False
 
 
 def month_summary(now=None):
