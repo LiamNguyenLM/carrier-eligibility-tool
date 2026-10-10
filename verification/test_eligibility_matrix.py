@@ -5910,7 +5910,18 @@ class TestSageCountyHold:
         got = _by_carrier(_replayed_run(dict(_LIAM_PPC3, county=county), answer))
         ref = _by_carrier(_replayed_run(dict(_LIAM_PPC3, county="Harris"), answer))
         for c in _SAGE_UNRESTRICTED:
-            assert got[c] == ref[c], (c, county)
+            if county == "" and status == "INSUFFICIENT_INFORMATION":
+                # CHANGED 2026-10-10 (round 36 step 4b, Liam: a blank County is a note; only the named county
+                # holds -- Sage's territory, CHUBB -- stay holds): Markel and Vave have no county rule, so the
+                # model's hold on the blank County ("Whether the property's county is within the eligible
+                # area") is a confirm note and the card is ELIGIBLE. Was: the same record as with Harris
+                # (INSUFFICIENT_INFORMATION on that item). Any county given still changes nothing.
+                assert got[c]["status"] == "ELIGIBLE" and got[c]["missing_info"] == [], c
+                assert ("left blank on the form; for this carrier a blank answer is never a hold): Whether the "
+                        "property's county is within the eligible area.") in got[c]["notes"], c
+                assert ref[c]["status"] == "INSUFFICIENT_INFORMATION", c
+            else:
+                assert got[c] == ref[c], (c, county)
             assert not _county_item_present(got[c]["missing_info"])
             assert "County hold" not in got[c]["notes"]
 
