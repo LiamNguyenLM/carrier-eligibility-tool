@@ -44,8 +44,10 @@ def test_a_report_holds_everything_needed_to_replay_it(log):
     feedback.append(feedback.record(REC, PD, "Should be Refer", "  Hidalgo rule should refer  ", name="Liam",
                                     model="claude-haiku-5-5", display_name="Progressive (HO3)"))
     (line,) = _lines(log)
+    # CHANGED 2026-10-10 (round 37 step 3: a report records the ticked topics, so it can be replayed). Was: the same keys without "checked_topics".
     assert set(line) == {"ts", "app_version", "name", "property_details", "carrier", "display_name", "verdict",
-                         "reasons", "deciding_rows", "model", "rules_table", "choice", "comment"}
+                         "reasons", "deciding_rows", "model", "rules_table", "choice", "comment", "checked_topics"}
+    assert line["checked_topics"] is None                                 # None: every topic (the full check)
     assert line["property_details"] == PD and line["carrier"] == REC["carrier"] and line["verdict"] == "ELIGIBLE"
     assert line["deciding_rows"] == ["PRO-072", "PRO-088"]
     assert line["choice"] == "Should be Refer" and line["comment"] == "Hidalgo rule should refer"
@@ -147,6 +149,7 @@ def test_sending_writes_one_line_with_the_name_choice_and_comment(app, log):
     assert line["name"] == "Liam" and line["choice"] == "Should be Refer" and line["comment"] == "Hidalgo is a referral"
     assert line["carrier"] == "Progressive_HO3_-_04.01.2026" and line["verdict"] == "ELIGIBLE"
     assert line["property_details"]["dwelling_type"] == "House" and line["deciding_rows"][0] == "PRO-072"
+    assert line["checked_topics"] == []                  # round 37 step 3: nothing ticked on this form
     # the name is remembered for the session
     assert app.text_input(key="tester_name").value == "Liam"
 

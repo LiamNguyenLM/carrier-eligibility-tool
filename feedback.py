@@ -22,7 +22,7 @@ DEFAULT_PATH = os.path.join(HERE, "carrier_docs_db", "feedback_log.jsonl")
 CHOICES = ("Should be Eligible", "Should be Ineligible", "Should be Refer", "Not sure")
 ROW_ID = re.compile(r"\b[A-Z]{3}-\d{3}\b")
 CSV_COLUMNS = ("ts", "app_version", "name", "carrier", "display_name", "verdict", "choice", "comment",
-               "reasons", "deciding_rows", "model", "rules_table", "property_details")
+               "reasons", "deciding_rows", "model", "rules_table", "checked_topics", "property_details")
 
 
 def path():
@@ -59,14 +59,18 @@ def deciding_rows(record):
     return seen
 
 
-def record(record_, property_details, choice, comment="", name="", model="", display_name="", now=None):
-    """The log line for one report."""
+def record(record_, property_details, choice, comment="", name="", model="", display_name="", now=None,
+           checked_topics=None):
+    """The log line for one report. Round 37 step 3: checked_topics -- the topics ticked for the check (None =
+    every topic, the full check) -- because an unticked topic is ignored, and a report cannot be replayed
+    without knowing which were ticked."""
     ts = (now or datetime.datetime.now(datetime.timezone.utc)).isoformat(timespec="seconds")
     return {"ts": ts, "app_version": app_version(), "name": (name or "").strip(),
             "property_details": dict(property_details or {}), "carrier": record_.get("carrier", ""),
             "display_name": display_name or "", "verdict": record_.get("status", ""),
             "reasons": list(record_.get("reasons") or []), "deciding_rows": deciding_rows(record_),
             "model": model or "", "rules_table": bool(record_.get("rules_table")),
+            "checked_topics": None if checked_topics is None else list(checked_topics),
             "choice": choice if choice in CHOICES else "Not sure", "comment": (comment or "").strip()}
 
 

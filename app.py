@@ -95,7 +95,7 @@ tab1, tab3, tab2 = st.tabs(["Eligibility Check", "Ask the Guides", "Manage Carri
 # ============================================================
 # TAB 1: ELIGIBILITY CHECK
 # ============================================================
-def _send_feedback(record, property_details, key):
+def _send_feedback(record, property_details, key, checked=None):
     """Round 36 step 6: the Send button's callback -- it runs before any rerun, so the report is written
     whatever reruns next. Never raises (feedback.append)."""
     model = (eligibility_check.FALLBACK_MODEL if record.get("model_fallback")
@@ -103,7 +103,8 @@ def _send_feedback(record, property_details, key):
     feedback.append(feedback.record(record, property_details, st.session_state.get(f"fb_choice_{key}"),
                                     st.session_state.get(f"fb_comment_{key}", ""),
                                     name=st.session_state.get("tester_name", ""), model=model,
-                                    display_name=display_names.display_name(record.get("carrier", ""))))
+                                    display_name=display_names.display_name(record.get("carrier", "")),
+                                    checked_topics=checked))
     st.session_state[f"fb_sent_{key}"] = True
 
 
@@ -122,7 +123,7 @@ TESTER_NOTE = (
 
 
 @st.fragment
-def _feedback_control(record, property_details, key):
+def _feedback_control(record, property_details, key, checked=None):
     """Round 36 step 6 (Liam, 2026-10-10): "This looks wrong" on one card. A fragment, so sending reruns only
     this control and the results stay on screen; nothing is written during the check itself."""
     with st.popover("This looks wrong"):
@@ -131,7 +132,7 @@ def _feedback_control(record, property_details, key):
         with st.form(key=f"fb_form_{key}", clear_on_submit=True, border=False):
             st.radio("It should be", feedback.CHOICES, index=len(feedback.CHOICES) - 1, key=f"fb_choice_{key}")
             st.text_area("Comment (optional)", key=f"fb_comment_{key}")
-            st.form_submit_button("Send", on_click=_send_feedback, args=(record, property_details, key))
+            st.form_submit_button("Send", on_click=_send_feedback, args=(record, property_details, key, checked))
 
 
 with tab1:
@@ -527,7 +528,7 @@ with tab1:
                 if details:
                     st.markdown(details, unsafe_allow_html=True)
                 _feedback_control(carrier, property_details,
-                                  f"{st.session_state['check_seq']}_{carrier.get('carrier', '')}")
+                                  f"{st.session_state['check_seq']}_{carrier.get('carrier', '')}", checked_topics)
 
             col_yes, col_refer, col_info, col_no = st.columns(4)
 
@@ -586,7 +587,8 @@ with tab1:
                     if details:
                         st.markdown(details, unsafe_allow_html=True)
                     _feedback_control(carrier, property_details,
-                                      f"{st.session_state['check_seq']}_{carrier.get('carrier', '')}")
+                                      f"{st.session_state['check_seq']}_{carrier.get('carrier', '')}",
+                                      checked_topics)
             eligibility_check.log_check_usage(placement=placement_s,
                                               render=time.perf_counter() - t_page - placement_s)
 
