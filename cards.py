@@ -33,9 +33,11 @@ MODEL_LABELLED = tuple(STATUS_LABEL)
 
 
 def warning_line(rec):
-    """A Could Not Be Checked row's one line: the carrier and its reason."""
+    """A Could Not Be Checked row's one line: the carrier (its display name, round 36 step 5) and its reason."""
+    import display_names
     reasons = [x for x in (rec.get("reasons") or []) if isinstance(x, str) and x.strip()]
-    return f"**{rec.get('carrier', '')}** — " + (reasons[0] if reasons else "could not be checked.")
+    return f"**{display_names.display_name(rec.get('carrier', ''))}** — " + (
+        reasons[0] if reasons else "could not be checked.")
 
 
 def _on(topic, checked):
@@ -94,10 +96,11 @@ def first_line_markdown(rec, property_details, checked=None):
     return f"**{label}** — {verdict_line(rec, property_details, checked)}"
 
 
-def details_items(rec):
+def details_items(rec, guide=False):
     """(heading, [items]) groups for the Details toggle, empty groups dropped.
     ELIGIBLE keeps every reason here (its first line is the checked facts);
-    any other status keeps the reasons after the first."""
+    any other status keeps the reasons after the first. guide=True (round 36 step 5, the verdict cards) adds
+    the guide's date and file."""
     def clean(items):
         # Never an empty bullet (round 26 step 7: Could Not Be Checked showed one).
         return [x for x in items if isinstance(x, str) and x.strip()]
@@ -108,12 +111,15 @@ def details_items(rec):
               ("Notes", clean([rec.get("notes") or ""])),
               ("Missing", clean(rec.get("missing_info") or []) if rec.get("status") not in MODEL_LABELLED else []),
               ("Also confirm", clean(rec.get("also_confirm") or []))]
+    if guide and rec.get("carrier"):
+        import display_names
+        groups.append(("Guide", [display_names.guide_line(rec["carrier"])]))
     return [(h, items) for h, items in groups if items]
 
 
-def details_html(rec):
+def details_html(rec, guide=False):
     """The collapsed <details> block, or "" when there is nothing to show."""
-    groups = details_items(rec)
+    groups = details_items(rec, guide)
     if not groups:
         return ""
     body = "".join(

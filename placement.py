@@ -27,6 +27,8 @@ import math
 import os
 from collections import defaultdict
 
+import display_names
+
 HALF_LIFE, WINDOW_MONTHS, K_ZIP, K_COUNTY, MIN_DIM = 4.0, 36, 15.0, 30.0, 20.0
 AGE = ([10, 20, 30, 40, 60], ["0-9", "10-19", "20-29", "30-39", "40-59", "60+"])
 COVA = ([200000, 300000, 400000, 600000, 1000000], ["<200K", "200-299K", "300-399K", "400-599K", "600-999K", "1M+"])
@@ -277,7 +279,8 @@ def panel_markdown(p):
     """The panel as one markdown block (the footer is shown separately, small)."""
     lines = [f"#### {p['title']}"]
     for i, pick in enumerate(p["picks"], 1):
-        lines.append(f"{i}. **{pick['market']}** — {', '.join(pick['programs'])}")
+        # round 36 step 5: the programs by their display names
+        lines.append(f"{i}. **{pick['market']}** — {', '.join(display_names.display_name(prog) for prog in pick['programs'])}")
         for extra in (pick["held"], pick["reason"], pick["fit"]):
             if extra:
                 lines.append(f"    - {extra}")

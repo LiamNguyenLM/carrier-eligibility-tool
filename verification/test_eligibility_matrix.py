@@ -3460,7 +3460,8 @@ def test_no_bucket_carries_a_status_suffix_since_each_holds_one_status():
 
     for name in ("Eligible", "Refer to Underwriting", "Insufficient Information", "Not Eligible"):
         body = bucket_body(name)
-        assert 'st.expander(carrier["carrier"])' in body, (
+        # CHANGED 2026-10-10 (round 36 step 5, Liam: agents see display names; prompts, citations and logs keep program names): the bare name is the display name. Was: st.expander(carrier["carrier"]).
+        assert 'st.expander(display_names.display_name(carrier["carrier"]))' in body, (
             f"{name!r} bucket no longer renders the bare carrier name"
         )
         assert '+ "  |  " +' not in body, (

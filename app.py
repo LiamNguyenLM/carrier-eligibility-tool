@@ -20,6 +20,7 @@ import topics
 import cards
 import placement
 import feedback
+import display_names
 
 FORM_SCOPE_CAPTION = "Only checked items are considered. Inspections and the condition of the home are not checked."
 from upload_carrier import (
@@ -102,8 +103,7 @@ def _send_feedback(record, property_details, key):
     feedback.append(feedback.record(record, property_details, st.session_state.get(f"fb_choice_{key}"),
                                     st.session_state.get(f"fb_comment_{key}", ""),
                                     name=st.session_state.get("tester_name", ""), model=model,
-                                    display_name=cards.display_name(record.get("carrier", ""))
-                                    if hasattr(cards, "display_name") else ""))
+                                    display_name=display_names.display_name(record.get("carrier", ""))))
     st.session_state[f"fb_sent_{key}"] = True
 
 
@@ -507,7 +507,7 @@ with tab1:
                 missing = [m for m in carrier.get("missing_info") or [] if isinstance(m, str) and m.strip()]
                 if missing:
                     st.markdown("**Missing:**\n" + "\n".join("- " + item for item in missing))
-                details = cards.details_html(carrier)
+                details = cards.details_html(carrier, guide=True)     # round 36 step 5: + the guide's date
                 if details:
                     st.markdown(details, unsafe_allow_html=True)
                 _feedback_control(carrier, property_details,
@@ -521,7 +521,7 @@ with tab1:
                     st.caption("No problem found on the checked items.")
                 if eligible:
                     for carrier in eligible:
-                        with st.expander(carrier["carrier"]):
+                        with st.expander(display_names.display_name(carrier["carrier"])):
                             render_carrier(carrier)
                 else:
                     st.info("No carriers fully eligible.")
@@ -533,7 +533,7 @@ with tab1:
                 st.markdown("### Refer to Underwriting")
                 if refer:
                     for carrier in refer:
-                        with st.expander(carrier["carrier"]):
+                        with st.expander(display_names.display_name(carrier["carrier"])):
                             render_carrier(carrier)
                 else:
                     st.info("No carriers to refer to underwriting.")
@@ -542,7 +542,7 @@ with tab1:
                 st.markdown("### Insufficient Information")
                 if insufficient_info:
                     for carrier in insufficient_info:
-                        with st.expander(carrier["carrier"]):
+                        with st.expander(display_names.display_name(carrier["carrier"])):
                             render_carrier(carrier)
                 else:
                     st.info("No carriers pending missing information.")
@@ -551,7 +551,7 @@ with tab1:
                 st.markdown("### Not Eligible")
                 if not_eligible:
                     for carrier in not_eligible:
-                        with st.expander(carrier["carrier"]):
+                        with st.expander(display_names.display_name(carrier["carrier"])):
                             render_carrier(carrier)
                 else:
                     st.success("No carriers fully ineligible.")
@@ -733,7 +733,7 @@ with tab3:
         if st.session_state.chat_programs:
             st.caption(
                 "Follow-up questions will stay on: "
-                + ", ".join(st.session_state.chat_programs)
+                + ", ".join(display_names.display_name(p) for p in st.session_state.chat_programs)
             )
 
     def _render_result(result):
@@ -743,7 +743,7 @@ with tab3:
                 "**{p}** — this guide cannot be answered from.\n\n{d}\n\n"
                 "Upload the correct PDF on the Manage Carriers tab. This warning "
                 "clears itself once the right document is in place.".format(
-                    p=program, d=defect["detail"]
+                    p=display_names.display_name(program), d=defect["detail"]
                 )
             )
 
@@ -754,7 +754,7 @@ with tab3:
                 "Which did you mean?".format(phrase=result["phrase"])
             )
             for candidate in result["candidates"]:
-                st.markdown("- " + candidate)
+                st.markdown("- " + display_names.display_name(candidate))
             return
 
         if result["mode"] == "cross_carrier":
@@ -766,7 +766,7 @@ with tab3:
                     st.caption(empty)
                     return
                 for row in rows:
-                    label = row["program"]
+                    label = display_names.display_name(row["program"])
                     if row["date"]:
                         label += "  (guide dated " + row["date"] + ")"
                     with st.expander(label):

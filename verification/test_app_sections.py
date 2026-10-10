@@ -75,7 +75,8 @@ def test_a_widget_change_without_a_new_check_does_not_repeat_a_section(app):
 def test_could_not_be_checked_has_no_empty_bullet_and_no_empty_details(app):
     app.button(key="submit").click().run()
     warnings = [w.value for w in app.warning]
-    assert any(w.startswith("**Centauri_-_HO3_-_05.01.2026** — The guide on file has no readable text.")
+    # CHANGED 2026-10-10 (round 36 step 5, Liam: agents see display names; prompts, citations and logs keep program names): was "**Centauri_-_HO3_-_05.01.2026** — ..."
+    assert any(w.startswith("**Centauri (HO3)** — The guide on file has no readable text.")
                for w in warnings)
     md = [m.value for m in app.markdown]
     # Centauri has nothing beyond its warning line: no Details toggle for it;
