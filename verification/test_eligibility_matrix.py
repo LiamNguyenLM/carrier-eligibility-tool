@@ -5462,15 +5462,20 @@ def test_complete_dispatches_on_the_model_name(monkeypatch):
     def boom_openai(*a, **k):
         raise AssertionError("OpenAI branch reached for a Sonnet model")
     monkeypatch.setattr(ec, "_complete_openai", boom_openai)
+    # CHANGED 2026-10-10 (round 36 step 1, Liam: a timing breakdown on every usage-log line): _complete adds
+    # the call's wall_s and HTTP attempts to the branch's usage. Was: the usage exactly as the branch returned it.
+    def timed(text, usage):
+        return text, {k: v for k, v in usage.items() if k not in ("wall_s", "attempts")}
     monkeypatch.setattr(ec, "_complete_anthropic", lambda *a, **k: ("[]", {}))
-    assert ec._complete("sys", "user", 100) == ("[]", {})
+    text, usage = ec._complete("sys", "user", 100)
+    assert timed(text, usage) == ("[]", {}) and set(usage) == {"wall_s", "attempts"}
 
     def boom_anthropic(*a, **k):
         raise AssertionError("Anthropic branch reached for an OpenAI model")
     monkeypatch.setattr(ec, "ELIGIBILITY_MODEL", "gpt-6-luna")
     monkeypatch.setattr(ec, "_complete_anthropic", boom_anthropic)
     monkeypatch.setattr(ec, "_complete_openai", lambda *a, **k: ("[]", {}))
-    assert ec._complete("sys", "user", 100) == ("[]", {})
+    assert timed(*ec._complete("sys", "user", 100)) == ("[]", {})
 
 
 @pytest.mark.retrieval
