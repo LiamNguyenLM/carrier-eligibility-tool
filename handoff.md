@@ -2200,6 +2200,30 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     - The xpass was Mercury / Trust. It is now a normal test (dated): the
       trust-type question means code decides MER-005; an unknown type
       holds, and a model decline citing it no longer stands.
+  - **Step 6 follow-up (a838645): Tesla holds.**
+    - The form asks about Tesla equipment, so a Tesla hold is a hold on a
+      form field: hold_guard no longer releases it as "never asked".
+    - The round 31 guard tests got a hand-set model-judged row (no map line is
+      AMBIGUOUS any more).
+  - **Fast tier per commit** (verification/, not baseline):
+
+    | Commit | Step | Result |
+    |---|---|---|
+    | cf6ff65 | 0 | 2,147 passed, 0 failed |
+    | 87f8b1d | 1 | 2,162 passed, 0 failed |
+    | e06e190 | 2 | 2,238 passed, 0 failed |
+    | 3e8638f | 3a | 2,878 passed, 0 failed |
+    | 1a47eea | 3b | 3,462 passed, 0 failed |
+    | 63b684f | 3c | 1 failed (PH6-074 boundary; fixed in dbfe3c3), 3,827 passed |
+    | dbfe3c3 | 4 | 3,868 passed, 0 failed |
+    | c063c11 | 3d-f | 2 failed (the guard tests; fixed in a838645), 3,967 passed |
+    | b12d973 | 5 | the same 2, plus 1 subprocess timeout under 7 parallel suites (passes alone, 3/3) |
+    | 04039b8 | 6 fix | the same as b12d973 |
+    | e1b5b6e | 6 | the same 2 |
+    | a838645 | 6 follow-up | 3,979 passed, 0 failed, 9 xfailed |
+
+    Seven suites were run in parallel and the laptop slept for part of
+    it: most runs took 7-8 h of wall time. a838645 alone took 27 min.
 
 ## Open work, in priority order (updated 2026-10-02)
 
