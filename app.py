@@ -21,6 +21,7 @@ import cards
 import placement
 import feedback
 import display_names
+import confirm_topics
 
 FORM_SCOPE_CAPTION = "Only checked items are considered. Inspections and the condition of the home are not checked."
 from upload_carrier import (
@@ -491,6 +492,14 @@ with tab1:
             if usable_answer_count(results) == 0:
                 st.error("The check did not return usable answers. Run it again; if it repeats, tell Liam.")
 
+            # Round 37 step 1 (Liam, 2026-10-10): the questions to ask the client once, on the phone.
+            client_questions = confirm_topics.top_box(results)
+            if client_questions:
+                with st.container(border=True):
+                    st.markdown("#### Things to confirm with the client\n" + "\n".join(
+                        f"- {text} — asked by {n} of {of} carriers" for text, n, of in client_questions))
+                    st.caption("Asked by at least half of the Eligible and Refer carriers, most common first.")
+
             # Round 33 step 2 (Liam, 2026-10-09): where we usually place homes like this. It ranks the
             # markets the check did not rule out from our HawkSoft placements and never changes a verdict
             # or the cards. Off unless ELIGIBILITY_PLACEMENT is exactly "1"; when off, nothing here runs.
@@ -524,6 +533,10 @@ with tab1:
                 missing = [m for m in carrier.get("missing_info") or [] if isinstance(m, str) and m.strip()]
                 if missing:
                     st.markdown("**Missing:**\n" + "\n".join("- " + item for item in missing))
+                # Round 37 step 1: what to confirm before quoting, in plain words
+                confirm = cards.confirm_html(carrier)
+                if confirm:
+                    st.markdown(confirm, unsafe_allow_html=True)
                 details = cards.details_html(carrier, guide=True)     # round 36 step 5: + the guide's date
                 if details:
                     st.markdown(details, unsafe_allow_html=True)

@@ -4695,6 +4695,7 @@ def _apply_location_holds(results, relevant_carriers, property_details):
                 rows = rules_evaluator.territory_rows(canon)
                 r["also_confirm"] = [n for n in r.get("also_confirm") or []
                                      if not any(n.startswith(f"[{rid}]") for rid in rows)]
+                r["confirm_items"] = [x for x in r.get("confirm_items") or [] if x.get("row") not in rows]
         elif territory == "IN" and r.get("status") == "INELIGIBLE":
             _undo_location_decline(r, canon, county)
         elif territory == "OUT":

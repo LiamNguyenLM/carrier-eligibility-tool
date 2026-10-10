@@ -637,6 +637,30 @@ def also_confirm(canon, outcomes):
     return notes
 
 
+def confirm_items(canon, outcomes):
+    """Round 37 step 1: also_confirm's rows as data, for the card's "Before you quote, confirm:" list
+    (confirm_topics): [{row, category, effect, rule, kind}], kind "not_asked" (a NONE row, or a NOTE on a fact
+    the form never asks), "blank" (a NOTE left by a blank field), "note" (another NOTE, e.g. an inspection
+    cure) or "standard" (CONDITION_STANDARD)."""
+    rules = _rules()
+    wb = _wb_of(canon, outcomes)
+    out = []
+    for rid, (o, d) in outcomes.items():
+        if o == "NONE" or (o == "NOTE" and d.startswith("confirm: ")):
+            kind = "not_asked"
+        elif o == "NOTE":
+            kind = "blank" if d.startswith("blank ") else "note"
+        else:
+            continue
+        r = rules[rid]
+        out.append({"row": rid, "category": r["Topic"], "effect": r["Effect"], "rule": r["Plain rule"], "kind": kind})
+    for r in rules.values():
+        if r["Carrier"] == wb and r["Tool handling"] == "CONDITION_STANDARD":
+            out.append({"row": r["Rule ID"], "category": r["Topic"], "effect": r["Effect"], "rule": r["Plain rule"],
+                        "kind": "standard"})
+    return out
+
+
 def code_record(canon, outcomes):
     """The record when code decides alone. Returns (record, decided):
     decided is False when OPEN rows are left for the model."""
@@ -663,7 +687,8 @@ def code_record(canon, outcomes):
     rec = {"carrier": canon, "status": status, "flaw_count": flaws, "reasons": reasons,
            "citations": [citation(rules[rid]) for rid in cited],
            "missing_info": open_items,
-           "notes": "", "rules_table": True, "also_confirm": also_confirm(canon, outcomes)}
+           "notes": "", "rules_table": True, "also_confirm": also_confirm(canon, outcomes),
+           "confirm_items": confirm_items(canon, outcomes)}
     if status == "INELIGIBLE":
         # Round 26 step 2 (Liam, 2026-10-05): nothing still open can change a
         # decline, so the card lists none of it; the open rows stay here.
@@ -727,6 +752,7 @@ def finish_model_record(rec, canon, outcomes):
     rec["carrier"] = canon
     rec["rules_table"] = True
     rec["also_confirm"] = also_confirm(canon, outcomes)
+    rec["confirm_items"] = confirm_items(canon, outcomes)
     _hold_unknown_as_insufficient(rec, outcomes, ids)
     _release_unasked_holds(rec, outcomes)
     return rec

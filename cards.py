@@ -109,12 +109,30 @@ def details_items(rec, guide=False):
     rest = reasons if rec.get("status") == "ELIGIBLE" else reasons[1:]
     groups = [("Analysis", rest), ("Citations", clean(rec.get("citations") or [])),
               ("Notes", clean([rec.get("notes") or ""])),
-              ("Missing", clean(rec.get("missing_info") or []) if rec.get("status") not in MODEL_LABELLED else []),
-              ("Also confirm", clean(rec.get("also_confirm") or []))]
+              ("Missing", clean(rec.get("missing_info") or []) if rec.get("status") not in MODEL_LABELLED else [])]
+    # Round 37 step 1: "Also confirm" (row-ID dumps) is replaced by confirm_html's plain list
     if guide and rec.get("carrier"):
         import display_names
         groups.append(("Guide", [display_names.guide_line(rec["carrier"])]))
     return [(h, items) for h, items in groups if items]
+
+
+def confirm_html(rec):
+    """Round 37 step 1 (Liam, 2026-10-10): "Before you quote, confirm:" -- at most confirm_topics.CARD_MAX plain
+    items, the rest under "+N more", the rule IDs on a collapsed line. "" when there is nothing to confirm."""
+    import confirm_topics
+    shown, more, ids = confirm_topics.card_list(rec)
+    if not shown:
+        return ""
+
+    def ul(items):
+        return "<ul>" + "".join(f"<li>{html.escape(it['text'], quote=False)}</li>" for it in items) + "</ul>"
+    out = "<p><b>Before you quote, confirm:</b></p>" + ul(shown)
+    if more:
+        out += f"<details><summary>+{len(more)} more</summary>{ul(more)}</details>"
+    if ids:
+        out += f"<details><summary>Rule IDs</summary><small>{', '.join(ids)}</small></details>"
+    return out
 
 
 def details_html(rec, guide=False):
