@@ -81,8 +81,12 @@ def append(line):
     of the whole line on an O_APPEND descriptor, under a lock every process shares: flock on the log itself
     (Linux, Railway), msvcrt.locking on a lock file beside it (Windows, where O_APPEND is a seek then a
     write, not atomic). The thread lock still orders writers inside one process."""
+    append_line(path(), line)
+
+
+def append_line(p, line, label="USAGE LOG"):
+    """Round 36 step 6: append's atomic write for any JSONL log at p (the feedback log too). Never raises."""
     try:
-        p = path()
         os.makedirs(os.path.dirname(p) or ".", exist_ok=True)
         data = (json.dumps(line, ensure_ascii=False) + "\n").encode("utf-8")
         with _LOCK, _process_lock(p):
@@ -91,8 +95,8 @@ def append(line):
                 os.write(fd, data)
             finally:
                 os.close(fd)
-    except OSError as e:
-        print("USAGE LOG: could not write --", e)
+    except (OSError, TypeError, ValueError) as e:
+        print(f"{label}: could not write --", e)
 
 
 class _process_lock:

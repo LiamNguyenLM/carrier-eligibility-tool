@@ -19,6 +19,7 @@ import intake_fields
 import topics
 import cards
 import placement
+import feedback
 
 FORM_SCOPE_CAPTION = "Only checked items are considered. Inspections and the condition of the home are not checked."
 from upload_carrier import (
@@ -93,9 +94,38 @@ tab1, tab3, tab2 = st.tabs(["Eligibility Check", "Ask the Guides", "Manage Carri
 # ============================================================
 # TAB 1: ELIGIBILITY CHECK
 # ============================================================
+def _send_feedback(record, property_details, key):
+    """Round 36 step 6: the Send button's callback -- it runs before any rerun, so the report is written
+    whatever reruns next. Never raises (feedback.append)."""
+    model = (eligibility_check.FALLBACK_MODEL if record.get("model_fallback")
+             else eligibility_check.ELIGIBILITY_MODEL)
+    feedback.append(feedback.record(record, property_details, st.session_state.get(f"fb_choice_{key}"),
+                                    st.session_state.get(f"fb_comment_{key}", ""),
+                                    name=st.session_state.get("tester_name", ""), model=model,
+                                    display_name=cards.display_name(record.get("carrier", ""))
+                                    if hasattr(cards, "display_name") else ""))
+    st.session_state[f"fb_sent_{key}"] = True
+
+
+@st.fragment
+def _feedback_control(record, property_details, key):
+    """Round 36 step 6 (Liam, 2026-10-10): "This looks wrong" on one card. A fragment, so sending reruns only
+    this control and the results stay on screen; nothing is written during the check itself."""
+    with st.popover("This looks wrong"):
+        if st.session_state.get(f"fb_sent_{key}"):
+            st.success("Sent -- thank you.")
+        with st.form(key=f"fb_form_{key}", clear_on_submit=True, border=False):
+            st.radio("It should be", feedback.CHOICES, index=len(feedback.CHOICES) - 1, key=f"fb_choice_{key}")
+            st.text_area("Comment (optional)", key=f"fb_comment_{key}")
+            st.form_submit_button("Send", on_click=_send_feedback, args=(record, property_details, key))
+
+
 with tab1:
     st.title("🏠 Property Details")
     st.caption("Enter your property information to check carrier eligibility")
+    # Round 36 step 6: optional, kept for the session; it goes only into "This looks wrong" reports.
+    st.text_input("Your name (optional)", key="tester_name",
+                  help="Goes only into your \"This looks wrong\" reports, so we can ask you about them.")
 
     # Round 21 (Liam, 2026-10-01/02): a "Check this" box beside each topic.
     # UNCHECKED means the topic is not considered at all. A box ticks itself
@@ -418,6 +448,8 @@ with tab1:
             if county == "Harris":
                 property_details["harris_east_146"] = harris_east_146
 
+            # Round 36 step 6: each check's feedback controls get their own keys
+            st.session_state["check_seq"] = st.session_state.get("check_seq", 0) + 1
             with st.spinner("Analyzing carrier eligibility..."):
                 # Round 36 step 1: the usage line is written after the page is built, with its time
                 results = check_eligibility(property_details, checked_topics=checked_topics, log_usage=False)
@@ -478,6 +510,8 @@ with tab1:
                 details = cards.details_html(carrier)
                 if details:
                     st.markdown(details, unsafe_allow_html=True)
+                _feedback_control(carrier, property_details,
+                                  f"{st.session_state['check_seq']}_{carrier.get('carrier', '')}")
 
             col_yes, col_refer, col_info, col_no = st.columns(4)
 
@@ -535,6 +569,8 @@ with tab1:
                     details = cards.details_html(carrier)
                     if details:
                         st.markdown(details, unsafe_allow_html=True)
+                    _feedback_control(carrier, property_details,
+                                      f"{st.session_state['check_seq']}_{carrier.get('carrier', '')}")
             eligibility_check.log_check_usage(placement=placement_s,
                                               render=time.perf_counter() - t_page - placement_s)
 
@@ -582,6 +618,16 @@ with tab2:
         "Where we usually place homes like this: ranks the carriers the check did not rule out from our "
         "HawkSoft placements (rules_data/placement/, refreshed monthly). Never changes a verdict. "
         "ON only when ELIGIBILITY_PLACEMENT is exactly 1."))
+
+    st.divider()
+
+    # Round 36 step 6 (Liam, 2026-10-10): the agents' "This looks wrong" reports.
+    st.subheader("Agent Feedback")
+    _feedback_lines = feedback.read_all()
+    st.markdown(f"**{feedback.count_this_week(_feedback_lines)}** \"This looks wrong\" reports this week "
+                f"(since Monday, UTC); {len(_feedback_lines)} in all.")
+    st.download_button("Download feedback", data=feedback.to_csv(_feedback_lines), file_name="feedback_log.csv",
+                       mime="text/csv", key="feedback_download", disabled=not _feedback_lines)
 
     st.divider()
 
