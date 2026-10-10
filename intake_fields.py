@@ -37,6 +37,9 @@ FORM_FIELDS = {
     "pool_gate_locking": (r"\bgate\b", r"self[- ]latching", r"self[- ]locking", r"lockable"),
     "has_dogs": (r"\bdogs?\b", r"\bcanine\b"),
     "dog_breeds": (r"\bbreed\b", r"pit ?bull", r"rottweil", r"\bmix of\b"),
+    # round 35 step 3d: asked when Solar Panels = Yes
+    "solar_tesla": (r"\btesla\b", r"powerwall"),
+    "solar_type": (r"solar roof", r"solar (shingle|tile)s?", r"ground[- ]mounted"),
     "solar_panels": (r"\bsolar\b",),
     "ppc": (r"\bppc\b", r"protection class", r"\bfpc\b"),
     "fire_station_miles": (r"fire station", r"station distance", r"miles to (the )?(nearest |responding )?fire"),

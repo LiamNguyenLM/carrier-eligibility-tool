@@ -116,19 +116,26 @@ def test_a_bare_row_id_still_gets_the_guides_words_from_code():
 
 
 # -- c. the guard on a rules-check record -------------------------------------------------------
-@pytest.mark.parametrize("item", ["Solar panel brand, and whether any Tesla parts are installed",
-                                  "Solar panel manufacturer (whether Tesla)",
-                                  "Confirm the solar panels are not a Tesla solar roof"])
-def test_the_panel_maker_is_a_fact_the_form_never_asks(item):
-    assert hold_guard.classify(item)[0] == "c"
+# CHANGED 2026-10-10 (round 35 step 6 follow-up): the form asks about Tesla equipment since step 3d, so an item naming Tesla is a form field (a); a
+# brand or maker question without Tesla is still never asked (c). Was: all three items "c".
+@pytest.mark.parametrize("item,want", [("Solar panel brand, and whether any Tesla parts are installed", "a"),
+                                       ("Solar panel manufacturer (whether Tesla)", "a"),
+                                       ("Confirm the solar panels are not a Tesla solar roof", "a"),
+                                       ("Solar panel brand", "c"), ("Inverter manufacturer", "c")])
+def test_the_panel_maker_is_asked_only_as_tesla(item, want):
+    assert hold_guard.classify(item)[0] == want
 
 
 def _swy_record(missing):
+    # CHANGED 2026-10-10 (round 35 step 6 follow-up): since step 3d SWY-043 is decided by the Tesla answer and no map line is AMBIGUOUS, so the
+    # model-judged row this guard needs is set here by hand (the guard's logic is unchanged). Was: SWY-043 as
+    # evaluated, "ambiguous:".
     # no pool: STANDARD's fenced pool (boxes unticked) would leave SWY-035 open on a blank form field
     outcomes = ev.evaluate_carrier("Swyfft_-_Benchmark_(Admitted)_HO3",
-                                   dict(LIVE_PD, solar_panels="Yes", swimming_pool="No Pool"))
-    assert [r for r, (o, _) in outcomes.items() if o == "OPEN"] == ["SWY-043"]
-    assert outcomes["SWY-043"][1].startswith("ambiguous:")
+                                   dict(LIVE_PD, solar_panels="Yes", solar_type="Roof-mounted panels",
+                                        solar_tesla="No", swimming_pool="No Pool"))
+    assert [r for r, (o, _) in outcomes.items() if o == "OPEN"] == []
+    outcomes["SWY-043"] = ("OPEN", "ambiguous: a model-judged row (synthetic)")
     rec = {"carrier": "Swyfft_-_Benchmark_(Admitted)_HO3", "status": "INSUFFICIENT_INFORMATION", "flaw_count": 0,
            "reasons": ["Tesla parts cannot be ruled out."], "citations": ["[SWY-043]"], "missing_info": missing,
            "notes": ""}
@@ -136,7 +143,7 @@ def _swy_record(missing):
 
 
 def test_a_rules_check_hold_on_the_panel_maker_becomes_a_confirm_note():
-    rec = _swy_record(["Solar panel brand, and whether any Tesla parts are installed"])
+    rec = _swy_record(["Solar panel brand"])
     assert rec["status"] == "ELIGIBLE" and not rec["missing_info"] and "Confirm (not asked" in rec["notes"]
 
 

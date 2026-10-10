@@ -79,7 +79,10 @@ NOT_ASKED = {
     "business on premises": (r"\bbusiness (on|at) (the )?premises\b", r"\bhome business\b", r"\bdaycare\b",
                              r"\bday care\b"),
     # Round 31 step 3c: Haiku held Swyfft (SWY-043, Tesla solar roofs) on the panels' maker.
-    "product brand / maker": (r"\bbrand\b", r"\btesla\b", r"\bmanufacturer\b", r"\bmake (and|or) model\b"),
+    # Round 35 step 3d: the form asks about Tesla equipment (solar_tesla), so an item naming Tesla is a form
+    # field, never "not asked"; any other brand / maker question still is
+    "product brand / maker": (r"^(?!.*\btesla\b).*\bbrand\b", r"^(?!.*\btesla\b).*\bmanufacturer\b",
+                              r"^(?!.*\btesla\b).*\bmake (and|or) model\b"),
 }
 # An item asking for the guide's own rules is a retrieval gap, not a property fact: kept.
 _GUIDE_GAP = re.compile(r"\b(eligibility|underwriting) (rules|criteria|guidelines|requirements)\b|"
