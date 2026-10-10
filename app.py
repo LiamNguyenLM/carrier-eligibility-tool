@@ -107,6 +107,20 @@ def _send_feedback(record, property_details, key):
     st.session_state[f"fb_sent_{key}"] = True
 
 
+# Round 36 step 7 (Liam, 2026-10-10): what an agent testing the tool needs to know, in plain lines.
+TESTER_NOTE = (
+    "- **What it checks:** your property against each carrier's own underwriting guide. Every verdict comes "
+    "from the guide's rules.\n"
+    "- **Blank means unknown.** A field you leave blank (or a topic you don't tick) is never read as a yes "
+    "or a no.\n"
+    "- **Held** (Insufficient Information): the guide's answer depends on something you didn't give. Fill it "
+    "in and check again.\n"
+    "- **Confirm:** a rule the form doesn't ask about. The card can still be Eligible; check it with the "
+    "client or the guide before you bind.\n"
+    "- **Where we usually place homes like this** is our own placement history, not prices or quotes.\n"
+    "- If a card looks wrong, open **This looks wrong** on it and say why.")
+
+
 @st.fragment
 def _feedback_control(record, property_details, key):
     """Round 36 step 6 (Liam, 2026-10-10): "This looks wrong" on one card. A fragment, so sending reruns only
@@ -123,6 +137,8 @@ def _feedback_control(record, property_details, key):
 with tab1:
     st.title("🏠 Property Details")
     st.caption("Enter your property information to check carrier eligibility")
+    with st.expander("About this tool (testing)"):
+        st.markdown(TESTER_NOTE)
     # Round 36 step 6: optional, kept for the session; it goes only into "This looks wrong" reports.
     st.text_input("Your name (optional)", key="tester_name",
                   help="Goes only into your \"This looks wrong\" reports, so we can ask you about them.")
