@@ -4239,7 +4239,9 @@ def _check_eligibility(property_details, carrier_subset=None, checked_topics=Non
         if _on("check:_apply_twico_solar_decision", checked):
             _apply_twico_solar_decision(filtered, relevant_carriers, property_details)
         # Round 29 step 1 (Liam, 2026-10-08): a fact the form never asks is "confirm", never a hold.
-        hold_guard.apply(filtered, _decide_by_code, _append_note, LAST_GUARD_STATS)
+        # Round 36 step 4b: and a blank County / Coverage A the model held on is a note, not a hold.
+        hold_guard.apply(filtered, _decide_by_code, _append_note, LAST_GUARD_STATS,
+                         blank_notes=lambda c: _blank_note_fields(c, relevant_carriers, property_details))
         # Last, after every rule that can set a status: a code-decided verdict
         # owns the card (round 26 step 2).
         _code_owns_cards(filtered)
@@ -4388,6 +4390,22 @@ def _apply_chubb_hold(results, relevant_carriers, property_details):
             mi = r.setdefault("missing_info", [])
             if not any(m.startswith("Dwelling amount (Coverage A)") for m in mi):
                 mi.insert(0, _CHUBB_COVERAGE_A_ITEM)
+
+
+def _blank_note_fields(carrier, relevant_carriers, property_details):
+    """Round 36 step 4b (Liam, 2026-10-03; restated 2026-10-10 after Progressive HO3 was held on County for
+    its Hidalgo / Webb rule): the form fields left blank whose blank answer is a confirm note, never a hold, on
+    a model-judged card. The named holds stay holds: Sage's territory (its code hold, _apply_location_holds)
+    and CHUBB's county rules and Coverage A (_apply_chubb_hold)."""
+    canon = _resolve_structured_carrier(carrier, relevant_carriers)
+    if canon == _CHUBB:
+        return set()
+    out = set()
+    if not _county(property_details) and canon not in _SAGE_LOCATION_RULE:
+        out.add("county")
+    if not _dwelling_amount(property_details):
+        out.add("dwelling_amount")
+    return out
 
 
 def _county_item_present(missing_info):
