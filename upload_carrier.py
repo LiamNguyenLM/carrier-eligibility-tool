@@ -5,6 +5,7 @@ from langchain_community.vectorstores import Chroma
 import gc
 
 from shared_resources import get_embeddings, get_vectorstore, DB_FOLDER
+import store_cache
 from pdf_extraction import (load_pdf_as_documents, chunk_documents, FLOW_ORDER_FILES, ocr_text_path,
                             load_ocr_text_as_documents)
 
@@ -70,6 +71,7 @@ def add_carrier_to_database(pdf_bytes, carrier_name):
     for i in range(0, len(chunks), batch_size):
         batch = chunks[i:i + batch_size]
         vectorstore.add_documents(batch)
+        store_cache.bump()  # round 36 step 1: cached whole-store reads are stale now
         gc.collect()
 
     return len(chunks), None
@@ -81,6 +83,7 @@ def remove_carrier_from_database(carrier_name):
     results = collection.get(where={"carrier": carrier_name})
     if results["ids"]:
         collection.delete(ids=results["ids"])
+        store_cache.bump()  # round 36 step 1: cached whole-store reads are stale now
         return len(results["ids"])
     return 0
 
@@ -96,11 +99,16 @@ def database_fingerprint(collection=None):
     live database can be checked against the committed seed: the seed was
     rebuilt four times on 08-15, and seed_db.sh only copies into an EMPTY
     volume, so production may hold an older one."""
+    # Round 36 step 1: the live store's fingerprint is computed once per store version (the Manage tab
+    # computed it on every rerun, i.e. on every click anywhere in the app); an explicit collection is read
+    if collection is None:
+        return dict(store_cache.derived("fingerprint", get_vectorstore()._collection, _fingerprint, documents=True))
+    return _fingerprint(collection.get(include=["documents", "metadatas"]))
+
+
+def _fingerprint(raw):
     import hashlib
     import json
-    if collection is None:
-        collection = get_vectorstore()._collection
-    raw = collection.get(include=["documents", "metadatas"])
     docs = raw["documents"]
     metas = raw["metadatas"]
 
@@ -116,11 +124,5 @@ def database_fingerprint(collection=None):
 
 
 def list_carriers_in_database():
-    vectorstore = get_vectorstore()
-    collection = vectorstore._collection
-    results = collection.get(include=["metadatas"])
-    carriers = set()
-    for metadata in results["metadatas"]:
-        if "carrier" in metadata:
-            carriers.add(metadata["carrier"])
-    return sorted(list(carriers))
+    # Round 36 step 1: one cached read per store version (store_cache)
+    return sorted(store_cache.carriers(get_vectorstore()._collection))

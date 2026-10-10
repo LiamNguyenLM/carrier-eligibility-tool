@@ -47,6 +47,7 @@ import os
 import re
 
 from shared_resources import get_vectorstore
+import store_cache
 
 PDF_FOLDER = "./carrier_eligibility_pdfs"
 
@@ -169,8 +170,14 @@ def _claimed_product(program):
 
 def _chunks_by_carrier():
     """Every stored chunk, grouped by carrier, in insertion order."""
-    collection = get_vectorstore()._collection
-    raw = collection.get(include=["documents", "metadatas"])
+    # Round 36 step 1: one cached read per store version (store_cache)
+    return _group(store_cache.read(get_vectorstore()._collection, documents=True))
+
+
+_store_chunks_by_carrier = _chunks_by_carrier
+
+
+def _group(raw):
     grouped = {}
     for doc, meta in zip(raw["documents"], raw["metadatas"]):
         carrier = meta.get("carrier")
@@ -239,12 +246,20 @@ def defective_programs():
 
     Empty dict means the corpus is clean and every caller's defect handling
     silently switches off, which is the point.
+
+    Round 36 step 1: the scan of the stored text (every chunk, about a second) runs once per store version;
+    the expected-programs list is read on every call, as before. A test that replaces _chunks_by_carrier
+    gets its own chunks scanned every time.
     """
-    grouped = _chunks_by_carrier()
+    if _chunks_by_carrier is _store_chunks_by_carrier:
+        stored, found = store_cache.derived("defect_scan", get_vectorstore()._collection,
+                                            lambda raw: _scan_stored(_group(raw)), documents=True)
+    else:
+        stored, found = _scan_stored(_chunks_by_carrier())
     defects = {}
 
     # --- NO_TEXT: expected, absent from the store -------------------------
-    for program in sorted(expected_programs() - set(grouped)):
+    for program in sorted(expected_programs() - stored):
         defects[program] = {
             "kind": NO_TEXT,
             "detail": (
@@ -253,6 +268,14 @@ def defective_programs():
                 "cannot be answered from."
             ),
         }
+    for program, defect in found.items():
+        defects.setdefault(program, dict(defect))
+    return defects
+
+
+def _scan_stored(grouped):
+    """(the stored program names, {program: defect}) for the defects read from the stored text itself."""
+    defects = {}
 
     # --- DUPLICATE_DOCUMENT ----------------------------------------------
     by_hash = {}
@@ -356,7 +379,7 @@ def defective_programs():
             ),
         })
 
-    return defects
+    return frozenset(grouped), defects
 
 
 def defect_for(program, defects=None):

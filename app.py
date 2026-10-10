@@ -3,6 +3,8 @@ load_dotenv()
 
 import streamlit as st
 import os
+import threading
+import time
 
 try:
     if "ANTHROPIC_API_KEY" in st.secrets:
@@ -31,6 +33,26 @@ st.set_page_config(
     page_icon="🏠",
     layout="wide"
 )
+
+
+@st.cache_resource
+def _warm_up():
+    """Round 36 step 1: once per server process, in the background (the login page never waits): the
+    first check otherwise pays for the store reads, the embedding model's first query and the tables."""
+    def run():
+        t = time.perf_counter()
+        eligibility_check.warm_up()
+        if placement.enabled():
+            try:
+                placement.load_tables()
+            except Exception as e:                      # noqa: BLE001
+                print("WARM-UP: placement tables --", e)
+        print(f"WARM-UP: done in {time.perf_counter() - t:.1f}s")
+    threading.Thread(target=run, name="warm-up", daemon=True).start()
+    return True
+
+
+_warm_up()
 
 
 # ============================================================
@@ -396,7 +418,10 @@ with tab1:
                 property_details["harris_east_146"] = harris_east_146
 
             with st.spinner("Analyzing carrier eligibility..."):
-                results = check_eligibility(property_details, checked_topics=checked_topics)
+                # Round 36 step 1: the usage line is written after the page is built, with its time
+                results = check_eligibility(property_details, checked_topics=checked_topics, log_usage=False)
+            t_page = time.perf_counter()
+            placement_s = 0.0
             partial = topics.is_partial(topics.normalize(checked_topics))
 
             st.markdown("---")
@@ -420,11 +445,13 @@ with tab1:
             # markets the check did not rule out from our HawkSoft placements and never changes a verdict
             # or the cards. Off unless ELIGIBILITY_PLACEMENT is exactly "1"; when off, nothing here runs.
             if placement.enabled():
+                t_placement = time.perf_counter()
                 try:
                     placement_panel = placement.panel(results, property_details)
                 except Exception as e:                  # noqa: BLE001 -- the panel never breaks a check
                     placement_panel = None
                     st.caption("Placement panel unavailable: " + str(e))
+                placement_s = time.perf_counter() - t_placement
                 if placement_panel:
                     with st.container(border=True):
                         st.markdown(placement.panel_markdown(placement_panel))
@@ -507,6 +534,8 @@ with tab1:
                     details = cards.details_html(carrier)
                     if details:
                         st.markdown(details, unsafe_allow_html=True)
+            eligibility_check.log_check_usage(placement=placement_s,
+                                              render=time.perf_counter() - t_page - placement_s)
 
 
 # ============================================================
@@ -536,6 +565,14 @@ with tab2:
     # Round 31 step 1: the model and effort in use, and whether the last check fell back.
     st.markdown("**" + eligibility_check.model_status_line() + "**", help=eligibility_check.MODEL_HELP)
     # Round 31 step 2: this month's checks and cost, against ELIGIBILITY_MONTHLY_BUDGET (display only).
+    # Round 36 step 1: where the last check's time went (from the usage log, so it survives a restart).
+    _timing = usage_log.timing_line()
+    if _timing:
+        st.caption(_timing, help=(
+            "routing: carrier lists, defects, closed programs. rules in code: the rules tables. retrieval + "
+            "prompt: guide search and the prompt. model calls: the calls' wall time, retries and any fallback "
+            "included (attempts = HTTP requests sent). after the calls: answers into cards. placement panel "
+            "and page: building the results page."))
     st.markdown(usage_log.panel_line(), help=(
         "From the usage log (carrier_docs_db/usage_log.jsonl, on the persistent volume): one line per check, "
         "tokens and cost only. Budget: ELIGIBILITY_MONTHLY_BUDGET (default 260 dollars). Nothing blocks a check."))

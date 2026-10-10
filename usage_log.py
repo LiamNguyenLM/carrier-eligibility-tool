@@ -46,8 +46,10 @@ def call_cost(model, usage):
             + usage.get("output_tokens", 0) * p["output"]) / 1e6
 
 
-def record(model, effort, calls, wall_s, carriers, now=None):
-    """The log line for one check. calls: {call name: usage dict or None}."""
+def record(model, effort, calls, wall_s, carriers, now=None, timings=None):
+    """The log line for one check. calls: {call name: usage dict or None}. Round 36 step 1: each call also
+    carries its wall time (wall_s: the SDK's retries and any fallback included) and attempts (HTTP requests
+    sent; 1 = no retry), and timings is the check's stage breakdown in seconds."""
     per_call, total, fallback = {}, 0.0, False
     for name, u in calls.items():
         if not u:
@@ -60,10 +62,16 @@ def record(model, effort, calls, wall_s, carriers, now=None):
                           "cache_read": u.get("cache_read_input_tokens", 0),
                           "cache_write": u.get("cache_creation_input_tokens", 0),
                           "output": u.get("output_tokens", 0), "cost": round(c, 6)}
+        for key in ("wall_s", "attempts"):
+            if u.get(key) is not None:
+                per_call[name][key] = u[key]
+        if u.get("fallback"):
+            per_call[name]["fallback"] = True
     ts = (now or datetime.datetime.now(datetime.timezone.utc)).isoformat(timespec="seconds")
     return {"ts": ts, "model": model, "effort": effort, "fallback": fallback, "calls": per_call,
             "cost": round(total, 6), "wall_s": round(wall_s, 2), "carriers": carriers,
-            "retries": sum(1 for n in per_call if n.endswith("_retry"))}
+            "retries": sum(1 for n in per_call if n.endswith("_retry")),
+            "timings": {k: round(v, 2) for k, v in (timings or {}).items()}}
 
 
 def append(line):
@@ -141,6 +149,48 @@ def month_summary(now=None):
     except OSError:
         pass
     return checks, dollars
+
+
+def last_line():
+    """The log's last whole line (a dict), or None. Reads only the file's tail."""
+    try:
+        with open(path(), "rb") as fh:
+            fh.seek(0, os.SEEK_END)
+            fh.seek(max(0, fh.tell() - 16384))
+            tail = fh.read().decode("utf-8", "replace").splitlines()
+    except OSError:
+        return None
+    for raw in reversed(tail):
+        try:
+            return json.loads(raw)
+        except ValueError:
+            continue
+    return None
+
+
+# Round 36 step 1: the stage names, in pipeline order, as the panel shows them.
+STAGES = (("routing", "routing"), ("code_eval", "rules in code"), ("retrieval", "retrieval + prompt"),
+          ("models", "model calls"), ("after_models", "after the calls"), ("placement", "placement panel"),
+          ("render", "page"))
+
+
+def timing_line(line=None):
+    """Round 36 step 1: the last check's breakdown for the Fingerprint panel, or "" when there is none."""
+    line = line if line is not None else last_line()
+    if not line or not line.get("timings"):
+        return ""
+    t = line["timings"]
+    stages = " · ".join(f"{label} {t[k]:.1f}s" for k, label in STAGES if k in t)
+    calls = []
+    for name, c in (line.get("calls") or {}).items():
+        if c.get("wall_s") is None:
+            continue
+        att = c.get("attempts")
+        extra = (f", {att} attempts" if att and att > 1 else "") + (", FALLBACK" if c.get("fallback") else "")
+        calls.append(f"{name} {c['wall_s']:.1f}s{extra}")
+    total = t.get("total_with_page", t.get("total", line.get("wall_s", 0)))
+    out = f"Last check ({str(line.get('ts', ''))[:16].replace('T', ' ')} UTC): {total:.1f}s -- {stages}"
+    return out + (f" (calls: {'; '.join(calls)})" if calls else "")
 
 
 def panel_line(now=None):

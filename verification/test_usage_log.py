@@ -20,7 +20,9 @@ from profiles import STANDARD_PROFILE  # noqa: E402
 
 pytestmark = pytest.mark.retrieval
 U = {"input_tokens": 1000, "cache_read_input_tokens": 9000, "cache_creation_input_tokens": 200, "output_tokens": 800}
-ALLOWED_KEYS = {"ts", "model", "effort", "fallback", "calls", "cost", "wall_s", "carriers", "retries"}
+# CHANGED 2026-10-10 (round 36 step 1, Liam: "add a timing breakdown to every usage-log line"): + "timings",
+# the check's stages in seconds -- numbers only, still no property details. Was: the nine keys without it.
+ALLOWED_KEYS = {"ts", "model", "effort", "fallback", "calls", "cost", "wall_s", "carriers", "retries", "timings"}
 
 
 @pytest.fixture

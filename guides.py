@@ -41,6 +41,7 @@ its own page that refers to it.
 """
 
 from shared_resources import get_vectorstore
+import store_cache
 
 
 def _sorted_chunks(program):
@@ -84,9 +85,8 @@ def guide_text_with_pages(program):
 
 def all_programs():
     """Every program that actually has text in the store, sorted."""
-    collection = get_vectorstore()._collection
-    raw = collection.get(include=["metadatas"])
-    return sorted({m["carrier"] for m in raw["metadatas"] if m.get("carrier")})
+    # Round 36 step 1: one cached read per store version (store_cache)
+    return sorted(c for c in store_cache.carriers(get_vectorstore()._collection) if c)
 
 
 # Markings a carrier put on its own document to restrict how it may be shared.

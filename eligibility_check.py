@@ -34,6 +34,7 @@ import quotes
 import hold_guard
 import rules_evaluator
 import topics
+import store_cache
 import usage_log
 from concurrent.futures import ThreadPoolExecutor
 from structured_rules import (
@@ -70,7 +71,17 @@ retriever = load_retriever()
 # verification/experiment_flakiness_sweep.py. It is the SDK's own bounded,
 # exponentially-backed-off retry -- it does NOT swallow errors, and a
 # genuine failure still raises after the budget is spent.
-client = anthropic.Anthropic(max_retries=6)
+# Round 36 step 1: count the HTTP requests each model call sends (thread-local: the calls run in a pool), so
+# the usage log shows the SDK's own retries instead of hiding them in the wall time.
+_HTTP = threading.local()
+
+
+def _count_attempt(request):
+    _HTTP.attempts = getattr(_HTTP, "attempts", 0) + 1
+
+
+client = anthropic.Anthropic(max_retries=6,
+                             http_client=anthropic.DefaultHttpxClient(event_hooks={"request": [_count_attempt]}))
 
 # --- the model, and the only place its identity appears --------------------
 # Liam, 2026-09-29 (prototype, internal testing only -- Jonathan has not
@@ -245,11 +256,21 @@ def _get_openai_client():
     global _openai_client
     if _openai_client is None:
         import openai
-        _openai_client = openai.OpenAI(max_retries=6)
+        _openai_client = openai.OpenAI(
+            max_retries=6, http_client=openai.DefaultHttpxClient(event_hooks={"request": [_count_attempt]}))
     return _openai_client
 
 
 def _complete(system_text, user_content, max_tokens):
+    """Round 36 step 1: _complete_once, timed. Its usage gains wall_s (the call with the SDK's retries and any
+    fallback) and attempts (HTTP requests sent: 1 = no retry; a fallback adds its own)."""
+    _HTTP.attempts = 0
+    t = time.perf_counter()
+    text, usage = _complete_once(system_text, user_content, max_tokens)
+    return text, dict(usage or {}, wall_s=round(time.perf_counter() - t, 2), attempts=getattr(_HTTP, "attempts", 0))
+
+
+def _complete_once(system_text, user_content, max_tokens):
     """THE model call -- the only place ELIGIBILITY_MODEL's identity appears
     below this point. Returns (raw_text, usage_dict); usage_dict's keys are
     Anthropic-shaped (mirrors chat.py's _complete) because that is what the
@@ -696,14 +717,9 @@ def is_eligibility_content(chunk):
 
 
 def get_all_carriers():
-    vectorstore = get_vectorstore()
-    collection = vectorstore._collection
-    results = collection.get(include=["metadatas"])
-    all_carriers = set()
-    for m in results["metadatas"]:
-        if "carrier" in m:
-            all_carriers.add(m["carrier"])
-    return all_carriers
+    # Round 36 step 1: one cached read per store version (store_cache), not a full read per call -- a
+    # check called this four times
+    return set(store_cache.carriers(get_vectorstore()._collection))
 
 
 # Carriers whose FILENAME carries no product token at all. Each is classified
@@ -3463,6 +3479,10 @@ def _sum_usage(usages):
     out = {k: sum(u.get(k, 0) or 0 for u in usages)
            for k in ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")}
     out["calls"] = len(usages)
+    # Round 36 step 1: the calls ran in parallel, so the slowest one is the stage's wall time
+    if any(u.get("wall_s") is not None for u in usages):
+        out["wall_s"] = max(u.get("wall_s") or 0 for u in usages)
+        out["attempts"] = sum(u.get("attempts") or 0 for u in usages)
     out["stop_reason"] = ",".join(str(u.get("stop_reason")) for u in usages)
     if any(u.get("fallback") for u in usages):
         out.update(fallback=True, model=next(u["model"] for u in usages if u.get("fallback")))
@@ -3516,12 +3536,20 @@ NO_CALL_REPLY = '{"carriers": []}'
 LAST_CHECK_INFO = {}
 # Round 31 step 3: where a check's wall time goes (seconds): before the model calls (retrieval and
 # prompt building), the model calls (retries included), and the code after them.
+# Round 36 step 1: also routing (carrier lists, defects, closed programs), code_eval (the rules tables in
+# code) and retrieval (vector search, guaranteed lookups, prompt building) inside before_models.
 LAST_TIMINGS = {}
+# Round 36 step 1: a check run with log_usage=False leaves its line here (per thread: each Streamlit session
+# runs in its own) until log_check_usage adds the page's own time and writes it.
+_PENDING = threading.local()
 
 
-def check_eligibility(property_details, carrier_subset=None, checked_topics=None):
+def check_eligibility(property_details, carrier_subset=None, checked_topics=None, log_usage=True):
     """The eligibility check (see _check_eligibility). Round 31: also records which model answered
-    and stamps every record with model_fallback=True when any of the check's calls fell back."""
+    and stamps every record with model_fallback=True when any of the check's calls fell back.
+    Round 36 step 1: log_usage=False (the app) holds the usage line until log_check_usage(), so the line
+    also times the page; a held line that is never finished is written by the next check, never lost."""
+    _flush_pending()
     LAST_CALL_USAGE.clear()
     LAST_TIMINGS.clear()
     t0 = time.perf_counter()
@@ -3533,6 +3561,11 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
         LAST_TIMINGS["models"] = end - start - LAST_TIMINGS["before_models"]
         LAST_TIMINGS["after_models"] = wall - (end - start)
     LAST_TIMINGS["total"] = wall
+    code = LAST_TIMINGS.pop("_code", None)
+    if code and "before_models" in LAST_TIMINGS:
+        LAST_TIMINGS["routing"] = code[0] - start
+        LAST_TIMINGS["code_eval"] = code[1] - code[0]
+        LAST_TIMINGS["retrieval"] = max(0.0, LAST_TIMINGS["before_models"] - (code[1] - start))
     fallback = any(isinstance(u, dict) and u.get("fallback") for u in LAST_CALL_USAGE.values())
     if fallback:
         for r in results:
@@ -3542,9 +3575,60 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
         ELIGIBILITY_MODEL) else ELIGIBILITY_REASONING_EFFORT, fallback=fallback,
         fallback_model=FALLBACK_MODEL if fallback else None)
     # Round 31 step 2: one usage line per check (no property details, no client data).
-    usage_log.append(usage_log.record(ELIGIBILITY_MODEL, LAST_CHECK_INFO["effort"], dict(LAST_CALL_USAGE), wall,
-                                      len(results)))
+    line = usage_log.record(ELIGIBILITY_MODEL, LAST_CHECK_INFO["effort"], dict(LAST_CALL_USAGE), wall,
+                            len(results), timings=dict(LAST_TIMINGS))
+    if log_usage:
+        usage_log.append(line)
+    else:
+        _PENDING.line = line
     return results
+
+
+def log_check_usage(**page_timings):
+    """Round 36 step 1: write the held usage line with the page's own stages added (render, placement:
+    seconds). Never raises -- logging never breaks a check."""
+    line = getattr(_PENDING, "line", None)
+    _PENDING.line = None
+    if not line:
+        return
+    try:
+        t = line.setdefault("timings", {})
+        t.update({k: round(v, 2) for k, v in page_timings.items()})
+        t["total_with_page"] = round(line.get("wall_s", 0) + sum(page_timings.values()), 2)
+    except Exception as e:                          # noqa: BLE001
+        print("USAGE LOG: page timings dropped --", e)
+    usage_log.append(line)
+
+
+def _flush_pending():
+    """A held line the page never finished (it raised mid-render) is written as it is."""
+    line = getattr(_PENDING, "line", None)
+    if line:
+        _PENDING.line = None
+        usage_log.append(line)
+
+
+# Round 36 step 1: a blank form, for warm_up's code-only pass over the rules tables.
+_WARM_UP_PROFILE = {"year_built": 2000, "occupancy_type": "Owner Occupied", "ownership_type": "Individual Owner",
+                    "coastal_tier": "Not Coastal", "swimming_pool": "No Pool", "has_dogs": "No",
+                    "dog_breeds": [], "solar_panels": "No", "ppc": "", "zip": "", "county": "",
+                    "dwelling_type": "House"}
+
+
+def warm_up():
+    """Round 36 step 1: what the first check in a new server process would otherwise pay for -- the carrier
+    lists and defect scan (store_cache), the embedding model's first query, the rules tables and their
+    parsed map lines. Returns the seconds it took; never raises."""
+    t = time.perf_counter()
+    try:
+        carriers = sorted(get_all_carriers())
+        data_defects.defective_programs()
+        guides.all_programs()
+        get_vectorstore().similarity_search("eligibility", k=1)
+        _rules_pilot_prepare(carriers, dict(_WARM_UP_PROFILE), None)
+    except Exception as e:                          # noqa: BLE001 -- a warm-up problem never stops the app
+        print("WARM-UP: stopped early --", type(e).__name__, str(e)[:160])
+    return time.perf_counter() - t
 
 
 def model_status_line():
@@ -3621,7 +3705,9 @@ def _check_eligibility(property_details, carrier_subset=None, checked_topics=Non
     # Rules-table pilot: the pilot carriers leave retrieval and the main
     # prompt. Everything after the model call uses all_carriers again.
     all_carriers = relevant_carriers
+    t_code = time.perf_counter()
     pilot = _rules_pilot_prepare(relevant_carriers, property_details, checked)
+    LAST_TIMINGS["_code"] = (t_code, time.perf_counter())      # round 36 step 1
     if pilot["carriers"]:
         relevant_carriers = [c for c in relevant_carriers if c not in pilot["carriers"]]
     vectorstore = get_vectorstore()
