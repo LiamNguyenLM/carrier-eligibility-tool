@@ -332,7 +332,8 @@ with tab1:
             # Round 22 (Liam, 2026-10-02): show the pick so an agent can
             # overrule it. Display only -- none of this reaches the prompt.
             pick_caption, pick_warning = intake_fields.zip_pick_lines(zip_text)
-            st.caption(pick_caption)
+            # Round 36 step 3: a ZIP missing from the table, checked as its prefix's county, says so
+            st.caption(pick_caption or zip_message)
             if pick_warning:
                 st.warning(pick_warning)
         elif zip_message and not zip_county:

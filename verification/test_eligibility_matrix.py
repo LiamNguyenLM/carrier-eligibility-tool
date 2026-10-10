@@ -7293,9 +7293,13 @@ class TestZipLookup:
     def test_blank_is_unknown_and_silent(self):
         assert intake_fields.county_for_zip("") == ("", None)
 
+    # CHANGED 2026-10-10 (round 36 step 3, Liam: a ZIP missing from the table takes its 3-digit prefix's county when one county holds at least 90%): 77001 (Houston PO boxes, prefix 770: Harris 98.8%) is checked as Harris. A missing ZIP whose
+    # prefix no county holds at 90% is still blank, now with "Use the property's street ZIP." Was: 77001 blank.
     def test_a_texas_zip_missing_from_the_table_is_blank_and_said(self):
+        county, msg = intake_fields.county_for_zip("75099")      # prefix 750: Dallas 34%, no 90% county
+        assert county == "" and "not in the ZIP-to-county table" in msg and "street ZIP" in msg
         county, msg = intake_fields.county_for_zip("77001")      # Houston PO boxes: no ZCTA
-        assert county == "" and "not in the ZIP-to-county table" in msg
+        assert county == "Harris" and "isn't a street ZIP" in msg
 
     def test_a_non_texas_zip_is_blank_and_said(self):
         assert intake_fields.county_for_zip("90210") == ("", "ZIP 90210 is not a Texas ZIP, so County is left blank.")
@@ -7364,8 +7368,9 @@ class TestZipBox:
         at.text_input(key="zip").input("77002").run()
         assert at.selectbox(key="county").value == "Harris"
 
+    # CHANGED 2026-10-10 (round 36 step 3, Liam: a ZIP missing from the table takes its 3-digit prefix's county when one county holds at least 90%): the missing ZIP here is 75099 (prefix 750 resolves to no county). Was: 77001.
     @pytest.mark.parametrize("zip_, says", [("7700", "five digits"), ("90210", "not a Texas ZIP"),
-                                            ("77001", "not in the ZIP-to-county table")])
+                                            ("75099", "not in the ZIP-to-county table")])
     def test_invalid_non_texas_and_missing_zips_leave_county_blank(self, monkeypatch, zip_, says):
         at, _ = _form(monkeypatch)
         at.text_input(key="zip").input(zip_).run()

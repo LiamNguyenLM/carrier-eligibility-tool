@@ -126,6 +126,31 @@ def _load_zip_counties():
 
 ZIP_COUNTIES, ZIP_TABLE_HEADER = _load_zip_counties()
 
+# Round 36 step 3 (Liam, 2026-10-10): his check used ZIP 77248, a Houston PO-box ZIP the Census table does not
+# have, and County was left blank. A ZIP missing from the table is checked as the county that holds at least
+# PREFIX_SHARE_MIN of the summed shares of every table ZIP with its first three digits; below that, County
+# stays blank. 12 of the 49 Texas prefixes in the table resolve.
+PREFIX_SHARE_MIN = 0.90
+
+
+def _prefix_counties(table):
+    """{3-digit prefix: (county, share of the prefix)} for the prefixes one county holds at PREFIX_SHARE_MIN."""
+    sums = {}
+    for zip5, counties in table.items():
+        d = sums.setdefault(zip5[:3], {})
+        for county, share in counties:
+            d[county] = d.get(county, 0.0) + share
+    out = {}
+    for prefix, d in sums.items():
+        total = sum(d.values())
+        county, share = sorted(d.items(), key=lambda cs: (-cs[1], cs[0]))[0]
+        if total and share / total >= PREFIX_SHARE_MIN:
+            out[prefix] = (county, share / total)
+    return out
+
+
+PREFIX_COUNTIES = _prefix_counties(ZIP_COUNTIES)
+
 
 def parse_zip(value):
     """(five-digit ZIP, None) or (None, one-line message). Spaces are
@@ -160,8 +185,13 @@ def county_for_zip(value):
     found = counties_for_zip(zip5)
     if not found:
         if is_texas_zip_range(zip5):
+            # Round 36 step 3: the prefix's county, when one county holds at least 90% of it
+            pick = PREFIX_COUNTIES.get(zip5[:3])
+            if pick:
+                return pick[0], (f"ZIP {zip5} isn't a street ZIP (it may be a PO box). Checked as {pick[0]} "
+                                 "County; change County if the home is elsewhere.")
             return "", (f"ZIP {zip5} is not in the ZIP-to-county table (PO-box-only and some "
-                        "special ZIPs are missing), so County is left blank.")
+                        "special ZIPs are missing), so County is left blank. Use the property's street ZIP.")
         return "", f"ZIP {zip5} is not a Texas ZIP, so County is left blank."
     county = found[0][0]
     if len(found) == 1:
