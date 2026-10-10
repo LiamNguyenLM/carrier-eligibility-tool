@@ -2225,6 +2225,125 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     Seven suites were run in parallel and the laptop slept for part of
     it: most runs took 7-8 h of wall time. a838645 alone took 27 min.
 
+- **2026-10-10 — Round 36: ready for agent testing.** Built on 8113499
+  (origin/main), unpushed. Liam's Railway check (2026-10-10): ZIP 77248, PPC
+  5, Not Coastal, hydrant Yes, Owner Occupied, Individual Owner, built 1994,
+  no pool, no solar, House. It took just under 2 min, then 1 min 37 s; it
+  used to take about 1 min.
+  - **Most likely cause on Railway: the rules pilot is OFF there.** With the
+    pilot ON, his profile takes 12-15 s locally: one rules call of ~9-14 s, no
+    main call, 1 attempt, no fallback. With the pilot OFF it reproduces
+    everything he saw:
+    - one main call over all 27 carriers (31.7k input / ~12.5k output
+      tokens), 63-73 s locally;
+    - Allied held on "Insurance score" (1 of 2 runs) and Progressive HO3
+      held on "County" (2 of 2).
+
+    The pilot reads `ELIGIBILITY_RULES_PILOT` and is ON only for exactly
+    "1" (" 1" or "true" are OFF, Round 27). Check the Fingerprint panel's
+    "Rules pilot:" line. The new timing line shows a "main" call of tens of
+    seconds when the pilot is off.
+  - **Step 1 (981b6d7; follow-up 6547f98): speed.**
+    - Of the causes Liam listed:
+      - cold start: real but small (12 s of imports on the first page
+        load, which is the login page);
+      - rate-limit retries / Luna fallback: none locally (now counted per
+        call);
+      - extra calls (omitted-carrier retry, empty-reply retry): none on his
+        profile;
+      - the rules call: it is parallel, and the only call;
+      - retrieval: 1 query embedding;
+      - placement panel: 0.26 s cold, 0.01 s warm.
+    - What the code itself wasted:
+      - every check read the whole Chroma collection 5 times, and re-ran
+        the ~1 s defect scan;
+      - every rerun (any click) read it 3-4 more times for the Manage tab.
+    - `store_cache.py`: one read per store version, keyed on the row count,
+      the sqlite file stat and a counter that upload / remove bump. The
+      defect scan is cached the same way, with identical results.
+    - Every usage line has `timings` (routing, code_eval, retrieval,
+      models, after_models, placement, render, total, total_with_page).
+      Each call records `wall_s` and `attempts` (HTTP requests, via an httpx
+      hook).
+    - The Fingerprint panel shows the last check's breakdown.
+    - The app warms up in a background thread at start.
+  - **Step 4 (253fb86, 543bc81): holds that should be notes.**
+    - Model path only. With the pilot ON, Allied and Progressive were
+      already decided in code: Eligible, with ALL-209 / PRO-072 in "also
+      confirm".
+    - `hold_guard` NOT_ASKED gains:
+      - insurance / credit score (the guard had no entry for it);
+      - from the round 34-36 outputs: coverages B-F (Coverage C x9) and
+        firewalls / unit separation (x9).
+    - Unchanged:
+      - Liam's named Sage FPC items (alarm, road visibility, 10-ft access)
+        stay holds;
+      - "Single Building definition" (x14) is untouched; it is about the
+        form's Dwelling type.
+    - A model item on a blank County / Coverage A is a confirm note (Liam,
+      2026-10-03), except the named holds: Sage's territory and CHUBB.
+    - Real runs, County blank:
+      - live: Allied and Progressive Eligible, Sage Auros held on County;
+      - pilot OFF: Progressive's County hold became a confirm note, and
+        Sage stayed held.
+    - Markel / Vave (no county rule) with a blank County: a dated test
+      update.
+  - **Step 3 (7b691a9): ZIP fallback.**
+    - A Texas ZIP missing from the table takes the county holding at least
+      90% of the summed shares of the table ZIPs with its first three
+      digits. 77248 gives "ZIP 77248 isn't a street ZIP (it may be a PO
+      box). Checked as Harris County; change County if the home is
+      elsewhere."
+    - Otherwise County stays blank, with "Use the property's street ZIP."
+    - 12 of the 49 Texas prefixes resolve: 752/753 Dallas, 761 Tarrant, 767
+      McLennan, 770/772 Harris, 777 Jefferson, 782 Bexar, 784 Nueces, 787
+      Travis, 794 Lubbock, 799 El Paso. 772 resolves from one table ZIP,
+      77204.
+  - **Step 6 (db89ac6): "This looks wrong".**
+    - A popover on every card: "It should be" Eligible / Ineligible / Refer
+      / Not sure, and an optional comment.
+    - Each report appends to `carrier_docs_db/feedback_log.jsonl` (the same
+      atomic append as the usage log) with: ts, app_version
+      (RAILWAY_GIT_COMMIT_SHA, else git HEAD), name, property details as
+      entered, carrier, display name, verdict, reasons, deciding rows,
+      model, choice, comment.
+    - It is a fragment, and Send writes in a callback, so the results stay
+      on screen and a check never writes or reads the log.
+    - "Your name (optional)" sits at the top of the form.
+    - The Manage tab has this week's count and a "Download feedback" CSV.
+  - **Step 5 (71c5b05): display names** (`display_names.py`).
+    - Used on card titles, Could Not Be Checked lines, the placement panel,
+      Ask the Guides and the feedback log.
+    - Each verdict card's Details has the guide's date and file.
+    - Prompts, citations, rules tables, logs and the Manage list keep
+      program names.
+  - **Step 7 (8f4c4e7):** a collapsed "About this tool (testing)" box at the
+    top of the form, six plain lines.
+  - **Step 8.**
+    - Tier 2 at 8f4c4e7 (Haiku low, pilot + all batches ON, panel ON): 29
+      passed, 0 failed, 7 xfailed.
+    - Liam's exact form (Select All; the ZIP now gives Harris), 3 real
+      checks through the app: 15.8 / 14.0 / 14.1 s button to page. The
+      model call is 13.2-13.8 s; the rest is under 1.2 s; 1 attempt each.
+    - Same verdicts all 3 times:
+      - 16 Eligible, including Allied and Progressive;
+      - Insufficient: CHUBB, Sage Auros / SURE / SafePort / Trium /
+        Wilshire;
+      - Ineligible: ARI HOB, Foremost, NatGen OneChoice HO3;
+      - 2 guides unavailable.
+    - Two fast tiers were running on the machine at the time.
+  - **Fast tier per commit** (verification/, not baseline):
+
+    | Commit | Step | Result |
+    |---|---|---|
+    | 981b6d7 | 1 | 4,003 passed, 2 failed: the dispatch test (real, fixed in 6547f98) and a 300 s subprocess timeout under load (passes alone) |
+    | 253fb86 + 543bc81 | 4 | 4,032 passed, 1 failed: the dispatch test (pre-6547f98) |
+    | 7b691a9 | 3 | 4,045 passed, 1 failed: the dispatch test (pre-6547f98) |
+    | db89ac6 | 6 | 4,059 passed, 1 failed: the dispatch test (pre-6547f98) |
+    | 6547f98 | 1 follow-up | covered by the next two |
+    | 71c5b05 | 5 | 4,074 passed, 0 failed |
+    | 8f4c4e7 | 7 | 4,076 passed, 0 failed |
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
