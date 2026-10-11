@@ -2464,6 +2464,26 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     | 38d6c1e | 3 | 4,397 passed, 0 failed |
     | 73a6d24 | 4 | 4,399 passed, 0 failed |
 
+- **2026-10-11 — Round 37 follow-up 2 (7a3330e).** Display and prompt
+  wording only; zero-API tests.
+  - Reasons no longer lose words where row IDs were. A held card leads with
+    code's own reason:
+    - Chubb on Harris: "Chubb restricts all of Harris County (unacceptable
+      in 1A, pre-approval in 1B/1C/1E); the form can't tell which area.
+      Coverage A is also needed."
+    - Sage FPC rows: "Held: if the fire station is more than 5 miles away,
+      ... Confirm the distance."
+  - Model reasons that cite rows become the rows' rules. An inline ID reads
+    "the guide's rule".
+  - The internal "Rules table: the pilot answer said ..." note is removed.
+  - The prompts say the form asks about losses and electrical (optional).
+  - ORI-049 / NCD-135 moved from business to site.
+  - The not-checked banner renders on Liam's exact form locally. If
+    Railway's page lacks it, compare its Fingerprint panel with the seed:
+    41 carriers, 2,538 chunks, documents 12ed1995e3f4c1d0, metadata
+    42a2fde2fa142e84.
+  - Fast tier: 4,412 passed, 0 failed. Tier 2: not run.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
