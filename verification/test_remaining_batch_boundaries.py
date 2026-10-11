@@ -64,6 +64,10 @@ CASES = [
     ("HDP-004", {"dwelling_amount": 350000}, "ppc", {"7": "N/A", "8": "FAIL", "10": "FAIL"}),
     # ---- Liberty / Safeco Landlord
     money("LDP-069", 1500000, "over_refers"),                 # "Coverage A over $1.5 million must be referred"
+    # round 37 step 4: "On homes built before 1976, any fuses, knob & tube wiring or aluminum wiring makes the home
+    # ineligible" (the electrical question decides it)
+    ("LDP-048", {"electrical": ["Fuses"]}, "year_built", {1975: "FAIL", 1976: "N/A"}),
+    ("LDP-048", {"electrical": ["Circuit breakers"]}, "year_built", {1975: "PASS", 1976: "N/A"}),
     # ---- NatGen Custom360 Landlord
     money("NCD-027", 1500000, "max", {"ppc": "8"}),           # "protection class 1-8 ... maximum $1,500,000"
     ("NCD-027", {"dwelling_amount": 1600000}, "ppc", {"1": "FAIL", "8": "FAIL", "9": "N/A"}),
