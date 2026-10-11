@@ -544,6 +544,11 @@ def _open_fact_now(open_fact, unknown):
             fields = [f for w, f in (("station", "fire_station_miles"), ("hydrant", "hydrant_1000ft")) if w in p]
             if fields and not any(f in unknown for f in fields):
                 continue
+            # Round 38 step 1 (Liam, 2026-10-11): "station / hydrant distance" with the station distance given
+            # names only what is still open -- the card's reason is built from this
+            if len(fields) == 2 and not all(f in unknown for f in fields):
+                p = ("station distance if not given" if "fire_station_miles" in unknown
+                     else "hydrant within 1,000 ft if not given")
         keep.append(p)
     return "; ".join(keep)
 
@@ -858,19 +863,41 @@ def held_reason(outcomes, opens):
     for rows, text in HELD_REASON_BY_ROWS:
         if rows & set(opens):
             return text
-    details = [outcomes[rid][1] for rid in opens]
-    if any("station" in d and "distance" in d for d in details):
-        return ("Held: if the fire station is more than 5 miles away, this guide's higher-risk fire protection rules "
-                "apply (for example, the home must be under 25 years old). Confirm the distance.")
-    facts = []
-    for d in details:
-        for part in re.split(r";\s*", re.sub(r"\s*if not given", "", d)):
-            part = part.strip()
-            if part and not part.startswith(("ambiguous", "the row's effect")) and part not in facts:
-                facts.append(part)
-    first = rules[opens[0]]["Plain rule"].rstrip(".") if opens else ""
-    return ("Held: the form does not give " + (", ".join(facts) if facts else "a fact this guide needs")
-            + (f". This guide: {first}." if first else ".") + " Confirm it.")
+    # Round 38 step 1 (Liam, 2026-10-11): built from what the holding rows still lack -- never a fact the form
+    # answered. The 5-mile rule is named only when the station distance is blank.
+    parts = [p.strip() for rid in opens for p in outcomes[rid][1].split(";") if p.strip()]
+    parts = [p for p in parts if not p.startswith(("ambiguous", "the row's effect"))]
+    low = [p.lower() for p in parts]
+    station = any("station" in p and "if not given" in p for p in low)
+    hydrant = any("hydrant" in p and "if not given" in p for p in low)
+    if station:
+        return ("Held: if the fire station is more than 5 miles away" + (" (or no hydrant is within 1,000 ft)" if hydrant
+                                                                           else "")
+                + ", this guide's higher-risk fire protection rules apply (for example, the home must be under 25 "
+                  "years old). Confirm the distance" + (" and the hydrant." if hydrant else "."))
+    needs, fire_table = [], False
+
+    def add(x):
+        if x not in needs:
+            needs.append(x)
+    for p in low:
+        if "hydrant" in p and "if not given" in p:
+            fire_table = True
+            add("whether a hydrant is within 1,000 ft")
+        elif any(w in p for w in ("visibility", "visible", "alarm", "access")):
+            fire_table = True
+            add("whether the home is visible from the road, has a central station alarm and 10-ft year-round "
+                "fire-truck access")
+        elif "fire loss" in p:
+            add("whether there were prior fire losses")
+        elif p:
+            add(re.sub(r"\s*if not given", "", p).strip())
+    if not needs:
+        first = rules[opens[0]]["Plain rule"].rstrip(".") if opens else ""
+        return "Held: this guide needs a fact the form does not give" + (f" ({first})" if first else "") + ". Confirm it."
+    joined = needs[0] if len(needs) == 1 else ", ".join(needs[:-1]) + ", and " + needs[-1]
+    return ("Held: " + ("this guide's fire-protection table needs to know " if fire_table else "this guide needs to "
+                        "know ") + joined + (". Confirm these." if len(needs) > 1 else ". Confirm it."))
 
 
 def readable_reasons(rec):

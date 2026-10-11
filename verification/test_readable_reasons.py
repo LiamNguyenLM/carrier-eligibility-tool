@@ -61,14 +61,22 @@ def test_held_reasons():
     assert rv.held_reason(harris, ["CHU-043", "CHU-044"]) == (
         "Chubb restricts all of Harris County (unacceptable in 1A, pre-approval in 1B/1C/1E); the form can't tell "
         "which area.")
+    # CHANGED 2026-10-11 (round 38 step 1, Liam: a held reason names only what is still open). With the station
+    # distance and the hydrant both blank the reason names both; with only the distance blank, only it. Was: the
+    # fixed distance sentence for either, and "Held: the form does not give ... This guide: ..." for the rest.
     fpc = {"SAG-076": ("OPEN", "station distance if not given; visibility, alarm, access, fire losses"),
            "SAG-078": ("OPEN", "station / hydrant distance if not given")}
     assert rv.held_reason(fpc, ["SAG-076", "SAG-078"]) == (
+        "Held: if the fire station is more than 5 miles away (or no hydrant is within 1,000 ft), this guide's "
+        "higher-risk fire protection rules apply (for example, the home must be under 25 years old). Confirm the "
+        "distance and the hydrant.")
+    only_distance = {"SAG-076": ("OPEN", "station distance if not given; visibility, alarm, access, fire losses")}
+    assert rv.held_reason(only_distance, ["SAG-076"]) == (
         "Held: if the fire station is more than 5 miles away, this guide's higher-risk fire protection rules apply "
         "(for example, the home must be under 25 years old). Confirm the distance.")
     other = {"ALL-030": ("OPEN", "pool fence height if not given")}
     text = rv.held_reason(other, ["ALL-030"])
-    assert text.startswith("Held: the form does not give pool fence height. This guide: ") and text.endswith(" Confirm it.")
+    assert text == "Held: this guide needs to know pool fence height. Confirm it."
     assert not DANGLING.search(text) and "[" not in text
 
 
