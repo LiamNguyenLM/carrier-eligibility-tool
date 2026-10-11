@@ -6950,9 +6950,11 @@ class TestCheckedTopics:
         _, part = _raw_prompt_kw(STANDARD_PROFILE, checked_topics=_THREE)
         assert "PARTIAL CHECK" not in full
         line = [l for l in part.splitlines() if l.startswith("PARTIAL CHECK")][0]
-        for label in ("PPC", "Swimming pool", "Plumbing", "Roof type", "County"):
+        # CHANGED 2026-10-11 (round 37 follow-up, Liam: an unticked County or Coverage A box means the same as a blank one): County and Coverage A are read
+        # as blank, not left out, so the line does not name them. Was: "County" in the line.
+        for label in ("PPC", "Swimming pool", "Plumbing", "Roof type"):
             assert label in line
-        for label in ("Roof age", "Solar panels", "Year built"):
+        for label in ("Roof age", "Solar panels", "Year built", "County", "Coverage A"):
             assert label not in line
         assert "missing_info" in line
 
@@ -6983,14 +6985,21 @@ class TestCheckedTopics:
         ans = _answer_for(_usable("Owner Occupied"))
         held = _by_carrier(_replayed_run_kw(_LIAM_PPC3, ans))[auros]
         free = _by_carrier(_replayed_run_kw(_LIAM_PPC3, ans, checked_topics=["ppc"]))[auros]
-        assert held["status"] == "INSUFFICIENT_INFORMATION" and free["status"] == "ELIGIBLE"
+        # CHANGED 2026-10-11 (round 37 follow-up, Liam: an unticked County or Coverage A box means the same as a blank one): the unticked County is blank, so
+        # Sage's named County hold fires. Was: free["status"] == "ELIGIBLE" (no hold with County unticked).
+        assert held["status"] == "INSUFFICIENT_INFORMATION" and free["status"] == "INSUFFICIENT_INFORMATION"
+        assert any(m.startswith("County -- ") for m in free["missing_info"])
 
     def test_no_chubb_hold_or_refer_with_dwelling_amount_unchecked(self):
         prof = dict(_LIAM_PPC3, dwelling_amount=450000)
         on = _by_carrier(_replayed_run_kw(prof, _chubb_answer()))[_CHUBB]
         off = _by_carrier(_replayed_run_kw(prof, _chubb_answer(), checked_topics=["ppc"]))[_CHUBB]
         blank_off = _by_carrier(_replayed_run_kw(_LIAM_PPC3, _chubb_answer(), checked_topics=["ppc"]))[_CHUBB]
-        assert on["status"] == "REFER" and off["status"] == "ELIGIBLE" and blank_off["status"] == "ELIGIBLE"
+        # CHANGED 2026-10-11 (round 37 follow-up, Liam: an unticked County or Coverage A box means the same as a blank one): the unticked Coverage A is
+        # blank, so CHUBB's named Coverage A hold fires. Was: off and blank_off ELIGIBLE (no hold, no refer).
+        assert on["status"] == "REFER"
+        assert off["status"] == blank_off["status"] == "INSUFFICIENT_INFORMATION"
+        assert any(m.startswith("Dwelling amount (Coverage A)") for m in off["missing_info"])
 
     def test_no_fpc_override_with_ppc_unchecked(self):
         sure = "Sage_-_SURE_HO-3_-_01.31.2026"
@@ -7394,7 +7403,10 @@ class TestZipBox:
         r = _by_carrier(_replayed_run_kw(dict(_LIAM_PPC3, county=pd["county"], zip=pd["zip"]),
                                          _answer_for(_usable("Owner Occupied")),
                                          checked_topics=checked + ["ppc"]))[auros]
-        assert r["status"] == "ELIGIBLE"            # no Sage hold, no out-of-territory decline
+        # CHANGED 2026-10-11 (round 37 follow-up, Liam: an unticked County or Coverage A box means the same as a blank one): the unticked County reads as blank, so Sage's
+        # named County hold fires. Was: ELIGIBLE (no Sage hold, no out-of-territory decline).
+        assert r["status"] == "INSUFFICIENT_INFORMATION"
+        assert any(m.startswith("County -- ") for m in r["missing_info"])
 
     def test_county_checked_by_zip_runs_the_sage_rule(self, monkeypatch):
         at, calls = _form(monkeypatch)

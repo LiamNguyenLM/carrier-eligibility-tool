@@ -109,10 +109,12 @@ def test_a_prefilled_county_and_a_typed_one_give_every_carrier_the_same_verdict(
     assert len(typed) >= 25 and sum(1 for r in typed.values() if r.get("rules_table")) >= 20
 
 
+# CHANGED 2026-10-11 (round 37 follow-up, Liam: an unticked County or Coverage A box means the same as a blank one): with both boxes unticked
+# Chubb is held on its Coverage A hold, as with both blank. Was: ELIGIBLE (the unticked topics were skipped).
 @pytest.mark.parametrize("untick,status", [(("county",), "INSUFFICIENT_INFORMATION"),
                                            (("dwelling_amount",), "INSUFFICIENT_INFORMATION"),
-                                           (("county", "dwelling_amount"), "ELIGIBLE")])
-def test_the_only_way_to_liams_eligible_is_both_boxes_unticked(live, untick, status):
+                                           (("county", "dwelling_amount"), "INSUFFICIENT_INFORMATION")])
+def test_unticked_boxes_never_make_chubb_eligible(live, untick, status):
     pd, kw, res = run(live, "prefilled", None, "Unknown", untick=untick)
     assert pd["county"] == "Harris" and not set(untick) & set(kw["checked_topics"])
     assert res[CHUBB]["status"] == status

@@ -3564,6 +3564,7 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
     Round 36 step 1: log_usage=False (the app) holds the usage line until log_check_usage(), so the line
     also times the page; a held line that is never finished is written by the next check, never lost."""
     _flush_pending()
+    property_details, checked_topics = unticked_is_blank(property_details, checked_topics)
     LAST_CALL_USAGE.clear()
     LAST_TIMINGS.clear()
     t0 = time.perf_counter()
@@ -3596,6 +3597,30 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
     else:
         _PENDING.line = line
     return results
+
+
+# Round 37 follow-up (Liam, 2026-10-11): an unticked County or Coverage A box means the same as a blank one. On
+# Railway his Harris profile (ZIP pre-filled, both boxes unticked) gave Chubb Eligible: the unticked topics were
+# skipped, so Chubb's territory rows (CHU-043/044) and its Coverage A hold never ran, and Foremost's Harris row
+# never declined. A blank County / Coverage A is decided by Liam's 2026-10-03 rule (a confirm note, except the
+# named holds: Sage's territory, CHUBB), so unticked must read as blank -- including the ZIP and the East of 146
+# answer, which belong to the County topic.
+BLANK_WHEN_UNTICKED = {"county": {"county": "", "zip": ""}, "dwelling_amount": {"dwelling_amount": None}}
+
+
+def unticked_is_blank(property_details, checked_topics):
+    """(property_details, checked_topics) with an unticked County / Coverage A topic turned into a ticked, blank
+    one. None (every topic checked) is returned as it is."""
+    if checked_topics is None:
+        return property_details, checked_topics
+    pd, checked = dict(property_details), list(checked_topics)
+    for topic, blanks in BLANK_WHEN_UNTICKED.items():
+        if topic not in checked:
+            pd.update(blanks)
+            if topic == "county":
+                pd.pop("harris_east_146", None)      # asked only for Harris: a blank County never carries it
+            checked.append(topic)
+    return pd, checked
 
 
 def log_check_usage(**page_timings):
