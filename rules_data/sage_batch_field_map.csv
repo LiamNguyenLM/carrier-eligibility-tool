@@ -70,8 +70,8 @@ SUR-078,NONE,,,DECLINES,,not asked by the form
 SUR-079,NONE,,,DECLINES,,not asked by the form
 SUR-081,NONE,,,DECLINES,,not asked by the form
 SUR-082,NONE,,,DECLINES,,loss / claims history is not asked
-SUR-083,NONE,,,DECLINES,,loss / claims history is not asked
-SUR-084,NONE,,,DECLINES,,loss / claims history is not asked
+SUR-083,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2}",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+SUR-084,losses_5yr;losses_3yr;loss_types,"(losses_5yr in {0, 1, 2} or (losses_5yr in {3 or more} and FACT(no more than 3 losses in the last 6 years))) and FACT(no more than 3 losses in the last 6 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 SUR-085,NONE,,,NOTE,,loss / claims history is not asked
 SUR-086,NONE,,,NOTE,,loss / claims history is not asked
 SUR-087,NONE,,,CONDITION,,loss / claims history is not asked
@@ -97,8 +97,8 @@ SUR-132,NONE,,,DECLINES,,not asked by the form
 SUR-133,NONE,,,REFERS_TO_UW,,not asked by the form
 SUR-135,plumbing_type,plumbing_type != Polybutylene,always,DECLINES,,
 SUR-136,NONE,,,DECLINES,,wiring and panels are not asked
-SUR-137,NONE,,,DECLINES,,wiring and panels are not asked
-SUR-138,NONE,,,DECLINES,,wiring and panels are not asked
+SUR-137,electrical,electrical none_of {Federal Pacific or Zinsco panel} and FACT(no Magnetrip or Challenger or Sylvania panel),always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
+SUR-138,electrical,"electrical none_of {Aluminum branch wiring, Knob-and-tube wiring, Fuses}",always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
 SUR-140,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 SUR-141,NONE,,,NOTE,,"heating, cooling and water heater are not asked"
 SUR-142,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
@@ -183,8 +183,8 @@ SFP-083,NONE,,,DECLINES,,not asked by the form
 SFP-084,NONE,,,DECLINES,,not asked by the form
 SFP-086,NONE,,,DECLINES,,not asked by the form
 SFP-087,NONE,,,DECLINES,,loss / claims history is not asked
-SFP-088,NONE,,,DECLINES,,loss / claims history is not asked
-SFP-089,NONE,,,DECLINES,,loss / claims history is not asked
+SFP-088,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2}",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+SFP-089,losses_5yr;losses_3yr;loss_types,"(losses_5yr in {0, 1, 2} or (losses_5yr in {3 or more} and FACT(no more than 3 losses in the last 6 years))) and FACT(no more than 3 losses in the last 6 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 SFP-090,NONE,,,NOTE,,loss / claims history is not asked
 SFP-091,NONE,,,NOTE,,loss / claims history is not asked
 SFP-092,NONE,,,CONDITION,,loss / claims history is not asked
@@ -211,8 +211,8 @@ SFP-139,NONE,,,DECLINES,,not asked by the form
 SFP-140,NONE,,,REFERS_TO_UW,,not asked by the form
 SFP-142,plumbing_type,plumbing_type != Polybutylene,always,DECLINES,,
 SFP-143,NONE,,,DECLINES,,wiring and panels are not asked
-SFP-144,NONE,,,DECLINES,,wiring and panels are not asked
-SFP-145,NONE,,,DECLINES,,wiring and panels are not asked
+SFP-144,electrical,electrical none_of {Federal Pacific or Zinsco panel} and FACT(no Magnetrip or Challenger or Sylvania panel),always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
+SFP-145,electrical,"electrical none_of {Aluminum branch wiring, Knob-and-tube wiring, Fuses}",always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
 SFP-146,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 SFP-147,NONE,,,NOTE,,"heating, cooling and water heater are not asked"
 SFP-148,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
@@ -286,8 +286,8 @@ WIL-084,NONE,,,DECLINES,,not asked by the form
 WIL-085,NONE,,,DECLINES,,not asked by the form
 WIL-087,NONE,,,DECLINES,,not asked by the form
 WIL-088,NONE,,,DECLINES,,loss / claims history is not asked
-WIL-089,NONE,,,DECLINES,,loss / claims history is not asked
-WIL-090,NONE,,,DECLINES,,loss / claims history is not asked
+WIL-089,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2}",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+WIL-090,losses_5yr;losses_3yr;loss_types,"(losses_5yr in {0, 1, 2} or (losses_5yr in {3 or more} and FACT(no more than 3 losses in the last 6 years))) and FACT(no more than 3 losses in the last 6 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 WIL-091,NONE,,,NOTE,,loss / claims history is not asked
 WIL-092,NONE,,,NOTE,,loss / claims history is not asked
 WIL-093,NONE,,,CONDITION,,loss / claims history is not asked
@@ -312,8 +312,8 @@ WIL-137,NONE,,,DECLINES,,not asked by the form
 WIL-138,NONE,,,REFERS_TO_UW,,not asked by the form
 WIL-140,plumbing_type,plumbing_type != Polybutylene,always,DECLINES,,
 WIL-141,NONE,,,DECLINES,,wiring and panels are not asked
-WIL-142,NONE,,,DECLINES,,wiring and panels are not asked
-WIL-143,NONE,,,DECLINES,,wiring and panels are not asked
+WIL-142,electrical,electrical none_of {Federal Pacific or Zinsco panel} and FACT(no Magnetrip or Challenger or Sylvania panel),always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
+WIL-143,electrical,"electrical none_of {Aluminum branch wiring, Knob-and-tube wiring, Fuses}",always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
 WIL-145,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 WIL-146,NONE,,,NOTE,,"heating, cooling and water heater are not asked"
 WIL-147,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
@@ -366,8 +366,8 @@ TRI-050,NONE,,,REFERS_TO_UW,,siding / construction details are not form options
 TRI-051,NONE,,,CONDITION,,siding / construction details are not form options
 TRI-052,plumbing_type,plumbing_type != Polybutylene,always,DECLINES,,
 TRI-054,NONE,,,DECLINES,,wiring and panels are not asked
-TRI-055,NONE,,,DECLINES,,wiring and panels are not asked
-TRI-056,NONE,,,DECLINES,,wiring and panels are not asked
+TRI-055,electrical,electrical none_of {Federal Pacific or Zinsco panel} and FACT(no Magnetrip or Challenger or Sylvania panel),always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
+TRI-056,electrical,"electrical none_of {Aluminum branch wiring, Knob-and-tube wiring, Fuses}",always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
 TRI-057,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 TRI-058,NONE,,,NOTE,,"heating, cooling and water heater are not asked"
 TRI-059,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
@@ -406,8 +406,8 @@ TRI-110,dwelling_amount,dwelling_amount <= 2000000,always,DECLINES,,
 TRI-111,dwelling_amount,dwelling_amount <= 1250000,always,REFERS_TO_UW,,
 TRI-114,dwelling_amount,dwelling_amount >= 85000,always,REFERS_TO_UW,,
 TRI-115,NONE,,,CONDITION,,"TIV, Coverage B and the HO5 form are not asked"
-TRI-129,NONE,,,DECLINES,,loss / claims history is not asked
-TRI-130,NONE,,,DECLINES,,loss / claims history is not asked
+TRI-129,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2}",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+TRI-130,losses_5yr;losses_3yr;loss_types,"(losses_5yr in {0, 1, 2} or (losses_5yr in {3 or more} and FACT(no more than 3 losses in the last 6 years))) and FACT(no more than 3 losses in the last 6 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 TRI-131,NONE,,,NOTE,,loss / claims history is not asked
 TRI-132,NONE,,,NOTE,,loss / claims history is not asked
 TRI-133,NONE,,,NOTE,,loss / claims history is not asked
@@ -459,9 +459,9 @@ MKL-034,NONE,,,DECLINES,,siding / construction details are not form options
 MKL-035,NONE,,,DECLINES,,siding / construction details are not form options
 MKL-036,NONE,,,DECLINES,,siding / construction details are not form options
 MKL-037,NONE,,,DECLINES,,siding / construction details are not form options
-MKL-038,NONE,,,DECLINES,,wiring and panels are not asked
+MKL-038,electrical,"electrical none_of {Fuses, Knob-and-tube wiring, Aluminum branch wiring}",always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
 MKL-039,NONE,,,DECLINES,,wiring and panels are not asked
-MKL-040,NONE,,,DECLINES,,wiring and panels are not asked
+MKL-040,electrical,electrical none_of {Federal Pacific or Zinsco panel} and FACT(no Sylvania or Challenger panel),always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
 MKL-043,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 MKL-044,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 MKL-045,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
@@ -480,9 +480,9 @@ MKL-080,NONE,,,DECLINES,,"TIV, Coverage B and the HO5 form are not asked"
 MKL-081,NONE,,,DECLINES,,"TIV, Coverage B and the HO5 form are not asked"
 MKL-082,NONE,,,REFERS_TO_UW,,"TIV, Coverage B and the HO5 form are not asked"
 MKL-085,NONE,,,REFERS_TO_UW,,"TIV, Coverage B and the HO5 form are not asked"
-MKL-104,NONE,,,DECLINES,,loss / claims history is not asked
-MKL-105,NONE,,,DECLINES,,loss / claims history is not asked
-MKL-106,NONE,,,DECLINES,,loss / claims history is not asked
+MKL-104,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0} or loss_types none_of {Fire, Other} or FACT(no fire loss over $25000 in the past 5 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+MKL-105,losses_5yr;losses_3yr;loss_types,losses_5yr in {0} or FACT(no loss over $100000 in the last 5 years),always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+MKL-106,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0, 1, 2} or (losses_5yr in {3 or more} and FACT(fewer than 4 losses in the last 5 years))",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 MKL-107,NONE,,,DECLINES,,loss / claims history is not asked
 MKL-108,NONE,,,DECLINES,,loss / claims history is not asked
 MKL-109,NONE,,,DECLINES,,loss / claims history is not asked
@@ -514,8 +514,8 @@ VAV-042,NONE,,,DECLINES,,siding / construction details are not form options
 VAV-043,NONE,,,DECLINES,,siding / construction details are not form options
 VAV-044,NONE,,,DECLINES,,siding / construction details are not form options
 VAV-047,plumbing_type,"plumbing_type not in {Galvanized, Polybutylene, Cast iron}",always,DECLINES,,"'galvanized, steel, iron or polybutylene': iron includes cast iron (round 35); steel is not a form option"
-VAV-048,NONE,,,DECLINES,,wiring and panels are not asked
-VAV-050,NONE,,,DECLINES,,wiring and panels are not asked
+VAV-048,electrical,"electrical none_of {Fuses, Aluminum branch wiring, Knob-and-tube wiring}",always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
+VAV-050,electrical,electrical none_of {Federal Pacific or Zinsco panel} and FACT(no Challenger or Pushmatic panel),always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
 VAV-051,NONE,,,DECLINES,,wiring and panels are not asked
 VAV-052,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 VAV-062,NONE,,,DECLINES,,other animals and bite claims are not asked
@@ -525,11 +525,11 @@ VAV-074,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or 
 VAV-078,dwelling_amount,dwelling_amount >= 100000,always,DECLINES,,
 VAV-079,dwelling_amount,dwelling_amount <= 2000000,always,DECLINES,,
 VAV-080,NONE,,,DECLINES,,"TIV, Coverage B and the HO5 form are not asked"
-VAV-089,NONE,,,DECLINES,,loss / claims history is not asked
-VAV-090,NONE,,,DECLINES,,loss / claims history is not asked
+VAV-089,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0} or loss_types none_of {Water, Fire, Liability, Theft, Other} or FACT(no non-cat or liability loss over $25000 in the last 3 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+VAV-090,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1} or loss_types none_of {Water, Fire, Liability, Theft, Other} or (not (loss_types none_of {Wind or hail, Other}) and FACT(fewer than 2 non-cat or liability losses in 3 years))",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 VAV-092,NONE,,,DECLINES,,loss / claims history is not asked
-VAV-093,NONE,,,DECLINES,,loss / claims history is not asked
-VAV-094,NONE,,,DECLINES,,loss / claims history is not asked
+VAV-093,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0} or loss_types none_of {Water, Other} or FACT(no water loss over $25000 in the last 3 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+VAV-094,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0} or loss_types none_of {Water, Other} or FACT(no water loss over $25000 in the last 3 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 VAV-096,NONE,,,DECLINES,,loss / claims history is not asked
 VAV-097,NONE,,,DECLINES,,loss / claims history is not asked
 VAV-099,NONE,,,DECLINES,,acreage is not asked

@@ -79,8 +79,9 @@ def test_coverage():
     # home). Was: gated-but-open 66, AMBIGUOUS 2.
     # CHANGED 2026-10-09 (round 35 steps 3d-f: the follow-up questions): CHO-007 is decided; LDP-018, NCD-003, PDP-049, PH6-028 read the new owners; STD-093 gains a line.
     # Was: 110 / 67 / AMBIGUOUS 1 / same rule 37 / NONE 770.
-    assert kinds == {"decided by a form field": 113, "gated-but-open": 70,
-                     "same rule as another row": 33, "NONE": 769}
+    # CHANGED 2026-10-10 (round 37 step 4, Liam: the losses and electrical questions decide the loss-history and electrical rows, rules_data/loss_electrical_lines.py). Was: 113 / 70 / same rule 33 / NONE 769.
+    assert kinds == {"decided by a form field": 139, "gated-but-open": 102,
+                     "same rule as another row": 33, "NONE": 711}
 
 
 # -- the map's readings ----------------------------------------------------------------------

@@ -468,6 +468,17 @@ def coverage_table(ev):
     return "\n".join(out)
 
 
+# Round 37 step 4 (Liam, 2026-10-10): the losses and electrical questions decide these rows (loss_electrical_lines.py);
+# a row this builder maps itself keeps its own line.
+sys.path.insert(0, HERE)
+from loss_electrical_lines import LINES as LOSS_ELECTRICAL_LINES  # noqa: E402
+_OWN_ROWS = {r["Rule ID"] for r in csv.DictReader(l for l in open(RULES, encoding="utf-8-sig")
+                                            if not l.startswith("#"))}
+for _rid, _line in LOSS_ELECTRICAL_LINES.items():
+    if _rid in _OWN_ROWS:
+        MAP.setdefault(_rid, _line)
+
+
 def main():
     rows = list(csv.DictReader(l for l in open(RULES, encoding="utf-8-sig") if not l.startswith("#")))
     ev = [r for r in rows if r["Tool handling"] in ("EVALUATE", "EVALUATE_CURE_IS_INSPECTION")]

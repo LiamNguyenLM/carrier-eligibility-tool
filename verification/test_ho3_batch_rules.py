@@ -74,8 +74,9 @@ def test_coverage():
     # CHANGED 2026-10-09 (round 35 step 3b: the roof covering in detail): the roof lines decide on the new options. Was: form field 104, gated-but-open 65, AMBIGUOUS 7.
     # CHANGED 2026-10-09 (round 35 steps 3d-f: the follow-up questions): five solar rows gain a line (SBS-040, SLL-058, STO-043, FOR-066, TRV-023); ARB-005 is decided;
     # FOR-093 / FOR-097 read the owner and trust type. Was: 108 / 67 / AMBIGUOUS 1 / same rule 19 / NONE 420.
-    assert kinds == {"decided by a form field": 112, "gated-but-open": 70,
-                     "same rule as another row": 18, "NONE": 415}
+    # CHANGED 2026-10-10 (round 37 step 4, Liam: the losses and electrical questions decide the loss-history and electrical rows, rules_data/loss_electrical_lines.py). Was: 112 / 70 / same rule 18 / NONE 415.
+    assert kinds == {"decided by a form field": 126, "gated-but-open": 116,
+                     "same rule as another row": 18, "NONE": 355}
 
 
 # -- the registry: Foremost's homeowners rows never apply to a dwelling-fire check ------------

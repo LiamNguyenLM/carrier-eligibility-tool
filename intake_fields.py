@@ -429,3 +429,50 @@ def answer(value):
     """A follow-up answer as the rules read it: None for blank / Unknown."""
     return None if value in (None, "", "Unknown") else value
 
+
+# Round 37 step 4 (Liam, 2026-10-10): two optional questions many cards ask about. Blank or Unknown is unknown:
+# a "Confirm:" note on the card, never a hold (rules_evaluator.CONFIRM_FIELDS). The rows they decide are in
+# rules_data/loss_electrical_lines.py.
+LOSS_COUNTS = ("", "0", "1", "2", "3 or more", "Unknown")
+LOSS_TYPES = ("Water", "Fire", "Liability", "Wind or hail", "Theft", "Other")
+LOSS_3YR_COUNTS = ("", "0", "1", "2", "3 or more")
+ELECTRICAL_CHOICES = ("Circuit breakers", "Fuses", "Federal Pacific or Zinsco panel", "Knob-and-tube wiring",
+                      "Aluminum branch wiring", "Unknown")
+ELECTRICAL_LABELS = {"Federal Pacific or Zinsco panel": "Federal Pacific (Stab-Lok) or Zinsco panel"}
+
+
+def loss_answers(pd, today=None):
+    """{losses_5yr, losses_3yr, loss_types, loss_year} as the rules read them (None = unknown).
+
+    losses_3yr is 0 when there are no losses in 5 years, or when the most recent one is more than 3 years old
+    (its year is 4 or more years back); 1 when the only loss is from the last 2 calendar years; otherwise the
+    "How many in the last 3 years?" answer."""
+    import datetime
+    year_now = (today or datetime.date.today()).year
+    n = answer(pd.get("losses_5yr"))
+    n = n if n in LOSS_COUNTS[1:5] else None
+    if n is None:
+        return {"losses_5yr": None, "losses_3yr": None, "loss_types": None, "loss_year": None}
+    if n == "0":
+        return {"losses_5yr": "0", "losses_3yr": "0", "loss_types": [], "loss_year": None}
+    types = [t for t in (pd.get("loss_types") or []) if t in LOSS_TYPES] or None
+    try:
+        year = int(pd.get("loss_year")) if pd.get("loss_year") not in (None, "") else None
+    except (TypeError, ValueError):
+        year = None
+    in3 = answer(pd.get("losses_3yr"))
+    in3 = in3 if in3 in LOSS_3YR_COUNTS[1:] else None
+    if in3 is not None and LOSS_COUNTS.index(in3) > LOSS_COUNTS.index(n):
+        in3 = n                                   # more in 3 years than in 5 cannot be: read the 5-year count
+    if year is not None and year <= year_now - 4:
+        in3 = "0"
+    elif n == "1" and year is not None and year >= year_now - 2:
+        in3 = "1"
+    return {"losses_5yr": n, "losses_3yr": in3, "loss_types": types, "loss_year": year}
+
+
+def electrical_answer(pd):
+    """The electrical answers (a list), or None when blank or Unknown is picked."""
+    picked = [x for x in (pd.get("electrical") or []) if x in ELECTRICAL_CHOICES]
+    return None if not picked or "Unknown" in picked else picked
+

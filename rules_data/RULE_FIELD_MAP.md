@@ -436,3 +436,20 @@ is "1" (and the pilot is on). Its registry entry is `rules_evaluator.BATCHES["dp
   addressed"), so its line refers above $2,000,000 rather than declining.
 - STD-045 has a gap between 100 and 101 years in the guide's own wording; 101
   is read as "older than 100" (refer).
+
+## The losses and electrical questions (round 37 step 4, 2026-10-10)
+
+Two optional form questions: "Losses in the last 5 years" (0 / 1 / 2 / 3 or more / Unknown; if 1 or more:
+types, most recent year, and how many in the last 3 years) and "Electrical" (breakers / fuses / Federal Pacific
+or Zinsco / knob-and-tube / aluminum branch wiring / Unknown, any that apply). `loss_electrical_lines.py` holds
+the lines; each builder takes them for its own rows it does not map itself. Rows decided: pilot 34, Sage 27,
+HO3 60, DP 58 (179: 113 loss, 66 electrical); 224 rows stay NONE, each listed with its reason in
+`loss_electrical_lines.UNDECIDED` (prior insurance, open claims, fraud, repairs / mold, sinkhole / appliance /
+bite claims, same-peril counts, renewals and multiple locations, service amps and unnamed panel brands, the
+closed NatGen Premier DP3, and rows that only mention a loss or a panel).
+
+New names: `losses_5yr`, `losses_3yr` (0 when the 5-year answer is 0 or the most recent loss is 4+ years back),
+`loss_types` and `electrical` (multi-answer: `none_of`). They are `CONFIRM_FIELDS`: blank or Unknown is a
+"Confirm:" note, never a hold, alone or with a FACT. "Other" never proves a named loss type; a dollar amount is
+never asked (passes on 0 losses, else a confirm); a rule over a longer window can fail on the 5 years and is
+otherwise a confirm; an AlumiConn / COPALUM retrofit cure makes aluminum a confirm, not a decline.

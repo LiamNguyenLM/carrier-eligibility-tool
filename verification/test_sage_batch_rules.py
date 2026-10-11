@@ -94,8 +94,9 @@ def test_coverage_per_carrier():
     # SFP-019, WIL-019, TRI-023) carry a FACT. Was: form field 79, gated-but-open 71.
     # CHANGED 2026-10-09 (round 35 step 3a, Liam's decision 1): the three specified-breed lines read the breed field (a signed acknowledgement is a FACT).
     # Was: gated-but-open 78, AMBIGUOUS 3.
-    assert kinds == {"decided by a form field": 72, "gated-but-open": 81,
-                     "same rule as another row": 14, "NONE": 376}
+    # CHANGED 2026-10-10 (round 37 step 4, Liam: the losses and electrical questions decide the loss-history and electrical rows, rules_data/loss_electrical_lines.py). Was: 72 / 81 / same rule 14 / NONE 376.
+    assert kinds == {"decided by a form field": 82, "gated-but-open": 98,
+                     "same rule as another row": 14, "NONE": 349}
     per = collections.Counter(rid[:3] for rid in FMAP)
     assert per == {"SUR": 113, "SFP": 117, "WIL": 92, "TRI": 111, "MKL": 56, "VAV": 54}
 

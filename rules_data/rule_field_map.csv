@@ -45,9 +45,9 @@ ALL-055,NONE,,,DECLINES,,siding / construction details are not form options
 ALL-057,plumbing_type;year_built,"plumbing_type not in {Galvanized, Polybutylene} and pex_2011 == True",always,DECLINES,,AMBIGUOUS only for PEX in a home built before 2011 (install year unknown); lead/cast iron not on the form
 ALL-058,plumbing_type;year_built,"plumbing_type not in {Galvanized, Polybutylene, Cast iron} and pex_2011 == True",home_age between 40 and 75,NOTE,,cure is a service inspection -> NOTE
 ALL-060,plumbing_type;year_built,"plumbing_type not in {Galvanized, Polybutylene, Cast iron} and pex_2011 == True",home_age >= 76,NOTE,,cure is a service inspection -> NOTE
-ALL-062,NONE,,,DECLINES,,wiring and panels are not asked
-ALL-063,NONE,,,DECLINES,,wiring and panels are not asked
-ALL-064,NONE,,,DECLINES,,wiring and panels are not asked
+ALL-062,electrical,electrical none_of {Fuses} and (not (electrical none_of {Circuit breakers}) or FACT(the home has circuit breakers)) and FACT(at least 150-amp service),always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
+ALL-063,electrical,"electrical none_of {Aluminum branch wiring, Knob-and-tube wiring, Fuses} and FACT(no cloth wiring or fusible pullouts)",always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
+ALL-064,electrical,electrical none_of {Federal Pacific or Zinsco panel} and FACT(no Sylvania or Challenger or recalled breaker panel),always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
 ALL-065,year_built,FACT(service panel updated or under 40 years old),home_age between 40 and 75,DECLINES,panel age,
 ALL-066,year_built,FACT(breakers updated and under 40 years old),home_age between 40 and 75,DECLINES,breaker age,
 ALL-068,year_built,FACT(completely re-wired),home_age >= 76,CONDITION,re-wiring,
@@ -100,15 +100,15 @@ ALL-133,dwelling_amount,dwelling_amount >= 200000,always,DECLINES,,
 ALL-134,dwelling_amount,dwelling_amount <= 1250000,always,REFERS_TO_UW,,
 ALL-135,NONE,,,DECLINES,,the form has no field for this
 ALL-136,NONE,,,CONDITION,,the form has no field for this
-ALL-142,NONE,,,DECLINES,,loss / claims history is not asked
-ALL-143,NONE,,,DECLINES,,loss / claims history is not asked
-ALL-144,NONE,,,DECLINES,,loss / claims history is not asked
-ALL-145,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
-ALL-146,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
-ALL-147,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
+ALL-142,losses_5yr;losses_3yr;loss_types,losses_5yr in {0} or (loss_types none_of {Liability}),always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+ALL-143,losses_5yr;losses_3yr;loss_types,losses_5yr in {0} or (loss_types none_of {Fire}),always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+ALL-144,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2}",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+ALL-145,losses_5yr;losses_3yr;loss_types,losses_5yr in {0} or (loss_types none_of {Liability}),always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+ALL-146,losses_5yr;losses_3yr;loss_types,losses_5yr in {0} or (loss_types none_of {Fire}),always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+ALL-147,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0, 1} or loss_types none_of {Water, Fire, Liability, Theft, Other} or (not (loss_types none_of {Wind or hail, Other}) and FACT(fewer than 2 losses in 5 years other than natural causes))",always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 ALL-148,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
-ALL-150,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
-ALL-151,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
+ALL-150,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0, 1} or loss_types none_of {Theft, Other} or (not (loss_types none_of {Water, Fire, Liability, Wind or hail, Other}) and FACT(no more than 1 theft or vandalism claim in 5 years))",always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+ALL-151,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0} or loss_types none_of {Water, Fire, Liability, Theft, Other} or FACT(no non-weather loss of $20000 or more in the previous 3 years)",always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 ALL-152,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
 ALL-153,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
 ALL-154,NONE,,,DECLINES,,loss / claims history is not asked
@@ -181,8 +181,8 @@ SAG-040,NONE,,,NOTE,,siding / construction details are not form options
 SAG-041,NONE,,,CONDITION,,siding / construction details are not form options
 SAG-042,plumbing_type,plumbing_type != Polybutylene,always,DECLINES,,
 SAG-044,NONE,,,DECLINES,,wiring and panels are not asked
-SAG-045,NONE,,,DECLINES,,wiring and panels are not asked
-SAG-046,NONE,,,DECLINES,,wiring and panels are not asked
+SAG-045,electrical,"electrical none_of {Aluminum branch wiring, Knob-and-tube wiring, Fuses}",always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
+SAG-046,electrical,electrical none_of {Federal Pacific or Zinsco panel} and FACT(no Challenger or Sylvania panel),always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
 SAG-047,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 SAG-048,NONE,,,NOTE,,"heating, cooling and water heater are not asked"
 SAG-049,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
@@ -223,8 +223,8 @@ SAG-089,coastal_tier,FACT(not within the shoreline distances),"coastal_tier in {
 SAG-096,dwelling_amount,dwelling_amount <= 1000000,always,DECLINES,,
 SAG-098,dwelling_amount,dwelling_amount >= 85000,always,REFERS_TO_UW,,
 SAG-099,NONE,,,CONDITION,,the form has no field for this
-SAG-112,NONE,,,DECLINES,,loss / claims history is not asked
-SAG-113,NONE,,,DECLINES,,loss / claims history is not asked
+SAG-112,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2}",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+SAG-113,losses_5yr;losses_3yr;loss_types,"(losses_5yr in {0, 1, 2} or (losses_5yr in {3 or more} and FACT(no more than 3 losses in the last 6 years))) and FACT(no more than 3 losses in the last 6 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 SAG-114,NONE,,,NOTE,,loss / claims history is not asked
 SAG-115,NONE,,,NOTE,,loss / claims history is not asked
 SAG-116,NONE,,,CONDITION,,loss / claims history is not asked
@@ -288,17 +288,17 @@ CHU-056,dwelling_amount;dwelling_type;occupancy_type,dwelling_amount between 100
 CHU-059,dwelling_type;occupancy_type,dwelling_type != Condo,occupancy_type == Owner Occupied,REFERS_TO_UW,,primary condominiums (round 35); others are CHU-004's
 CHU-060,NONE,,,REFERS_TO_UW,,the form has no field for this
 CHU-061,NONE,,,DECLINES,,the form has no field for this
-CHU-062,NONE,,,DECLINES,,loss / claims history is not asked
-CHU-063,NONE,,,DECLINES,,loss / claims history is not asked
+CHU-062,losses_5yr;losses_3yr;loss_types,losses_3yr in {0} or (loss_types none_of {} and (loss_types none_of {Liability} or FACT(no negligence-based liability claim in the previous 3 years))),always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+CHU-063,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1} or loss_types none_of {Fire, Liability, Theft, Other} or (not (loss_types none_of {Water, Wind or hail, Other}) and FACT(fewer than 2 paid non-weather non-water claims in 3 years))",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 CHU-064,NONE,,,DECLINES,,loss / claims history is not asked
 CHU-065,NONE,,,DECLINES,,loss / claims history is not asked
 CHU-066,NONE,,,DECLINES,,loss / claims history is not asked
-CHU-067,NONE,,,DECLINES,,loss / claims history is not asked
+CHU-067,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0} or loss_types none_of {Fire, Liability, Wind or hail, Theft, Other} or FACT(no non-water paid claim over $50000 in 5 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 CHU-068,NONE,,,DECLINES,,loss / claims history is not asked
 CHU-069,NONE,,,DECLINES,,loss / claims history is not asked
 CHU-070,NONE,,,DECLINES,,loss / claims history is not asked
 CHU-071,NONE,,,NOTE,,loss / claims history is not asked
-CHU-073,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
+CHU-073,losses_5yr;losses_3yr;loss_types,(losses_5yr in {0}) and FACT(no losses before the last 5 years),always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 CHU-074,NONE,,,DECLINES,,loss / claims history is not asked
 CHU-077,NONE,,,DECLINES,,acreage is not asked
 CHU-078,NONE,,,DECLINES,,flood zone is not asked
@@ -348,9 +348,9 @@ MER-026,NONE,,,DECLINES,,siding / construction details are not form options
 MER-027,NONE,,,DECLINES,,siding / construction details are not form options
 MER-029,plumbing_type,"plumbing_type in {Copper, PVC, PEX: installed 2011 or later, PEX: installed before 2011, PEX: install year unknown}",always,NOTE,,"cure (plumber statement, over 50 years) is an inspection -> NOTE"
 MER-030,plumbing_type,"plumbing_type not in {Galvanized, Polybutylene, Cast iron}",always,DECLINES,,"'Galvanized, cast-iron and polybutylene' (round 35: cast iron is a form option)"
-MER-034,NONE,,,DECLINES,,wiring and panels are not asked
-MER-035,NONE,,,DECLINES,,wiring and panels are not asked
-MER-036,NONE,,,DECLINES,,wiring and panels are not asked
+MER-034,electrical,electrical none_of {Fuses} and (not (electrical none_of {Circuit breakers}) or FACT(the system is all circuit breakers)),always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
+MER-035,electrical,electrical none_of {Federal Pacific or Zinsco panel} and FACT(no Magnetrip or Sylvania or Challenger panel),always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
+MER-036,electrical,electrical none_of {Aluminum branch wiring},always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
 MER-040,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 MER-041,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 MER-042,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
@@ -382,9 +382,9 @@ MER-083,NONE,,,REFERS_TO_UW,,the form has no field for this
 MER-084,NONE,,,CONDITION,,the form has no field for this
 MER-085,NONE,,,DECLINES,,the form has no field for this
 MER-086,dwelling_amount;county;zip,dwelling_amount <= 1000000,"county in {Bee, Brooks, Fort Bend, Goliad, Hardin, Harris, Hidalgo, Jackson, Jim Wells, Liberty, Live Oak, Orange, Victoria, Wharton} and zip in {77015, 77034, 77058, 77059, 77062, 77075, 77089, 77465, 77502, 77503, 77504, 77505, 77506, 77507, 77520, 77521, 77523, 77530, 77536, 77546, 77547, 77562, 77571, 77581, 77586, 77587, 77597, 77598, 77969, 77971, 77979, 77991, 77001, 77002, 77003, 77004, 77006, 77009, 77010, 77011, 77012, 77013, 77016, 77017, 77019, 77020, 77021, 77023, 77026, 77028, 77029, 77030, 77033, 77044, 77047, 77048, 77049, 77050, 77051, 77054, 77061, 77078, 77087, 77204, 77346, 77396, 77532, 77533, 77535, 77538, 77575, 77582, 77584, 77611, 77630, 77951, 77977, 78387}",DECLINES,ZIP,Tier II High / Moderate ZIP codes (MER-068 / MER-069)
-MER-087,NONE,,,DECLINES,,loss / claims history is not asked
-MER-088,NONE,,,DECLINES,,loss / claims history is not asked
-MER-089,NONE,,,DECLINES,,loss / claims history is not asked
+MER-087,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0} or (loss_types none_of {Water, Fire, Liability, Theft} and (loss_types none_of {Other} or FACT(no non-weather loss in the last 5 years)))",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+MER-088,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0, 1}",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+MER-089,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1} or loss_types none_of {Water} or (not (loss_types none_of {Water, Fire, Liability, Wind or hail, Theft, Other}) and FACT(no more than 1 paid non-appliance water claim in 3 years))",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 MER-090,NONE,,,CONDITION,,loss / claims history is not asked
 MER-091,NONE,,,DECLINES,,loss / claims history is not asked
 MER-093,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
@@ -437,7 +437,7 @@ PRO-036,NONE,,,DECLINES,,siding / construction details are not form options
 PRO-037,NONE,,,DECLINES,,siding / construction details are not form options
 PRO-038,NONE,,,CONDITION,,"applies only to plumbing replaced as a required update, which the form does not ask"
 PRO-039,plumbing_type;year_built,"plumbing_type not in {Galvanized, Polybutylene} and pex_2011 == True",always,DECLINES,,AMBIGUOUS only for PEX in a home built before 2011
-PRO-040,NONE,,,DECLINES,,wiring and panels are not asked
+PRO-040,electrical,"electrical none_of {Knob-and-tube wiring, Aluminum branch wiring, Fuses, Federal Pacific or Zinsco panel}",always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
 PRO-041,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 PRO-042,NONE,,,CONDITION,,"heating, cooling and water heater are not asked"
 PRO-043,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
@@ -482,10 +482,10 @@ PRO-089,dwelling_amount,dwelling_amount <= 1500000,always,REFERS_TO_UW,,
 PRO-090,NONE,,,DECLINES,,the form has no field for this
 PRO-091,NONE,,,REFERS_TO_UW,,the form has no field for this
 PRO-093,NONE,,,DECLINES,,loss / claims history is not asked
-PRO-094,NONE,,,DECLINES,,loss / claims history is not asked
+PRO-094,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0, 1, 2}",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 PRO-095,ppc,FACT(no fire loss),ppc_num >= 8,DECLINES,fire loss history,
-PRO-096,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
-PRO-097,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
+PRO-096,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0, 1}",always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+PRO-097,losses_5yr;losses_3yr;loss_types,losses_5yr in {0} or (loss_types none_of {Liability}),always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 PRO-098,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
 PRO-099,NONE,,,DECLINES,,loss / claims history is not asked
 PRO-100,NONE,,,CONDITION,,loss / claims history is not asked
@@ -521,9 +521,9 @@ SWY-023,NONE,,,DECLINES,,siding / construction details are not form options
 SWY-024,NONE,,,DECLINES,,siding / construction details are not form options
 SWY-025,NONE,,,DECLINES,,siding / construction details are not form options
 SWY-026,plumbing_type,"plumbing_type not in {Galvanized, Polybutylene}",always,DECLINES,,
-SWY-027,NONE,,,DECLINES,,wiring and panels are not asked
-SWY-028,NONE,,,DECLINES,,wiring and panels are not asked
-SWY-029,NONE,,,DECLINES,,wiring and panels are not asked
+SWY-027,electrical,electrical none_of {Aluminum branch wiring} or FACT(aluminum wiring retrofitted with AlumiConn or COPALUM connectors),always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
+SWY-028,electrical,electrical none_of {Knob-and-tube wiring} and FACT(no carbon tetrachloride wiring or cloth wiring without a romex layer),always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
+SWY-029,electrical,"electrical none_of {Fuses, Federal Pacific or Zinsco panel} and FACT(no split bus or GTE Sylvania or Challenger panel)",always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
 SWY-030,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 SWY-035,swimming_pool;pool_fence_4ft;pool_gate_locking,swimming_pool != Above Ground - Unfenced and pool_fence_4ft == True and pool_gate_locking == True,swimming_pool != No Pool,CONDITION,fence 4 ft; self-latching gate,a pool cage also cures; an unfenced in-ground pool is SWY-036's (one failing row per fact)
 SWY-036,swimming_pool,swimming_pool != In Ground - Unfenced,always,DECLINES,,
@@ -533,11 +533,11 @@ SWY-041,has_dogs,FACT(no bite history or aggression),has_dogs == Yes,DECLINES,bi
 SWY-043,solar_panels;solar_type;solar_tesla,(solar_type not in {Solar roof (shingles or tiles)} and (solar_tesla != Yes or FACT(no Tesla parts in a solar roof system))) or solar_tesla == No,solar_panels == Yes,DECLINES,Tesla parts,round 35 step 3d: the Tesla question
 SWY-045,NONE,,,DECLINES,,location detail beyond county / tier is not asked
 SWY-046,dwelling_amount,dwelling_amount between 125000 and 2000000,always,DECLINES,,
-SWY-047,NONE,,,DECLINES,,loss / claims history is not asked
+SWY-047,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2} or (losses_3yr in {3 or more} and FACT(no more than 4 non-weather losses in 3 years)) or loss_types none_of {Water, Fire, Liability, Theft, Other} or (not (loss_types none_of {Wind or hail, Other}) and FACT(no more than 4 non-weather losses in 3 years))",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 SWY-048,NONE,,,DECLINES,,loss / claims history is not asked
 SWY-049,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
 SWY-050,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
-SWY-051,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
+SWY-051,losses_5yr;losses_3yr;loss_types,"(losses_5yr in {0} or (loss_types none_of {Liability, Fire})) and FACT(no liability or fire loss before the last 5 years)",always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 SWY-061,NONE,,,DECLINES,,not asked by the form
 SWY-062,NONE,,,CONDITION,,not asked by the form
 SWY-063,NONE,,,DECLINES,,loss / claims history is not asked

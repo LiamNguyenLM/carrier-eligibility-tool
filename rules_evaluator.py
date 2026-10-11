@@ -178,6 +178,12 @@ HOLD_BY_DECISION = {**{rid: "Sage FPC table (Liam, 2026-10-06 / 2026-10-08)" for
 # Round 35 step 6: the Harris east-of-146 answer is part of the county -- blank (no Harris county) or Unknown is a
 # confirm note as a blank county is. Found by the live check: OWNERSHIP_BASE (no county) held ARI HOB on ARB-005.
 BLANK_IS_NOTE = {"dwelling_amount", "county", "zip", "sage_territory", "south_of_31", "harris_east_146"}
+# Round 37 step 4 (Liam, 2026-10-10): the losses and electrical questions. Blank or Unknown is a "Confirm:" note,
+# never a hold -- alone, and also when the row is open on a FACT besides.
+CONFIRM_FIELDS = {"losses_5yr", "losses_3yr", "loss_types", "electrical"}
+BLANK_IS_NOTE = BLANK_IS_NOTE | CONFIRM_FIELDS
+BLANK_LABEL = {"dwelling_amount": "Coverage A", "losses_5yr": "losses", "losses_3yr": "losses", "loss_types": "losses",
+               "electrical": "electrical"}
 
 
 # --------------------------------------------------------------------------- data
@@ -319,6 +325,9 @@ def facts(pd, today=None):
     f["trust_type"] = intake_fields.answer(pd.get("trust_type")) if pd.get("ownership_type") == "Trust" else None
     f["solar_type"] = intake_fields.answer(pd.get("solar_type"))
     f["solar_tesla"] = intake_fields.answer(pd.get("solar_tesla"))
+    # Round 37 step 4: the losses and electrical answers (None = blank or Unknown)
+    f.update(intake_fields.loss_answers(pd, today))
+    f["electrical"] = intake_fields.electrical_answer(pd)
     f["harris_east_146"] = (intake_fields.answer(pd.get("harris_east_146"))
                             if intake_fields.normalize_county(pd.get("county")) == "Harris" else None)
     # Round 35 step 3b: an old saved "Metal" / "Flat/Built-Up" is unknown; "Wood Shake" is the wood option
@@ -568,8 +577,7 @@ def evaluate_row(m, f, checked=None):
     blank = set(gate_unknown) if gate is None and gate_unknown and set(gate_unknown) <= BLANK_IS_NOTE \
         else (set(unknown) if unknown and set(unknown) <= BLANK_IS_NOTE else None)
     if result == "OPEN" and not ambiguous and blank:
-        return "NOTE", "blank " + " / ".join(sorted({"Coverage A" if u == "dwelling_amount" else "County"
-                                                     for u in blank})) + "; confirm"
+        return "NOTE", "blank " + " / ".join(sorted({BLANK_LABEL.get(u, "County") for u in blank})) + "; confirm"
     if result == "FAIL" and m["outcome_if_fail"] == "UNKNOWN":
         return "OPEN", "the row's effect is UNKNOWN"
     # Round 30 step 2 (Liam, 2026-10-08, decision 2: the project rule, applied to the rules table):
@@ -578,7 +586,7 @@ def evaluate_row(m, f, checked=None):
     # form field (the station distance, PPC N/A, plumbing Unknown, an unticked pool box, a blank
     # primary-home answer) still holds. Rows Liam decided by name (HOLD_BY_DECISION) still hold.
     if (result == "OPEN" and not ambiguous and unknown and False not in vals
-            and all(u not in f for u in unknown) and m["outcome_if_fail"] != "UNKNOWN"
+            and all(u not in f or u in CONFIRM_FIELDS for u in unknown) and m["outcome_if_fail"] != "UNKNOWN"
             and m.get("row_id") not in HOLD_BY_DECISION):
         return "NOTE", "confirm: " + (_open_fact_now(m["open_fact"], unknown) or "; ".join(dict.fromkeys(unknown)))
     return result, detail

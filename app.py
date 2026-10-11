@@ -5,6 +5,7 @@ import streamlit as st
 import os
 import threading
 import time
+from datetime import date
 
 try:
     if "ANTHROPIC_API_KEY" in st.secrets:
@@ -405,6 +406,25 @@ with tab1:
             "Dwelling type (required)", list(intake_fields.DWELLING_TYPES), key="dwelling_type",
             format_func=lambda v: v or "— pick one —")
 
+    # Round 37 step 4 (Liam, 2026-10-10): two optional questions many guides ask. Blank means unknown: a
+    # "confirm" on the cards, never a hold.
+    loss_col, elec_col = st.columns(2)
+    with loss_col:
+        losses_5yr = st.selectbox("Losses in the last 5 years", list(intake_fields.LOSS_COUNTS), key="losses_5yr",
+                                  format_func=lambda v: v or "— not given —")
+        loss_types, loss_year, losses_3yr = [], None, ""
+        if losses_5yr in ("1", "2", "3 or more"):
+            loss_types = st.multiselect("Types", list(intake_fields.LOSS_TYPES), key="loss_types")
+            loss_year = st.number_input("Most recent loss year", min_value=date.today().year - 5,
+                                        max_value=date.today().year, value=None, step=1, key="loss_year")
+            losses_3yr = st.selectbox("How many of them in the last 3 years?", list(intake_fields.LOSS_3YR_COUNTS),
+                                      key="losses_3yr", format_func=lambda v: v or "— not given —",
+                                      help="Some guides count losses over 3 years.")
+    with elec_col:
+        electrical = st.multiselect("Electrical", list(intake_fields.ELECTRICAL_CHOICES), key="electrical",
+                                    format_func=lambda v: intake_fields.ELECTRICAL_LABELS.get(v, v),
+                                    help="Pick all that apply (a home can have breakers and aluminum wiring).")
+
     st.divider()
 
     submitted = st.button("Check Carrier Eligibility", type="primary",
@@ -465,6 +485,17 @@ with tab1:
                 property_details["solar_tesla"] = solar_tesla
             if county == "Harris":
                 property_details["harris_east_146"] = harris_east_146
+            # Round 37 step 4: present only when answered (every other prompt stays byte-identical)
+            if losses_5yr:
+                property_details["losses_5yr"] = losses_5yr
+                if loss_types:
+                    property_details["loss_types"] = list(loss_types)
+                if loss_year:
+                    property_details["loss_year"] = int(loss_year)
+                if losses_3yr:
+                    property_details["losses_3yr"] = losses_3yr
+            if electrical:
+                property_details["electrical"] = list(electrical)
 
             # Round 36 step 6: each check's feedback controls get their own keys
             st.session_state["check_seq"] = st.session_state.get("check_seq", 0) + 1

@@ -1155,6 +1155,20 @@ def _followup_lines(pd, ownership):
         if intake_fields.answer(pd.get("solar_tesla")):
             rows.append(("fact:solar_panels", f"Tesla Equipment (Solar Roof, Powerwall or other Tesla parts): "
                                               f"{pd['solar_tesla']}"))
+    # Round 37 step 4: the losses and electrical answers, stated only when given
+    lo = intake_fields.loss_answers(pd)
+    if lo["losses_5yr"] is not None:
+        line = f"Losses in the Last 5 Years: {lo['losses_5yr']}"
+        if lo["loss_types"]:
+            line += f"; Types: {', '.join(lo['loss_types'])}"
+        if lo["loss_year"]:
+            line += f"; Most Recent: {lo['loss_year']}"
+        if lo["losses_5yr"] != "0" and lo["losses_3yr"] is not None:
+            line += f"; In the Last 3 Years: {lo['losses_3yr']}"
+        rows.append((None, line))
+    electrical = intake_fields.electrical_answer(pd)
+    if electrical:
+        rows.append((None, "Electrical: " + ", ".join(electrical)))
     return rows
 
 
