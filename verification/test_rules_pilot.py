@@ -205,9 +205,13 @@ def test_a_pilot_card_shows_the_label_the_quote_and_the_notes(monkeypatch):
     at.selectbox(key="dwelling_type").select("House").run()
     at.button(key="submit").click().run()
     assert not at.exception
-    assert "rules table" in [c.value for c in at.caption]
+    # CHANGED 2026-10-10 (round 37 step 2, Liam: no internal labels, row IDs or file names where an agent reads): no "rules table" badge, and the row ID only on the collapsed Rule IDs line.
+    # Was: "rules table" in the captions and "[ALL-057] p." in the card.
+    assert "rules table" not in [c.value for c in at.caption]
     md = " ".join(m.value for m in at.markdown)
-    assert "[ALL-057] p." in md and "galvanized" in md.lower()
+    assert "galvanized" in md.lower() and "Allied Trust (HO3): p." in md
+    visible = re.sub(r"<details><summary>Rule IDs</summary>.*?</details>", "", md)
+    assert "ALL-057" not in visible and "ALL-057" in md
     # CHANGED 2026-10-10 (round 37 step 1, Liam: "Also confirm" row-ID dumps become "Before you quote, confirm:" in plain words). Was: assert "Also confirm" in md
     assert "Before you quote, confirm:" in md and "Also confirm" not in md
 

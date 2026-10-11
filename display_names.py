@@ -83,7 +83,6 @@ def guide_date(program):
 
 
 def guide_line(program):
-    """The Details line: the guide's date and its file."""
+    """The Details line: the guide's date. Round 37 step 2: never the file name."""
     d = guide_date(program)
-    return (f"Guide dated {d} (file: {program})" if d
-            else f"Guide date: not in the file name (file: {program})")
+    return f"Guide date: {d}" if d else "Guide date: not stated"

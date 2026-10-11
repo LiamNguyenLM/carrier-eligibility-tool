@@ -54,7 +54,11 @@ def test_at_most_six_show_and_the_rest_are_under_more():
     assert ids == sorted(r["row"] for r in ROWS)
     html = cards.confirm_html(rec())
     assert html.startswith("<p><b>Before you quote, confirm:</b></p>")
-    assert f"<summary>+{len(more)} more</summary>" in html and "<summary>Rule IDs</summary>" in html
+    assert f"<summary>+{len(more)} more</summary>" in html
+    # (round 37 step 2: the row IDs moved to the card's own collapsed line)
+    assert "<summary>Rule IDs</summary>" not in html
+    assert cards.rule_ids_html(rec()) == ("<details><summary>Rule IDs</summary><small>"
+                                         + ", ".join(sorted(r["row"] for r in ROWS)) + "</small></details>")
     assert html.count("<li>") == len(shown) + len(more)
 
 

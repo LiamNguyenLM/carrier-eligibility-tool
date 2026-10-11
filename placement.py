@@ -27,6 +27,7 @@ import math
 import os
 from collections import defaultdict
 
+import cards
 import display_names
 
 HALF_LIFE, WINDOW_MONTHS, K_ZIP, K_COUNTY, MIN_DIM = 4.0, 36, 15.0, 30.0, 20.0
@@ -279,11 +280,17 @@ def panel_markdown(p):
     """The panel as one markdown block (the footer is shown separately, small)."""
     lines = [f"#### {p['title']}"]
     for i, pick in enumerate(p["picks"], 1):
-        # round 36 step 5: the programs by their display names
-        lines.append(f"{i}. **{pick['market']}** — {', '.join(display_names.display_name(prog) for prog in pick['programs'])}")
+        # round 36 step 5: the programs by their display names; round 37 step 2: the name once -- a market
+        # whose label one of its programs' names starts with (or the other way round) shows only the names
+        names = [display_names.display_name(prog) for prog in pick["programs"]]
+        bases = [n.split(" (")[0] for n in names]
+        if names and all(b.startswith(pick["market"]) or pick["market"].startswith(b) for b in bases):
+            lines.append(f"{i}. **{', '.join(names)}**")
+        else:
+            lines.append(f"{i}. **{pick['market']}** — {', '.join(names)}")
         for extra in (pick["held"], pick["reason"], pick["fit"]):
             if extra:
-                lines.append(f"    - {extra}")
+                lines.append(f"    - {cards.agent_text(extra)}")
     if p["usual"]:
         lines.append("")
         lines.append(p["usual"])

@@ -527,12 +527,11 @@ with tab1:
                 # status and the verdict in one line, the open items, and
                 # everything else collapsed under "Details" (cards.py).
                 # Round 25: the rules-table pilot's cards say so.
-                if carrier.get("rules_table"):
-                    st.caption("rules table")
+                # (round 37 step 2: the "rules table" badge is gone; the Fingerprint panel says the pilot is on)
                 st.markdown(cards.first_line_markdown(carrier, property_details, checked_topics))
                 missing = [m for m in carrier.get("missing_info") or [] if isinstance(m, str) and m.strip()]
                 if missing:
-                    st.markdown("**Missing:**\n" + "\n".join("- " + item for item in missing))
+                    st.markdown("**Missing:**\n" + "\n".join("- " + cards.agent_text(item) for item in missing))
                 # Round 37 step 1: what to confirm before quoting, in plain words
                 confirm = cards.confirm_html(carrier)
                 if confirm:
@@ -540,6 +539,9 @@ with tab1:
                 details = cards.details_html(carrier, guide=True)     # round 36 step 5: + the guide's date
                 if details:
                     st.markdown(details, unsafe_allow_html=True)
+                ids = cards.rule_ids_html(carrier)                       # round 37: row IDs, collapsed
+                if ids:
+                    st.markdown(ids, unsafe_allow_html=True)
                 _feedback_control(carrier, property_details,
                                   f"{st.session_state['check_seq']}_{carrier.get('carrier', '')}", checked_topics)
 

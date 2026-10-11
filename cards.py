@@ -14,6 +14,7 @@ A card is:
                cannot nest)
 """
 import html
+import re
 from datetime import date
 
 import intake_fields
@@ -32,12 +33,54 @@ STATUS_LABEL = {
 MODEL_LABELLED = tuple(STATUS_LABEL)
 
 
+# Round 37 step 2 (Liam, 2026-10-10): what an agent reads carries no row IDs (they are on the card's collapsed
+# "Rule IDs" line), no program / file names (display names instead) and none of the engine's own words.
+_ROW = r"[A-Z]{3}-\d{3}"
+_RULES_TABLE_LINE = re.compile(r"Rules table: (\d+) rule\(s\) decided from the form pass; none fails\.")
+_LABELLED_ROW = re.compile(rf"\[{_ROW}\]\s*(declines|refers to underwriting|condition not met):\s*")
+_ITEM_ROW = re.compile(rf"\s+--\s+\[{_ROW}\]\s*")
+_ANY_ROW = re.compile(rf"\s*\[{_ROW}\]|\s*\(\b{_ROW}\b\)|\b{_ROW}\b,?\s*")
+
+
+def agent_text(text):
+    """One line as an agent should read it."""
+    import display_names
+    s = str(text or "")
+    s = _RULES_TABLE_LINE.sub(lambda m: f"{m.group(1)} of this guide's rules were checked against the form; "
+                                         "none rules it out.", s)
+    s = _LABELLED_ROW.sub(lambda m: "Condition not met: " if m.group(1) == "condition not met" else "", s)
+    s = _ITEM_ROW.sub(": ", s)
+    s = _ANY_ROW.sub(lambda m: " " if m.group(0).startswith(" ") and not m.group(0).strip().startswith("[") else "", s)
+    for program in sorted(display_names.DISPLAY, key=len, reverse=True):
+        if program in s:
+            s = s.replace(program, display_names.DISPLAY[program])
+    s = re.sub(r"\s*\(\s*(rows?|see|rules?)?[\s,;]*\)", "", s)        # a parenthesis that held only row IDs
+    return re.sub(r"\s{2,}", " ", s).replace(" .", ".").replace(" ,", ",").strip()
+
+
+def rule_ids(rec):
+    """Every row ID the card rests on or lists to confirm, for the collapsed "Rule IDs" line."""
+    ids = set()
+    for field in ("reasons", "citations", "missing_info", "also_confirm"):
+        for x in rec.get(field) or []:
+            ids.update(re.findall(rf"\b{_ROW}\b", str(x)))
+    ids.update(re.findall(rf"\b{_ROW}\b", str(rec.get("notes") or "")))
+    ids.update(x.get("row") for x in rec.get("confirm_items") or [] if x.get("row"))
+    return sorted(ids)
+
+
+def rule_ids_html(rec):
+    """Round 37 steps 1-2: the row IDs, collapsed -- for us, not the agent. "" when there are none."""
+    ids = rule_ids(rec)
+    return f"<details><summary>Rule IDs</summary><small>{', '.join(ids)}</small></details>" if ids else ""
+
+
 def warning_line(rec):
     """A Could Not Be Checked row's one line: the carrier (its display name, round 36 step 5) and its reason."""
     import display_names
     reasons = [x for x in (rec.get("reasons") or []) if isinstance(x, str) and x.strip()]
     return f"**{display_names.display_name(rec.get('carrier', ''))}** — " + (
-        reasons[0] if reasons else "could not be checked.")
+        agent_text(reasons[0]) if reasons else "could not be checked.")
 
 
 def _on(topic, checked):
@@ -88,7 +131,7 @@ def verdict_line(rec, property_details, checked=None):
         facts = checked_facts(property_details, checked)
         return "No issue on: " + ", ".join(facts) if facts else "No issue found."
     reasons = rec.get("reasons") or []
-    return reasons[0] if reasons else STATUS_LABEL.get(rec.get("status"), rec.get("status") or "")
+    return agent_text(reasons[0]) if reasons else STATUS_LABEL.get(rec.get("status"), rec.get("status") or "")
 
 
 def first_line_markdown(rec, property_details, checked=None):
@@ -130,8 +173,7 @@ def confirm_html(rec):
     out = "<p><b>Before you quote, confirm:</b></p>" + ul(shown)
     if more:
         out += f"<details><summary>+{len(more)} more</summary>{ul(more)}</details>"
-    if ids:
-        out += f"<details><summary>Rule IDs</summary><small>{', '.join(ids)}</small></details>"
+    # (round 37 step 2: the row IDs moved to the card's own collapsed line, rule_ids_html)
     return out
 
 
@@ -141,6 +183,7 @@ def details_html(rec, guide=False):
     if not groups:
         return ""
     body = "".join(
-        f"<p><b>{h}</b></p><ul>" + "".join(f"<li>{html.escape(x, quote=False)}</li>" for x in items) + "</ul>"
+        f"<p><b>{h}</b></p><ul>" + "".join(f"<li>{html.escape(agent_text(x), quote=False)}</li>" for x in items)
+        + "</ul>"
         for h, items in groups)
     return f"<details><summary>Details</summary>{body}</details>"

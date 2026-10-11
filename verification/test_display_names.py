@@ -44,10 +44,11 @@ def test_a_new_upload_gets_a_name_from_its_file_name(program, name):
     assert display_names.display_name(program) == name
 
 
+# CHANGED 2026-10-10 (round 37 step 2, Liam: no internal labels, row IDs or file names where an agent reads): no file name. Was: "Guide dated MM/DD/YYYY (file: <program>)" / "Guide date: not in the file name (...)".
 @pytest.mark.parametrize("program,line", [
-    ("CHUBB_HO_-_05.22.2026", "Guide dated 05/22/2026 (file: CHUBB_HO_-_05.22.2026)"),
-    ("Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3", "Guide dated 07/06/2026 (file: Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3)"),
-    ("Allied_Trust_HO3", "Guide date: not in the file name (file: Allied_Trust_HO3)"),
+    ("CHUBB_HO_-_05.22.2026", "Guide date: 05/22/2026"),
+    ("Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3", "Guide date: 07/06/2026"),
+    ("Allied_Trust_HO3", "Guide date: not stated"),
 ])
 def test_the_guide_line(program, line):
     assert display_names.guide_line(program) == line
@@ -57,7 +58,8 @@ def test_a_verdict_cards_details_name_the_guide_and_other_details_are_unchanged(
     rec = {"carrier": "Sage_-_Auros_HO3", "status": "INELIGIBLE", "reasons": ["only"], "citations": [], "notes": ""}
     assert cards.details_html(rec) == ""                                   # as before
     d = cards.details_html(rec, guide=True)
-    assert "<p><b>Guide</b></p>" in d and "Guide date: not in the file name (file: Sage_-_Auros_HO3)" in d
+    # CHANGED 2026-10-10 (round 37 step 2, Liam: no internal labels, row IDs or file names where an agent reads)
+    assert "<p><b>Guide</b></p>" in d and "Guide date: not stated" in d and "Sage_-_Auros" not in d
 
 
 def test_could_not_be_checked_lines_use_the_display_name():
@@ -69,7 +71,9 @@ def test_the_placement_panel_shows_display_names():
     p = {"title": "Where we usually place homes like this", "usual": "",
          "picks": [{"market": "Sage", "programs": ["Sage_-_Auros_HO3", "Sage_-_SURE_HO-3_-_01.31.2026"],
                     "held": None, "reason": None, "fit": None}]}
-    assert "1. **Sage** — SageSure Auros (HO3), SageSure SURE (HO3)" in placement.panel_markdown(p)
+    # CHANGED 2026-10-10 (round 37 step 2, Liam: the panel names a program once): the market label "Sage" is
+    # the start of every name, so only the names show. Was: "1. **Sage** — SageSure Auros (HO3), SageSure SURE (HO3)"
+    assert "1. **SageSure Auros (HO3), SageSure SURE (HO3)**" in placement.panel_markdown(p)
 
 
 def test_the_cards_show_display_names_and_the_prompt_and_log_keep_program_names(monkeypatch, tmp_path):
