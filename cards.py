@@ -162,15 +162,19 @@ def details_items(rec, guide=False):
 
 def confirm_html(rec):
     """Round 37 step 1 (Liam, 2026-10-10): "Before you quote, confirm:" -- at most confirm_topics.CARD_MAX plain
-    items, the rest under "+N more", the rule IDs on a collapsed line. "" when there is nothing to confirm."""
+    items, the rest under "+N more", the rule IDs on a collapsed line. "" when there is nothing to confirm.
+    Round 37 follow-up (Liam, 2026-10-11): a card from a summary-sheet guide says so first, list or not."""
     import confirm_topics
+    import display_names
     shown, more, ids = confirm_topics.card_list(rec)
+    summary = (f"<p><i>{display_names.SUMMARY_SHEET_LINE}</i></p>"
+               if rec.get("carrier") in display_names.SUMMARY_SHEETS else "")
     if not shown:
-        return ""
+        return summary
 
     def ul(items):
         return "<ul>" + "".join(f"<li>{html.escape(it['text'], quote=False)}</li>" for it in items) + "</ul>"
-    out = "<p><b>Before you quote, confirm:</b></p>" + ul(shown)
+    out = summary + "<p><b>Before you quote, confirm:</b></p>" + ul(shown)
     if more:
         out += f"<details><summary>+{len(more)} more</summary>{ul(more)}</details>"
     # (round 37 step 2: the row IDs moved to the card's own collapsed line, rule_ids_html)

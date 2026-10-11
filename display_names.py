@@ -53,6 +53,15 @@ DISPLAY = {
     "Travelers_HO3_-_06.12.2026": "Travelers (HO3)",
 }
 
+# Round 37 follow-up (Liam, 2026-10-11): the guides on file that are only a carrier's summary / quick-reference
+# sheet (1-4 pages; verification/test_summary_sheets.py keeps this in step with the store). Their cards say so.
+SUMMARY_SHEETS = frozenset({
+    "HOAIC_-_DP_Guide_DP3", "HOAIC_-_TX-HOMEOWNERS-0326_HO3", "TWICO_HO3",
+    "Swyfft_-_Benchmark_(Admitted)_HO3", "Swyfft_-_Benchmark_(Surplus)_HO3", "Swyfft_-_Lloyds_(Surplus)_HO3",
+    "Swyfft_-_Topa_(Surplus)_HO3",
+})
+SUMMARY_SHEET_LINE = "We have only this carrier's summary sheet; confirm details with underwriting."
+
 # Dates the file name writes in a form data_defects.guide_date does not read (it reads MM.DD.YYYY).
 OTHER_DATES = {
     "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3": "07/06/2026",
