@@ -1899,6 +1899,10 @@ def _apply_twico_solar_decision(results, relevant_carriers, property_details):
                             f'{_TWICO}: "{TWICO_SOLAR_SENTENCE}"')
 
 
+_ROW_REASON = re.compile(r"\[([A-Z][A-Z0-9]{2}-\d{3})\] (declines|refers to underwriting):")
+_ROW_VERB = {"INELIGIBLE": "declines", "REFER": "refers to underwriting"}
+
+
 def _code_owns_cards(results):
     """Round 26 step 2 (Liam, 2026-10-05): when a deterministic rule set the
     status, the card says the code's reason (with the guide's own sentence
@@ -1921,8 +1925,17 @@ def _code_owns_cards(results):
         r["diagnostics"] = {"model_reasons": list(r.get("reasons") or []),
                             "model_citations": list(r.get("citations") or []),
                             "model_missing_info": list(r.get("missing_info") or [])}
-        r["reasons"] = list(dict.fromkeys(d["reason"] for d in own))
-        r["citations"] = list(dict.fromkeys(d["citation"] for d in own if d.get("citation")))
+        # Round 38 step 7 (self-audit, 2026-10-11): on a rules-table card the table's own deciding rows for the
+        # same status stay after the code's reason, with their quotes -- TWICO's slate decline read "Slate is an
+        # ineligible roof material regardless of age." with no row and no quote ([TWI-037] p.3 went to diagnostics).
+        verb = _ROW_VERB.get(r.get("status")) if r.get("rules_table") else None
+        rows = [x for x in r["diagnostics"]["model_reasons"]
+                if verb and isinstance(x, str) and _ROW_REASON.match(x) and _ROW_REASON.match(x).group(2) == verb]
+        ids = {_ROW_REASON.match(x).group(1) for x in rows}
+        r["reasons"] = list(dict.fromkeys([d["reason"] for d in own] + rows))
+        r["citations"] = list(dict.fromkeys([d["citation"] for d in own if d.get("citation")] + [
+            c for c in r["diagnostics"]["model_citations"] if isinstance(c, str)
+            and any(f"[{i}]" in c for i in ids)]))
         if r["status"] == "INELIGIBLE":
             r["missing_info"] = []
         r["decided_by_code"] = True
