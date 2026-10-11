@@ -683,14 +683,15 @@ def code_record(canon, outcomes):
     elif fails["CONDITION"]:
         status, flaws, cited = "REFER", 0, fails["CONDITION"]
     elif opens:
-        status, flaws, cited = "INSUFFICIENT_INFORMATION", 0, []
+        status, flaws, cited = "INSUFFICIENT_INFORMATION", 0, []    # its reason: held_reason (below)
     else:
         status, flaws, cited = "ELIGIBLE", 0, []
     label = {"DECLINES": "declines", "REFERS_TO_UW": "refers to underwriting", "CONDITION": "condition not met"}
     reasons = [f"[{rid}] {label[fmap[rid]['outcome_if_fail']]}: {rules[rid]['Plain rule']}" for rid in cited]
     npass = sum(1 for o, _ in outcomes.values() if o == "PASS")
     if not reasons:
-        reasons = [f"Rules table: {npass} rule(s) decided from the form pass; none fails."]
+        reasons = ([held_reason(outcomes, opens)] if status == "INSUFFICIENT_INFORMATION"   # round 37 follow-up 2
+                   else [f"Rules table: {npass} rule(s) decided from the form pass; none fails."])
     open_items = [f"{outcomes[rid][1]} -- [{rid}] {rules[rid]['Plain rule']}" for rid in opens]
     rec = {"carrier": canon, "status": status, "flaw_count": flaws, "reasons": reasons,
            "citations": [citation(rules[rid]) for rid in cited],
@@ -715,7 +716,11 @@ PILOT_INSTRUCTION = (
     "given and breaks a rule decides by that rule's effect (DECLINES -> INELIGIBLE, REFERS_TO_UW or "
     "CONDITION -> REFER). Unknown is not a failure. Cite a rule by its row id only, e.g. \"[ALL-109]\": code "
     "adds the guide's own words, so never copy a rule's text into citations. Give exactly one record for each "
-    "carrier listed below under \"(rule check)\", and no record for any other carrier.")
+    "carrier listed below under \"(rule check)\", and no record for any other carrier. "
+    # Round 37 follow-up 2 (Liam, 2026-10-11)
+    "The form asks two optional questions: losses in the last 5 years (with their types and how many in the "
+    "last 3 years) and the electrical system. When PROPERTY DETAILS gives no answer to one, that fact is "
+    "unknown -- never say the form does not ask it.")
 
 
 def _cell(v):
@@ -761,6 +766,15 @@ def finish_model_record(rec, canon, outcomes):
     rec["rules_table"] = True
     rec["also_confirm"] = also_confirm(canon, outcomes)
     rec["confirm_items"] = confirm_items(canon, outcomes)
+    readable_reasons(rec)                      # round 37 follow-up 2
+    # Round 37 follow-up 2: a held card leads with code's reason (the model's own wording of the hold cited rows
+    # inline); its other reasons follow, as readable_reasons left them
+    opens = [rid for rid, (o, _) in outcomes.items() if o == "OPEN"]
+    if rec.get("status") == "INSUFFICIENT_INFORMATION" and opens:
+        rec["reasons"] = [held_reason(outcomes, opens)] + [r for r in rec.get("reasons") or []
+                                                            if not r.startswith("This guide: ")]
+        if not rec.get("missing_info"):        # the reason and Missing name the same rows
+            rec["missing_info"] = [f"{outcomes[rid][1]} -- [{rid}] {rules[rid]['Plain rule']}" for rid in opens]
     _hold_unknown_as_insufficient(rec, outcomes, ids)
     _release_unasked_holds(rec, outcomes)
     return rec
@@ -819,12 +833,61 @@ def _hold_unknown_as_insufficient(rec, outcomes, cited_ids):
     opens = [rid for rid, (o, d) in outcomes.items() if o == "OPEN" and not _model_can_decide(d)]
     if status not in ("REFER", "INELIGIBLE") and not opens:
         return
-    rec["notes"] = ((rec.get("notes") or "") + f" Rules table: the pilot answer said {status}, but these rows "
-                    "depend on facts the form does not give; code holds the carrier as Insufficient.").strip()
+    # Round 37 follow-up 2 (Liam, 2026-10-11): no internal note ("the pilot answer said ..."), and the card's
+    # reason is code's own (held_reason): the model's text argued for the verdict code just overruled.
     rec["status"], rec["flaw_count"] = "INSUFFICIENT_INFORMATION", 0
     opens = opens or [rid for rid, (o, _) in outcomes.items() if o == "OPEN"]   # an uncited decidable row
+    rec["reasons"] = [held_reason(outcomes, opens)]
     rec["missing_info"] = [f"{outcomes[rid][1]} -- [{rid}] {rules[rid]['Plain rule']}" for rid in opens]
     rec["citations"] = rec["citations"] or [citation(rules[rid]) for rid in opens]
+
+
+# Round 37 follow-up 2 (Liam, 2026-10-11): a held card's first line, written by code, that reads without row IDs.
+# Named row groups get Liam's own wording; the protection-class rows a fire-station distance opens get one line;
+# anything else says which facts the form does not give and quotes the first open rule.
+HELD_REASON_BY_ROWS = (
+    (frozenset({"CHU-043", "CHU-044"}),
+     "Chubb restricts all of Harris County (unacceptable in 1A, pre-approval in 1B/1C/1E); the form can't tell "
+     "which area."),
+)
+
+
+def held_reason(outcomes, opens):
+    rules = _rules()
+    opens = [rid for rid in opens if rid in outcomes]
+    for rows, text in HELD_REASON_BY_ROWS:
+        if rows & set(opens):
+            return text
+    details = [outcomes[rid][1] for rid in opens]
+    if any("station" in d and "distance" in d for d in details):
+        return ("Held: if the fire station is more than 5 miles away, this guide's higher-risk fire protection rules "
+                "apply (for example, the home must be under 25 years old). Confirm the distance.")
+    facts = []
+    for d in details:
+        for part in re.split(r";\s*", re.sub(r"\s*if not given", "", d)):
+            part = part.strip()
+            if part and not part.startswith(("ambiguous", "the row's effect")) and part not in facts:
+                facts.append(part)
+    first = rules[opens[0]]["Plain rule"].rstrip(".") if opens else ""
+    return ("Held: the form does not give " + (", ".join(facts) if facts else "a fact this guide needs")
+            + (f". This guide: {first}." if first else ".") + " Confirm it.")
+
+
+def readable_reasons(rec):
+    """Round 37 follow-up 2: a model reason that cites rows inline ("... decline in [CHU-043] and ...") is
+    replaced by those rows' own rules, so nothing reads with a hole where an ID was."""
+    rules = _rules()
+    out = []
+    for reason in rec.get("reasons") or []:
+        ids = [rid for rid in dict.fromkeys(_ROW_ID.findall(str(reason))) if rid in rules]
+        if not ids:
+            out.append(reason)
+            continue
+        for rid in ids:
+            text = "This guide: " + rules[rid]["Plain rule"]
+            if text not in out:
+                out.append(text)
+    rec["reasons"] = out
 
 
 def is_pilot(carrier):

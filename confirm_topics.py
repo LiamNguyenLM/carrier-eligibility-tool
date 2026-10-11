@@ -139,6 +139,10 @@ _RX = {k: re.compile("|".join(p), re.I) for k, (_, p, _) in TOPICS.items()}
 _FIRST = (
     (re.compile(r"\bpride of ownership\b", re.I), "upkeep"),
     (re.compile(r"\bin the name of\b|\btitled in\b", re.I), "ownership"),
+    # round 37 follow-up 2: "Homes within 300 ft of a commercial exposure" is the site's surroundings, not a
+    # business on the premises
+    (re.compile(r"\bwithin [\d,.]+\s*(ft|feet|foot|yards?|miles?)\b[^.;]{0,20}\b(commercial|business|industrial)",
+                re.I), "site"),
     # "X roofs are / on / with ..." -- the roof is the subject even when its material words come first
     (re.compile(r"\broofs?\s+(are|is|must|of|on|with|over|older|under|that|in)\b", re.I), "roof"),
 )

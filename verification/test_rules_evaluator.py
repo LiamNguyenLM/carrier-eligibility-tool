@@ -218,7 +218,8 @@ def test_a_pilot_refer_or_decline_on_an_unknown_fact_is_held_as_insufficient(can
     rec = ev.finish_model_record(_model(status, [reason]), canon, out)
     assert rec["status"] == "INSUFFICIENT_INFORMATION" and rec["flaw_count"] == 0
     assert rec["missing_info"] and all("--" in m for m in rec["missing_info"])
-    assert "facts the form does not give" in rec["notes"]
+    # CHANGED 2026-10-11 (round 37 follow-up 2, Liam: remove the internal "Rules table: the pilot answer said ..." note; a held card's reason is code's own). Was: "facts the form does not give" in rec["notes"]
+    assert "Rules table" not in rec["notes"] and rec["reasons"][0].startswith("Held: ")
     assert rec["citations"]
 
 
@@ -242,7 +243,8 @@ def test_a_pilot_eligible_answer_with_an_unknown_fact_open_is_held_as_insufficie
     rec = ev.finish_model_record(_model("ELIGIBLE", [reason]), canon, out)
     assert rec["status"] == "INSUFFICIENT_INFORMATION"
     assert any("fence" in m for m in rec["missing_info"])
-    assert "Insufficient" in rec["notes"]
+    # CHANGED 2026-10-11 (round 37 follow-up 2, Liam: remove the internal "Rules table: the pilot answer said ..." note; a held card's reason is code's own). Was: "Insufficient" in rec["notes"]
+    assert "Rules table" not in rec["notes"] and rec["reasons"][0].startswith("Held: ")
 
 
 def test_a_pilot_answer_on_model_decidable_rows_only_stands():

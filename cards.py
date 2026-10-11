@@ -39,7 +39,15 @@ _ROW = r"[A-Z]{3}-\d{3}"
 _RULES_TABLE_LINE = re.compile(r"Rules table: (\d+) rule\(s\) decided from the form pass; none fails\.")
 _LABELLED_ROW = re.compile(rf"\[{_ROW}\]\s*(declines|refers to underwriting|condition not met):\s*")
 _ITEM_ROW = re.compile(rf"\s+--\s+\[{_ROW}\]\s*")
-_ANY_ROW = re.compile(rf"\s*\[{_ROW}\]|\s*\(\b{_ROW}\b\)|\b{_ROW}\b,?\s*")
+# Round 37 follow-up 2 (Liam, 2026-10-11): deleting an ID that a sentence uses as a noun left holes ("decline in
+# and pre-approval in do not apply"). An ID used as a label (a list of IDs in brackets, "[ALL-045] Shingles ...",
+# ": [ALL-057] p.12") is dropped; an ID inside a sentence becomes "the guide's rule(s)".
+_ID = rf"\[?\b{_ROW}\b\]?"
+_PAREN_IDS = re.compile(rf"\s*\((?:(?:rows?|see|rules?)\s+)?{_ID}(?:\s*(?:,|and|to|-)\s*{_ID})*\)")
+_PREFIX_ID = re.compile(rf"(^|:\s|--\s)\s*{_ID}\s+(?=[A-Z]|p\.)")
+_ID_GROUP = re.compile(rf"(?:\bthe\s+)?{_ID}(?:\s*(?:,|and|to|or|through|-|\u2013)\s*{_ID})+"
+                       rf"(?:\s+(criteria|rules|rows|conditions|limits))?")
+_ID_ONE = re.compile(rf"(?:\bthe\s+)?{_ID}(?:\s+(criterion|criteria|rule|row|condition|limit))?")
 
 
 def agent_text(text):
@@ -50,7 +58,10 @@ def agent_text(text):
                                          "none rules it out.", s)
     s = _LABELLED_ROW.sub(lambda m: "Condition not met: " if m.group(1) == "condition not met" else "", s)
     s = _ITEM_ROW.sub(": ", s)
-    s = _ANY_ROW.sub(lambda m: " " if m.group(0).startswith(" ") and not m.group(0).strip().startswith("[") else "", s)
+    s = _PAREN_IDS.sub("", s)
+    s = _PREFIX_ID.sub(lambda m: m.group(1), s)
+    s = _ID_GROUP.sub(lambda m: ("The" if m.start() == 0 else "the") + " guide's " + (m.group(1) or "rules"), s)
+    s = _ID_ONE.sub(lambda m: ("The" if m.start() == 0 else "the") + " guide's " + (m.group(1) or "rule"), s)
     for program in sorted(display_names.DISPLAY, key=len, reverse=True):
         if program in s:
             s = s.replace(program, display_names.DISPLAY[program])

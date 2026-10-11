@@ -479,6 +479,8 @@ def _complete_openai(system_text, user_content, max_tokens, model=None):
 # once you're running real queries, not a reason to hold off shipping this.
 SYSTEM_INSTRUCTIONS = """You are an insurance underwriting assistant for an independent Texas agency.
 
+The intake form asks two optional questions: losses in the last 5 years (with their types and how many in the last 3 years) and the electrical system. When PROPERTY DETAILS gives no answer to one, that fact is unknown -- never say the form does not ask it.
+
 Using ONLY the carrier documents provided in the user message, analyze the property for each carrier.
 
 POLICY TYPE AND OCCUPANCY CONTEXT:
@@ -4367,8 +4369,8 @@ _CHUBB = "CHUBB_HO_-_05.22.2026"
 _CHUBB_COVERAGE_A_ITEM = (
     "Dwelling amount (Coverage A) -- Chubb's discounted tiers start at $1,000,000 Coverage A; "
     "below that the Standard Tier is \"Subject to pre-approval\". The guide also needs the "
-    "wildfire classification (24-50 is unacceptable in any tier), the Flood Zone, and 3-year "
-    "loss history, which this form does not ask for.")
+    "wildfire classification (24-50 is unacceptable in any tier) and the Flood Zone, which this form does not "
+    "ask for, and the 3-year loss history (the form's optional losses question).")
 
 
 # The two phrases are copied from the guide's text (page-10 table and its
@@ -4433,6 +4435,10 @@ def _apply_chubb_hold(results, relevant_carriers, property_details):
             mi = r.setdefault("missing_info", [])
             if not any(m.startswith("Dwelling amount (Coverage A)") for m in mi):
                 mi.insert(0, _CHUBB_COVERAGE_A_ITEM)
+            # Round 37 follow-up 2 (Liam, 2026-10-11): held on something else too -- say Coverage A is needed
+            reasons = r.setdefault("reasons", [])
+            if reasons and "Coverage A" not in reasons[0]:
+                reasons[0] = reasons[0].rstrip() + " Coverage A is also needed."
 
 
 def _blank_note_fields(carrier, relevant_carriers, property_details):
