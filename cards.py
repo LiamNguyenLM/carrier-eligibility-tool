@@ -145,9 +145,14 @@ def verdict_line(rec, property_details, checked=None):
     return agent_text(reasons[0]) if reasons else STATUS_LABEL.get(rec.get("status"), rec.get("status") or "")
 
 
-def first_line_markdown(rec, property_details, checked=None):
-    label = STATUS_LABEL.get(rec.get("status"), rec.get("status") or "")
-    return f"**{label}** — {verdict_line(rec, property_details, checked)}"
+def first_line_markdown(rec, property_details, checked=None, label=True):
+    """label=False (round 38 step 5, Liam 2026-10-11): the card sits under its status's column header, so it
+    does not say the status again -- an open card's bold "Insufficient information" read as the section header
+    repeated."""
+    line = verdict_line(rec, property_details, checked)
+    if not label:
+        return "No reason was given; see Details." if line == STATUS_LABEL.get(rec.get("status")) else line
+    return f"**{STATUS_LABEL.get(rec.get('status'), rec.get('status') or '')}** — {line}"
 
 
 def details_items(rec, guide=False):

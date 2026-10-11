@@ -147,3 +147,59 @@ def test_the_sage_batch_needs_exactly_1_and_the_pilot(pilot, batch, on):
     flag, line = out.stdout.strip().splitlines()[-2:]
     assert flag == str(on), out.stderr[-500:]
     assert ("Sage batch" in line) == on
+
+
+# Round 38 step 5 (Liam, 2026-10-11): on LANDLORD his page read "Insufficient Information", then "SageSure
+# Occidental (DP3)" and "SageSure SURE (DP3)" as bare names, then "Insufficient Information" again with the full
+# cards. The page renders the header once (above); what repeated it was each open card's first line,
+# "**Insufficient information** — Held: ...". A card in a status column no longer names its status.
+LABELS = {"### Eligible": "eligible", "### Refer to Underwriting": "refer to underwriting",
+          "### Insufficient Information": "insufficient information", "### Not Eligible": "not eligible"}
+
+
+def _landlord_records():
+    held = ("Held: this guide's fire-protection table needs to know whether a hydrant is within 1,000 ft. "
+            "Confirm these.")
+    return [dict(carrier=c, status=s, flaw_count=1 if s == "INELIGIBLE" else 0, reasons=r, citations=[],
+                 missing_info=["hydrant within 1,000 ft if not given"] if s == "INSUFFICIENT_INFORMATION" else [],
+                 notes="")
+            for c, s, r in [("HOAIC_-_DP_Guide_DP3", "ELIGIBLE", ["fixture"]),
+                            ("Steadily_Underwriting_Guidelines_DP3", "ELIGIBLE", ["fixture"]),
+                            ("Centauri_-_DP3_-_11.16.2022", "REFER", ["LLCs need underwriting approval."]),
+                            ("Sage_-_Occidental_DP3", "INSUFFICIENT_INFORMATION", [held]),
+                            ("Sage_-_SURE_DP-3_-_01.31.2026", "INSUFFICIENT_INFORMATION", [held]),
+                            ("Sage_-_SafePort_DP-3_-_01.31.2026", "INSUFFICIENT_INFORMATION", []),   # no reason
+                            ("Foremost_DP3_and_HO3_-_07.01.2026", "INELIGIBLE", ["Coastal county."])]]
+
+
+def _column_text(at):
+    """{column header: every markdown string in that column, lower-cased}."""
+    out = {}
+    for col in at.columns:
+        md = [m.value for m in col.markdown]
+        head = next((m for m in md if m in LABELS), None)
+        if head:
+            out[head] = [m.lower() for m in md]
+    return out
+
+
+@pytest.mark.parametrize("records", ["mixed", "landlord"])
+def test_a_status_column_names_its_status_once(monkeypatch, records):
+    from streamlit.testing.v1 import AppTest
+    recs = _records() if records == "mixed" else _landlord_records()
+    monkeypatch.setattr(ec, "check_eligibility", lambda pd, **kw: [dict(r) for r in recs])
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.session_state["authenticated"] = True
+    at.run()
+    at.selectbox(key="dwelling_type").select("House").run()
+    at.button(key="submit").click().run()
+    assert not at.exception
+    cols = _column_text(at)
+    assert set(cols) == set(LABELS)
+    for head, texts in cols.items():
+        word = LABELS[head]
+        assert sum(t.count(word) for t in texts) == 1, (head, [t[:90] for t in texts if word in t])
+    if records == "landlord":
+        ins = cols["### Insufficient Information"]
+        assert sum(t.startswith("held: this guide's fire-protection table") for t in ins) == 2
+        assert "no reason was given; see details." in ins

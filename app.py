@@ -568,7 +568,8 @@ with tab1:
                 # everything else collapsed under "Details" (cards.py).
                 # Round 25: the rules-table pilot's cards say so.
                 # (round 37 step 2: the "rules table" badge is gone; the Fingerprint panel says the pilot is on)
-                st.markdown(cards.first_line_markdown(carrier, property_details, checked_topics))
+                # round 38 step 5: the column header names the status; the card does not repeat it
+                st.markdown(cards.first_line_markdown(carrier, property_details, checked_topics, label=False))
                 missing = [m for m in carrier.get("missing_info") or [] if isinstance(m, str) and m.strip()]
                 if missing:
                     st.markdown("**Missing:**\n" + "\n".join("- " + cards.agent_text(item) for item in missing))
