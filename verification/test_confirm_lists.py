@@ -28,7 +28,8 @@ ROWS = [
     row("XX-003", "Any fire or smoke claim within the previous 5 years needs prior underwriting approval.",
         "REFERS_TO_UW", "LOSS_HISTORY"),
     row("XX-004", "A prior mold loss is acceptable only with evidence of remediation.", "CONDITION", "LOSS_HISTORY"),
-    row("XX-005", "Prior sinkhole claims are ineligible.", category="LOSS_HISTORY"),
+    # CHANGED 2026-10-11 (round 37 follow-up: a rule's topic is its subject): "Prior sinkhole claims" is a foundation / ground rule now; a plain loss rule instead
+    row("XX-005", "Prior theft claims are ineligible.", category="LOSS_HISTORY"),
     row("XX-006", "Knob and tube wiring is ineligible.", category="ELECTRICAL"),
     row("XX-007", "Federal Pacific or Zinsco panels are ineligible.", category="ELECTRICAL"),
     row("XX-008", "Trampolines are ineligible."),
@@ -150,7 +151,8 @@ def test_the_top_box_keeps_at_most_eight():
 
 
 def test_the_topic_table():
-    assert len(ct.TOPICS) == 33 and all(q.endswith("?") or "?" in q for q, _, _ in ct.TOPICS.values())
+    # CHANGED 2026-10-11 (round 37 follow-up: a rule's topic is its subject): + fire_protection. Was: 33.
+    assert len(ct.TOPICS) == 34 and all(q.endswith("?") or "?" in q for q, _, _ in ct.TOPICS.values())
     assert set(ct.CATEGORY_TOPIC.values()) <= set(ct.TOPICS)
 
 

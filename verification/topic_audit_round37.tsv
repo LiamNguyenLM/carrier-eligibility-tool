@@ -1,0 +1,692 @@
+# Round 37 follow-up topic audit (2026-10-11): row, topic before -> after, the rule. Before = first topic in TOPICS order whose words occur; after = the topic whose words come first (the subject), plus deciding phrases.
+4443 rows; 689 moved topic
+[(('other', 'fire_protection'), 57), (('coverage_a', 'other_coverages'), 45), (('ownership', 'occupancy'), 35), (('electrical', 'solar'), 27), (('electrical', 'roof'), 22), (('losses', 'fire_protection'), 21), (('losses', 'upkeep'), 21), (('losses', 'roof'), 20), (('coverage_a', 'fire_protection'), 17), (('construction', 'upkeep'), 16), (('site', 'fire_protection'), 16), (('occupancy', 'business'), 14), (('coverage_a', 'roof'), 13), (('prior_insurance', 'losses'), 13), (('losses', 'occupancy'), 12), (('other_coverages', 'losses'), 11), (('occupancy', 'dwelling_type'), 10), (('business', 'acreage'), 10), (('coverage_a', 'flood'), 10), (('other_coverages', 'occupancy'), 10), (('business', 'animals'), 9), (('construction', 'foundation'), 9), (('county', 'other_coverages'), 9), (('occupancy', 'fire_protection'), 8), (('other_coverages', 'roof'), 8), (('other_coverages', 'upkeep'), 8), (('losses', 'animals'), 7), (('binding', 'other_coverages'), 6), (('coverage_a', 'dwelling_type'), 6), (('ownership', 'dwelling_type'), 6), (('ownership', 'business'), 5), (('other_coverages', 'insurance_score'), 5), (('mortgages', 'ownership'), 5), (('updates', 'roof'), 5), (('under_construction', 'occupancy'), 5), (('occupancy', 'upkeep'), 4), (('roof', 'dwelling_type'), 4), (('roof', 'solar'), 4), (('roof', 'upkeep'), 4), (('losses', 'foundation'), 4), (('occupancy', 'pool'), 4), (('binding', 'construction'), 4), (('heating', 'plumbing'), 4), (('coverage_a', 'occupancy'), 4), (('alarms', 'fire_protection'), 4), (('heating', 'dwelling_type'), 4), (('flood', 'upkeep'), 3), (('coverage_a', 'under_construction'), 3), (('electrical', 'pool'), 3), (('county', 'site'), 3), (('county', 'occupancy'), 3), (('losses', 'plumbing'), 3), (('coverage_a', 'foundation'), 3), (('electrical', 'construction'), 3), (('other_coverages', 'animals'), 3), (('heating', 'occupancy'), 3), (('prior_insurance', 'pool'), 3), (('roof', 'construction'), 3), (('business', 'dwelling_type'), 3), (('applicant', 'occupancy'), 3), (('plumbing', 'upkeep'), 2), (('acreage', 'fire_protection'), 2), (('electrical', 'upkeep'), 2), (('coverage_a', 'construction'), 2), (('updates', 'construction'), 2), (('pool', 'upkeep'), 2), (('construction', 'dwelling_type'), 2), (('losses', 'business'), 2), (('business', 'upkeep'), 2), (('water_heater', 'plumbing'), 2), (('electrical', 'heating'), 2), (('losses', 'flood'), 2), (('heating', 'construction'), 2), (('occupancy', 'liability_hazards'), 2), (('coverage_a', 'animals'), 2), (('other_coverages', 'wildfire'), 2), (('plumbing', 'occupancy'), 2), (('updates', 'occupancy'), 2), (('prior_insurance', 'liability_hazards'), 2), (('prior_insurance', 'roof'), 2), (('coverage_a', 'losses'), 2), (('wildfire', 'fire_protection'), 2), (('construction', 'wildfire'), 2), (('dwelling_type', 'fire_protection'), 2), (('applicant', 'dwelling_type'), 2), (('dwelling_type', 'upkeep'), 1), (('coverage_a', 'updates'), 1), (('construction', 'site'), 1), (('other_coverages', 'flood'), 1), (('other_coverages', 'alarms'), 1), (('coverage_a', 'plumbing'), 1), (('losses', 'wildfire'), 1), (('coverage_a', 'prior_insurance'), 1), (('flood', 'occupancy'), 1), (('heating', 'alarms'), 1), (('coverage_a', 'alarms'), 1), (('coverage_a', 'business'), 1), (('insurance_score', 'mortgages'), 1), (('county', 'roof'), 1), (('water_heater', 'heating'), 1), (('flood', 'construction'), 1), (('county', 'foundation'), 1), (('occupancy', 'historic'), 1), (('insurance_score', 'liability_hazards'), 1), (('prior_insurance', 'construction'), 1), (('electrical', 'water_heater'), 1), (('other_coverages', 'pool'), 1), (('other_coverages', 'applicant'), 1), (('binding', 'county'), 1), (('other_coverages', 'site'), 1), (('binding', 'coverage_a'), 1), (('coverage_a', 'liability_hazards'), 1), (('under_construction', 'roof'), 1), (('foundation', 'upkeep'), 1), (('wildfire', 'upkeep'), 1), (('insurance_score', 'ownership'), 1), (('binding', 'wildfire'), 1), (('site', 'wildfire'), 1), (('foundation', 'other'), 1), (('losses', 'ownership'), 1), (('dwelling_type', 'alarms'), 1), (('other_coverages', 'under_construction'), 1), (('electrical', 'plumbing'), 1), (('plumbing', 'updates'), 1), (('water_heater', 'updates'), 1), (('prior_insurance', 'animals'), 1), (('construction', 'ownership'), 1), (('animals', 'upkeep'), 1), (('under_construction', 'dwelling_type'), 1), (('flood', 'dwelling_type'), 1), (('foundation', 'dwelling_type'), 1), (('electrical', 'dwelling_type'), 1), (('plumbing', 'dwelling_type'), 1), (('occupancy', 'animals'), 1), (('pool', 'liability_hazards'), 1), (('prior_insurance', 'site'), 1), (('insurance_score', 'roof'), 1)]
+ALL-003	occupancy -> upkeep	Water damage on secondary/seasonal residences is limited to $10,000 for Coverages A, B, C and D combined.
+ALL-005	ownership -> occupancy	Homes not occupied by the named insured are ineligible.
+ALL-017	ownership -> business	Homes owned by a business, corporation, LLC, partnership, estate or land trust are ineligible.
+ALL-018	ownership -> business	A business, corporation, LLC, partnership, estate or land trust may not be a named or additional insured.
+ALL-019	dwelling_type -> upkeep	Only well-maintained single-family dwellings or single townhouse units may be bound.
+ALL-026	roof -> dwelling_type	Townhouse units must be separated by parapet walls or masonry firewalls rated at least 2 hours, extending from the base floor to the roof sheathing.
+ALL-029	coverage_a -> updates	Homes 76 years and older must be completely renovated and meet all listed update requirements and are subject to Functional Replacement Cost.
+ALL-033	plumbing -> upkeep	Homes 76 years and older get Limited Water Damage Coverage unless completely re-plumbed above the slab within the last 20 years.
+ALL-041	losses -> roof	Roofs with missing, loose, damaged, lifting or curling shingles or tiles, granular loss, or damaged fascia/soffits are ineligible.
+ALL-042	electrical -> roof	Unique or uncommon roof materials or coverings (including slate and solar panel tiles) are ineligible.
+ALL-045	coverage_a -> roof	Composite or architectural shingle roofs should have 3/4 of life expectancy remaining at new business to qualify for replacement cost coverage.
+ALL-046	losses -> roof	Composite or architectural shingle roofs may require the Limited Loss Settlement for Windstorm or Hail Losses to Roof Surfacing endorsement to be eligible, based on condition, location or roof year.
+ALL-047	coverage_a -> roof	Tile and metal roofs should be 20 years old or newer at new business to qualify for replacement cost coverage.
+ALL-048	losses -> roof	Tile and metal roofs over 21 years old require the Limited Loss Settlement for Windstorm or Hail Losses to Roof Surfacing endorsement.
+ALL-051	construction -> upkeep	Homes with missing, damaged or rotted siding, or siding in poor condition, are ineligible.
+ALL-100	construction -> upkeep	Properties with debris, clutter, inoperable vehicles, trash, unused appliances, construction materials, brush piles or other liability hazards are ineligible.
+ALL-104	business -> animals	Farm animals, livestock, saddle animals and hooved animals are ineligible.
+ALL-109	roof -> solar	Solar roof systems are ineligible.
+ALL-110	electrical -> solar	Solar panel tiles are ineligible.
+ALL-111	electrical -> roof	Guide does not address add-on (non-roof-system) rooftop or ground-mounted solar panels.
+ALL-112	other -> fire_protection	Protection classes 1-9 are eligible.
+ALL-113	other -> fire_protection	Protection class 10 is ineligible unless the dwelling and Other Structures are 3 years old or less and the risk qualifies for the Protected Subdivision Rule.
+ALL-114	acreage -> fire_protection	Guide does not state a maximum distance to a fire station or hydrant for standard (non-acreage) homes.
+ALL-127	construction -> site	Risks on landfills, in condemned areas or areas scheduled to be condemned for urban renewal or highway construction are ineligible.
+ALL-137	coverage_a -> other_coverages	Coverage B limit is 0% to 50% of Coverage A.
+ALL-138	coverage_a -> other_coverages	Coverage C limit is 25% to 75% of Coverage A.
+ALL-139	coverage_a -> other_coverages	Coverage D limit is 10% to 30% of Coverage A.
+ALL-159	acreage -> fire_protection	A hydrant or credible water source must be within 1,000 feet, or the fire department must be able to transport at least 5,000 gallons of water.
+ALL-160	electrical -> upkeep	Smoke detectors are required near all cooking, laundry, circuit breaker and sleeping areas.
+ALL-169	other_coverages -> flood	Homes in a Special Flood Hazard Area (Zone A or V) must have a Federal flood policy with matching building and contents limits or the maximum available.
+ALL-170	flood -> upkeep	Properties with unrepaired flood damage are ineligible.
+ALL-184	occupancy -> business	Business occupancy, including any day care exposure, is ineligible.
+ALL-192	coverage_a -> under_construction	Dwellings under construction or undergoing renovation are ineligible; renovation means unoccupied and/or a budget of 10% or more of Coverage A.
+ALL-200	roof -> upkeep	Homes with trees overhanging the roof or in dangerous proximity, or dead or damaged trees, may be ineligible.
+ALL-206	electrical -> upkeep	Homes must have smoke detectors near the kitchen, laundry, garage, circuit breakers and all sleeping areas.
+ALL-214	other_coverages -> alarms	A central station burglar alarm is required for scheduled personal property schedules over $50,000.
+SAG-004	ownership -> occupancy	Seasonal or secondary residences require arrangements for the property to be checked at least once per month while the owner is away.
+SAG-010	ownership -> occupancy	Rental or home sharing of an entire seasonal or secondary residence is limited to 6 months, and the owner must occupy it at least 6 months of the year.
+SAG-015	occupancy -> dwelling_type	If more than 1 unit is a rental, all units must have a full-time renter.
+SAG-022	construction -> foundation	To be eligible the home must be a permanent dwelling on a permanent foundation with final construction at the home site.
+SAG-032	losses -> roof	A flat roof that has not been fully renovated, on a home with a prior roof-related wind or water loss, must be referred to underwriting.
+SAG-033	electrical -> roof	Metal roofs on the primary dwelling other than steel (such as aluminum or tin, or steel lighter than 29 gauge) are ineligible.
+SAG-062	electrical -> pool	Windstorm and hail coverage is excluded for pool roof covers, pool cages, patio covers and aluminum carports via mandatory endorsement HC1753301; limited coverage up to $50,000 can be added for an additional premium.
+SAG-071	electrical -> solar	The guide does not address solar panels (searched for solar, photovoltaic).
+SAG-072	other -> fire_protection	Any protection class is eligible when the fire station is 5 miles or less by driving distance and a hydrant is within 1,000 feet.
+SAG-073	site -> fire_protection	Protection class 1-3 with a station within 5 miles but no hydrant within 1,000 feet is eligible only if visible from the main public road, has a central station fire alarm, and has year-round fire equipment access on a roadway at least 10 feet wide.
+SAG-074	site -> fire_protection	Protection class 1-3 with a station more than 5 miles away is eligible only if visible from the main public road, has a central station fire alarm, and has year-round fire equipment access on a roadway at least 10 feet wide.
+SAG-075	losses -> fire_protection	Protection class 4-10 with a station within 5 miles but no hydrant within 1,000 feet is eligible only if visible from the public road, has a central station fire alarm, has year-round access 10 feet wide, the home is under 25 years old, primary occupancy only, no rentals and no prior fire losses.
+SAG-076	losses -> fire_protection	Protection class 4-8 with a station more than 5 miles away is eligible only if visible from the public road, has a central station fire alarm, has year-round access 10 feet wide, the home is under 25 years old, primary occupancy only, no rentals and no prior fire losses.
+SAG-077	other -> fire_protection	Protection class 9 or greater with a station more than 5 miles away is ineligible.
+SAG-078	other -> fire_protection	Homes in the higher-risk fire protection rows (PPC 4-10 with no close hydrant, or PPC 4-8 beyond 5 miles) must be less than 25 years old.
+SAG-089	county -> site	Extreme hazard locations include barrier islands, Bolivar/Matagorda peninsulas, and areas within set distances of designated shorelines depending on county tier.
+SAG-100	coverage_a -> other_coverages	Coverage B maximum is 10% of Coverage A.
+SAG-101	coverage_a -> other_coverages	Coverage C maximum is 100% of Coverage A.
+SAG-102	coverage_a -> other_coverages	Coverage D maximum is 30% of Coverage A.
+SAG-106	coverage_a -> other_coverages	Coverage C minimum is 10% of Coverage A.
+SAG-107	coverage_a -> other_coverages	Coverage D minimum is 10% of Coverage A.
+SAG-110	coverage_a -> construction	Dwellings with unique, unusual or special construction features are not eligible for the Additional Amounts of Insurance Coverage A option.
+SAG-116	losses -> upkeep	The damage and condition causing any loss must have been repaired.
+SAG-118	prior_insurance -> losses	Renewals with more than 2 non-zero, non-weather losses in the prior 3 years may be non-renewed if the customer was notified after the second loss.
+SAG-122	business -> acreage	Properties over 5 acres are eligible only with a pre-bind underwriting referral and no remuneration from third parties for farming, recreation, hunting, hiking, swimming or any liability-creating use.
+SAG-123	coverage_a -> flood	Properties subject to wave wash must have a flood policy with limits equal to the Coverage A limit up to the maximum NFIP offer (currently $250,000 for dwelling coverage).
+SAG-138	construction -> upkeep	Dwellings with unrepaired damage such as missing siding, fascia boards, soffits, gutters or foundation cracks are ineligible.
+SAG-154	other_coverages -> losses	Two inland marine, theft or mysterious disappearance losses in the past 6 years make scheduled personal property ineligible.
+SAG-155	other_coverages -> insurance_score	An adjusted insurance score below Fair (500) makes scheduled personal property ineligible.
+SAG-157	binding -> other_coverages	Minimum all-other-perils deductible is $1,000 and the earthquake deductible is 10%.
+CHU-024	coverage_a -> plumbing	A water shut-off device chart lists Coverage A thresholds for houses, but does not say the device is required.
+CHU-034	other -> fire_protection	Preferred tier requires an adequately equipped fire department within 5 road miles of the residence.
+CHU-042	losses -> wildfire	Dwellings subject to wildfire risk are acceptable only with adequate clearance from unmanaged vegetation, an acceptable appraisal and adequate loss prevention measures.
+CHU-045	county -> occupancy	Secondary or seasonal houses in coastal Harris County 1B, 1C and 1E are acceptable in the Standard tier only with the Chubb primary residence.
+CHU-047	county -> occupancy	Secondary or seasonal houses in Harris County 1A-east of Hwy 146 and Territories 8, 9 and 10 are unacceptable.
+CHU-053	other_coverages -> occupancy	Tenant or renter policies require insurance of at least 100% of actual cash value; refusal is ineligible.
+CHU-061	coverage_a -> prior_insurance	Non-renewal applies to dwellings with a Coverage A amount of $90M or greater.
+CHU-070	losses -> upkeep	Dwellings with damage from a claim that was improperly repaired are ineligible.
+CHU-071	losses -> upkeep	Dwellings or applicants with previous mold damage or a mold claim are eligible only if the property was remediated and certified under the Texas Occupations Code.
+CHU-081	flood -> occupancy	Coastal Standard tier high-rise tenants and condominiums on the 3rd floor or higher in Flood zone V must be pre-approved; all other Flood zone V risks are unacceptable.
+CHU-103	heating -> alarms	Dwellings with insufficient functional burglar alarms, smoke alarms or associated heat sensors are ineligible.
+CHU-104	coverage_a -> alarms	A central station fire and burglar alarm chart lists Coverage A thresholds of $5,000,000 for houses, $10,000,000 for condominiums (A&A) and renters (contents).
+CHU-110	county -> other_coverages	Coastal Standard tier Clause 1 minimum deductible is 2% for Harris County 1B and 5% for 1C and 1E (including wind); Clause 2 is $2,500.
+MER-024	construction -> upkeep	Decks, patios, porches, fences, outbuildings and balconies must be built of non-combustible or ignition-resistant materials.
+MER-025	construction -> upkeep	If gutters are present, they must be metal and covered with non-combustible corrosion-resistant metal mesh screen.
+MER-026	construction -> foundation	Eaves must be enclosed, and attic and foundation vents must be covered with 1/8-inch or 1/16-inch non-combustible corrosion-resistant metal mesh screens.
+MER-028	updates -> construction	Primary or detached structures of poor construction, or with remodeling or repairs not built to local code or zoning, do not meet the maintenance standard.
+MER-033	losses -> plumbing	A plumbing-system-failure water loss in the past 3 years requires an inspection by a qualified plumbing contractor confirming good condition, no leaks and no lead interior supply lines.
+MER-048	pool -> upkeep	Empty or poorly maintained pools and spas do not meet the maintenance standard.
+MER-060	other -> fire_protection	Homes with an ISO protection class of 10 or 10W need underwriting approval before binding.
+MER-079	other_coverages -> occupancy	Renters Coverage C and Additions and Alterations has a maximum of $500,000 and no stated minimum.
+MER-082	other_coverages -> occupancy	Tenant Coverage C and Additions and Alterations combined of $250,000 or more needs underwriting approval before binding.
+MER-086	coverage_a -> business	Tier II coastal High and Moderate zip codes have a new-business maximum of $1,000,000 Coverage A.
+MER-108	occupancy -> business	Risks with home day care, assisted living or rehabilitation operations on the premises are ineligible regardless of the number of children, occupants, patients or residents.
+MER-114	insurance_score -> mortgages	Risks financed, purchased or leased through a mortgage where the lender is not a bank or credit union are ineligible.
+PRO-003	ownership -> occupancy	Secondary/seasonal residences are eligible if disclosed on the application, occupied by the owner and immediate family, with no rental exposure.
+PRO-015	mortgages -> ownership	The applicant must hold title to the home, and the home may have no more than 2 mortgages.
+PRO-017	coverage_a -> dwelling_type	Townhouse/rowhouse dwellings are written for Coverage A only if the dwelling contains 4 or fewer family units within a fire division.
+PRO-029	updates -> roof	Roofing must be completely replaced with approved roof covering and flashing when the roof is a major system requiring update.
+PRO-031	county -> roof	The Roofing Materials Payment Schedule is mandatory for new and renewal policies with roofs 8 years or older in all other counties.
+PRO-045	water_heater -> heating	Heating systems and water heaters are subject to underwriting review for updates (new heating plant; replacement of water heater).
+PRO-050	flood -> construction	Homes on pilings (8-10 ft elevations) require photos submitted to underwriting before binding; new construction on engineered piling with flood insurance is accepted.
+PRO-057	roof -> upkeep	Dwellings with trees or brush overhanging the roof or in dangerous proximity to the structures are ineligible.
+PRO-064	business -> animals	Saddle, hoofed or other farm animals are limited to 2 horses per household member.
+PRO-065	business -> animals	Farm animals may not be used for business purposes such as riding lessons, breeding or boarding.
+PRO-066	business -> animals	Properties with farm animals must carry the Hobby Farming endorsement.
+PRO-068	site -> fire_protection	Homes in protection class 9 or 10 must be on a paved road and visible to neighbors.
+PRO-070	other -> fire_protection	Unclassified areas use PC 10 unless two or more classifications are shown, in which case miles to fire station and feet to hydrant determine the class.
+PRO-084	county -> foundation	A Foundation Water Damage Exclusion is attached to all homes written in Nueces county.
+PRO-092	coverage_a -> other_coverages	A minimum wind/hail deductible of 2% of Coverage A is required.
+SWY-014	occupancy -> historic	Historical homes and fraternity/sorority houses are ineligible.
+SWY-043	roof -> solar	Tesla Solar Roofs, including those with Tesla batteries or any Tesla parts, are ineligible.
+SWY-048	losses -> foundation	Any prior sinkhole activity or claims is ineligible.
+SUR-005	ownership -> dwelling_type	Homes must be one-to-four family dwellings with an owner occupant.
+SUR-018	ownership -> occupancy	Seasonal or secondary residences require the owner to arrange weekly checks on the property while away.
+SUR-034	occupancy -> dwelling_type	If more than 1 unit is a rental, all units must have a full-time renter.
+SUR-039	business -> acreage	On properties over 5 acres, no remuneration may be received from third parties for farming, recreation, hunting, hiking, swimming or any liability-creating use.
+SUR-043	construction -> foundation	The home must be a permanent dwelling on a permanent foundation with final construction at the home site.
+SUR-045	construction -> dwelling_type	Metal other structures over 750 square feet are eligible only by referral, and only if in good condition, of solid construction, for personal use only and of above-average overall quality.
+SUR-087	losses -> upkeep	The damage and the condition causing any loss must have been repaired.
+SUR-089	prior_insurance -> losses	Renewals with more than 2 non-zero, non-weather losses in the prior 3 years may be non-renewed if the customer was notified after the second loss.
+SUR-091	coverage_a -> fire_protection	For Fire Protection Class B or C risks, maximum Coverage A is $2,000,000 or $3,999,999 Total Insured Value, whichever is lower.
+SUR-094	coverage_a -> other_coverages	Coverage B maximum is 10% of Coverage A.
+SUR-095	coverage_a -> other_coverages	Coverage C maximum is 100% of Coverage A.
+SUR-096	coverage_a -> other_coverages	Coverage D maximum is 30% of Coverage A.
+SUR-102	coverage_a -> other_coverages	Coverage C minimum is 10% of Coverage A.
+SUR-103	coverage_a -> other_coverages	Coverage D minimum is 10% of Coverage A.
+SUR-107	binding -> other_coverages	Minimum all-other-perils deductible is $1,000 and the minimum earthquake deductible is 10%.
+SUR-110	other -> fire_protection	Any protection class is eligible when the fire station is 5 miles or less by driving distance and a hydrant is within 1,000 feet (FPC suffix A).
+SUR-111	site -> fire_protection	Protection class 1-3 with a station 5 miles or less but no hydrant within 1,000 feet (FPC suffix B) is eligible only if visible from the main public road, with a central station fire alarm, and year-round all-weather fire equipment access on a roadway at least 10 feet wide.
+SUR-112	site -> fire_protection	Protection class 1-3 with a station more than 5 miles away (FPC suffix C) is eligible only if visible from the main public road, with a central station fire alarm, and year-round all-weather fire equipment access on a roadway at least 10 feet wide.
+SUR-113	losses -> fire_protection	Protection class 4-10 with a station 5 miles or less but no hydrant within 1,000 feet (FPC suffix B) is eligible only if visible from the main public road, with a central station fire alarm, year-round access on a 10-foot roadway, the home under 25 years old, primary occupancy only, no rental exposures and no prior fire losses.
+SUR-114	losses -> fire_protection	Protection class 4-8 with a station more than 5 miles away (FPC suffix C) is eligible only if visible from the main public road, with a central station fire alarm, year-round access on a 10-foot roadway, the home under 25 years old, primary occupancy only, no rental exposures and no prior fire losses.
+SUR-115	other -> fire_protection	Protection class 9 or greater with a station more than 5 miles away is ineligible.
+SUR-116	other -> fire_protection	In the FPC 4-10 (no hydrant within 1,000 ft, station 5 miles or less) and FPC 4-8 (station over 5 miles) rows, the home must be less than 25 years old.
+SUR-117	occupancy -> fire_protection	In the FPC 4-10 (no hydrant within 1,000 ft, station 5 miles or less) and FPC 4-8 (station over 5 miles) rows, the home must be primary occupancy with no rental exposures.
+SUR-118	losses -> fire_protection	In the FPC 4-10 (no hydrant within 1,000 ft, station 5 miles or less) and FPC 4-8 (station over 5 miles) rows, the home must have no prior fire losses.
+SUR-120	construction -> upkeep	Dwellings with unrepaired damage such as missing siding, fascia boards, soffits, gutters or foundation cracks are ineligible.
+SUR-148	losses -> roof	A flat roof that has not been fully renovated, on a home with a prior roof-related wind or water loss, must be referred to underwriting.
+SUR-149	electrical -> roof	Metal roofs on the primary dwelling other than steel of at least 29 gauge (such as aluminum or tin) are ineligible.
+SUR-156	other_coverages -> losses	Two inland marine, theft or mysterious disappearance losses in the past 6 years make scheduled personal property ineligible.
+SUR-157	other_coverages -> insurance_score	An adjusted insurance score below Fair (500) makes scheduled personal property ineligible.
+SUR-172	coverage_a -> flood	Properties subject to wave wash must have a flood policy with limits equal to Coverage A, up to the maximum NFIP offer (currently $250,000 for dwelling coverage).
+SUR-176	electrical -> solar	The guide does not address solar panels (searched for solar, photovoltaic, panel).
+SFP-018	ownership -> occupancy	Seasonal or secondary residence owners must have arranged weekly checks on the property while away.
+SFP-034	occupancy -> dwelling_type	If more than 1 unit is a rental, all units must have a full-time renter.
+SFP-039	business -> acreage	On properties over 5 acres, any remuneration from third parties for farming, recreation, hunting, hiking, swimming or any liability-creating use makes the risk ineligible.
+SFP-042	construction -> foundation	To be eligible the home must be a permanent dwelling on a permanent foundation with final construction at the home site.
+SFP-068	insurance_score -> liability_hazards	Full trampoline liability coverage with a surcharge requires an Adjusted Insurance Score of Good (700-799) or better, no liability or fire losses in 6 years, shock-absorbing padding, and receipt of the SPSC safety alert.
+SFP-072	losses -> animals	Liability coverage for a specified dog breed (HC4461301) can be bought with a surcharge if the score is Good (700-799) or better, no liability or fire losses in 6 years, the dog has never bitten or shown vicious tendencies, and is not trained to attack, guard or fight.
+SFP-077	losses -> business	Full liability coverage for farm, saddle or hooved animals (HC4461401) can be bought with a surcharge if the score is Good (700-799) or better, no liability or fire losses in 6 years, animals are for personal use only, and there are up to 3 saddle animals.
+SFP-092	losses -> upkeep	The damage and condition causing any loss must have been repaired.
+SFP-094	prior_insurance -> losses	Renewals with more than 2 non-zero, non-weather losses in the prior 3 years may be non-renewed if the customer was notified after the second loss.
+SFP-097	coverage_a -> fire_protection	For FPC B or C risks, maximum Coverage A is $2,000,000 (or $3,999,999 TIV, whichever is lower).
+SFP-098	coverage_a -> fire_protection	For FPC B or C risks, maximum Total Insured Value is $3,999,999 (or $2,000,000 Coverage A, whichever is lower).
+SFP-101	coverage_a -> other_coverages	Coverage B maximum is 10% of Coverage A.
+SFP-102	coverage_a -> other_coverages	Coverage C maximum is 100% of Coverage A.
+SFP-103	coverage_a -> other_coverages	Coverage D maximum is 30% of Coverage A.
+SFP-109	coverage_a -> other_coverages	Coverage C minimum is 10% of Coverage A.
+SFP-110	coverage_a -> other_coverages	Coverage D minimum is 10% of Coverage A.
+SFP-118	other -> fire_protection	Any protection class is eligible when the fire station is 5 miles or less by driving distance and a hydrant is within 1,000 feet.
+SFP-119	site -> fire_protection	Protection class 1-3 with a station within 5 miles but no hydrant within 1,000 feet is eligible only if visible from the main public road, has a central station fire alarm, and has year-round fire equipment access on a roadway at least 10 feet wide.
+SFP-120	site -> fire_protection	Protection class 1-3 with a station more than 5 miles away is eligible only if visible from the main public road, has a central station fire alarm, and has year-round fire equipment access on a roadway at least 10 feet wide.
+SFP-121	losses -> fire_protection	Protection class 4-10 with a station within 5 miles but no hydrant within 1,000 feet is eligible only if visible from the public road, has a central station fire alarm, has year-round access 10 feet wide, the home is under 25 years old, primary occupancy only, no rentals and no prior fire losses.
+SFP-122	losses -> fire_protection	Protection class 4-8 with a station more than 5 miles away is eligible only if visible from the public road, has a central station fire alarm, has year-round access 10 feet wide, the home is under 25 years old, primary occupancy only, no rentals and no prior fire losses.
+SFP-123	other -> fire_protection	Protection class 9 or greater with a station more than 5 miles away is ineligible.
+SFP-124	other -> fire_protection	On FPC 4-10 (station within 5 miles, no hydrant within 1,000 ft) or FPC 4-8 (station over 5 miles) risks, the home must be less than 25 years old.
+SFP-125	occupancy -> fire_protection	On FPC 4-10 (station within 5 miles, no hydrant within 1,000 ft) or FPC 4-8 (station over 5 miles) risks, the home must be primary occupancy with no rental exposures.
+SFP-126	losses -> fire_protection	On FPC 4-10 (station within 5 miles, no hydrant within 1,000 ft) or FPC 4-8 (station over 5 miles) risks, there must be no prior fire losses.
+SFP-128	construction -> upkeep	Dwellings with unrepaired damage such as missing siding, fascia boards, soffits, gutters or foundation cracks are ineligible.
+SFP-154	losses -> roof	A flat roof that has not been fully renovated, on a home with a prior roof-related wind or water loss, must be referred to underwriting.
+SFP-155	electrical -> roof	Metal roofs on the primary dwelling other than steel (aluminum or tin of any gauge, or steel lighter than 29 gauge) are ineligible.
+SFP-162	coverage_a -> other_coverages	Scheduled and blanket personal property limits vary by class (e.g., jewelry $50,000 blanket, $25,000 scheduled per item, $50,000 combined); all classes combined are capped at 40% of Coverage A.
+SFP-164	other_coverages -> losses	Two inland marine, theft or mysterious disappearance losses in the past 6 years make scheduled personal property ineligible.
+SFP-165	other_coverages -> insurance_score	An adjusted insurance score below Fair (500) makes scheduled personal property ineligible.
+SFP-187	coverage_a -> flood	Properties subject to wave wash must have a flood policy with limits equal to Coverage A up to the maximum NFIP offer (currently $250,000 for dwelling coverage).
+SFP-191	electrical -> solar	The guide does not address solar panels (searched for solar, photovoltaic, panel).
+WIL-018	ownership -> occupancy	Seasonal or secondary residences require arrangements for the property to be checked at least once per month while the owner is away.
+WIL-031	occupancy -> dwelling_type	A two-to-four family dwelling where the insured occupies one of the units is an eligible rental occupancy.
+WIL-036	ownership -> occupancy	Short-term rentals (less than 6 month lease, including day/party rentals such as Swimply) of non-owner occupied units or rented other structures with pools are ineligible for Swimming Pool Liability Coverage.
+WIL-037	occupancy -> dwelling_type	If more than 1 unit is a rental (e.g. a 3-4 family home), all units must have a full-time renter.
+WIL-042	business -> acreage	On properties over 5 acres, no remuneration may be received from third parties for farming, recreation, hunting, hiking, swimming or any use that could create a liability exposure.
+WIL-045	construction -> foundation	The home must be a permanent dwelling on a permanent foundation with final construction at the home site.
+WIL-050	electrical -> pool	Mandatory endorsement HC1753301 excludes all coverage for pool roof covers, pool cages, patio covers and aluminum carports.
+WIL-086	business -> upkeep	Proof of removal of unhealthy trees and trimming of overhanging branches is required after the new-business tree inspection.
+WIL-093	losses -> upkeep	The damage and the condition causing any loss must have been repaired.
+WIL-095	prior_insurance -> losses	Renewals with more than 2 non-zero, non-weather losses in the prior 3 years may be non-renewed if the customer was notified after the second loss.
+WIL-099	coverage_a -> other_coverages	Coverage B maximum is 10% of Coverage A.
+WIL-100	coverage_a -> other_coverages	Coverage C maximum is 100% of Coverage A.
+WIL-101	coverage_a -> other_coverages	Coverage D maximum is 30% of Coverage A.
+WIL-107	coverage_a -> other_coverages	Coverage C minimum is 10% of Coverage A.
+WIL-108	coverage_a -> other_coverages	Coverage D minimum is 10% of Coverage A.
+WIL-112	binding -> other_coverages	Minimum all-other-perils deductible is $1,000 and the minimum earthquake deductible is 10%.
+WIL-115	other -> fire_protection	Any protection class is eligible when the fire station is 5 miles or less by driving distance and a hydrant is within 1,000 feet.
+WIL-116	site -> fire_protection	Protection class 1-3 with a station within 5 miles but no hydrant within 1,000 feet is eligible only if visible from the main public road, with a central station fire alarm and year-round fire equipment access on a roadway at least 10 feet wide.
+WIL-117	site -> fire_protection	Protection class 1-3 with a station more than 5 miles away is eligible only if visible from the main public road, with a central station fire alarm and year-round fire equipment access on a roadway at least 10 feet wide.
+WIL-118	losses -> fire_protection	Protection class 4-10 with a station within 5 miles but no hydrant within 1,000 feet is eligible only if visible from the main public road, with a central station fire alarm, year-round access on a 10-foot roadway, a home under 25 years old, primary occupancy only, no rental exposures and no prior fire losses.
+WIL-119	losses -> fire_protection	Protection class 4-8 with a station more than 5 miles away is eligible only if visible from the main public road, with a central station fire alarm, year-round access on a 10-foot roadway, a home under 25 years old, primary occupancy only, no rental exposures and no prior fire losses.
+WIL-120	other -> fire_protection	Protection class 9 or greater with a station more than 5 miles away is ineligible.
+WIL-121	other -> fire_protection	In the FPC 4-10 (station 5 miles or less, no hydrant within 1,000 ft) and FPC 4-8 (station more than 5 miles) rows, the home must be less than 25 years old.
+WIL-122	occupancy -> fire_protection	In the FPC 4-10 (station 5 miles or less, no hydrant within 1,000 ft) and FPC 4-8 (station more than 5 miles) rows, the home must be primary occupancy only with no rental exposures.
+WIL-123	losses -> fire_protection	In the FPC 4-10 (station 5 miles or less, no hydrant within 1,000 ft) and FPC 4-8 (station more than 5 miles) rows, the home must have no prior fire losses.
+WIL-125	construction -> upkeep	Dwellings with unrepaired damage such as missing siding, fascia boards, soffits, gutters or foundation cracks are ineligible.
+WIL-152	losses -> roof	A flat roof that has not been fully renovated, on a home with a prior roof-related wind or water loss, must be referred to underwriting.
+WIL-153	electrical -> roof	Metal roofs on the primary dwelling other than steel (aluminum or tin of any gauge, or steel lighter than 29 gauge) are ineligible.
+WIL-168	coverage_a -> other_coverages	Scheduled personal property for all classes combined is limited to 40% of Coverage A.
+WIL-171	other_coverages -> losses	2 inland marine, theft or mysterious disappearance losses in the past 6 years make scheduled personal property ineligible.
+WIL-172	other_coverages -> insurance_score	An adjusted insurance score below Fair (500) makes scheduled personal property ineligible.
+WIL-177	county -> site	Extreme Hazard locations are barrier islands, Bolivar/Matagorda or similar peninsulas, within 3 miles of the primary shoreline in a tier 1 county, within 0.1 miles in a tier 2 county, within 0.04 miles of an inner shoreline, or the front row of dwellings.
+WIL-188	coverage_a -> flood	Properties subject to wave wash must have a flood policy with limits equal to Coverage A up to the maximum NFIP offer (currently $250,000 for the dwelling).
+WIL-192	electrical -> solar	The guide does not address solar panels (searched for solar, photovoltaic, PV, panel).
+TRI-005	ownership -> occupancy	Seasonal or secondary residences require arrangements for the property to be checked at least once per month while the owner is away.
+TRI-012	ownership -> occupancy	Rental or home sharing of an entire seasonal or secondary residence is limited to 6 months, and the owner must occupy it at least 6 months of the year.
+TRI-013	ownership -> occupancy	When the entire owner-occupied residence is rented or home-shared, the owner must have arranged for the property to be checked at least monthly while away.
+TRI-017	occupancy -> dwelling_type	If more than 1 unit is a rental, all units must have a full-time renter.
+TRI-019	occupancy -> fire_protection	In the FPC 4-10 (fire station 5 miles or less, no hydrant within 1,000 feet) and FPC 4-8 (fire station more than 5 miles) rows, only primary occupancy dwellings are eligible.
+TRI-020	occupancy -> fire_protection	In the FPC 4-10 (fire station 5 miles or less, no hydrant within 1,000 feet) and FPC 4-8 (fire station more than 5 miles) rows, no rental exposures are allowed.
+TRI-029	construction -> foundation	To be eligible the home must be a permanent dwelling on a permanent foundation with final construction at the home site.
+TRI-035	other -> fire_protection	In the FPC 4-10 (fire station 5 miles or less, no hydrant within 1,000 feet) and FPC 4-8 (fire station more than 5 miles) rows, the home must be less than 25 years old.
+TRI-040	losses -> roof	A flat roof that has not been fully renovated, on a home with a prior roof-related wind or water loss, must be referred to underwriting.
+TRI-041	electrical -> roof	Metal roofs on the primary dwelling other than steel (such as aluminum or tin of any gauge, or steel lighter than 29 gauge) are ineligible.
+TRI-046	prior_insurance -> construction	EIFS, DEFS and Dryvit construction is also excluded from coverage; the exclusion does not make otherwise-declined homes eligible.
+TRI-060	electrical -> water_heater	The guide does not address water heaters or cooling/air-conditioning systems (searched for water heater, tankless, air condition, cooling, HVAC; air conditioning appears only as an example in the aluminum wiring exception).
+TRI-076	electrical -> pool	All coverage is excluded for pool roof covers, pool cages, patio covers and aluminum carports via mandatory endorsement HC1753301; limited coverage up to $50,000 for a pool or patio screened enclosure can be added for an additional premium.
+TRI-085	electrical -> solar	The guide does not address solar panels (searched for solar, photovoltaic, panel; 'panel' appears only for electrical panels).
+TRI-086	other -> fire_protection	The FPC result from address validation determines eligibility per the table; the A, B or C designations are the rating suffix applied to the FPC value.
+TRI-087	other -> fire_protection	Any protection class is eligible when the fire station is 5 miles or less by driving distance and a hydrant is within 1,000 feet.
+TRI-088	site -> fire_protection	Protection class 1-3 with a fire station within 5 miles but no hydrant within 1,000 feet is eligible only if visible from the main public road, it has a central station fire alarm, and it is accessible by fire-fighting equipment year-round on a roadway at least 10 feet wide.
+TRI-089	site -> fire_protection	Protection class 1-3 with a fire station more than 5 miles away is eligible only if visible from the main public road, it has a central station fire alarm, and it is accessible by fire-fighting equipment year-round on a roadway at least 10 feet wide.
+TRI-090	losses -> fire_protection	Protection class 4-10 with a fire station within 5 miles but no hydrant within 1,000 feet is eligible only if visible from the main public road, it has a central station fire alarm, it has year-round fire equipment access on a roadway at least 10 feet wide, the home is under 25 years old, it is primary occupancy only, there are no rental exposures and no prior fire losses.
+TRI-091	losses -> fire_protection	Protection class 4-8 with a fire station more than 5 miles away is eligible only if visible from the main public road, it has a central station fire alarm, it has year-round fire equipment access on a roadway at least 10 feet wide, the home is under 25 years old, it is primary occupancy only, there are no rental exposures and no prior fire losses.
+TRI-092	other -> fire_protection	Protection class 9 or greater with a fire station more than 5 miles away is ineligible.
+TRI-101	county -> site	Extreme Hazard locations are properties on a barrier island, on Bolivar, Matagorda or similar peninsula, within 3 miles of the primary shoreline in a tier 1 county, within 0.1 miles in a tier 2 county, within 0.04 miles of an inner shoreline, or in the front or first row of dwellings subject to the full force of the winds.
+TRI-113	coverage_a -> construction	Dwellings with unique, unusual or special construction features are not eligible for the Additional Amounts of Insurance Coverage A option.
+TRI-116	coverage_a -> other_coverages	Coverage B maximum is 10% of Coverage A.
+TRI-117	coverage_a -> other_coverages	Coverage C maximum is 100% of Coverage A.
+TRI-118	coverage_a -> other_coverages	Coverage D maximum is 30% of Coverage A.
+TRI-123	coverage_a -> other_coverages	Coverage C minimum is 10% of Coverage A.
+TRI-124	coverage_a -> other_coverages	Coverage D minimum is 10% of Coverage A.
+TRI-134	losses -> upkeep	The damage and condition causing any loss must have been repaired.
+TRI-136	prior_insurance -> losses	Renewals with more than 2 non-zero, non-weather losses in the prior 3 years may be non-renewed if the customer was notified after the second loss.
+TRI-138	losses -> fire_protection	In the FPC 4-10 (fire station 5 miles or less, no hydrant within 1,000 feet) and FPC 4-8 (fire station more than 5 miles) rows, there must be no prior fire losses.
+TRI-141	business -> acreage	Properties over 5 acres are eligible only with a pre-bind underwriting referral and no remuneration from third parties for farming, recreation, hunting, hiking, swimming or any liability-creating use.
+TRI-142	coverage_a -> flood	Properties subject to wave wash must have a flood policy with limits equal to Coverage A up to the maximum NFIP offer (currently $250,000 for dwelling coverage).
+TRI-158	construction -> upkeep	Dwellings with unrepaired damage such as missing siding, fascia boards, soffits, gutters or foundation cracks are ineligible.
+TRI-180	other_coverages -> losses	Two inland marine, theft or mysterious disappearance losses in the past 6 years make scheduled personal property ineligible.
+TRI-181	other_coverages -> insurance_score	An adjusted insurance score below Fair (500) makes scheduled personal property ineligible.
+MKL-059	occupancy -> pool	A swimming pool exclusion applies to vacant dwellings with pools, spas or hot tubs that may be an attractive nuisance.
+MKL-071	electrical -> solar	The guide does not address solar panels (searched for solar, photovolt).
+MKL-073	other -> fire_protection	Protection classes 1-10 are all eligible; response time affects rating only.
+MKL-077	business -> acreage	For homes on more than 10 acres, any business, farming, livestock, leased land, hunting or ATV use makes the risk ineligible.
+MKL-084	coverage_a -> other_coverages	Coverage B (other structures) can be set at 0-100% of Coverage A.
+MKL-085	coverage_a -> other_coverages	Coverage B (other structures) above 50% of Coverage A requires a referral to underwriting.
+MKL-086	coverage_a -> other_coverages	Coverage D (loss of use) can be set at 0-50% of Coverage A; HO5 has unlimited loss of use.
+MKL-092	losses -> roof	The Roof Exclusion form excludes windstorm and hail loss to any roof on the premises.
+MKL-101	other_coverages -> roof	For flat roofs 10-25 years old, the roof and ensuing water damage deductible must be at least $5,000.
+MKL-112	other_coverages -> losses	Any prior mysterious disappearance loss means special personal property coverage is not available.
+MKL-114	losses -> upkeep	Mold coverage is not available if there was a prior water damage loss.
+MKL-130	other_coverages -> upkeep	Wind and hail, water damage and other special deductibles must be higher than the selected All Other Perils deductible.
+MKL-131	coverage_a -> other_coverages	The wind and hail or named storm deductible can be up to 10% of the dwelling limit and varies by location.
+MKL-134	other_coverages -> upkeep	A water damage deductible of up to $50,000 is available.
+MKL-135	other_coverages -> upkeep	For homes under $250,000, the water damage deductible must be at least $5,000.
+MKL-136	other_coverages -> upkeep	For homes between $250,000 and $499,000, the water damage deductible must be at least $10,000.
+MKL-137	other_coverages -> upkeep	For homes $500,000 and over, the water damage deductible must be at least $25,000.
+MKL-146	other_coverages -> losses	Any prior inland marine loss makes scheduled personal property coverage ineligible.
+VAV-009	ownership -> dwelling_type	Multi-family dwellings such as a duplex or triplex where the owner lives in one part and rents out the other parts are eligible.
+VAV-010	other_coverages -> occupancy	Vacant properties (unoccupied with no personal property) are ineligible.
+VAV-013	other_coverages -> occupancy	On owner-occupied multi-family homes, tenant personal property is not covered.
+VAV-023	construction -> dwelling_type	The guide does not address condos or townhomes (searched condo, townhome, townhouse, unit owner; only 'boat slip condos' appears, as non-standard construction).
+VAV-031	coverage_a -> roof	Asphalt shingle, light metal panel, built-up (with or without gravel) and single-ply membrane (including ballasted) roofs under 15 years old are settled at replacement cost (RCV).
+VAV-032	other_coverages -> roof	Asphalt shingle, light metal panel, built-up (with or without gravel) and single-ply membrane (including ballasted) roofs 15-25 years old are limited to actual cash value (ACV).
+VAV-033	electrical -> roof	Asphalt shingle, light metal panel, built-up (with or without gravel) and single-ply membrane (including ballasted) roofs over 25 years old have roof coverage excluded.
+VAV-034	coverage_a -> roof	Hurricane-rated shingle and wooden shingle roofs under 20 years old are settled at replacement cost (RCV).
+VAV-035	other_coverages -> roof	Hurricane-rated shingle and wooden shingle roofs 20-25 years old are limited to actual cash value (ACV).
+VAV-037	coverage_a -> roof	Standing seam metal, clay/concrete tile and slate roofs under 35 years old are settled at replacement cost (RCV).
+VAV-038	other_coverages -> roof	Standing seam metal, clay/concrete tile and slate roofs 35-40 years old are limited to actual cash value (ACV).
+VAV-040	losses -> roof	Underwriting may change roof loss settlement for any risk based on inspection, loss history or other factors, regardless of roof age or material.
+VAV-045	binding -> construction	Soft story construction is ineligible for the optional earthquake endorsement.
+VAV-046	binding -> construction	Unreinforced masonry construction is ineligible for the optional earthquake endorsement.
+VAV-056	other_coverages -> pool	A $300,000 pool liability sublimit applies when Coverage E is $300,000 or more.
+VAV-062	losses -> animals	Homes with a prior animal bite claim are ineligible.
+VAV-067	business -> animals	Liability is excluded for animals bred or kept for commercial purposes.
+VAV-070	electrical -> solar	The guide does not address solar panels (searched solar, photovoltaic, PV, panel; 'panel' appears only for roofs and breaker panels).
+VAV-071	other -> fire_protection	Protection classes 1 through 10 are eligible.
+VAV-082	coverage_a -> other_coverages	Coverage B is 0-20% of Coverage A.
+VAV-083	coverage_a -> other_coverages	Coverage C is 0-80% of Coverage A, with a personal property replacement cost option.
+VAV-084	coverage_a -> other_coverages	Coverage D is 0-30% of Coverage A.
+VAV-092	prior_insurance -> losses	Open claims with prior carriers make the home ineligible.
+VAV-095	losses -> upkeep	One water damage loss under $25,000 in the last 3 years brings a water damage exclusion.
+VAV-096	losses -> animals	A prior animal bite claim makes the home ineligible.
+VAV-135	other_coverages -> applicant	Optional identity fraud coverage of $15,000 with a $500 deductible is available.
+ARA-014	other -> fire_protection	Homes more than 5 miles from an ISO-rated responding fire department are ineligible.
+ARA-037	mortgages -> ownership	Applicant must hold title to the home, with no more than 2 mortgages.
+ARA-041	ownership -> occupancy	Residence must be owner-occupied by the owner's immediate family.
+ARA-057	losses -> roof	Metal roofs must carry the Non-Structural Hail Loss Limitation Endorsement.
+ARA-060	other_coverages -> roof	Roofs 15 years or older are covered on an Actual Cash Value basis.
+ARA-061	other_coverages -> roof	On HOA-Plus, roof coverings 15 years or older are settled at Actual Cash Value.
+ARA-085	other -> fire_protection	Protection class 10 (more than 5 miles from a fire station, in split-class areas) is ineligible.
+ARA-086	other -> fire_protection	In split-class areas, homes within 5 miles of a fire station and more than 1,000 ft from a hydrant are class 9; within 1,000 ft get the first class.
+ARB-012	other -> fire_protection	Homes more than 5 miles from an ISO-rated responding fire department are ineligible.
+ARB-032	mortgages -> ownership	Applicant must hold title to the home, with no more than 2 mortgages.
+ARB-035	ownership -> occupancy	Residence must be occupied by the owner and the owner's immediate family.
+ARB-041	electrical -> roof	Home must be in very good condition, and wiring, plumbing, heating and roof must meet the guide's requirements.
+ARB-047	water_heater -> plumbing	Plumbing fixtures and the water heater tank must meet code.
+ARB-050	losses -> roof	Normal roof wear and granule loss are acceptable.
+ARB-056	losses -> roof	Metal roofs must carry the Non-Structural Hail Loss Limitation Endorsement.
+ARB-059	other_coverages -> roof	Roofs 15 years or older are covered on an Actual Cash Value basis.
+ARB-062	electrical -> heating	Kerosene, coal, wood or solar as a heating fuel source is unacceptable (Heating and Cooling section; does not address solar panels).
+ARB-063	electrical -> solar	Guide does not address solar panels; solar is only mentioned as an unacceptable heating fuel (see ARB-062).
+ARB-085	binding -> county	In First and Second Tier Counties (territories 01X, 08X, 09X, 10X, 11X), agent binding authority for new business and coverage increases ends when a hurricane or tropical storm watch/warning is issued for, or a storm enters, the Gulf of Mexico (or is west of 80 W and north of 20 N).
+ARB-092	roof -> dwelling_type	Single Building definition: buildings separated by space, or by a 6 inch reinforced concrete or 8 inch masonry party wall to the roof and exterior walls, are separate buildings.
+ARB-093	other -> fire_protection	Homes more than 5 miles from a fire station are Protection Class 10 and ineligible.
+ARB-094	other -> fire_protection	In split-class areas, homes less than 5 miles from a fire station and more than 1,000 ft from a hydrant are Protection Class 9.
+FOR-002	other_coverages -> site	During a Company emergency restriction, new risks may not be bound and existing policies may not increase limits, lower deductibles or add coverages.
+FOR-009	binding -> coverage_a	Foremost Choice Homeowners Other Structures limits above 40% of Coverage A exceed producer binding authority and need Underwriting Approval.
+FOR-016	ownership -> business	Dwellings attached to a commercial building are ineligible unless they share only a side firewall and are deeded separately.
+FOR-030	updates -> roof	The year roof updated is entered only when the entire roof covering has been replaced.
+FOR-033	other_coverages -> losses	Foremost Choice Homeowners settles partial losses to roofs 15 years old or older at actual cash value.
+FOR-066	roof -> solar	Solar shingles make the dwelling ineligible.
+FOR-073	losses -> upkeep	Dwellings with neighboring structures that are abandoned, have unrepaired damage or otherwise increase the likelihood of loss are ineligible.
+FOR-080	county -> other_coverages	Foremost Choice Homeowners must carry the 2% Wind & Hail deductible in all territories except W, Y and Z when an All Other Peril deductible under 2% is chosen.
+FOR-081	county -> other_coverages	Foremost Choice Homeowners carries a mandatory 2% Tropical Cyclone deductible in Territories W and Y.
+FOR-092	ownership -> occupancy	Owner-occupied dwellings with more than 3 owners who are not members of the same primary household are ineligible.
+FOR-093	ownership -> occupancy	For owner-occupied policies, a Governmental Entity, Land Trust, Conservatorship, Co-op, Condominium Association or business (including a corporation or lending institution) may not be the Named Insured.
+FOR-094	ownership -> occupancy	For owner-occupied risks, an LLC is the only eligible business name, and only if no business is associated with the name.
+FOR-096	ownership -> occupancy	For owner-occupied homes in a family or living trust, the person living in the home must be the grantor and/or the trustee.
+FOR-098	ownership -> occupancy	For owner-occupied homes held as a life estate, the Life Tenant must live in the dwelling.
+FOR-108	losses -> occupancy	On renewal, any occupied residence may have at most 5 paid losses.
+FOR-110	losses -> plumbing	A fire, water plumbing, water appliance or accidental discharge loss of $500 or more, combined with 1 or more other loss of $500 or more, all at the insuring location, is ineligible.
+FOR-125	losses -> flood	Water Backup of Sewers or Drains coverage needs Underwriting Approval if the applicant had 2 or more backup, flood, water plumbing, water weather, water appliance or accidental discharge/leak losses.
+FOR-127	occupancy -> business	Farm/ranch exposure qualifies as incidental only if the applicant earns $5,000 or less per year from farming, farms less than 26 acres, has no full/part-time workers, no u-pick, no land rented/leased/made available to others, and no farm animals (excluding poultry) kept in an unfenced area, boarded or bred for others, more than 10 owned, or used for riding lessons/rentals.
+FOR-128	heating -> construction	Foremost Choice Homeowners dwellings and other structures must be free of physical defects to siding, roof, chimney, porch and foundation, with no signs of deterioration or existing damage.
+FOR-147	occupancy -> business	Properties with business activities are unacceptable for liability, unless the home is primary owner-occupied and the business is incidental, in which case refer to Underwriting Approval.
+FOR-149	occupancy -> business	Incidental business on a primary owner-occupied home is subject to Underwriting Approval and must not add significant traffic, have advertising signs, use hazardous materials or have employees on premises.
+FOR-150	occupancy -> business	Properties with business activities, including incidental business on a primary owner-occupied home, require Underwriting Approval.
+FOR-153	occupancy -> liability_hazards	Multiple dwellings on the same premises with common grounds (clubhouse, playground, beach, pool, pond, bathhouse, laundry, rental office or parking lot) are unacceptable for liability.
+HOA-008	other -> fire_protection	PPC 8-10 (including 10W) is eligible only on homes 3 years old or newer; PPC 8-10 homes older than 3 years are ineligible (all forms).
+HOA-009	other -> fire_protection	On homes 3 years old or newer with PPC 8-10 (10W), underwriting review and approval is required before binding (all forms).
+HOA-010	coverage_a -> liability_hazards	Trampolines have no liability coverage on HO3 (and HOB, HOA with Replacement Cost); the home stays eligible.
+HOA-011	coverage_a -> animals	Prohibited animals have no liability coverage on HO3 (and HOB, HOA with Replacement Cost); the home stays eligible.
+HOA-012	coverage_a -> animals	Acceptable animals have a $25,000 liability limit on HO3 (and HOB, HOA with Replacement Cost) unless Full Animal Liability is added.
+HOA-015	coverage_a -> foundation	On HO3 (and HOB), foundation damage from plumbing/heating/AC water is covered up to 15% of Coverage A capped at $25,000, and $10,000 on homes over 35 years old.
+HOA-016	heating -> plumbing	On HO3 (and HOB), sudden and accidental plumbing/heating/AC water discharge is covered, and on homes over 20 years old only by endorsement.
+HOA-017	heating -> plumbing	On HO3, continuous or repeated leakage from plumbing/heating/AC is covered only by endorsement.
+HOA-025	electrical -> solar	On HO3 (and HOB), Solar Panel Coverage is available by endorsement.
+LIB-004	under_construction -> occupancy	The dwelling must be occupied, unless it is an eligible building in the course of construction.
+LIB-007	occupancy -> business	The dwelling must be used for private residential purposes, apart from permitted incidental business occupancies.
+LIB-009	ownership -> dwelling_type	When a 2-4 unit dwelling is occupied by joint owners in separate units, the policy is issued to only one joint owner/occupant (it may be endorsed to cover the other joint owners' interests and premises liability).
+LIB-010	occupancy -> business	If the premises is used for farming, the farming must be incidental to the dwelling occupancy and not the insured's occupation.
+LIB-011	occupancy -> business	If the premises is used for business, it must be a permitted business occupancy, incidental to a dwelling occupied principally as a private residence.
+LIB-013	other_coverages -> occupancy	Tenant (renters) policies need Coverage C of at least $5,000.
+LIB-015	coverage_a -> under_construction	Buildings in the course of construction or extensive renovation are acceptable only if completed and occupied within 12 months, done by a licensed, bonded, insured contractor who is not the named insured, carry the Theft of Building Materials Endorsement if vacant, and have Coverage A of $1 million or less.
+LIB-020	under_construction -> roof	The roof must be within functional life and in good condition, except for eligible buildings in the course of construction.
+LIB-030	electrical -> roof	Non-standard buildings are ineligible; barndominiums (metal structures with metal roofs) are allowed if on a concrete foundation with no aluminum siding or existing damage.
+LIB-039	under_construction -> occupancy	For a vacant building under construction or extensive renovation, the Theft of Building Materials Endorsement must be carried.
+LIB-040	coverage_a -> under_construction	For a building under construction or extensive renovation, Coverage A over $1 million is ineligible.
+LIB-042	under_construction -> occupancy	Unoccupied buildings (furnished but not used as a residence, e.g. unoccupied 30+ consecutive days 4+ times a year) are ineligible, except eligible buildings under construction; seasonal or secondary homes are not considered unoccupied.
+LIB-043	under_construction -> occupancy	Vacant buildings (lacking amenities, furnishings or utilities for normal occupancy) are ineligible, except eligible buildings under construction; a dwelling under construction or renovation is not considered vacant.
+LIB-051	coverage_a -> fire_protection	In Protection Class 9, homes with Coverage A over $3 million are ineligible.
+LIB-052	coverage_a -> fire_protection	In Protection Class 10, homes with Coverage A over $1 million are ineligible.
+LIB-057	prior_insurance -> losses	A single non-weather water loss alone is not a reason to reject, cancel or non-renew.
+LIB-058	prior_insurance -> losses	Fewer than 3 remediated appliance-related water losses alone are not a reason to reject, cancel or non-renew.
+LIB-064	coverage_a -> fire_protection	In Protection Class 9, homes with Coverage A of $1.5 million or more must be referred to underwriting.
+LIB-065	other -> fire_protection	All Protection Class 10 homes must be referred to underwriting.
+LIB-068	coverage_a -> fire_protection	For Protection Class 9 homes with Coverage A $1.5-3 million and all Protection Class 10 homes, the dwelling must be within 15 miles of a responding fire department.
+LIB-069	coverage_a -> fire_protection	For Protection Class 9 homes with Coverage A $1.5-3 million and all Protection Class 10 homes, a wood or coal burning stove cannot be the primary heat source.
+LIB-070	coverage_a -> fire_protection	For Protection Class 9 homes with Coverage A $1.5-3 million and all Protection Class 10 homes, there must be a smoke or heat alarm on every floor and fire extinguishers or a Central Station Fire Alarm.
+LIB-071	coverage_a -> fire_protection	For Protection Class 9 homes with Coverage A $1.5-3 million and all Protection Class 10 homes, there must be a local water source.
+LIB-072	coverage_a -> fire_protection	For Protection Class 9 homes with Coverage A $1.5-3 million and all Protection Class 10 homes, the property must be accessible year-round.
+ORI-005	roof -> dwelling_type	Townhomes, row homes and multi-unit residences must have a fire wall between units extending to the roof line.
+ORI-016	construction -> foundation	A crawl space must be fully enclosed on all sides with permanent material (block, brick, siding, etc.).
+ORI-022	electrical -> solar	Homes with renewable energy systems (including solar panels) are eligible.
+ORI-023	electrical -> solar	Renewable energy systems (solar panels, wind turbines, geothermal heat pumps, micro hydropower, rainwater catchment) are excluded from coverage.
+ORI-029	other -> fire_protection	Protection class 10 is ineligible.
+ORI-072	losses -> upkeep	Any wear and tear, damage or deterioration that could increase the potential for loss is ineligible.
+ORI-074	construction -> upkeep	Damaged, missing or deteriorating siding is ineligible.
+ORI-076	pool -> upkeep	Damaged, deteriorating, dilapidated or dangerous detached structures (garages, sheds, barns, fences, pools, trampolines, tree houses, skate ramps) are ineligible.
+ORI-078	foundation -> upkeep	Cracked, crumbling or damaged foundations are ineligible.
+ORI-093	wildfire -> upkeep	Excessive yard debris (wood piles, brush, materials, inoperable vehicles) is ineligible.
+ORI-098	other -> fire_protection	In split-class areas, homes more than 5 miles from a fire station are PC 10 (ineligible); within 5 miles but more than 1,000 ft from a hydrant they are PC 9; within 5 miles and 1,000 ft they take the first PC.
+ORI-100	other_coverages -> wildfire	The Weather/Wildfire deductible cannot be less than the Non-Weather deductible.
+ORI-101	other_coverages -> wildfire	Weather/Wildfire deductible options are 2%, 3%, 5%, 10%, $25,000, $50,000 or $100,000.
+ORI-115	water_heater -> plumbing	Homes 30+ years old, or with cast iron, galvanized, pre-2006 PEX or polybutylene plumbing, or a tank water heater above the ground floor, get a $10,000 non-weather water damage limit.
+ORI-117	insurance_score -> ownership	The named insured's credit-based insurance score is used for eligibility, but no threshold is stated.
+SBS-003	updates -> construction	Homes must be 100 years old or newer (by year of construction); completely renovated homes may use the renovation year as the construction year.
+SBS-004	electrical -> construction	The guide rates these construction types: aluminum siding, fire resistive, frame, frame with Hardiplank siding, log, masonry, brick/stone/masonry veneer and vinyl siding. It does not say other types are ineligible, so confirm any unlisted type (e.g. true stucco) with underwriting.
+SBS-015	other_coverages -> animals	Animal liability has a $100,000 annual sublimit under Coverage E.
+SBS-027	ownership -> occupancy	Seasonal or secondary homes are ineligible unless owner occupied and at least 50 miles from the primary residence.
+SBS-040	roof -> solar	Tesla Solar Roofs and solar roofs, including Tesla batteries or any Tesla parts, are ineligible.
+SBS-052	losses -> foundation	Any prior sinkhole activity or sinkhole claim is ineligible.
+SLL-016	other_coverages -> animals	Animal liability (Coverage E) has an annual sublimit of $50,000.
+SLL-020	other_coverages -> losses	On homes older than 40 years with 1 water loss under $25K, a $2,000 minimum deductible is required.
+SLL-022	plumbing -> occupancy	Homes left unoccupied more than 10 days without the plumbing turned off are subject to the Escape of Water Exclusion.
+SLL-026	electrical -> roof	Light metal panel roofs settle at RCV under 15 years, ACV at 15-25 years, and roof coverage is excluded over 25 years.
+SLL-043	ownership -> occupancy	Seasonal or secondary homes whose owner's primary residence is outside the United States are ineligible.
+SLL-056	other -> fire_protection	ISO protection class 9 or 10 is ineligible.
+SLL-073	losses -> foundation	Prior sinkhole activity or sinkhole claims are ineligible.
+STO-003	coverage_a -> other_coverages	Coverage B is up to 40% of Coverage A, Coverage C up to 50%, Coverage D up to 20% (B and D subject to minimums).
+STO-011	electrical -> construction	Listed construction types are aluminum siding, fire resistive, frame, frame with Hardiplank siding, log, masonry, brick/stone/masonry veneer and vinyl siding; the guide does not say whether other types are ineligible.
+STO-017	other_coverages -> animals	Animal liability is sublimited to $100,000 annually under Coverage E.
+STO-024	under_construction -> occupancy	Homes that are vacant, unoccupied, under construction, for sale or used for non-habitational purposes are ineligible.
+STO-055	losses -> foundation	Any prior sinkhole activity or sinkhole claim makes the risk ineligible.
+TWI-010	ownership -> occupancy	The home must be occupied by the owner or the owner's immediate family.
+TWI-032	electrical -> construction	Homes of unconventional construction (log, do-it-yourself, dome, shell, unconventional parts, or not meeting building codes) are ineligible. Solar panels are handled in TWI-033 (agency decision: standard code-compliant mounted panels are eligible).
+TWI-033	electrical -> solar	Solar panels are listed as unconventional construction (ineligible); by agency decision of 2026-10-06, standard code-compliant mounted solar panels are treated as eligible, so only non-standard or non-code-compliant solar installations decline.
+TWI-037	electrical -> roof	Wood, asbestos, slate, aluminum shake, metal tile/shake/shingle and corrugated metal roofs are ineligible.
+TWI-048	other -> fire_protection	Homes where the fire department response time is more than 10 minutes are ineligible.
+TWI-051	coverage_a -> roof	Composition 3-tab roofs are settled at replacement cost at age 0-10 years, ACV at age 11-20 years, and roof coverage is excluded at age 21+ years.
+TWI-052	coverage_a -> roof	Architectural composition roofs are settled at replacement cost at age 0-15 years, ACV at age 16-25 years, and roof coverage is excluded at age 26+ years.
+TWI-053	coverage_a -> roof	Standing-seam metal roofs are settled at replacement cost at age 0-20 years, ACV at age 21-35 years, and roof coverage is excluded at age 36+ years.
+TWI-054	coverage_a -> roof	Concrete/clay tile roofs are settled at replacement cost at age 0-25 years, ACV at age 26-45 years, and roof coverage is excluded at age 46+ years.
+TRV-012	losses -> occupancy	Except on Tenant policies, more than 1 paid water damage claim in the past 3 years (by the applicant or at the risk location) is ineligible.
+TRV-013	losses -> occupancy	Except on Tenant policies, a mold claim in the past 3 years is ineligible unless a Certificate of Mold Damage Remediation (MDR-1) is provided; the risk cannot be bound until it is submitted to Underwriting.
+TRV-014	losses -> occupancy	Except on Tenant policies, 3 or more paid appliance-related claims in the past 3 years (by the applicant or at the risk location) is ineligible.
+TRV-023	electrical -> solar	Unprotected ground-mounted solar panels are ineligible.
+TRV-027	heating -> plumbing	A dwelling, other structures, land or major systems (plumbing, heating, electrical, roof) not in good condition, with unrepaired/unmaintained conditions, or with uncorrected fire or building code violations is ineligible.
+TRV-035	other_coverages -> occupancy	A tenant risk with Coverage C plus Additions and Alterations of $500,000 or more must have a monitored central station fire and burglar alarm system.
+TRV-036	other -> fire_protection	A risk more than 7 road miles from the first responding fire department is ineligible.
+TRV-038	updates -> occupancy	A vacant or unoccupied home is ineligible unless it will be occupied within 30 days of the effective date (e.g. newly purchased or under renovation).
+TRV-044	updates -> roof	In Wind/Hail/Tornado UW Classifications High 1 and High 2, a roof (other than tile, slate or similar lifetime material) not replaced within the past 10 years is ineligible.
+TRV-045	updates -> roof	In Wind/Hail/Tornado UW Classification High 3, a roof (other than tile, slate or similar lifetime material) not replaced within the past 15 years is ineligible.
+TRV-046	updates -> roof	In all other Wind/Hail/Tornado UW Classifications, a roof (other than tile, slate or similar lifetime material) not replaced within the past 25 years is ineligible.
+TRV-051	heating -> occupancy	An owner-occupied home with a wood, coal, pellet stove or other wood-burning device as alternate or supplemental heat is ineligible unless professionally installed or inspected and approved by the local fire department or building inspector.
+TRV-055	occupancy -> business	A dwelling or condo used in whole or part for other than private residential purposes (e.g. bed & breakfast, hostel, boarding home, multi-roomer) is ineligible.
+TRV-062	heating -> occupancy	A condo held for rent that contains a wood, coal or pellet stove is ineligible.
+TRV-073	coverage_a -> occupancy	A secondary or seasonal home with Coverage A of $500,000 or more without both a monitored central station fire and burglar alarm must be referred to underwriting.
+TRV-076	other_coverages -> occupancy	A tenant risk with Coverage C plus Additions & Alterations of $500,000 or more must be approved by underwriting before binding.
+TRV-078	binding -> wildfire	Travelers may suspend binding for hurricanes, tropical storms, wildfires, earthquakes or other catastrophes until an announcement lifts it; current suspensions are posted on For Agents.
+TRV-079	coverage_a -> flood	Dwellings in flood zones starting with V or A are ineligible unless covered by a flood policy up to the Coverage A limit or the FEMA maximum of $250,000, whichever is less.
+TRV-087	coverage_a -> flood	Dwellings in Hurricane UW Classifications High 1 and High 2 require a flood policy up to the Coverage A limit or the FEMA maximum of $250,000, whichever is less.
+TRV-092	losses -> occupancy	For Condo, Landlord Condo and Tenant in Hurricane UW Classifications High 1/High 2, total Loss Assessment coverage cannot exceed $25K.
+TRV-098	site -> wildfire	Dwelling risks with a Maximum FireLine score other than 0-30 must be referred to underwriting before binding.
+CDP-002	occupancy -> business	The dwelling must be used solely for residential purposes; permitted incidental occupancies and up to 3 roomers or boarders are allowed.
+CDP-010	prior_insurance -> liability_hazards	Risks with a trampoline may be declined or cancelled at Underwriting's discretion.
+CDP-012	prior_insurance -> pool	Risks with a pool diving board and/or slide may be declined or cancelled at Underwriting's discretion.
+CDP-028	losses -> roof	Composition shingle roofs 16 years old or older must carry the ACV Windstorm or Hail Losses to Roof Surfacing endorsement.
+CDP-029	losses -> roof	Architectural shingle roofs 25 years old or older must carry the ACV Windstorm or Hail Losses to Roof Surfacing endorsement.
+CDP-048	other -> fire_protection	Protection class 9 or 10 is ineligible unless approved by Underwriting.
+CDP-059	business -> animals	Dwellings with exotic, farm or saddle animals are ineligible.
+CDP-085	construction -> foundation	Crawlspaces/enclosed piers up to 6 ft elevation are acceptable when enclosed with permanent materials such as block or brick siding, not lattice.
+CDP-087	coverage_a -> foundation	Open foundations/open piers up to 6 ft on homes built 1965 through 2005 are acceptable if Coverage A is $200,000 or more.
+CDP-088	coverage_a -> foundation	Open foundations/open piers up to 6 ft on homes built 1965 through 2005 with Coverage A under $200,000 must be referred to Underwriting with photos.
+CDP-094	coverage_a -> dwelling_type	Single-family dwellings with Coverage A from $750,001 to $2,000,000 are eligible as high value homes; Coverage A above $2,000,000 is not provided for.
+CDP-098	prior_insurance -> losses	Claims are evaluated for rating and underwriting; Act of God claims alone cannot be the basis to non-renew, cancel or surcharge unless the insured failed to prevent recurrence.
+CDP-105	ownership -> occupancy	An incidental occupancy must be operated by the insured owner or a resident relative of the owner.
+CDP-108	occupancy -> business	Offices, schools or studios (business/professional offices; private music, dance, photography or other instruction) are permitted incidental occupancies.
+CDP-114	county -> other_coverages	A minimum 2% wind/hail deductible is required in Tier 2 counties (Hidalgo, Brooks, Jim Wells, Live Oak, Bee, Goliad, Victoria, Jackson, Wharton, Fort Bend, Harris outside the Windpool area, Liberty, Hardin, Orange) and other counties shown on Centauri's system; a lower deductible may be allowed with Underwriting approval.
+CDP-115	electrical -> solar	The guide does not address solar panels.
+CHO-012	foundation -> other	An applicant who was a first party in a personal lawsuit against an auto or homeowners insurer is ineligible, unless the applicant prevailed in or settled the lawsuit.
+CHO-015	prior_insurance -> liability_hazards	A risk with a trampoline may be declined or cancelled at underwriting's discretion.
+CHO-017	prior_insurance -> pool	A risk with a pool slide or diving board may be declined or cancelled at underwriting's discretion.
+CHO-022	county -> other_coverages	A minimum 1% windstorm or hail deductible is required in all counties open for binding.
+CHO-023	county -> other_coverages	A minimum 2% hurricane deductible is required in all counties open for binding.
+CHO-024	electrical -> roof	Flat, rock, tar, gravel, asbestos shingle, wood, rolled, sheet tin and aluminum (including galvanized) roofs are ineligible.
+CHO-026	electrical -> roof	Metal, steel or aluminum roofs must be written with the Cosmetic Damage exclusion (ECD) for wind/hail.
+CHO-027	prior_insurance -> roof	Roofs may be inspected based on age and material; roofs not in acceptable condition may be declined or settled at ACV (form ACVR) as underwriting decides.
+CHO-038	plumbing -> upkeep	Homes 40 years and older are written with Limited Water Damage (LWD) at $10,000; higher up to the lesser of 10% of Cov A or $50,000; removal needs proof of plumbing upgrades and UW approval.
+CHO-056	electrical -> roof	Flat, asbestos shingle, wood shake, rolled, sheet tin, aluminum (including galvanized), tar and gravel, and built-up roofs are ineligible.
+CHO-059	other -> fire_protection	Protection class 9 or 10 is ineligible.
+CHO-063	losses -> upkeep	Dwellings or detached structures showing poor maintenance, deferred maintenance, structural deterioration or conditions that increase loss potential are ineligible.
+CHO-078	county -> other_coverages	Wind deductible Zone A counties: Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy, and Harris east of SH 146.
+CHO-079	county -> other_coverages	Wind deductible Zone B counties: Bee, Brooks, Fort Bend, Goliad, Hardin, Harris west of SH 146, Hidalgo, Jackson, Jim Wells, Liberty, Live Oak, Montgomery, Orange, Victoria, Wharton; Zone C is the rest of the state.
+CHO-083	losses -> ownership	Scheduled property requests are denied when the named insured has any prior or outstanding vandalism, theft or mysterious disappearance claims.
+HDP-003	coverage_a -> fire_protection	In PPC 1-7, dwelling (Coverage A) limit is at most $500,000.
+HDP-004	coverage_a -> fire_protection	In PPC 8-10, dwelling (Coverage A) limit is at most $300,000; PPC 8-10 is otherwise listed as written.
+HDP-005	coverage_a -> other_coverages	Contents coverage is limited to 40% (of the dwelling limit).
+HDP-011	coverage_a -> losses	Cosmetic hail loss payout is capped at 2% of the dwelling limit (mandatory Cosmetic Hail Loss Limitation endorsement).
+HDP-013	losses -> upkeep	Hail damage that is only dents, scratches or nicks to carports or exterior surfaces is limited (mandatory Non-Structural Hail Loss Limitation endorsement).
+HDP-014	losses -> roof	Wind and hail roof losses are paid on a roof systems payment schedule (percentage of cost) under a mandatory endorsement.
+LDP-005	ownership -> occupancy	Seasonal dwellings and short-term rentals must be occupied by a tenant more often than by the owner.
+LDP-006	ownership -> occupancy	Seasonal dwellings and short-term rentals may not be occupied by the owner for more than 5 consecutive months a year.
+LDP-007	occupancy -> dwelling_type	Every unit in the building must be occupied by tenants.
+LDP-008	ownership -> occupancy	Owner-occupied dwellings are ineligible (includes an owner living in one unit of a multi-unit building, or a short-term/seasonal rental the owner occupies more than tenants or for more than 5 consecutive months a year).
+LDP-009	ownership -> dwelling_type	A multi-unit dwelling where the owner lives in one unit counts as owner-occupied and is ineligible.
+LDP-023	occupancy -> dwelling_type	Buildings with more than 4 units, or units not designed for one-family occupancy, are ineligible.
+LDP-038	losses -> upkeep	The property must be well maintained, occupied and not unduly exposed to loss.
+LDP-042	heating -> plumbing	All major systems (plumbing, heating, electrical, roof) must be in good condition with no unreported conditions or uncorrected fire or building code violations.
+LDP-044	electrical -> heating	If a wood or coal furnace or boiler is the primary heat source, the dwelling must have a backup oil or gas central heating or thermostatically controlled electric system.
+LDP-066	other_coverages -> losses	Losses counted are all paid losses (including CAT) in the last 5 years to the dwelling or contents at this location while owned by the insured.
+LDP-076	electrical -> solar	Guide does not address solar panels.
+LDP-077	other -> fire_protection	Guide does not address protection class, fire station distance or hydrants.
+NCD-027	coverage_a -> fire_protection	In protection class 1-8, the maximum dwelling (Coverage A) limit is $1,500,000.
+NCD-028	coverage_a -> fire_protection	In protection class 9 (including 1X-8X variations), the maximum dwelling (Coverage A) limit is $750,000.
+NCD-029	coverage_a -> fire_protection	In protection class 10 (all variations), the maximum dwelling (Coverage A) limit is $500,000.
+NCD-030	coverage_a -> fire_protection	In protection class 1-8, dwelling limits between $1,000,000 and $1,500,000 need underwriting approval.
+NCD-041	coverage_a -> dwelling_type	Properties over $1,500,000 or over 5,000 square feet must carry the Extended Replacement Cost endorsement.
+NCD-042	alarms -> fire_protection	In protection class 1-8, a central station fire alarm is required when the amount of insurance is over $1,000,000.
+NCD-043	alarms -> fire_protection	In protection class 9 (including 1X-8X variations), a central station fire alarm is required when the amount of insurance is over $750,000.
+NCD-044	alarms -> fire_protection	In protection class 10 (all variations), a central station fire alarm is required when the amount of insurance is over $500,000.
+NCD-045	dwelling_type -> alarms	When a central station fire alarm is required on a multi-family structure, each unit must have sensors connected to the central station.
+NCD-056	losses -> occupancy	Vandalism coverage does not apply if the dwelling was vacant or unoccupied more than 60 consecutive days before the loss.
+NCD-079	other_coverages -> under_construction	For the Course of Construction endorsement, the minimum deductible is $1,500.
+NCD-084	electrical -> roof	Dwellings built in 1940 or earlier can only be written at ACV unless roof, electrical panel, wiring, plumbing, heating and water heater were all renovated in the past 15 years (documentation to underwriting).
+NCD-103	coverage_a -> roof	Under the Roof Payment Schedule, wind and hail roof losses are settled as a percentage of replacement cost based on roof age and material.
+NCD-112	losses -> animals	An animal is dangerous (ineligible) if the carrier has had a bite injury claim from it in the past 5 years.
+NCD-113	losses -> animals	An animal is dangerous (ineligible) if a medical report shows it caused injuries, with or without a claim.
+NCD-116	other -> fire_protection	In protection class 9-10, dwellings must be within 10 road miles of the first responding fire department.
+NCD-117	site -> fire_protection	In protection class 9-10, dwellings must have site access adequate for a fire truck to reach the structure.
+NCD-118	wildfire -> fire_protection	In protection class 1-9, a Cotality Wildfire Risk Score of 61 or higher is ineligible.
+NCD-119	wildfire -> fire_protection	In protection class 10, a Cotality Wildfire Risk Score of 41 or higher is ineligible.
+NCD-121	construction -> wildfire	With a wildfire score of 51-60, the dwelling must have no wood siding or open/exposed areas to pass the Brush Inspection.
+NCD-124	construction -> wildfire	With a wildfire score of 51-60, the property boundary must be free of construction materials, pine needles, leaves and other flammable debris to pass the Brush Inspection.
+NCD-143	losses -> upkeep	Property with unmitigated or unrepaired damage from a prior loss is ineligible.
+NCD-150	losses -> flood	Non-remediated mold, fire, vandalism, theft/burglary or flood losses in the last 5 years are ineligible.
+NCD-160	electrical -> solar	Guide does not address solar panels.
+NCD-161	business -> acreage	Guide does not address lot size or acreage (only farming exposure, which is ineligible).
+NPD-010	ownership -> occupancy	Seasonal or secondary dwellings are acceptable only on Dwelling forms, only if owner occupied and the primary dwelling is insured with National General.
+NPD-022	electrical -> plumbing	Homes older than 40 years that have not had plumbing and wiring updates are ineligible; homes older than 40 years must be submitted before binding.
+NPD-024	plumbing -> updates	On homes over 40 years old, all kitchens and bathrooms must be completely renovated, including plumbing, cabinetry, appliances and floors.
+NPD-026	water_heater -> updates	On homes over 40 years old, kitchen and bathroom updates must be visible in photos and water heater age should be provided.
+NPD-036	roof -> construction	Asbestos, EIFS, wood shingle and asbestos shingle siding is ineligible.
+NPD-037	electrical -> roof	Wood shingle, aluminum, EIFS and asbestos siding is not acceptable.
+NPD-057	prior_insurance -> animals	If liability coverage applies and a listed vicious breed is found at the home at inspection, the policy is cancelled permanently with no exceptions.
+NPD-059	business -> animals	Applicants with exotic, saddle or farm animals are ineligible.
+NPD-060	electrical -> solar	Homes with solar panels are ineligible.
+NPD-076	losses -> upkeep	Risks with unrepaired damage from a previous insurance claim are ineligible.
+NPD-087	coverage_a -> other_coverages	On TDP forms, personal property is not available on tenant-occupied dwellings; 0% to 70% of the dwelling limit is available on owner-occupied dwellings.
+PDP-025	ownership -> occupancy	Seasonal/secondary owner-occupied homes occupied by the owner more than 4 months are permitted.
+PDP-026	ownership -> occupancy	A dwelling occupied by the owner for less than 9 continuous months per year is considered secondary/seasonal.
+PDP-030	updates -> occupancy	Vacant, unoccupied, under-construction, or majorly renovating properties are ineligible.
+PDP-045	roof -> upkeep	Trees must be a safe distance from structures and trimmed; homes with trees overhanging the roof or dangerously close may be ineligible.
+PDP-047	mortgages -> ownership	Applicant must hold title to the home, and the home may have no more than 2 mortgages.
+PDP-063	coverage_a -> dwelling_type	For townhouses/rowhouses, Coverage A may be issued only when the dwelling has 4 or fewer family units within a Fire Division.
+PDP-067	construction -> ownership	Owner-as-builder construction risks are ineligible.
+PDP-071	roof -> construction	Asbestos roof or siding is ineligible.
+PDP-084	coverage_a -> losses	Homes over 40 years old get ACV loss settlement on Coverage A and B (DP 04 76), waivable for substantially renovated homes with Underwriting approval of proof of updates.
+PDP-110	business -> animals	Properties with exotic, farm, saddle, or hooved animals are ineligible.
+PDP-111	animals -> upkeep	Liability coverage excludes damages caused by animals.
+PDP-114	other -> fire_protection	In split-class unclassified areas, under 5 miles and under 1,000 ft from a hydrant gets the first PC; under 5 miles and over 1,000 ft is PC 9; over 5 miles is PC 10.
+PDP-119	coverage_a -> other_coverages	A minimum wind/hail deductible of 2% of Coverage A is required, and it cannot be less than the All Other Perils deductible.
+PH6-007	business -> dwelling_type	Units must be used only for private residential purposes.
+PH6-008	business -> dwelling_type	Units with a home day care exposure are ineligible.
+PH6-010	occupancy -> dwelling_type	Units used as college housing are ineligible.
+PH6-011	business -> dwelling_type	Units used for business purposes are ineligible.
+PH6-012	under_construction -> dwelling_type	Units that are vacant, unoccupied, under construction or undergoing major renovation are ineligible.
+PH6-019	occupancy -> dwelling_type	Units rented for periods of less than 1 year carry a short-term rental surcharge.
+PH6-023	ownership -> dwelling_type	Units with any rental exposure must carry the Unit-Owners Rental to Others endorsement.
+PH6-025	mortgages -> ownership	The applicant must hold title to the unit, and the unit may have no more than 2 mortgages.
+PH6-039	losses -> fire_protection	In Protection Class 8 or higher, any fire loss makes the unit ineligible.
+PH6-045	flood -> dwelling_type	Units within 1/2 mile of the coast must be above FEMA base flood elevation.
+PH6-049	dwelling_type -> fire_protection	In Protection Class 9 or 10, the unit must be on a paved road.
+PH6-050	dwelling_type -> fire_protection	In Protection Class 9 or 10, the unit must be visible to neighbors.
+PH6-052	other -> fire_protection	Split classes are set by distance: under 5 miles to a station and over 1,000 feet to a hydrant is PC 9; over 5 miles is PC 10; unclassified areas are PC 10.
+PH6-057	heating -> dwelling_type	Units must have a professionally installed, permanent, thermostatically controlled central heat source.
+PH6-058	heating -> dwelling_type	Units using space heaters are ineligible.
+PH6-059	heating -> dwelling_type	Units must have a professionally installed, permanent, thermostatically controlled central cooling system.
+PH6-060	applicant -> dwelling_type	Units bought through foreclosure or short sale need underwriting approval before binding, with a home inspection and photos.
+PH6-062	applicant -> dwelling_type	Units in foreclosure are ineligible.
+PH6-064	foundation -> dwelling_type	Units with settling or cracking of the foundation and/or walls are ineligible.
+PH6-065	roof -> upkeep	Trees or brush overhanging the roof or dangerously close to the dwelling or other structures make the risk ineligible.
+PH6-071	heating -> dwelling_type	On units more than 40 years old, removing the Limited Water Damage endorsement requires electrical, heating, plumbing and roof updates completed within the past 10 years.
+PH6-073	electrical -> dwelling_type	Units with knob and tube wiring, aluminum wiring, fuses or Federal Pacific breakers are ineligible.
+PH6-074	plumbing -> dwelling_type	Units with polybutylene, PEX installed before 2011, or galvanized plumbing are ineligible.
+PH6-080	roof -> construction	Asbestos roofs or siding are ineligible.
+PH6-082	roof -> dwelling_type	On units over 40 years old, removing the Limited Water Damage endorsement requires a fully replaced roof (within the past 10 years).
+PH6-087	business -> animals	Properties with exotic, farm, saddle or vicious animals are ineligible.
+PH6-088	occupancy -> animals	Animal liability coverage is not included when the unit is rented.
+PH6-090	coverage_a -> dwelling_type	Units with a purchase price below replacement cost need underwriting prior approval; an inspection with photos may be required.
+PH6-091	coverage_a -> dwelling_type	Units must be insured for at least 100% of replacement cost.
+MDP-007	heating -> occupancy	Vacant homes intended for demolition or lacking thermostatically controlled heat are ineligible.
+MDP-009	other_coverages -> occupancy	On vacant homes, contents coverage is capped at $50,000 without a central station alarm and $200,000 with one (alarm certificate required before binding).
+MDP-059	other_coverages -> roof	Flat roofs 10-25 years old require a minimum $5,000 deductible.
+MDP-076	electrical -> solar	The guide does not address solar panels.
+MDP-078	other -> fire_protection	Protection classes 1-10 are all eligible.
+MDP-084	coverage_a -> other_coverages	Coverage B over 50% of Coverage A requires underwriting referral (range 0-100%).
+MDP-086	losses -> occupancy	Vacant homes with 3 or more losses, or any loss related to the vacant occupancy, require underwriting referral.
+MDP-093	other_coverages -> losses	Any prior mysterious disappearance loss makes special personal property coverage unavailable.
+MDP-108	other_coverages -> upkeep	For homes under $250,000, the water damage deductible is at least $5,000.
+MDP-109	other_coverages -> upkeep	For homes between $250,000 and $499,000, the water damage deductible is at least $10,000.
+MDP-110	other_coverages -> upkeep	For homes $500,000 and over, the water damage deductible is at least $25,000.
+ODP-051	applicant -> occupancy	An applicant, insured or tenant convicted in the past 6 years of a felony involving insurance fraud, arson, bribery, theft, embezzlement or misappropriation, or of a crime harming others, makes the risk ineligible.
+ODP-058	construction -> upkeep	Other structures can be written only if in good condition and repair, of solid construction, and the overall risk quality is above average.
+ODP-075	losses -> roof	Flat roofs not fully renovated are ineligible if there was a prior roof-related wind or water loss; refer these to underwriting.
+ODP-077	electrical -> roof	On the primary dwelling, metal roofs other than steel (e.g., aluminum or tin of any gauge) are ineligible.
+ODP-080	coverage_a -> roof	All policies exclude cosmetic hail marring to roofs, cap cosmetic marring to other Coverage A/B property at 2% of the limit, and require a signed acknowledgement.
+ODP-098	occupancy -> pool	Swimming Pool Liability Exclusion DC2061501 is mandatory with Personal Liability DL 24 01, removed only for owner-occupied or full-time single-family rentals with an otherwise eligible pool.
+ODP-101	occupancy -> upkeep	Dwellings with more than 3 step risers without handrails are ineligible for liability coverage (4-5 risers may qualify for a liability surcharge, but not 6+, multi-family, rented, basement or poor-condition steps).
+ODP-108	electrical -> solar	Guide does not address solar panels.
+ODP-109	other -> fire_protection	Any FPC is eligible when the fire station is 5 driving miles or less and a hydrant is within 1,000 ft.
+ODP-110	site -> fire_protection	With FPC 1-3, station within 5 miles and no hydrant within 1,000 ft, the risk must be visible from the main public road, have a central station fire alarm, and have year-round fire-equipment access with a roadway at least 10 ft wide.
+ODP-111	site -> fire_protection	With FPC 1-3 and a fire station more than 5 driving miles away (any hydrant), the risk must be visible from the main public road, have a central station fire alarm, and have year-round fire-equipment access with a roadway at least 10 ft wide.
+ODP-112	losses -> fire_protection	With FPC 4-10, station within 5 driving miles and no hydrant within 1,000 ft, the risk must be visible from the main road, have a central station fire alarm, have 10 ft year-round fire-equipment access, be less than 25 years old, be a primary-occupancy dwelling, and have no prior fire losses.
+ODP-113	losses -> fire_protection	With FPC 4-8 and a fire station more than 5 driving miles away, the risk must be visible from the main road, have a central station fire alarm, have 10 ft year-round access, be less than 25 years old, be a primary-occupancy dwelling, and have no prior fire losses.
+ODP-114	other -> fire_protection	For the FPC 4-10 (no hydrant) and FPC 4-8 (over 5 miles) bands, the home must be less than 25 years old.
+ODP-115	losses -> fire_protection	For the FPC 4-10 (no hydrant) and FPC 4-8 (over 5 miles) bands, only primary-occupancy dwellings with no prior fire losses are eligible.
+ODP-116	other -> fire_protection	FPC 9 or higher with a fire station more than 5 driving miles away is ineligible.
+ODP-121	coverage_a -> other_coverages	Coverage C maximum is 25% of Coverage A for tenant-occupied and 50% for owner-occupied dwellings.
+ODP-124	binding -> other_coverages	Minimum deductibles are $1,000 AOP and 10% earthquake.
+ODP-131	losses -> upkeep	The damage and the condition causing any prior loss must have been repaired.
+ODP-133	prior_insurance -> losses	At renewal, more than 2 non-zero, non-weather losses in 3 years may lead to non-renewal if the customer was warned after the second loss.
+ODP-139	construction -> upkeep	Dwellings with unrepaired damage (missing siding, fascia, soffits, gutters or foundation cracks) are ineligible.
+ODP-143	coverage_a -> flood	Properties subject to wave wash (in a FEMA SFHA within 2.5 miles of the primary shoreline at elevation under 25 ft, or on a barrier island or Bolivar/Matagorda-type peninsula) must carry a flood policy with limits equal to Coverage A up to the NFIP maximum.
+ODP-146	business -> acreage	Properties over 5 acres need a pre-bind underwriting referral and are eligible only if no one pays to use the property for farming, recreation, hunting or other liability-creating purposes.
+SDP-019	occupancy -> business	Dwellings originally built for something other than private residential occupancy are ineligible.
+SDP-027	business -> acreage	Properties over 5 acres need a pre-bind underwriting referral and are eligible only if no remuneration is received from third parties for use of the land (farming, recreation, hunting, hiking, swimming, etc.).
+SDP-031	construction -> upkeep	Metal other structures over 750 sq ft are eligible only by referral and only if in good condition, of solid construction, for personal use only, and of above-average overall quality.
+SDP-034	occupancy -> liability_hazards	Where a non-residential other structure (barn, shed, workshop, dock, etc.) is rented or held for rental to someone other than the main dwelling's tenants, the whole risk is ineligible.
+SDP-035	construction -> upkeep	Other structures can only be written if in good condition and repair, of solid construction, and of above-average overall quality.
+SDP-055	occupancy -> pool	Swimming Pool Liability Exclusion DC2061501 is mandatory when Personal Liability DL 24 01 is attached; it is removed for owner-occupied or full-time single-family rentals when the pool is otherwise eligible.
+SDP-061	applicant -> occupancy	An applicant, insured or tenant convicted in the past 6 years of a felony involving insurance fraud, arson, bribery, theft, embezzlement or misappropriation, or of a crime harming others, is ineligible.
+SDP-064	losses -> upkeep	The damage and the condition causing any prior loss must have been repaired.
+SDP-066	prior_insurance -> losses	At renewal, more than 2 non-zero, non-weather losses in the prior 3 years may lead to non-renewal if the customer was warned after the second loss.
+SDP-070	coverage_a -> occupancy	For vacant/unoccupied dwellings and FPC 'B' or 'C' risks, Coverage A may not exceed $2,000,000 and TIV may not exceed $3,999,999, whichever is lower.
+SDP-074	binding -> other_coverages	Minimum all-other-peril deductible is $1,000; earthquake deductible minimum is 10%.
+SDP-077	other -> fire_protection	FPC 'A' locations (any FPC, fire station within 5 driving miles, hydrant within 1,000 ft) are eligible.
+SDP-078	site -> fire_protection	For FPC 1-3 with hydrant over 1,000 ft or none (B), or fire station over 5 driving miles (C), the risk must be visible from the main public road, have a central station fire alarm, and have year-round all-weather fire-truck access with a roadway at least 10 ft wide.
+SDP-079	losses -> fire_protection	For FPC 4-10 with fire station within 5 driving miles and hydrant over 1,000 ft or none (B), the risk must be visible from the main public road, have a central station fire alarm, have year-round all-weather fire-truck access with a roadway at least 10 ft wide, be less than 25 years old, be a primary-occupancy dwelling with no rental exposure, and have no prior fire losses.
+SDP-080	site -> fire_protection	For FPC 4-10 B and FPC 4-8 C locations, the home must be less than 25 years old (plus road visibility, central station fire alarm and 10 ft all-weather access).
+SDP-081	occupancy -> fire_protection	For FPC 4-10 B and FPC 4-8 C locations, only primary-occupancy dwellings are eligible and any rental exposure makes the risk ineligible.
+SDP-082	losses -> fire_protection	For FPC 4-10 B (station 5 miles or less, hydrant over 1,000 ft or none) and FPC 4-8 C (station over 5 miles) locations, any prior fire loss is ineligible.
+SDP-083	other -> fire_protection	Where the fire station is over 5 driving miles away (C), FPC 9 or higher is ineligible.
+SDP-085	construction -> upkeep	Dwellings with unrepaired damage (missing siding, fascia, soffits, gutters or foundation cracks) are ineligible.
+SDP-087	occupancy -> upkeep	Dwellings with more than 3 step risers without handrails cannot get liability coverage; 4-5 risers may take the liability surcharge instead (not for 6+ risers, multi-family, rented dwellings, basement steps or steps in poor condition).
+SDP-112	losses -> roof	Flat roofs not fully renovated with a prior roof-related wind or water loss are ineligible and must be referred to underwriting.
+SDP-114	electrical -> roof	Metal roofs on the primary dwelling other than steel (aluminum or tin of any gauge) are ineligible, as is steel lighter than 29 gauge (gauge number above 29).
+SDP-117	coverage_a -> roof	All policies exclude cosmetic hail marring to roofs; cosmetic hail marring to other Coverage A/B property is capped at 2%, with a signed acknowledgement.
+SDP-135	coverage_a -> flood	Properties subject to wave wash (FEMA special flood hazard zone within 2.5 miles of the primary shoreline below 25 ft elevation, or on a barrier island or Bolivar/Matagorda-type peninsula) must carry flood insurance equal to Coverage A up to the NFIP maximum.
+SDP-138	electrical -> solar	The guide does not address solar panels.
+FDP-021	coverage_a -> flood	The required flood policy must have limits equal to Coverage A, up to the NFIP maximum (currently $250,000 dwelling); excess flood is not required.
+FDP-047	applicant -> occupancy	A risk is ineligible if any applicant, insured or tenant was convicted in the past 6 years of a felony involving insurance fraud, arson, bribery, theft, embezzlement or misappropriation, or of a crime causing harm to others.
+FDP-048	business -> acreage	Properties over 5 acres need a pre-bind underwriting referral and are eligible only if no one is paid by third parties for use of the land (farming, recreation, hunting, etc.).
+FDP-051	construction -> foundation	The home must be a permanent dwelling on a permanent foundation with final construction at the home site; modular homes built at the site are eligible.
+FDP-077	occupancy -> pool	The Swimming Pool Liability Exclusion DC2061501 is mandatory when Personal Liability DL 24 01 is attached, but is removed for owner-occupied or full-time single-family rentals if the pool is otherwise eligible.
+FDP-086	losses -> upkeep	Damage from any prior loss, and the condition that caused it, must have been repaired.
+FDP-088	prior_insurance -> losses	At renewal, more than 2 non-zero, non-weather losses in 3 years may lead to non-renewal if the customer was warned after the second loss.
+FDP-094	coverage_a -> occupancy	For vacant/unoccupied dwellings and FPC 'B' or 'C' risks, maximum is $2,000,000 Coverage A or $3,999,999 TIV, whichever is lower.
+FDP-099	binding -> other_coverages	Minimum deductibles are $1,000 All Other Peril and 10% earthquake; coastal deductibles per Coastal section.
+FDP-103	other -> fire_protection	Any FPC is eligible when the fire station is 5 miles or less by road and a hydrant is within 1,000 feet ('A' risk).
+FDP-104	other -> fire_protection	FPC 9 or higher with the fire station more than 5 miles away ('C' risk) is ineligible.
+FDP-105	other -> fire_protection	On 'B' or 'C' risks (fire station over 5 miles, or hydrant over 1,000 feet / none) in FPC 1-8 and FPC 9-10 B, the home must be visible from the main public road.
+FDP-106	alarms -> fire_protection	On 'B' or 'C' risks in FPC 1-8 and FPC 9-10 B, the home must have a central station fire alarm.
+FDP-107	other -> fire_protection	On 'B' or 'C' risks in FPC 1-8 and FPC 9-10 B, the home must be reachable by fire equipment year-round in all weather on a roadway at least 10 feet wide.
+FDP-108	other -> fire_protection	For FPC 4-10 'B' and FPC 4-8 'C' risks, the home must be less than 25 years old.
+FDP-109	occupancy -> fire_protection	For FPC 4-10 'B' and FPC 4-8 'C' risks, only primary-occupancy dwellings are eligible.
+FDP-110	occupancy -> fire_protection	For FPC 4-10 'B' risks (fire station 5 miles or less, hydrant over 1,000 ft or none) and FPC 4-8 'C' risks (fire station over 5 miles), no rental exposures are allowed.
+FDP-111	losses -> fire_protection	For FPC 4-10 'B' and FPC 4-8 'C' risks, any prior fire loss is ineligible.
+FDP-113	construction -> upkeep	Dwellings with unrepaired damage (missing siding, fascia, soffits, gutters or foundation cracks) are ineligible.
+FDP-114	occupancy -> upkeep	Dwellings with more than 3 step risers without handrails get no liability coverage; 4-5 risers may qualify with a liability surcharge (not for 6+ risers, multi-family, rented dwellings, basement steps or steps in poor condition).
+FDP-137	losses -> roof	Flat roofs not fully renovated are ineligible if there was a prior roof-related wind or water loss; refer to underwriting.
+FDP-139	electrical -> roof	On the primary dwelling, metal roofs other than steel (aluminum or tin of any gauge) are ineligible, and steel lighter than 29 gauge (gauge number above 29) is ineligible; steel must be at least 29 gauge and properly installed.
+FDP-141	coverage_a -> roof	All policies exclude cosmetic hail marring to roofs, cap it at 2% of the limit for other Coverage A/B property, and require a signed acknowledgement.
+FDP-146	electrical -> solar	Guide does not address solar panels.
+VDP-013	binding -> construction	Soft story construction is ineligible for the optional earthquake endorsement.
+VDP-014	binding -> construction	Unreinforced masonry construction is ineligible for the optional earthquake endorsement.
+VDP-017	losses -> animals	Risks with any prior animal bite claim are ineligible.
+VDP-026	other_coverages -> occupancy	Vacant properties (unoccupied with no personal property) are ineligible.
+VDP-054	prior_insurance -> losses	Open claims with a prior carrier make the risk ineligible.
+VDP-056	losses -> animals	A prior animal bite claim makes the risk ineligible.
+VDP-071	other -> fire_protection	ISO protection classes 1 through 10 are all eligible.
+VDP-075	ownership -> dwelling_type	Multi-family dwellings where the owner lives in one unit and rents the others are eligible.
+VDP-078	electrical -> roof	Light Metal Panels roofs: RCV under 15 years, ACV 15-25 years, roof coverage excluded over 25 years.
+VDP-088	losses -> roof	Underwriting may change roof loss settlement for any risk based on inspection, loss history or other factors, regardless of roof age or material.
+VDP-091	prior_insurance -> pool	Pools that are unfenced/unenclosed or not built to code get a swimming pool exclusion; they are not declined.
+VDP-094	losses -> upkeep	One water damage loss under $25,000 in the last 3 years leads to a water damage exclusion, not a decline.
+VDP-095	plumbing -> occupancy	For properties unoccupied more than 10 days without the water shut off, escape of water is excluded.
+VDP-101	electrical -> solar	The guide does not address solar panels.
+STD-006	flood -> upkeep	Dwellings with unrepaired damage (including flood, water, fire or hail damage) are ineligible.
+STD-011	losses -> business	Locations with farm, ranch or commercial exposures that increase the risk of physical loss are ineligible.
+STD-022	ownership -> occupancy	Rental with Owner occupancy requires a formal lease agreement for single-family or one-unit dwellings.
+STD-023	ownership -> occupancy	Rental with Owner occupancy is not available for condominium units.
+STD-028	ownership -> occupancy	Short-term rentals where the named insured's permanent residence is 120 miles or more from the insured location are ineligible unless professionally managed (Airbnb/Vrbo listings count as professionally managed).
+STD-064	electrical -> roof	Aluminum roofs are ineligible.
+STD-068	electrical -> solar	Solar roofing (solar shingles/tiles forming the roof surface) is a prohibited roof type. Roof-mounted solar panels are governed by the solar panel rules on p.9 (STD-091/092/093), not this row.
+STD-082	pool -> liability_hazards	Trampoline, pool, spa, pond or hot tub without a fully enclosed, permanently installed, locking fence at least 4 ft high is ineligible for liability coverage unless a specific liability exclusion is applied.
+STD-091	electrical -> solar	Solar panel coverage is excluded (minimal removal/reinstall coverage) unless bought back with the Solar Panel Coverage endorsement.
+STD-092	electrical -> solar	In AL, AR, CO, IA, IL, KS, MO, MS, MT, NE, OK and TX, solar panels covering more than 50% of the roof surface are ineligible.
+STD-093	electrical -> solar	More than 10 ground-mounted solar panels is ineligible.
+STD-094	other -> fire_protection	PPC 1-8 is eligible.
+STD-095	other -> fire_protection	PPC 9-10 is eligible but may require additional underwriting review.
+STD-108	coverage_a -> other_coverages	Personal property limit is capped at 30% of the dwelling limit.
+STD-110	coverage_a -> occupancy	Additional living costs / fair rental value limit is capped at 30% of the dwelling limit.
+STD-112	ownership -> occupancy	Maximum personal liability limit is $500,000, available only for Rental with Owner occupancy.
+STD-122	occupancy -> business	Entities with business operations beyond owning/maintaining rentals (e.g., realtors, property managers) must show in-force General Liability of at least $1,000,000 per occurrence / $2,000,000 aggregate before binding to get Premises Liability coverage.
+STD-130	ownership -> business	Daycares and childcare facilities are ineligible named insureds.
+STD-132	ownership -> business	Businesses presenting excessive risk or hazard (Steadily's sole discretion) are ineligible named insureds.
+STD-135	prior_insurance -> site	If the inspector is denied access, the policy may be cancelled.
+FOD-008	ownership -> occupancy	The Vacation & Short-Term Rental use type covers leases under 12 months (daily, weekly or monthly), and the owner may also use the dwelling for vacations.
+FOD-016	ownership -> occupancy	On rental dwellings, a property management company cannot be the Named Insured unless it is listed on the deed.
+FOD-017	ownership -> occupancy	On rental dwellings, a Governmental Entity, Land Trust, Conservatorship, Co-op or Condominium Association cannot be the Named Insured.
+FOD-026	heating -> construction	On TDP-3, the siding, roof, chimney, porch and foundation must be free of physical defects, with no deterioration or existing damage.
+FOD-028	prior_insurance -> roof	Wood roofs are surcharged +20% (not declined).
+FOD-030	insurance_score -> roof	An ACV Roof Endorsement credit of -15% is available on TDP-3 only.
+FOD-035	losses -> occupancy	For new business, an owner-occupied TDP-3 risk is ineligible with 2 fire, smoke, water appliance, water plumbing or accidental discharge paid losses, or with 3 or more paid losses of any kind, in the past 5 years.
+FOD-036	losses -> occupancy	For new business, a rental TDP-3 location is ineligible with 2 fire, smoke, water appliance, water plumbing or accidental discharge paid losses, or with 3 or more paid losses of any kind, in the past 5 years.
+FOD-037	losses -> occupancy	At renewal, an owner-occupied TDP-3 risk may have at most 5 paid losses.
+FOD-038	losses -> occupancy	At renewal, a rental TDP-3 location may have at most 5 paid losses.
+FOD-040	losses -> plumbing	A fire, water plumbing, water appliance or accidental discharge loss of $500 or more combined with 1 or more other loss of $500 or more, all at the insured location, is ineligible.
+FOD-041	losses -> upkeep	3 or more mysterious disappearance, theft, vandalism, bodily injury, fire, smoke, miscellaneous, third-party property damage or personal injury losses at the insured location are ineligible.
+FOD-044	losses -> occupancy	On rental risks, the claims surcharge counts losses at the insured location while owned by the insuring landlord.
+FOD-051	business -> upkeep	On TDP-1/TDP-3, outbuildings in poor condition or used for business (including farm/ranch) are ineligible unless the Other Structure Not Covered Endorsement is attached and they add no liability hazard.
+FOD-052	flood -> upkeep	A mandatory Water Damage Coverage Limit endorsement on TDP-3 includes $1,000 of water damage coverage (increases to $100,000 available) and excludes water within or below the slab, flood and sewer backup.
+FOD-054	county -> occupancy	Owner-occupied TDP-1 and TDP-3 risks are not written in Bexar, Collin, Dallas, Denton, Rockwall or Tarrant counties.
+FOD-058	county -> other_coverages	A tropical cyclone deductible is mandatory in territories W and Y.
