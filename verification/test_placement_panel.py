@@ -210,3 +210,18 @@ def test_the_band_line_stays_with_no_sales_in_the_area():
     allied = next(x for x in build(ALL_ELIGIBLE, T, dict(PD, dwelling_amount=None))["picks"] if x["market"] == "Allied Trust")
     assert allied["reason"].startswith("No recent sales with Allied Trust in ZIP 77494")
     assert allied["fit"] == "60% of our 10-19-year-old homes vs 20% overall"
+
+
+# Round 38 step 6 (Liam, 2026-10-11): on LANDLORD the panel said "Our homeowners sales in ZIP 77493: 21 of 40 with
+# HOAIC" above dwelling-fire programs. The tables hold homeowners sales only (LOB HOME, not tenant-occupied), so a
+# landlord check says what the ranking rests on; an owner's check is unchanged.
+@pytest.mark.parametrize("occ,shown", [("Tenant Occupied", True), ("Vacant", True), ("Owner Occupied", False),
+                                       ("Seasonal", False), ("Secondary Home", False), (None, False)])
+def test_a_landlord_check_says_the_ranking_rests_on_homeowners_sales(occ, shown):
+    pd = dict(PD, occupancy_type=occ) if occ else dict(PD)
+    p = build(ALL_ELIGIBLE, tables(zip_sales={"Mercury": 5, "TWICO": 3}), pd)
+    md = placement.panel_markdown(p)
+    line = "Based on our homeowners placements; we don't have enough landlord history yet."
+    assert (line in md) is shown
+    if shown:
+        assert md.splitlines()[1] == f"*{line}*"           # right under the title, before the picks

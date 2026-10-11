@@ -155,6 +155,10 @@ FOOTER = ("From our HawkSoft placements through {through}. Where we have placed 
 STATEWIDE = "Few recent sales nearby; ranked mostly on our statewide mix"
 # Round 34 step 2 (Liam, 2026-10-09): a market with no sales in the area is not "0 of N (0%)".
 NONE_NEARBY = "No recent sales with {market} in {area}; ranked on our statewide mix"
+# Round 38 step 6 (Liam, 2026-10-11): the tables hold homeowners sales only (LOB HOME, not tenant-occupied; the
+# builder leaves dwelling fire out), so a landlord check says what the ranking rests on.
+LANDLORD_BASIS = "Based on our homeowners placements; we don't have enough landlord history yet."
+LANDLORD_OCCUPANCIES = ("Tenant Occupied", "Vacant")
 # MIN_BAND: the band's sales across all markets; MIN_BAND_OWN: this market's own sales in the band
 # (round 34 step 2, Liam, 2026-10-09: both are required).
 RECENT_MONTHS, MIN_NEARBY, MIN_BAND, MIN_BAND_OWN, FIT_LIFT = 12, 10, 10, 5, 1.25
@@ -272,13 +276,17 @@ def panel(results, property_details, as_of=None, T=None, year=None):
             first = next((x for r in out for x in (r.get("reasons") or []) if str(x).strip()), "")
             usual = (f"Usually {top} here ({sales[top]} of {total}); not for this home: "
                      f"{_compact(first) or out[0].get('status', '').replace('_', ' ').lower()}")
-    return {"title": TITLE, "picks": picks, "usual": usual,
+    basis = LANDLORD_BASIS if pd.get("occupancy_type") in LANDLORD_OCCUPANCIES else None
+    return {"title": TITLE, "basis": basis, "picks": picks, "usual": usual,
             "footer": FOOTER.format(through=T["meta"].get("data_through", "?"))}
 
 
 def panel_markdown(p):
     """The panel as one markdown block (the footer is shown separately, small)."""
     lines = [f"#### {p['title']}"]
+    if p.get("basis"):
+        lines.append(f"*{p['basis']}*")
+        lines.append("")
     for i, pick in enumerate(p["picks"], 1):
         # round 36 step 5: the programs by their display names; round 37 step 2: the name once -- a market
         # whose label one of its programs' names starts with (or the other way round) shows only the names
