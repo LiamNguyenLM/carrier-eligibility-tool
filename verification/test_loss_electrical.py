@@ -91,7 +91,9 @@ def test_every_loss_answer_on_every_loss_line_is_pass_fail_or_a_confirm_never_a_
             assert o != "FAIL" or rid in OTHER_CAN_FAIL, (rid, a)   # "Other" never proves a named type
     # no losses in 5 years passes every 5- and 3-year rule; a rule over a longer window (ever()) stays a confirm
     zero = outcome(rid, losses_5yr="0")
-    longer = bool(re.fullmatch(r"\(.*\) and FACT\([^()]*\)", le.LOSS[rid]))
+    # CHANGED 2026-10-11 (round 38 step 3, Liam: a loss row decides from count, type and years only where the guide's condition is just those): a row that is a bare
+    # confirm (the Sage 6-year rows: "non-zero" losses the form cannot count) is a confirm at 0 losses too.
+    longer = bool(re.fullmatch(r"\(.*\) and FACT\([^()]*\)", le.LOSS[rid])) or le.LOSS[rid].startswith("FACT(")
     assert zero == ("NOTE" if longer else "PASS"), (rid, zero)
 
 
@@ -129,10 +131,15 @@ def test_every_electrical_answer_on_every_electrical_line(rid):
     # one water loss
     ("ARA-071", dict(losses_5yr="1", loss_types=["Water"]), "FAIL"),        # refer: any water/fire/theft/liability
     ("ARB-065", dict(losses_5yr="1", loss_types=["Water"], losses_3yr="1"), "PASS"),   # 2+ water in 3 years
-    ("MER-087", dict(losses_5yr="1", loss_types=["Water"]), "FAIL"),        # any non-weather loss
+    # CHANGED 2026-10-11 (round 38 step 3, Liam: a loss row decides from count, type and years only where the guide's condition is just those): Mercury's footnote --
+    # a single non-weather water loss is never by itself a reason to reject. Was: FAIL.
+    ("MER-087", dict(losses_5yr="1", loss_types=["Water"]), "PASS"),
+    ("MER-087", dict(losses_5yr="1", loss_types=["Fire"]), "NOTE"),         # paid? a loss to the home?
     ("MER-088", dict(losses_5yr="1", loss_types=["Water"]), "PASS"),        # 2+ total losses
     ("PRO-097", dict(losses_5yr="1", loss_types=["Water"]), "PASS"),        # liability only
-    ("TRV-066", dict(losses_5yr="1", loss_types=["Water"]), "FAIL"),        # any water claim: refer
+    # CHANGED 2026-10-11 (round 38 step 3, Liam: a loss row decides from count, type and years only where the guide's condition is just those): a Water loss may be a
+    # catastrophe or appliance loss, which this rule does not count. Was: FAIL (refer).
+    ("TRV-066", dict(losses_5yr="1", loss_types=["Water"]), "NOTE"),
     # a wind or hail loss is weather
     ("MER-087", dict(losses_5yr="1", loss_types=["Wind or hail"]), "PASS"),
     ("ARA-065", dict(losses_5yr="2", loss_types=["Wind or hail"]), "FAIL"),  # 2 Act of Nature claims

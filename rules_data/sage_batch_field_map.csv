@@ -70,8 +70,8 @@ SUR-078,NONE,,,DECLINES,,not asked by the form
 SUR-079,NONE,,,DECLINES,,not asked by the form
 SUR-081,NONE,,,DECLINES,,not asked by the form
 SUR-082,NONE,,,DECLINES,,loss / claims history is not asked
-SUR-083,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2}",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
-SUR-084,losses_5yr;losses_3yr;loss_types,"(losses_5yr in {0, 1, 2} or (losses_5yr in {3 or more} and FACT(no more than 3 losses in the last 6 years))) and FACT(no more than 3 losses in the last 6 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+SUR-083,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2} or FACT(no more than 2 non-zero paid losses of any type in the prior 3 years, not counting appliance water claims certified on TDI form WDR-1 or mold claims certified on TDI form MDR-1)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+SUR-084,losses_5yr;losses_3yr;loss_types,"FACT(no more than 3 non-zero paid losses of any type in the last 6 years, not counting appliance water claims certified on TDI form WDR-1 or mold claims certified on TDI form MDR-1)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 SUR-085,NONE,,,NOTE,,loss / claims history is not asked
 SUR-086,NONE,,,NOTE,,loss / claims history is not asked
 SUR-087,NONE,,,CONDITION,,loss / claims history is not asked
@@ -183,8 +183,8 @@ SFP-083,NONE,,,DECLINES,,not asked by the form
 SFP-084,NONE,,,DECLINES,,not asked by the form
 SFP-086,NONE,,,DECLINES,,not asked by the form
 SFP-087,NONE,,,DECLINES,,loss / claims history is not asked
-SFP-088,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2}",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
-SFP-089,losses_5yr;losses_3yr;loss_types,"(losses_5yr in {0, 1, 2} or (losses_5yr in {3 or more} and FACT(no more than 3 losses in the last 6 years))) and FACT(no more than 3 losses in the last 6 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+SFP-088,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2} or FACT(no more than 2 non-zero paid losses of any type in the prior 3 years, not counting appliance water claims certified on TDI form WDR-1 or mold claims certified on TDI form MDR-1)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+SFP-089,losses_5yr;losses_3yr;loss_types,"FACT(no more than 3 non-zero paid losses of any type in the last 6 years, not counting appliance water claims certified on TDI form WDR-1 or mold claims certified on TDI form MDR-1)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 SFP-090,NONE,,,NOTE,,loss / claims history is not asked
 SFP-091,NONE,,,NOTE,,loss / claims history is not asked
 SFP-092,NONE,,,CONDITION,,loss / claims history is not asked
@@ -286,8 +286,8 @@ WIL-084,NONE,,,DECLINES,,not asked by the form
 WIL-085,NONE,,,DECLINES,,not asked by the form
 WIL-087,NONE,,,DECLINES,,not asked by the form
 WIL-088,NONE,,,DECLINES,,loss / claims history is not asked
-WIL-089,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2}",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
-WIL-090,losses_5yr;losses_3yr;loss_types,"(losses_5yr in {0, 1, 2} or (losses_5yr in {3 or more} and FACT(no more than 3 losses in the last 6 years))) and FACT(no more than 3 losses in the last 6 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+WIL-089,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2} or FACT(no more than 2 non-zero paid losses of any type in the prior 3 years, not counting appliance water claims certified on TDI form WDR-1 or mold claims certified on TDI form MDR-1)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+WIL-090,losses_5yr;losses_3yr;loss_types,"FACT(no more than 3 non-zero paid losses of any type in the last 6 years, not counting appliance water claims certified on TDI form WDR-1 or mold claims certified on TDI form MDR-1)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 WIL-091,NONE,,,NOTE,,loss / claims history is not asked
 WIL-092,NONE,,,NOTE,,loss / claims history is not asked
 WIL-093,NONE,,,CONDITION,,loss / claims history is not asked
@@ -406,8 +406,8 @@ TRI-110,dwelling_amount,dwelling_amount <= 2000000,always,DECLINES,,
 TRI-111,dwelling_amount,dwelling_amount <= 1250000,always,REFERS_TO_UW,,
 TRI-114,dwelling_amount,dwelling_amount >= 85000,always,REFERS_TO_UW,,
 TRI-115,NONE,,,CONDITION,,"TIV, Coverage B and the HO5 form are not asked"
-TRI-129,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2}",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
-TRI-130,losses_5yr;losses_3yr;loss_types,"(losses_5yr in {0, 1, 2} or (losses_5yr in {3 or more} and FACT(no more than 3 losses in the last 6 years))) and FACT(no more than 3 losses in the last 6 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+TRI-129,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2} or FACT(no more than 2 non-zero paid losses of any type in the prior 3 years, not counting appliance water claims certified on TDI form WDR-1 or mold claims certified on TDI form MDR-1)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+TRI-130,losses_5yr;losses_3yr;loss_types,"FACT(no more than 3 non-zero paid losses of any type in the last 6 years, not counting appliance water claims certified on TDI form WDR-1 or mold claims certified on TDI form MDR-1)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 TRI-131,NONE,,,NOTE,,loss / claims history is not asked
 TRI-132,NONE,,,NOTE,,loss / claims history is not asked
 TRI-133,NONE,,,NOTE,,loss / claims history is not asked
@@ -480,7 +480,7 @@ MKL-080,NONE,,,DECLINES,,"TIV, Coverage B and the HO5 form are not asked"
 MKL-081,NONE,,,DECLINES,,"TIV, Coverage B and the HO5 form are not asked"
 MKL-082,NONE,,,REFERS_TO_UW,,"TIV, Coverage B and the HO5 form are not asked"
 MKL-085,NONE,,,REFERS_TO_UW,,"TIV, Coverage B and the HO5 form are not asked"
-MKL-104,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0} or loss_types none_of {Fire, Other} or FACT(no fire loss over $25000 in the past 5 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+MKL-104,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0} or loss_types none_of {Fire, Other} or FACT(no fire loss over $25000 in the past 5 years other than one caused by wildfire or lightning)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 MKL-105,losses_5yr;losses_3yr;loss_types,losses_5yr in {0} or FACT(no loss over $100000 in the last 5 years),always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 MKL-106,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0, 1, 2} or (losses_5yr in {3 or more} and FACT(fewer than 4 losses in the last 5 years))",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 MKL-107,NONE,,,DECLINES,,loss / claims history is not asked
@@ -526,7 +526,7 @@ VAV-078,dwelling_amount,dwelling_amount >= 100000,always,DECLINES,,
 VAV-079,dwelling_amount,dwelling_amount <= 2000000,always,DECLINES,,
 VAV-080,NONE,,,DECLINES,,"TIV, Coverage B and the HO5 form are not asked"
 VAV-089,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0} or loss_types none_of {Water, Fire, Liability, Theft, Other} or FACT(no non-cat or liability loss over $25000 in the last 3 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
-VAV-090,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1} or loss_types none_of {Water, Fire, Liability, Theft, Other} or (not (loss_types none_of {Wind or hail, Other}) and FACT(fewer than 2 non-cat or liability losses in 3 years))",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+VAV-090,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1} or loss_types none_of {Water, Fire, Liability, Theft, Other} or (not (loss_types none_of {Water, Fire, Wind or hail, Other}) and FACT(fewer than 2 losses from non-cat causes or liability claims in the last 3 years))",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 VAV-092,NONE,,,DECLINES,,loss / claims history is not asked
 VAV-093,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0} or loss_types none_of {Water, Other} or FACT(no water loss over $25000 in the last 3 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 VAV-094,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0} or loss_types none_of {Water, Other} or FACT(no water loss over $25000 in the last 3 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm

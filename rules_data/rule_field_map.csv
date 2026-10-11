@@ -104,11 +104,11 @@ ALL-142,losses_5yr;losses_3yr;loss_types,losses_5yr in {0} or (loss_types none_o
 ALL-143,losses_5yr;losses_3yr;loss_types,losses_5yr in {0} or (loss_types none_of {Fire}),always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 ALL-144,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2}",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 ALL-145,losses_5yr;losses_3yr;loss_types,losses_5yr in {0} or (loss_types none_of {Liability}),always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
-ALL-146,losses_5yr;losses_3yr;loss_types,losses_5yr in {0} or (loss_types none_of {Fire}),always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
-ALL-147,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0, 1} or loss_types none_of {Water, Fire, Liability, Theft, Other} or (not (loss_types none_of {Wind or hail, Other}) and FACT(fewer than 2 losses in 5 years other than natural causes))",always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+ALL-146,losses_5yr;losses_3yr;loss_types,losses_5yr in {0} or (loss_types none_of {Fire} and (loss_types none_of {Other} or FACT(no fire or smoke claim in the previous 5 years))),always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+ALL-147,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0, 1} or loss_types none_of {Water, Fire, Liability, Theft, Other} or (not (loss_types none_of {Water, Fire, Wind or hail, Other}) and FACT(fewer than 2 losses in 5 years other than natural causes such as weather or lightning))",always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 ALL-148,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
 ALL-150,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0, 1} or loss_types none_of {Theft, Other} or (not (loss_types none_of {Water, Fire, Liability, Wind or hail, Other}) and FACT(no more than 1 theft or vandalism claim in 5 years))",always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
-ALL-151,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0} or loss_types none_of {Water, Fire, Liability, Theft, Other} or FACT(no non-weather loss of $20000 or more in the previous 3 years)",always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+ALL-151,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0} or loss_types none_of {Fire, Liability, Theft, Other} or FACT(no non-weather loss paying $20000 or more in the previous 3 years, other than water, mold or appliance-related claims)",always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 ALL-152,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
 ALL-153,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
 ALL-154,NONE,,,DECLINES,,loss / claims history is not asked
@@ -223,7 +223,7 @@ SAG-089,coastal_tier,FACT(not within the shoreline distances),"coastal_tier in {
 SAG-096,dwelling_amount,dwelling_amount <= 1000000,always,DECLINES,,
 SAG-098,dwelling_amount,dwelling_amount >= 85000,always,REFERS_TO_UW,,
 SAG-099,NONE,,,CONDITION,,the form has no field for this
-SAG-112,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2}",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+SAG-112,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2} or FACT(no more than 2 non-zero losses in the prior 3 years, not counting appliance water or mold claims certified by TDI form WDR-1 or MDR-1)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 SAG-113,losses_5yr;losses_3yr;loss_types,"(losses_5yr in {0, 1, 2} or (losses_5yr in {3 or more} and FACT(no more than 3 losses in the last 6 years))) and FACT(no more than 3 losses in the last 6 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 SAG-114,NONE,,,NOTE,,loss / claims history is not asked
 SAG-115,NONE,,,NOTE,,loss / claims history is not asked
@@ -289,7 +289,7 @@ CHU-059,dwelling_type;occupancy_type,dwelling_type != Condo,occupancy_type == Ow
 CHU-060,NONE,,,REFERS_TO_UW,,the form has no field for this
 CHU-061,NONE,,,DECLINES,,the form has no field for this
 CHU-062,losses_5yr;losses_3yr;loss_types,losses_3yr in {0} or (loss_types none_of {} and (loss_types none_of {Liability} or FACT(no negligence-based liability claim in the previous 3 years))),always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
-CHU-063,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1} or loss_types none_of {Fire, Liability, Theft, Other} or (not (loss_types none_of {Water, Wind or hail, Other}) and FACT(fewer than 2 paid non-weather non-water claims in 3 years))",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+CHU-063,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1} or loss_types none_of {Fire, Liability, Theft, Other} or FACT(fewer than 2 paid non-weather non-water claims in 3 years)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 CHU-064,NONE,,,DECLINES,,loss / claims history is not asked
 CHU-065,NONE,,,DECLINES,,loss / claims history is not asked
 CHU-066,NONE,,,DECLINES,,loss / claims history is not asked
@@ -298,7 +298,7 @@ CHU-068,NONE,,,DECLINES,,loss / claims history is not asked
 CHU-069,NONE,,,DECLINES,,loss / claims history is not asked
 CHU-070,NONE,,,DECLINES,,loss / claims history is not asked
 CHU-071,NONE,,,NOTE,,loss / claims history is not asked
-CHU-073,losses_5yr;losses_3yr;loss_types,(losses_5yr in {0}) and FACT(no losses before the last 5 years),always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+CHU-073,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0} or (losses_3yr in {1} and loss_types none_of {Fire, Liability, Wind or hail, Theft, Other}) or FACT(no loss in the last 3 years other than a single water loss, properly remediated mold or appliance claims, or CAT losses at another location)",always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 CHU-074,NONE,,,DECLINES,,loss / claims history is not asked
 CHU-077,NONE,,,DECLINES,,acreage is not asked
 CHU-078,NONE,,,DECLINES,,flood zone is not asked
@@ -382,8 +382,8 @@ MER-083,NONE,,,REFERS_TO_UW,,the form has no field for this
 MER-084,NONE,,,CONDITION,,the form has no field for this
 MER-085,NONE,,,DECLINES,,the form has no field for this
 MER-086,dwelling_amount;county;zip,dwelling_amount <= 1000000,"county in {Bee, Brooks, Fort Bend, Goliad, Hardin, Harris, Hidalgo, Jackson, Jim Wells, Liberty, Live Oak, Orange, Victoria, Wharton} and zip in {77015, 77034, 77058, 77059, 77062, 77075, 77089, 77465, 77502, 77503, 77504, 77505, 77506, 77507, 77520, 77521, 77523, 77530, 77536, 77546, 77547, 77562, 77571, 77581, 77586, 77587, 77597, 77598, 77969, 77971, 77979, 77991, 77001, 77002, 77003, 77004, 77006, 77009, 77010, 77011, 77012, 77013, 77016, 77017, 77019, 77020, 77021, 77023, 77026, 77028, 77029, 77030, 77033, 77044, 77047, 77048, 77049, 77050, 77051, 77054, 77061, 77078, 77087, 77204, 77346, 77396, 77532, 77533, 77535, 77538, 77575, 77582, 77584, 77611, 77630, 77951, 77977, 78387}",DECLINES,ZIP,Tier II High / Moderate ZIP codes (MER-068 / MER-069)
-MER-087,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0} or (loss_types none_of {Water, Fire, Liability, Theft} and (loss_types none_of {Other} or FACT(no non-weather loss in the last 5 years)))",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
-MER-088,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0, 1}",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+MER-087,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0} or (losses_5yr in {1} and loss_types none_of {Fire, Liability, Wind or hail, Theft, Other}) or loss_types none_of {Water, Fire, Liability, Theft, Other} or FACT(no paid non-weather loss to the home or personal possessions in the last 5 years other than a single non-weather water loss or remediated appliance water or mold losses)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+MER-088,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0, 1} or FACT(fewer than 2 paid losses to the home or personal possessions in the last 5 years, not counting remediated appliance water or mold losses)",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 MER-089,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1} or loss_types none_of {Water} or (not (loss_types none_of {Water, Fire, Liability, Wind or hail, Theft, Other}) and FACT(no more than 1 paid non-appliance water claim in 3 years))",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 MER-090,NONE,,,CONDITION,,loss / claims history is not asked
 MER-091,NONE,,,DECLINES,,loss / claims history is not asked
