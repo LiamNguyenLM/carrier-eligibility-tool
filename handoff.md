@@ -2344,6 +2344,78 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     | 71c5b05 | 5 | 4,074 passed, 0 failed |
     | 8f4c4e7 | 7 | 4,076 passed, 0 failed |
 
+- **2026-10-10 — Round 37: readable results for agent testing.** Built on
+  7f0023d (origin/main: Liam pushed Round 36), unpushed. Liam's Railway run
+  (ZIP 77248 → Harris, PPC 5, hydrant Yes, Owner Occupied, Individual, 1994,
+  House, Coverage A blank, East of 146 Unknown) took 11 s, with every carrier
+  decided by the rules.
+  - **Step 3 (836a789): Chubb on the Harris profile.**
+    - Liam's run had Chubb Eligible; ours is Insufficient.
+    - The guide: a Harris primary house is unacceptable in 1A (east and west
+      of 146, CHU-043), pre-approval in 1B/1C/1E (CHU-044), and 01D is
+      outside the coastal areas. The form does not ask the sub-territory, so
+      the named holds must hold.
+    - Through the app (zero API), Chubb is:
+      - Insufficient on CHU-043/044 for typed or pre-filled Harris and any
+        146 answer;
+      - Refer with Coverage A $500k (CHU-056);
+      - Insufficient on the Coverage A hold with County blank.
+    - Typed and pre-filled Harris give every carrier the same verdict.
+    - Eligible only with BOTH the County and Coverage A boxes unticked, e.g.
+      "Clear" after the ZIP (an unticked topic is ignored, Round 21). No rule
+      changed.
+    - A "This looks wrong" report now records the ticked topics.
+  - **Step 1 (adf9a44): confirm lists.**
+    - "Also confirm" row-ID dumps are replaced by "Before you quote,
+      confirm:":
+      - at most 6 plain items, one per topic;
+      - ordered declines → refers → conditions, with upkeep last;
+      - "+N more", and the rule IDs on a collapsed line;
+      - the guide's own rule kept where a number decides it.
+    - `confirm_topics.TOPICS` has 33 topics (key → plain question).
+    - "Things to confirm with the client" at the top: topics at least half
+      the Eligible + Refer cards ask, max 8, with counts.
+  - **Step 2 (8ef1ac0): internal labels.**
+    - The "rules table" badge is gone.
+    - "Guide date: <date>" or "Guide date: not stated".
+    - The placement panel names a program once.
+    - `cards.agent_text` strips row IDs, program names and engine wording
+      from everything an agent reads.
+    - Page scan of 4 profiles: file names 290 → 0, badge 96 → 0, stray row
+      IDs 41 → 0.
+  - **Step 4 (e9079f5; follow-up 5d5a690): two optional questions.**
+    - "Losses in the last 5 years" (+ types, most recent year, how many in 3
+      years) and "Electrical" (multi).
+    - `rules_data/loss_electrical_lines.py`: rows decided — pilot 34, Sage
+      27, HO3 60, DP 58 (113 loss, 66 electrical).
+    - 224 rows stay NONE, each listed with its reason.
+    - Blank / Unknown are CONFIRM_FIELDS: a confirm note, never a hold.
+    - Liam's profile with "0 losses, breakers": 85 of 1,443 confirm rows
+      decided, no verdict change.
+    - 1 water loss: ARI HOA+ Refer (ARA-071), Mercury Ineligible (MER-087),
+      Travelers Refer (TRV-066).
+    - Federal Pacific panel: 16 carriers Ineligible.
+  - **Step 5 (d6601a0).**
+    - Tier 2 at e9079f5: 29 passed, 0 failed, 7 xfailed. No baseline
+      updated.
+    - Liam's exact profile, 3 real checks: 18.0 / 19.2 / 17.4 s (two fast
+      tiers running). The model call is 12.7-14.4 s, 1 attempt.
+    - Same verdicts all three times: 16 Eligible, 6 Insufficient (CHUBB +
+      five Sage), 3 Ineligible, 2 unavailable.
+    - With "0 losses, breakers": 19.4 s, the same verdicts.
+    - The page took 1.0-2.5 s to build because of the confirm lists. The
+      topic lookup is now cached and warmed at start: 0.06-0.08 s.
+  - **Fast tier per commit** (verification/, not baseline):
+
+    | Commit | Step | Result |
+    |---|---|---|
+    | 836a789 | 3 | 4,095 passed, 1 failed: 50-writer concurrency test timed out under load (3/3 alone) |
+    | adf9a44 | 1 | 4,111 passed, 0 failed |
+    | 8ef1ac0 | 2 | 4,128 passed, 0 failed |
+    | e9079f5 | 4 | 4,351 passed, 1 failed: LDP-048 had no boundary case (real; fixed in 5d5a690) |
+    | d6601a0 | 5 | 4,352 passed, 1 failed: the same boundary test (pre-5d5a690) |
+    | 5d5a690 | 4 follow-up | 4,355 passed, 0 failed |
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
