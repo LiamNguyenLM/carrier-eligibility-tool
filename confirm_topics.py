@@ -14,6 +14,7 @@ TOPICS below (topic key -> a plain question), one item per topic per card:
 
 top_box() counts the topics across the Eligible and Refer cards: the questions to ask the client once.
 """
+import functools
 import re
 
 CARD_MAX = 6
@@ -133,9 +134,11 @@ def label(key):
     return TOPICS[key][0] if key in TOPICS else OTHER_LABEL
 
 
+@functools.lru_cache(maxsize=None)
 def topic_of(text, category=""):
     """The topic key for a rule (or a model's confirm item), from its words; the workbook topic decides when no
-    words match; "other" when neither does."""
+    words match; "other" when neither does. Cached: the same rule texts come back on every check (round 37
+    step 5: the page took 1-2.5 s to build on Liam's profile, most of it here)."""
     if _UPKEEP_FIRST.search(text or ""):
         return "upkeep"
     for key, rx in _RX.items():

@@ -3640,7 +3640,11 @@ def warm_up():
         guides.all_programs()
         get_vectorstore().similarity_search("eligibility", k=1)
         _rules_pilot_prepare(carriers, dict(_WARM_UP_PROFILE), None)
-    except Exception as e:                          # noqa: BLE001 -- a warm-up problem never stops the app
+        # Round 37 step 5: the confirm lists' topic for every rule (confirm_topics.topic_of is cached)
+        import confirm_topics
+        for r in rules_evaluator._rules().values():
+            confirm_topics.topic_of(r["Plain rule"], r["Topic"])
+    except Exception as e:                         # noqa: BLE001 -- a warm-up problem never stops the app
         print("WARM-UP: stopped early --", type(e).__name__, str(e)[:160])
     return time.perf_counter() - t
 

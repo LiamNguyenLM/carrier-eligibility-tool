@@ -173,3 +173,13 @@ def test_the_page_shows_the_box_and_each_cards_list(monkeypatch):
     lists = [m for m in md if "Before you quote, confirm:" in m]
     assert len(lists) == 2 and not any("Also confirm" in m for m in md)
     assert not any(re.search(r"XX-\d{3}", m.split("<summary>Rule IDs</summary>")[0]) for m in lists)
+
+
+def test_the_warm_up_classifies_every_rule_so_the_first_page_is_fast():
+    # round 37 step 5: building the confirm lists took 1-2.5 s per page on Liam's profile; topic_of is cached
+    # and the app-start warm-up fills it
+    import rules_evaluator
+    ct.topic_of.cache_clear()
+    ec.warm_up()
+    pairs = {(r["Plain rule"], r["Topic"]) for r in rules_evaluator._rules().values()}
+    assert ct.topic_of.cache_info().currsize >= len(pairs) > 1000
