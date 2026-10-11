@@ -17,6 +17,8 @@ top_box() counts the topics across the Eligible and Refer cards: the questions t
 import functools
 import re
 
+import intake_fields
+
 CARD_MAX = 6
 TOP_MAX = 8
 EFFECT_RANK = {"DECLINES": 0, "REFERS_TO_UW": 1, "CONDITION": 2}
@@ -191,6 +193,192 @@ def _decides_often(r):
             EFFECT_RANK.get(r.get("effect"), 3))
 
 
+# ---------------------------------------------------------------- what the form already answered
+
+# Round 38 step 2 (Liam, 2026-10-11): on LANDLORD the top box asked "Owned by individuals (not an LLC ...)?" though he
+# entered LLC, and cards asked "Any losses or claims in the last 5 years? (how many, what type, when)" though he had
+# answered all of it. Each topic below records the form fields it covers (and the form's "Check this" topic that must
+# be ticked for them to count -- unticked is blank). When they are answered, the item asks only what is still open,
+# worded from the answer; with nothing left open the item is dropped (DROP).
+DROP = ""
+TOPIC_FIELDS = {
+    "ownership": (None, ("ownership_type", "trust_type")),
+    "occupancy": (None, ("occupancy_type",)),
+    "losses": (None, ("losses_5yr", "loss_types", "loss_year", "losses_3yr")),
+    "electrical": (None, ("electrical",)),
+    "pool": ("pool", ("swimming_pool", "pool_accessories", "pool_fence_4ft", "pool_gate_locking")),
+    "animals": ("dogs", ("has_dogs", "dog_breeds")),
+    "roof": ("roof_age", ("roof_age",)),
+    "plumbing": ("plumbing", ("plumbing_type",)),
+    "solar": ("solar", ("solar_panels", "solar_type", "solar_tesla")),
+    "county": ("county", ("county",)),
+    "coverage_a": ("dwelling_amount", ("dwelling_amount",)),
+    "fire_protection": ("ppc", ("fire_station_miles", "hydrant_1000ft")),
+}
+_AMPS = re.compile(r"\bamps?\b|\bamperage\b", re.I)
+_UPDATED = re.compile(r"\bupdat|\breplac|\bupgrad", re.I)
+_SPA = re.compile(r"\bspa\b|\bhot tub", re.I)
+_OWNERSHIP = {
+    "Individual Owner": "Individual owner: titled to the applicant personally?",
+    "LLC": "LLC: titled to the LLC, and the LLC only holds rental property (no other business)?",
+    "Corporation / partnership": "Corporation / partnership: titled to it, and the home is not used for its business?",
+    "Estate": "Estate: titled to the estate, and who lives in or looks after the home?",
+}
+_OCCUPANCY = {
+    "Owner Occupied": "Owner occupied: no short-term rental, roomers, students or home sharing?",
+    "Tenant Occupied": "Tenant occupied: a long-term lease (no short-term rental, roomers or students)?",
+    "Vacant": "Vacant: for how long, and why (for sale, renovation, between tenants)?",
+    "Seasonal": "Seasonal: how many months a year is it empty, and no short-term rental?",
+    "Secondary Home": "Secondary home: how many months a year is it empty, and no short-term rental?",
+}
+
+
+def _ownership(pd, rules):
+    if pd.get("ownership_type") == "Trust":
+        kind = intake_fields.answer(pd.get("trust_type"))
+        return (f"Trust ({kind.lower()}): titled to the trust, with trustees and beneficiaries as the guide allows?"
+                if kind else "Trust: what kind (family, revocable living, land or business), and titled to the trust?")
+    return _OWNERSHIP.get(pd.get("ownership_type"))
+
+
+def _occupancy(pd, rules):
+    return _OCCUPANCY.get(pd.get("occupancy_type"))
+
+
+def _losses(pd, rules):
+    a = intake_fields.loss_answers(pd)
+    n = a["losses_5yr"]
+    if n is None:
+        return None
+    if n == "0":
+        return "No losses entered. Confirm no open claims and no prior cancellations for losses."
+    one = n == "1"
+    types = ", ".join(t.lower() for t in a["loss_types"]) if a["loss_types"] else None
+    year = a["loss_year"]
+    if one:
+        desc = "1" + (f" {types}" if types else "") + (f" ({year})" if year else "")
+    else:
+        inner = "; ".join(x for x in (types, f"most recent {year}" if year else None) if x)
+        desc = n + (f" ({inner})" if inner else "")
+    still = [x for x, known in (("what type" if one else "what types", types), ("when", year),
+                                ("how many in the last 3 years", one or a["losses_3yr"] is not None)) if not known]
+    paid = ("it was" if one else "they were") + " paid and fully repaired"
+    lead = (" and ".join(still) + ", that ") if still else ""
+    return f"{'Loss' if one else 'Losses'} entered: {desc}. Confirm {lead}{paid}, and there are no open claims."
+
+
+def _electrical(pd, rules):
+    picked = intake_fields.electrical_answer(pd)
+    if not picked:
+        return None
+    still = []
+    if any(_AMPS.search(r) for r in rules):
+        still.append("service amperage")
+    if any(p != "Circuit breakers" for p in picked) and any(_UPDATED.search(r) for r in rules):
+        still.append("whether it has been updated or replaced")
+    if not still:
+        return DROP
+    entered = ", ".join(intake_fields.ELECTRICAL_LABELS.get(p, p) for p in picked)
+    return f"Electrical ({entered} entered): {' and '.join(still)} as the guide requires?"
+
+
+def _pool(pd, rules):
+    pool = pd.get("swimming_pool")
+    if not pool:
+        return None
+    spa = any(_SPA.search(r) for r in rules)
+    if pool == "No Pool":
+        return "No pool entered. Any spa or hot tub?" if spa else DROP
+    still = []
+    if pool in intake_fields.FENCED_POOL_VALUES:
+        if not pd.get("pool_fence_4ft"):
+            still.append("fence at least 4 ft")
+        if not pd.get("pool_gate_locking"):
+            still.append("gate self-latching and lockable")
+    if spa:
+        still.append("any spa or hot tub")
+    if not still:
+        return DROP
+    extras = pd.get("pool_accessories") or "None"
+    desc = pool.lower() + ("" if extras == "None" else f", {extras.lower()}")
+    return f"Pool ({desc} entered): {', '.join(still)}?"
+
+
+def _animals(pd, rules):
+    if pd.get("has_dogs") == "No":
+        return "No dogs entered. Any livestock or exotic animals?"
+    if pd.get("has_dogs") != "Yes":
+        return None
+    breeds = intake_fields.dog_breeds(pd)
+    named = "" if breeds is None else f" ({', '.join(sorted(breeds)) or 'none of the listed breeds'})"
+    return f"Dogs entered{named}: any bite history? Any livestock or exotic animals?"
+
+
+def _roof(pd, rules):
+    return None if pd.get("roof_age") in (None, "") else "Roof in good condition, no visible damage, one layer?"
+
+
+def _plumbing(pd, rules):
+    kind = pd.get("plumbing_type")
+    if kind in (None, "", "Unknown"):
+        return None
+    if kind == "Other":
+        return "Plumbing (other material entered): which material, and in good condition with no leaks?"
+    return f"Plumbing ({kind} entered): in good condition, no leaks?"
+
+
+def _solar(pd, rules):
+    if pd.get("solar_panels") == "No":
+        return DROP
+    kind = pd.get("solar_type")
+    if pd.get("solar_panels") != "Yes" or not kind:
+        return None
+    tesla = intake_fields.answer(pd.get("solar_tesla"))
+    extra = "" if tesla is None else (", Tesla equipment" if tesla == "Yes" else ", no Tesla equipment")
+    return f"Solar ({kind.lower()}{extra} entered): owned or leased, and professionally installed and permitted?"
+
+
+def _county(pd, rules):
+    return f"{pd['county']} County: where in it? (some guides exclude named areas)" if pd.get("county") else None
+
+
+def _coverage_a(pd, rules):
+    try:
+        amount = int(pd.get("dwelling_amount"))
+    except (TypeError, ValueError):
+        return None
+    return f"Coverage A (${amount:,} entered): insured to replacement cost, within this guide's range?"
+
+
+def _fire_protection(pd, rules):
+    miles = pd.get("fire_station_miles")
+    hydrant = intake_fields.answer(pd.get("hydrant_1000ft"))
+    if miles in (None, "") and hydrant is None:
+        return None
+    still = [x for x, known in (("station distance", miles not in (None, "")),
+                                ("hydrant within 1,000 ft", hydrant is not None)) if not known]
+    return ("Fire protection: " + "".join(x + ", and " for x in still) +
+            "where the guide asks, visible from the road, central alarm and year-round access?")
+
+
+_ASKED = {"ownership": _ownership, "occupancy": _occupancy, "losses": _losses, "electrical": _electrical,
+          "pool": _pool, "animals": _animals, "roof": _roof, "plumbing": _plumbing, "solar": _solar,
+          "county": _county, "coverage_a": _coverage_a, "fire_protection": _fire_protection}
+# a reworded item keeps the guide's rule only from the rows about what is still open (electrical: the amperage)
+_STILL_OPEN_RX = {"electrical": _AMPS}
+
+
+def asked(key, pd, checked=None, rules=()):
+    """The topic's question given the form's answers: None = unchanged (nothing answered, or its topic unticked),
+    DROP = nothing left open, else the question worded from the answer. rules: the topic's rule texts on the card."""
+    if not pd or key not in TOPIC_FIELDS:
+        return None
+    topic = TOPIC_FIELDS[key][0]
+    if topic is not None and checked is not None and topic not in checked:
+        return None
+    return _ASKED[key](pd, list(rules))
+
+
 # ---------------------------------------------------------------- one card
 
 _CONFIRM_NOTE = re.compile(r"Confirm \((?:not asked by the form|left blank on the form)[^)]*\): (.+?)\.(?=\s|$)")
@@ -212,8 +400,10 @@ def _short(rule, n=120):
     return first if len(first) <= n else first[:n].rsplit(" ", 1)[0] + "…"
 
 
-def card_items(rec):
-    """[{key, text, effect, rows, count}] for one card, in display order (all of them; the card shows CARD_MAX)."""
+def card_items(rec, pd=None, checked=None):
+    """[{key, text, ask, effect, rows, count}] for one card, in display order (all of them; the card shows CARD_MAX).
+    pd / checked (round 38 step 2): the form's answers and ticked topics -- an answered topic is worded from the
+    answer, or dropped when nothing is left open (asked()); ask is the question without the guide's rule."""
     groups = {}
     for r in card_rows(rec):
         key = topic_of(r["rule"], r.get("category"))
@@ -221,17 +411,26 @@ def card_items(rec):
     items = []
     for key, rules in groups.items():
         ranked = sorted(rules, key=lambda r: EFFECT_RANK.get(r.get("effect"), 3))
-        text = label(key)
+        reworded = asked(key, pd, checked, [r["rule"] for r in rules])
+        if reworded == DROP:
+            continue
+        text = reworded or label(key)
         # a number (or, for a blank-field note, the named places) decides it: keep the guide's own rule
         # (round 37 follow-up: of those, the one that decides most often)
         candidates = [r for r in ranked if _HAS_NUMBER.search(r["rule"]) or r.get("kind") == "blank"]
+        if reworded and key in _STILL_OPEN_RX:
+            candidates = [r for r in candidates if _STILL_OPEN_RX[key].search(r["rule"])]
         decisive = min(candidates, key=_decides_often) if candidates else None
         if key == "other":
             text = f"{OTHER_LABEL}: " + "; ".join(_short(r["rule"], 80) for r in ranked[:2]) + (
                 f" (+{len(ranked) - 2} more)" if len(ranked) > 2 else "")
-        elif decisive is not None:
-            text = f"{text} — guide: {_short(decisive['rule'])}"
-        items.append({"key": key, "text": text, "effect": ranked[0].get("effect") or "",
+        ask = text
+        if key != "other" and decisive is not None:
+            quoted = decisive["rule"]
+            if reworded and key in _STILL_OPEN_RX:     # the clause about what is still open, not the answered one
+                quoted = next((c for c in re.split(r";\s", quoted) if _STILL_OPEN_RX[key].search(c)), quoted)
+            text = f"{text} — guide: {_short(quoted)}"
+        items.append({"key": key, "text": text, "ask": ask, "effect": ranked[0].get("effect") or "",
                       "rows": sorted({r.get("row") for r in rules if r.get("row")}), "count": len(rules)})
 
     def order(it):
@@ -240,26 +439,32 @@ def card_items(rec):
     return sorted(items, key=order)
 
 
-def card_list(rec):
+def card_list(rec, pd=None, checked=None):
     """(shown, more, rule_ids): what the card prints under "Before you quote, confirm:"."""
-    items = card_items(rec)
+    items = card_items(rec, pd, checked)
     ids = sorted({rid for it in items for rid in it["rows"]})
     return items[:CARD_MAX], items[CARD_MAX:], ids
 
 
 # ---------------------------------------------------------------- the results page
 
-def top_box(results):
+def top_box(results, pd=None, checked=None):
     """[(label, count, of)] -- the topics at least half of the Eligible and Refer cards ask, most common first,
-    at most TOP_MAX. "of" is the number of Eligible and Refer cards."""
+    at most TOP_MAX. "of" is the number of Eligible and Refer cards. Round 38 step 2: with the form's answers (pd,
+    checked) a topic is counted only on the cards that still ask it, and its line is the reworded question (the
+    wording most of those cards use)."""
     cards = [r for r in results if r.get("status") in ("ELIGIBLE", "REFER")]
     if not cards:
         return []
-    counts = {}
+    counts, wording = {}, {}
     for r in cards:
-        for key in {it["key"] for it in card_items(r)} - {"other"}:
-            counts[key] = counts.get(key, 0) + 1
+        for it in card_items(r, pd, checked):
+            if it["key"] == "other":
+                continue
+            counts[it["key"]] = counts.get(it["key"], 0) + 1
+            asks = wording.setdefault(it["key"], {})
+            asks[it["ask"]] = asks.get(it["ask"], 0) + 1
     of = len(cards)
     common = [(k, n) for k, n in counts.items() if 2 * n >= of]
     common.sort(key=lambda kn: (-kn[1], list(TOPICS).index(kn[0])))
-    return [(TOPICS[k][0], n, of) for k, n in common[:TOP_MAX]]
+    return [(max(wording[k].items(), key=lambda w: (w[1], w[0]))[0], n, of) for k, n in common[:TOP_MAX]]

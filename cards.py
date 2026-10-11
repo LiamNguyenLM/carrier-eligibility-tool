@@ -176,13 +176,14 @@ def details_items(rec, guide=False):
     return [(h, items) for h, items in groups if items]
 
 
-def confirm_html(rec):
+def confirm_html(rec, property_details=None, checked=None):
     """Round 37 step 1 (Liam, 2026-10-10): "Before you quote, confirm:" -- at most confirm_topics.CARD_MAX plain
     items, the rest under "+N more", the rule IDs on a collapsed line. "" when there is nothing to confirm.
     Round 37 follow-up (Liam, 2026-10-11): a card from a summary-sheet guide says so first, list or not."""
     import confirm_topics
     import display_names
-    shown, more, ids = confirm_topics.card_list(rec)
+    # round 38 step 2: worded from the form's answers; an answered topic with nothing left open is dropped
+    shown, more, ids = confirm_topics.card_list(rec, property_details, checked)
     summary = (f"<p><i>{display_names.SUMMARY_SHEET_LINE}</i></p>"
                if rec.get("carrier") in display_names.SUMMARY_SHEETS else "")
     if not shown:

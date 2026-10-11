@@ -533,7 +533,7 @@ with tab1:
                            + " — see \"Could Not Be Checked\" at the bottom of the results.")
 
             # Round 37 step 1 (Liam, 2026-10-10): the questions to ask the client once, on the phone.
-            client_questions = confirm_topics.top_box(results)
+            client_questions = confirm_topics.top_box(results, property_details, checked_topics)   # round 38 step 2
             if client_questions:
                 with st.container(border=True):
                     st.markdown("#### Things to confirm with the client\n" + "\n".join(
@@ -574,7 +574,7 @@ with tab1:
                 if missing:
                     st.markdown("**Missing:**\n" + "\n".join("- " + cards.agent_text(item) for item in missing))
                 # Round 37 step 1: what to confirm before quoting, in plain words
-                confirm = cards.confirm_html(carrier)
+                confirm = cards.confirm_html(carrier, property_details, checked_topics)
                 if confirm:
                     st.markdown(confirm, unsafe_allow_html=True)
                 details = cards.details_html(carrier, guide=True)     # round 36 step 5: + the guide's date
