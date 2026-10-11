@@ -523,6 +523,15 @@ with tab1:
             if usable_answer_count(results) == 0:
                 st.error("The check did not return usable answers. Run it again; if it repeats, tell Liam.")
 
+            # Round 37 follow-up (Liam, 2026-10-11): the carriers that could not be checked, named at the top --
+            # their rows are at the bottom of the page, under four long columns, where an agent can miss them.
+            _early = assign_buckets(results)
+            _not_checked = _early["unrecognised"] + _early["guide_unavailable"] + _early["not_evaluated"]
+            if _not_checked:
+                st.warning(f"Could not check {len(_not_checked)} carrier{'s' if len(_not_checked) != 1 else ''}: "
+                           + ", ".join(display_names.display_name(r.get("carrier", "")) for r in _not_checked)
+                           + " — see \"Could Not Be Checked\" at the bottom of the results.")
+
             # Round 37 step 1 (Liam, 2026-10-10): the questions to ask the client once, on the phone.
             client_questions = confirm_topics.top_box(results)
             if client_questions:
