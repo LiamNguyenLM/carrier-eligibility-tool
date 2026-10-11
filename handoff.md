@@ -2416,6 +2416,54 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     | d6601a0 | 5 | 4,352 passed, 1 failed: the same boundary test (pre-5d5a690) |
     | 5d5a690 | 4 follow-up | 4,355 passed, 0 failed |
 
+- **2026-10-11 — Round 37 follow-up.** Built on 6288fe8 (origin/main: Liam
+  pushed Round 37), unpushed.
+  - **1 (ba09190): an unticked County or Coverage A box reads as blank.**
+    - Liam's Railway run of his Harris profile gave Chubb Eligible again.
+      His County and Coverage A boxes were unticked, so CHU-043/044 and the
+      Coverage A hold were skipped.
+    - That tick set reproduces his 18 Eligible / 2 Not Eligible exactly
+      (zero API).
+    - `eligibility_check.unticked_is_blank` reads an unticked County (with
+      its ZIP and East-of-146 answer) or Coverage A as ticked and blank. The
+      rules, Sage's and CHUBB's named holds, and the prompt are byte-for-byte
+      those of the blank form.
+    - His tick set now gives 17 Eligible, 2 Not Eligible, 6 Insufficient
+      (Chubb held on Coverage A) and 2 unavailable. Foremost is Eligible
+      with its blank-County confirm note.
+  - **2 (55934e3): topic audit.**
+    - A rule's topic is the one whose words come first in it (its
+      subject), with a few deciding phrases, plus pattern fixes and a new
+      `fire_protection` topic.
+    - 689 of the 4,443 rows moved topic
+      (`verification/topic_audit_round37.tsv`); "other" went from 312 to
+      256.
+    - Liam's four are fixed: TWICO "Electrical", Progressive "business",
+      Travelers "Site and access", Liberty "Coverage A".
+    - Items quote the rule that decides most often: no dollar amount
+      first, then a rule wholly about the topic, then a count, then the
+      effect.
+  - **3 (38d6c1e): summary sheets.**
+    - Seven guides are summary or quick-reference sheets of 1-4 pages
+      (HOAIC x2, TWICO, Swyfft x4).
+    - Their cards say "We have only this carrier's summary sheet; confirm
+      details with underwriting."
+    - A test keeps the set equal to the store's guides of 4 pages or fewer.
+  - **4 (73a6d24): verdict differences, and the unavailable guides.**
+    - Liam's 18 + 2 against our 16 / 3 / 6 / 2 differ on Chubb and
+      Foremost: both skipped because of the unticked boxes; see 1.
+    - The 2 unavailable guides (NatGen Custom360 HO3 and SageSure Occidental
+      HO3: wrong PDFs on file) were listed only at the bottom. They are now
+      also named at the top of the results.
+  - **Fast tier per commit** (verification/, not baseline):
+
+    | Commit | Item | Result |
+    |---|---|---|
+    | ba09190 | 1 | 4,372 passed, 0 failed |
+    | 55934e3 | 2 | 4,391 passed, 1 failed: 50-writer concurrency test timed out under load (3/3 alone) |
+    | 38d6c1e | 3 | 4,397 passed, 0 failed |
+    | 73a6d24 | 4 | 4,399 passed, 0 failed |
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
