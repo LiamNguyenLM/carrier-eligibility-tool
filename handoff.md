@@ -2548,6 +2548,21 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
         fixed in 3d44949). The 237dfe4 run was stopped at 36%, superseded
         by the tip run on ccc0e18. Batch 4 (6 workers) started on
         ccc0e18.
+    - 22:05: batch 4 (ccc0e18): 363 profiles, 0 failures. 2,718 profiles
+      in all.
+      - Second reader, hour 4: 9 of 10 supported. F18 (Chubb CHU-012
+        declines a Hip roof as flat because of a built-up covering; the
+        shared FLAT gate) and F19 (Progressive business trust) are for
+        Liam. F17 adds PRO-024's bundled metal-panel answer.
+      - The fast tier, sharded four ways (one worktree and store copy
+        each), found two things in shard 3:
+        - F10 contradicted round 35's deliberate flat-roof test. The map
+          lines are reverted (d157deb), and F10 is for Liam with strict
+          xfails.
+        - The fixture test depended on test order. checks.configure() is
+          now explicit (8f8b0f4).
+      - On 5596ca3: shard 2 had 1,253 passed, 0 failed; shard 3 had 6
+        failed (both causes fixed). Shards 2-3 are being rerun on 8f8b0f4.
 
 ## Open work, in priority order (updated 2026-10-02)
 
