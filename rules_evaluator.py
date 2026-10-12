@@ -540,6 +540,10 @@ def _open_fact_now(open_fact, unknown):
     parts = [p.strip() for p in (open_fact or "").split(";") if p.strip()]
     keep = []
     for p in parts:
+        # Round 38 step 7 (self-audit F14, 2026-10-11): a bare "station distance" label is the same as "... if not
+        # given" -- ODP-116 open only on a PPC of N/A read "needs to know ... station distance" with 5.9 miles entered
+        if p == "station distance" and "fire_station_miles" not in unknown:
+            continue
         if p.endswith("if not given"):
             fields = [f for w, f in (("station", "fire_station_miles"), ("hydrant", "hydrant_1000ft")) if w in p]
             if fields and not any(f in unknown for f in fields):
@@ -550,6 +554,9 @@ def _open_fact_now(open_fact, unknown):
                 p = ("station distance if not given" if "fire_station_miles" in unknown
                      else "hydrant within 1,000 ft if not given")
         keep.append(p)
+    if any(u in ("ppc", "ppc_num") for u in unknown) and not re.search(r"\bppc\b|protection class|\bfpc\b",
+                                                                      " ".join(keep), re.I):
+        keep.append("the protection class (PPC)")          # the open fact the label did not name (F14)
     return "; ".join(keep)
 
 
@@ -880,7 +887,7 @@ def held_reason(outcomes, opens):
     def add(x):
         if x not in needs:
             needs.append(x)
-    for p in low:
+    for orig, p in zip(parts, low):
         if "hydrant" in p and "if not given" in p:
             fire_table = True
             add("whether a hydrant is within 1,000 ft")
@@ -891,7 +898,7 @@ def held_reason(outcomes, opens):
         elif "fire loss" in p:
             add("whether there were prior fire losses")
         elif p:
-            add(re.sub(r"\s*if not given", "", p).strip())
+            add(re.sub(r"\s*if not given", "", orig).strip())     # as written ("PPC", F14)
     if not needs:
         first = rules[opens[0]]["Plain rule"].rstrip(".") if opens else ""
         return "Held: this guide needs a fact the form does not give" + (f" ({first})" if first else "") + ". Confirm it."
