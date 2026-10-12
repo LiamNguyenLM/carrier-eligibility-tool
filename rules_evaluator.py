@@ -684,9 +684,72 @@ def confirm_items(canon, outcomes):
     return out
 
 
-def code_record(canon, outcomes):
+# Round 38b (Liam, 2026-10-12, finding F12): a decline / referral names the answer that fails the rule -- "County:
+# Wheeler — Property must be in South Texas ...", not the rule alone. The map line's fields, as the form answered them.
+_LOSS_FIELDS = ("losses_5yr", "losses_3yr", "loss_types", "loss_year")
+_ANSWER_LABEL = {
+    "roof_type": "Roof", "roof_shape": "Roof shape", "construction_type": "Construction", "plumbing_type": "Plumbing",
+    "occupancy_type": "Occupancy", "ownership_type": "Owner", "trust_type": "Trust type", "county": "County",
+    "coastal_tier": "Coastal tier", "ppc": "PPC", "hydrant_1000ft": "Hydrant within 1,000 ft",
+    "dwelling_type": "Dwelling", "swimming_pool": "Pool", "pool_accessories": "Pool extras", "solar_type": "Solar",
+    "primary_home_carrier": "Primary home with", "harris_east_146": "East of Hwy 146",
+}
+
+
+def _answer_parts(field, pd):
+    v = pd.get(field)
+    if v in (None, "", [], "Unknown"):
+        return []
+    if field == "roof_age":
+        return [f"Roof {v} yrs"]
+    if field == "year_built":
+        return [f"Built {v}"]
+    if field == "fire_station_miles":
+        return [f"Fire station {v} mi"]
+    if field == "dwelling_amount":
+        try:
+            return [f"Coverage A ${int(v):,}"]
+        except (TypeError, ValueError):
+            return []
+    if field in ("has_dogs", "dog_breeds"):
+        breeds = [b for b in (pd.get("dog_breeds") or []) if b]
+        return [("Dogs: " + ", ".join(breeds)) if breeds else ("Dogs: " + str(pd.get("has_dogs")))]
+    if field in ("solar_panels",):
+        return [f"Solar panels: {v}"]
+    if field == "electrical":
+        picked = [intake_fields.ELECTRICAL_LABELS.get(x, x) for x in (v if isinstance(v, list) else [v])]
+        return ["Electrical: " + ", ".join(picked)]
+    if field in _ANSWER_LABEL:
+        shown = intake_fields.ROOF_LABELS.get(v, v) if field == "roof_type" else v
+        return [f"{_ANSWER_LABEL[field]}: {shown}"]
+    return []
+
+
+def answer_phrase(fields, pd):
+    """The answers behind a map line, e.g. "Roof: Slate" or "Losses: 2 in 5 yrs (water, theft), 1 in 3 yrs"."""
+    parts, losses = [], False
+    for field in [f for f in (fields or "").split(";") if f]:
+        if field in _LOSS_FIELDS:
+            losses = True
+            continue
+        for p in _answer_parts(field, pd):
+            if p not in parts:
+                parts.append(p)
+    if losses:
+        a = intake_fields.loss_answers(pd)
+        if a["losses_5yr"] is not None:
+            types = ", ".join(t.lower() for t in a["loss_types"] or [])
+            s = f"Losses: {a['losses_5yr']} in 5 yrs" + (f" ({types})" if types else "")
+            if a["losses_3yr"] is not None:
+                s += f", {a['losses_3yr']} in 3 yrs"
+            parts.insert(0, s)
+    return "; ".join(parts)
+
+
+def code_record(canon, outcomes, property_details=None):
     """The record when code decides alone. Returns (record, decided):
-    decided is False when OPEN rows are left for the model."""
+    decided is False when OPEN rows are left for the model. property_details (round 38b): each cited row's reason
+    names the answers that fail it."""
     rules, fmap = _rules(), _map()
     fails = {e: [rid for rid, (o, _) in outcomes.items() if o == "FAIL" and fmap[rid]["outcome_if_fail"] == e]
              for e in ("DECLINES", "REFERS_TO_UW", "CONDITION")}
@@ -702,7 +765,10 @@ def code_record(canon, outcomes):
     else:
         status, flaws, cited = "ELIGIBLE", 0, []
     label = {"DECLINES": "declines", "REFERS_TO_UW": "refers to underwriting", "CONDITION": "condition not met"}
-    reasons = [f"[{rid}] {label[fmap[rid]['outcome_if_fail']]}: {rules[rid]['Plain rule']}" for rid in cited]
+    def said(rid):
+        answer = answer_phrase(fmap[rid]["field"], property_details) if property_details else ""
+        return (answer + " — " if answer else "") + rules[rid]["Plain rule"]
+    reasons = [f"[{rid}] {label[fmap[rid]['outcome_if_fail']]}: {said(rid)}" for rid in cited]
     npass = sum(1 for o, _ in outcomes.values() if o == "PASS")
     if not reasons:
         reasons = ([held_reason(outcomes, opens)] if status == "INSUFFICIENT_INFORMATION"   # round 37 follow-up 2

@@ -197,3 +197,27 @@ def test_liberty_wind_hazard_area_is_a_confirm_on_the_card(check):
 def test_vave_counts_wind_and_hail_as_cat(types, want):
     # "two or more losses from any non-Cat causes or liability claims, in the last three years"
     assert row(VAVE, "VAV-090", losses_5yr="2", loss_types=types, losses_3yr="2") == want
+
+
+# ---- 8. a decline / referral names the answer that fails the rule (F12)
+import cards  # noqa: E402
+
+AUROS, TWICO = "Sage_-_Auros_HO3", "TWICO_HO3"
+
+
+@pytest.mark.parametrize("canon,pd,named", [
+    (AUROS, dict(HOME, county="Wheeler", zip=""), "County: Wheeler"),                      # second reader, seed 1594
+    (TWICO, dict(HOME, roof_type="Slate"), "Roof: Slate"),
+    (MERCURY, dict(HOME, ownership_type="LLC"), "Owner: LLC"),
+    (CHUBB, dict(CHUBB_HOME, dwelling_amount=1500000, losses_5yr="1", loss_types=["Water"], loss_year=2025,
+                 losses_3yr="1"), "Losses: 1 in 5 yrs (water), 1 in 3 yrs"),
+])
+def test_a_card_names_the_failing_answer(check, canon, pd, named):
+    r = check(pd)[canon]
+    assert r["status"] in ("INELIGIBLE", "REFER")
+    assert any(cards.agent_text(x).startswith(named + " — ") for x in r["reasons"]), r["reasons"]
+
+
+def test_without_the_form_the_reason_is_the_rule_alone():
+    out = rv.evaluate_carrier(TWICO, dict(HOME, roof_type="Slate"))
+    assert rv.code_record(TWICO, out)[0]["reasons"][0].startswith("[TWI-037] declines: Wood")

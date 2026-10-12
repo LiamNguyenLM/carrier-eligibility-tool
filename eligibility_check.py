@@ -3451,7 +3451,7 @@ def _rules_pilot_prepare(carriers, property_details, checked):
     for c in chosen:
         outcomes = rules_evaluator.evaluate_carrier(c, property_details, checked, wb=wbs[c])
         out["outcomes"][c] = outcomes
-        rec, decided = rules_evaluator.code_record(c, outcomes)
+        rec, decided = rules_evaluator.code_record(c, outcomes, property_details)    # round 38b: names the answers
         if decided:
             out["records"].append(rec)
         else:
