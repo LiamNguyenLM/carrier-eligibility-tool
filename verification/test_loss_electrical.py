@@ -139,7 +139,10 @@ def test_every_electrical_answer_on_every_electrical_line(rid):
     ("PRO-097", dict(losses_5yr="1", loss_types=["Water"]), "PASS"),        # liability only
     # CHANGED 2026-10-11 (round 38 step 3, Liam: a loss row decides from count, type and years only where the guide's condition is just those): a Water loss may be a
     # catastrophe or appliance loss, which this rule does not count. Was: FAIL (refer).
-    ("TRV-066", dict(losses_5yr="1", loss_types=["Water"]), "NOTE"),
+    # CHANGED 2026-10-12 (round 38b, Liam: TRV-066 refers on "1 or more water damage claim(s)"; a water loss entered is
+    # one). Was NOTE (round 38 step 3).
+    ("TRV-066", dict(losses_5yr="1", loss_types=["Water"]), "FAIL"),
+    ("TRV-066", dict(losses_5yr="1", loss_types=["Other"]), "NOTE"),
     # a wind or hail loss is weather
     ("MER-087", dict(losses_5yr="1", loss_types=["Wind or hail"]), "PASS"),
     ("ARA-065", dict(losses_5yr="2", loss_types=["Wind or hail"]), "FAIL"),  # 2 Act of Nature claims

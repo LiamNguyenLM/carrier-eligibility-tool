@@ -589,7 +589,7 @@ TRV-062,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 TRV-063,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0} or loss_types none_of {Wind or hail, Water, Other} or FACT(no weather loss of $100000 or more in the past 3 years, including CATs)",always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 TRV-064,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
 TRV-065,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
-TRV-066,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0} or loss_types none_of {Water, Other} or FACT(no water damage claim and no non-catastrophe weather water loss in the past 5 years at the premises, including before ownership)",always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+TRV-066,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0} or (loss_types none_of {Water} and (loss_types none_of {Other} or FACT(no water damage claim and no non-catastrophe weather water loss in the past 5 years at the premises, including before ownership)))",always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 TRV-067,NONE,,,REFERS_TO_UW,,"location detail beyond county / tier is not asked, or the guide does not say"
 TRV-068,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
 TRV-069,NONE,,,REFERS_TO_UW,,not asked by the form
