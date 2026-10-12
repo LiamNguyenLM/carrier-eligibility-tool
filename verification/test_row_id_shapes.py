@@ -52,3 +52,12 @@ def test_a_model_record_naming_a_ph6_row_gets_its_quote():
            "citations": [], "missing_info": [], "notes": ""}
     rv.finish_model_record(rec, canon, {})
     assert any("[PH6-074] p." in c for c in rec["citations"]), rec["citations"]
+
+
+# Round 38b (Liam, 2026-10-12, finding F09): the hold guard knows Progressive HO6's PH6-NNN IDs too -- a Missing item that
+# names a row is code's, and a record citing a PH6 row cites a row.
+@pytest.mark.parametrize("prefix", PREFIXES)
+def test_the_hold_guard_reads_every_row_id_shape(prefix):
+    import hold_guard
+    assert hold_guard.classify(f"plumbing type -- [{prefix}-074] Polybutylene is ineligible.") == ("b", "code")
+    assert hold_guard._cites_a_row({"reasons": [f"[{prefix}-028] declines: Owner: Estate — ..."], "citations": []})

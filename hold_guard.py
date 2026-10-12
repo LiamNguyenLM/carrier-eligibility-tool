@@ -31,7 +31,7 @@ CODE_ITEM_PREFIXES = (
     "Driving distance to the responding fire station", "Whether this flat roof is a poured concrete deck",
     "TWICO distinguishes",
 )
-ROW_ID = re.compile(r"\[[A-Z]{3}-\d{3}\]")
+ROW_ID = re.compile(r"\[[A-Z][A-Z0-9]{2}-\d{3}\]")   # PH6-NNN too (round 38b, Liam 2026-10-12; F09)
 
 # (c) facts the intake form does not collect: canonical name -> patterns. Checked BEFORE the form
 # fields, because many name a form field's topic ("plumbing update date", "solar panel mounting").
