@@ -2563,6 +2563,15 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
           now explicit (8f8b0f4).
       - On 5596ca3: shard 2 had 1,253 passed, 0 failed; shard 3 had 6
         failed (both causes fixed). Shards 2-3 are being rerun on 8f8b0f4.
+    - 22:40 (final): 3,040 profiles in five batches, 0 crashes, $0 live.
+      - Fixed: F01, F08, F14, F15.
+      - For Liam: F04, F06, F07, F09-F13, F16-F19. F10 was fixed, then
+        reverted when it contradicted round 35's deliberate flat-roof test.
+      - Second readers: 50 verdicts, 46 supported, 2 wrong (F06, F18), 2
+        unclear.
+      - Fast tier on 8f8b0f4, sharded: shards 2-4 green; shard 1 green on
+        5596ca3 and rerunning.
+      - Full report: verification/fuzz/REPORT_round38.md.
 
 ## Open work, in priority order (updated 2026-10-02)
 
