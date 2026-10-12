@@ -614,9 +614,53 @@ def _page(r):
         return "?"
 
 
-def citation(r):
-    """The citation code attaches for a row: id + page + the workbook quote."""
-    return f"{WB_TO_CANON[r['Carrier']]}: [{r['Rule ID']}] p.{_page(r)}: \"{r['Verbatim quote from guide']}\""
+# Round 38b (Liam, 2026-10-12, finding F07): Chubb's tier tables repeat by region -- p.10 "Dallas/Fort Worth, Collin
+# County & Rest of Northern counties", p.11 "Austin, San Antonio and surrounding counties, and East and South counties",
+# p.12 "Coastal Areas" -- and p.14 lists each region's counties (Harris: territories 01A-C and 01E are coastal, 01D is
+# Austin / East / South). A row the workbook cites at p.10 cites the county's own table.
+def _county_names(text):
+    return frozenset(" ".join(x.split()) for x in text.split(",") if x.strip())
+
+
+CHUBB_COASTAL_COUNTIES = _county_names("""
+    Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Harris, Jefferson, Kenedy, Kleberg, Matagorda,
+    Nueces, Refugio, San Patricio, Willacy
+""")
+CHUBB_SOUTH_EAST_COUNTIES = _county_names("""
+    Anderson, Angelina, Atascosa, Austin, Bandera, Bastrop, Bee, Bexar, Blanco, Brazos, Brooks, Burleson,
+    Burnet, Caldwell, Cherokee, Colorado, Comal, De Witt, Dimmit, Duval, Edwards, Ellis, Falls, Fayette,
+    Fort Bend, Freestone, Frio, Goliad, Gonzales, Gregg, Grimes, Guadalupe, Hardin, Harris, Hays, Henderson,
+    Hidalgo, Houston, Jackson, Jasper, Jim Hogg, Jim Wells, Karnes, Kerr, Kinney, La Salle, Lavaca, Lee,
+    Leon, Liberty, Limestone, Live Oak, Llano, Madison, Maverick, McMullen, Medina, Milam, Montgomery,
+    Nacogdoches, Navarro, Newton, Orange, Panola, Polk, Real, Robertson, Rusk, Sabine, San Augustine, San
+    Jacinto, Shelby, Smith, Starr, Travis, Trinity, Tyler, Uvalde, Val Verde, Victoria, Walker, Waller,
+    Washington, Webb, Wharton, Williamson, Wilson, Zapata, Zavala
+""")
+
+
+def chubb_region_page(county):
+    """The page of Chubb's tier table for this county: "10", "11", "12", "11-12" (Harris: by territory), or "10-12"
+    when the county is not given."""
+    key = lambda name: "".join(str(name or "").split()).lower()     # "De Witt" / "DeWitt", "McMullen" / "Mcmullen"
+    c = key(intake_fields.normalize_county(county) or county)
+    if not c:
+        return "10-12"
+    if c == "harris":
+        return "11-12"
+    if c in {key(x) for x in CHUBB_COASTAL_COUNTIES}:
+        return "12"
+    if c in {key(x) for x in CHUBB_SOUTH_EAST_COUNTIES}:
+        return "11"
+    return "10"
+
+
+def citation(r, property_details=None):
+    """The citation code attaches for a row: id + page + the workbook quote. property_details (round 38b): a Chubb
+    tier-table row cites the county's region page."""
+    page = _page(r)
+    if property_details is not None and r["Carrier"] == "Chubb HO" and str(page) == "10":
+        page = chubb_region_page(property_details.get("county"))
+    return f"{WB_TO_CANON[r['Carrier']]}: [{r['Rule ID']}] p.{page}: \"{r['Verbatim quote from guide']}\""
 
 
 def evaluate_carrier(canon, pd, checked=None, wb=None):
@@ -775,7 +819,7 @@ def code_record(canon, outcomes, property_details=None):
                    else [f"Rules table: {npass} rule(s) decided from the form pass; none fails."])
     open_items = [f"{outcomes[rid][1]} -- [{rid}] {rules[rid]['Plain rule']}" for rid in opens]
     rec = {"carrier": canon, "status": status, "flaw_count": flaws, "reasons": reasons,
-           "citations": [citation(rules[rid]) for rid in cited],
+           "citations": [citation(rules[rid], property_details) for rid in cited],
            "missing_info": open_items,
            "notes": "", "rules_table": True, "also_confirm": also_confirm(canon, outcomes),
            "confirm_items": confirm_items(canon, outcomes)}

@@ -221,3 +221,23 @@ def test_a_card_names_the_failing_answer(check, canon, pd, named):
 def test_without_the_form_the_reason_is_the_rule_alone():
     out = rv.evaluate_carrier(TWICO, dict(HOME, roof_type="Slate"))
     assert rv.code_record(TWICO, out)[0]["reasons"][0].startswith("[TWI-037] declines: Wood")
+
+
+# ---- 9. Chubb's tier-table citation follows the county's region (p.14)
+import intake_fields  # noqa: E402
+
+
+def test_every_texas_county_has_one_chubb_region_page():
+    pages = [rv.chubb_region_page(c) for c in intake_fields.TEXAS_COUNTIES]
+    assert sorted(set(pages)) == ["10", "11", "11-12", "12"] and pages.count("11-12") == 1     # Harris, by territory
+    assert (pages.count("10"), pages.count("11"), pages.count("12")) == (151, 88, 14)
+
+
+@pytest.mark.parametrize("county,page", [("Cameron", "12"), ("Montgomery", "11"), ("Duval", "11"), ("Tom Green", "10")])
+def test_chubbs_secondary_home_decline_cites_the_county_table(check, county, page):
+    # second readers: seeds 139 (Cameron), 176 (Montgomery), 5280 (Duval) all cited p.10
+    pd = dict(HOME, occupancy_type="Secondary Home", primary_home_carrier="Other carrier", county=county, zip="",
+              dwelling_amount=750001)
+    r = check(pd)[CHUBB]
+    cites = [c for c in r["citations"] if "[CHU-004]" in c]
+    assert cites and all(f"[CHU-004] p.{page}:" in c for c in cites), r["citations"]
