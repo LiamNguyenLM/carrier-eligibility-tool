@@ -149,16 +149,18 @@ def test_no_agent_facing_sentence_has_a_hole_where_an_id_was(page):
     assert bad == []
     shown = [str(el.value) for el in page.markdown]
     assert not any("Rules table: the pilot answer" in v for v in shown)
-    assert not any(re.search(r"\b[A-Z]{3}-\d{3}\b", re.sub(r"<details><summary>Rule IDs</summary>.*?</details>", "", v,
+    assert not any(re.search(r"\b[A-Z][A-Z0-9]{2}-\d{3}\b", re.sub(r"<details><summary>Rule IDs</summary>.*?</details>", "", v,
                                                           flags=re.S)) for v in shown
                    if not v.startswith("- "))      # (the Manage tab lists program names, which have no row IDs)
 
 
 def test_the_chubb_and_sage_cards_on_liams_harris_profile(page):
     lines = [m.value for m in page.markdown]
-    assert ("**Insufficient information** — Chubb restricts all of Harris County (unacceptable in 1A, pre-approval in "
+    # CHANGED 2026-10-11 (round 38 step 5, Liam: the Insufficient header read twice): a card in a status column no
+    # longer starts with its status ("**Insufficient information** — "); the column header says it.
+    assert ("Chubb restricts all of Harris County (unacceptable in 1A, pre-approval in "
             "1B/1C/1E); the form can't tell which area. Coverage A is also needed.") in lines
-    assert ("**Insufficient information** — Held: if the fire station is more than 5 miles away, this guide's "
+    assert ("Held: if the fire station is more than 5 miles away, this guide's "
             "higher-risk fire protection rules apply (for example, the home must be under 25 years old). Confirm the "
             "distance.") in lines
     chubb_missing = next(m for m in lines if m.startswith("**Missing:**") and "Chubb territory" in m)
