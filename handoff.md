@@ -2533,6 +2533,21 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       - New check 11: a held reason never asks for an answered field.
       - Batch 3 (seeds 5000+, 12 workers, all 11 checks) started 19:59 on
         0cc8857. Fast tier on bccacc6: 4,432 passed, 0 failed.
+    - 21:25: batch 3 stopped at 779 profiles; 2,355 profiles in all, 0
+      crashes.
+      - F14 fixed: a held reason asked for an entered station distance when
+        the PPC was open. 12 hits on 4 Sage fire tables, all clean on the
+        tip.
+      - F15 fixed: Progressive HO3 / DP3 / HO6 declined on the combined
+        "Federal Pacific or Zinsco panel" answer; their guides name Federal
+        Pacific only, so it is now a confirm. VERDICT CHANGE.
+      - Second reader, hour 3: 10 of 10 supported. F16 lists the confirms
+        the cards could add; Chubb's citation page (F07) reproduced a third
+        time.
+      - Fast tier on 9b0c4f5: 4,488 passed, 3 failed (the coverage counts,
+        fixed in 3d44949). The 237dfe4 run was stopped at 36%, superseded
+        by the tip run on ccc0e18. Batch 4 (6 workers) started on
+        ccc0e18.
 
 ## Open work, in priority order (updated 2026-10-02)
 
