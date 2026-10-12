@@ -11,7 +11,7 @@ CDP-019,NONE,,,DECLINES,,roof condition and layers are not asked
 CDP-020,NONE,,,DECLINES,,roof condition and layers are not asked
 CDP-021,roof_type,roof_type not in {Metal: corrugated / exposed-fastener / tin / aluminum panels},always,DECLINES,,corrugated metal (round 35)
 CDP-022,roof_type,roof_type not in {Wood shake / wood shingle},always,DECLINES,,
-CDP-023,roof_shape;roof_type,"roof_type not in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen), Rolled roofing} and FACT(poured concrete flat roof)","(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",DECLINES,poured concrete roof,"built-up, membrane and rolled are not poured concrete"
+CDP-023,roof_shape;roof_type,roof_type in {Other} and FACT(poured concrete flat roof),"(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",DECLINES,poured concrete roof,only Other can be poured concrete; every listed covering is not
 CDP-024,NONE,,,DECLINES,,roof condition and layers are not asked
 CDP-025,NONE,,,DECLINES,,siding / construction details are not form options
 CDP-026,NONE,,,DECLINES,,siding / construction details are not form options
@@ -447,7 +447,7 @@ PDP-094,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 PDP-096,roof_age,FACT(5+ years of useful life left),roof_age >= 15,DECLINES,remaining roof life,as ARA-059
 PDP-097,NONE,,,DECLINES,,roof condition and layers are not asked
 PDP-098,roof_type,"roof_type not in {Wood shake / wood shingle, Built-up (tar and gravel), Rolled roofing, Metal: corrugated / exposed-fastener / tin / aluminum panels} and (roof_type not in {Membrane (rubber/EPDM / TPO / modified bitumen)} or FACT(the membrane is not rubber))",always,DECLINES,membrane kind,"'wood ..., tar and gravel, rubber membrane, tin, rolled roofing, and corrugated metal'"
-PDP-099,roof_shape;roof_type,"roof_type not in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen), Rolled roofing} and FACT(poured concrete flat roof)","(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",DECLINES,poured concrete roof,
+PDP-099,roof_shape;roof_type,roof_type in {Other} and FACT(poured concrete flat roof),"(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",DECLINES,poured concrete roof,only Other can be poured concrete (as CDP-023)
 PDP-100,NONE,,,DECLINES,,roof condition and layers are not asked
 PDP-103,swimming_pool;pool_fence_4ft;pool_gate_locking,"swimming_pool not in {In Ground - Unfenced, Above Ground - Unfenced} and pool_fence_4ft == True and pool_gate_locking == True",swimming_pool != No Pool,CONDITION,fence 4 ft; locking gate,an approved alternative enclosure also qualifies (not a form option)
 PDP-104,swimming_pool;pool_accessories,pool_accessories == None,swimming_pool != No Pool,DECLINES,,
