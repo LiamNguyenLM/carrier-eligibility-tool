@@ -97,10 +97,9 @@ def none(note):
 MAP = {
     # ================= Centauri DP3
     "CDP-021": CORRUGATED, "CDP-022": WOOD_ROOF,
-    # round 38 step 7 (self-audit F10, 2026-10-11): only "Other" can be a poured concrete deck -- a shingle, tile,
-    # slate, metal, wood, asbestos or solar covering is not (structured_rules.centauri_dp3_flat_roof, round 14)
-    "CDP-023": ("roof_shape;roof_type", "roof_type in {Other} and FACT(poured concrete flat roof)", FLAT,
-                "poured concrete roof", "only Other can be poured concrete; every listed covering is not"),
+    "CDP-023": ("roof_shape;roof_type", "roof_type not in " + _roofs(BUILT_UP, MEMBRANE, ROLLED_ROOF)
+                + " and FACT(poured concrete flat roof)", FLAT, "poured concrete roof",
+                "built-up, membrane and rolled are not poured concrete"),
     "CDP-027": ROLLED,
     "CDP-032": ("plumbing_type", POLY, "always", "", ""),
     "CDP-038": ("construction_type", MOBILE, "always", "", "modular / pre-fabricated are not form options"),
@@ -249,8 +248,9 @@ MAP = {
     "PDP-096": ("roof_age", "FACT(5+ years of useful life left)", "roof_age >= 15", "remaining roof life",
                 "as ARA-059"),
     "PDP-098": ("roof_type", PROG_ROOF, "always", "membrane kind", PROG_ROOF_NOTE),
-    "PDP-099": ("roof_shape;roof_type", "roof_type in {Other} and FACT(poured concrete flat roof)", FLAT,
-                "poured concrete roof", "only Other can be poured concrete (as CDP-023)"),
+    "PDP-099": ("roof_shape;roof_type", "roof_type not in " + _roofs(BUILT_UP, MEMBRANE, ROLLED_ROOF)
+                + " and FACT(poured concrete flat roof)", FLAT,
+                "poured concrete roof", ""),
     "PDP-103": POOL_4FT,
     "PDP-104": ("swimming_pool;pool_accessories", NO_ACCESSORIES, POOL, "", ""),
     "PDP-109": breed_line("progressive", "open", "'includes, but is not limited to'"),

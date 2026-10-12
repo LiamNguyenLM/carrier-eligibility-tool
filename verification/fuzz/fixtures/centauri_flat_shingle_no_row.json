@@ -3,9 +3,9 @@
  "seed": 1261,
  "check": "deciding_row",
  "carrier": "Centauri_-_DP3_-_11.16.2022",
- "class": "map_line",
- "status": "fix",
- "note": "a flat roof with a listed covering declined by code while CDP-023 asked to confirm poured concrete",
+ "class": "verdict",
+ "status": "for_liam",
+ "note": "Centauri's round-14 code check declines a flat shingle roof; CDP-023 (round 35) asks to confirm poured concrete, so the card has no row or quote",
  "pd": {
   "ppc": "4",
   "fire_station_miles": 2.0,
