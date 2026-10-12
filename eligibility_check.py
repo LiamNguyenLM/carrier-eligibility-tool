@@ -4879,7 +4879,7 @@ def _closed_program_row(program):
         "status": "INELIGIBLE",
         "flaw_count": 1,
         "reasons": [f'Closed to new business (guide, p.{page}): "{quote}"'],
-        "citations": [f'{program}: "{quote}"'],
+        "citations": [f'{program}: p.{page}: "{quote}"'],      # round 38b (F16): the page, as every citation has
         "missing_info": [],
         "notes": "",
         "decided_by_code": True,

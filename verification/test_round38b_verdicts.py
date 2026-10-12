@@ -241,3 +241,32 @@ def test_chubbs_secondary_home_decline_cites_the_county_table(check, county, pag
     r = check(pd)[CHUBB]
     cites = [c for c in r["citations"] if "[CHU-004]" in c]
     assert cites and all(f"[CHU-004] p.{page}:" in c for c in cites), r["citations"]
+
+
+# ---- 11. the confirms logged in round 38 (F16)
+HOAIC, NATGEN_PREMIER = "HOAIC_-_DP_Guide_DP3", "NatGen_Premier_OneChoice_DP3_-_02.26.2025"
+
+
+def test_hoaic_asks_for_proof_of_updates_over_50_years(check):
+    # p.1 "*Risks older than 50 years require proof of updates."
+    assert _confirms(check(dict(LANDLORD, year_built=1975))[HOAIC], "HDP-002")
+    assert not _confirms(check(dict(LANDLORD, year_built=1990))[HOAIC], "HDP-002")
+
+
+@pytest.mark.parametrize("canon,rid", [(ARI_HOA, "ARA-025"), ("ARI_(HOB)", "ARB-021")])
+def test_ari_confirms_a_6_ft_fence_the_form_does_not_ask(canon, rid):
+    # p.1 "Pools secured by a 6' high fence with locked or self locking gates are acceptable." -- the form's box is 4 ft
+    out = row(canon, rid, swimming_pool="In Ground - Fenced", pool_accessories="None", pool_fence_4ft=True,
+              pool_gate_locking=True)
+    assert out == "NOTE"
+
+
+def test_swyfft_confirms_non_weather_losses_of_unknown_type():
+    # SBS-050 "More than 1 non-weather loss, of any type, is ineligible." -- 2 losses, types not given
+    assert row("Swyfft_-_Benchmark_(Surplus)_HO3", "SBS-050", losses_5yr="2", losses_3yr="1", loss_types=[]) in (
+        "NOTE", "OPEN")
+
+
+def test_natgen_premiers_closed_program_citation_has_its_page(check):
+    r = check(dict(LANDLORD))[NATGEN_PREMIER]
+    assert r["status"] == "INELIGIBLE" and all(" p.3: " in c for c in r["citations"]), r["citations"]
