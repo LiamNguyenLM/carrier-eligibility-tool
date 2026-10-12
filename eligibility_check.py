@@ -3326,7 +3326,7 @@ def _apply_structured_overrides(results, relevant_carriers, property_details, ch
                         "Whether this flat roof is a poured concrete deck -- Centauri "
                         "excludes flat roofs unless they are."
                     )
-            elif s_status == "ELIGIBLE":
+            elif s_status in ("ELIGIBLE", "CONFIRM"):        # CONFIRM: round 38b, a discrete covering on a flat roof
                 _append_note(r, s_reasons[0])
 
 

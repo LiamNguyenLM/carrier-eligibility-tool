@@ -543,8 +543,17 @@ def centauri_dp3_flat_roof(roof_shape, roof_type):
     # Shingle, Architectural Shingle, Metal, Tile, Slate, Wood Shake,
     # Flat/Built-Up, Other -- so in practice the exception is reachable only
     # if someone types it in. "Built-Up" is tar-and-gravel, not concrete.
-    if any(m in material for m in ("tile", "shingle", "shake", "slate", "metal", "built-up", "built up")):
-        pass  # a discrete covering, definitively not a poured deck
+    # Round 38b (Liam, 2026-10-12): a flat roof with a discrete covering (shingle, tile, slate, metal, wood) is a
+    # CONFIRM for now -- the same as round 35's CDP-023 map line -- not a forced decline. Built-up, membrane and rolled
+    # coverings are low-slope roofing and still decline.
+    if any(m in material for m in ("built-up", "built up", "membrane", "rolled", "tar and gravel")):
+        pass  # low-slope roofing, definitively not a poured deck
+    elif any(m in material for m in ("tile", "shingle", "shake", "slate", "metal", "solar")):
+        return "CONFIRM", [
+            f"Centauri lists flat roofs as ineligible unless they are poured concrete "
+            f"(\"ROOFS/SIDING - Ineligible: ... Flat (unless poured concrete)\"). This flat roof's covering is "
+            f"{roof_type!r}: confirm the roof is a poured concrete deck."
+        ]
     elif "poured" in material or material == "concrete":
         return "ELIGIBLE", [
             f"Flat roofs are ineligible unless poured concrete; roof type {roof_type!r} "

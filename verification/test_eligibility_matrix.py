@@ -3390,14 +3390,18 @@ class TestRound14CentauriFlatRoof:
 
     CARRIER = "Centauri_-_DP3_-_11.16.2022"
 
+    # CHANGED 2026-10-12 (round 38b, Liam: a flat roof with shingle, tile or metal is a confirm for now, as round 35's
+    # CDP-023 line; the code check is aligned with it). Was: every option INELIGIBLE. Low-slope coverings still are.
     @pytest.mark.parametrize("roof_type", [
-        "Composition Shingle", "Architectural Shingle", "Metal",
-        "Tile", "Slate", "Wood Shake", "Flat/Built-Up",
+        "Composition Shingle", "Architectural Shingle", "Metal", "Tile", "Slate", "Wood Shake",
     ])
-    def test_every_intake_roof_type_on_a_flat_roof_is_ineligible(self, roof_type):
-        """None of the intake's Roof Type options is a poured concrete deck
-        -- "Built-Up" is tar and gravel -- so a flat roof is ineligible for
-        all of them."""
+    def test_a_discrete_covering_on_a_flat_roof_is_a_confirm(self, roof_type):
+        assert centauri_dp3_flat_roof("Flat", roof_type)[0] == "CONFIRM"
+
+    @pytest.mark.parametrize("roof_type", ["Flat/Built-Up", "Built-up (tar and gravel)", "Rolled roofing",
+                                           "Membrane (rubber/EPDM / TPO / modified bitumen)"])
+    def test_a_low_slope_covering_on_a_flat_roof_is_ineligible(self, roof_type):
+        """"Built-Up" is tar and gravel, not a poured concrete deck."""
         assert centauri_dp3_flat_roof("Flat", roof_type)[0] == "INELIGIBLE"
 
     def test_unknown_material_is_not_forced_either_way(self):
@@ -3411,8 +3415,8 @@ class TestRound14CentauriFlatRoof:
 
     def test_concrete_tile_is_not_a_poured_deck(self):
         """A discrete covering that happens to be made of concrete is not
-        the poured deck the exception describes."""
-        assert centauri_dp3_flat_roof("Flat", "Concrete Tile")[0] == "INELIGIBLE"
+        the poured deck the exception describes -- a confirm since round 38b (was INELIGIBLE)."""
+        assert centauri_dp3_flat_roof("Flat", "Concrete Tile")[0] == "CONFIRM"
 
     @pytest.mark.parametrize("shape", ["Gable", "Hip", "Gambrel", "Mansard"])
     def test_non_flat_shapes_are_untouched(self, shape):
@@ -3424,11 +3428,22 @@ class TestRound14CentauriFlatRoof:
                 "carrier": self.CARRIER, "status": model_status, "reasons": [],
                 "citations": [], "missing_info": [], "notes": "", "flaw_count": 0,
             }
-            _apply_structured_overrides([r], [self.CARRIER], AUDIT_R14_DP3_PROFILE)
+            # CHANGED 2026-10-12 (round 38b): AUDIT_R14_DP3_PROFILE's Composition Shingle flat roof is a confirm now;
+            # the forced decline is shown on a built-up flat roof (low-slope roofing, still ineligible)
+            _apply_structured_overrides([r], [self.CARRIER], dict(AUDIT_R14_DP3_PROFILE,
+                                                                  roof_type="Built-up (tar and gravel)"))
             assert r["status"] == "INELIGIBLE", (
                 f"model said {model_status}; the flat-roof exclusion is not optional"
             )
             assert any("poured concrete" in x.lower() for x in r["reasons"])
+
+    def test_a_shingle_flat_roof_keeps_the_models_verdict_with_a_confirm_note(self):
+        for model_status in ("ELIGIBLE", "REFER"):
+            r = {"carrier": self.CARRIER, "status": model_status, "reasons": [], "citations": [],
+                 "missing_info": [], "notes": "", "flaw_count": 0}
+            _apply_structured_overrides([r], [self.CARRIER], AUDIT_R14_DP3_PROFILE)
+            assert r["status"] == model_status
+            assert "confirm the roof is a poured concrete deck" in r["notes"]
 
 
 @pytest.mark.retrieval

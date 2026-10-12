@@ -94,3 +94,20 @@ def test_a_pitched_roof_with_a_low_slope_covering_is_a_chubb_confirm(check, shap
 def test_a_flat_shape_still_declines_chubb(check):
     r = check(dict(CHUBB_HOME, roof_shape="Flat", roof_type="Composition Shingle"))[CHUBB]
     assert r["status"] == "INELIGIBLE" and _rows(r, "CHU-012"), r["reasons"]
+
+
+# ---- 4. a flat roof with shingle, tile or metal is a confirm (Centauri / Progressive DP3); low-slope roofing declines
+PROGRESSIVE_DP3 = "Progressive_DP3_-_10.01.2024"
+
+
+@pytest.mark.parametrize("cover", ["Composition Shingle", "Tile"])
+def test_a_flat_discrete_roof_is_a_confirm_at_centauri_and_progressive_dp3(check, cover):
+    res = check(dict(LANDLORD, roof_shape="Flat", roof_type=cover))
+    for canon, rid in ((CENTAURI_DP3, "CDP-023"), (PROGRESSIVE_DP3, "PDP-099")):
+        assert not _rows(res[canon], rid) and _confirms(res[canon], rid), (canon, res[canon]["reasons"])
+    assert not any("poured concrete" in x for x in res[CENTAURI_DP3]["reasons"])     # the code check no longer declines
+
+
+def test_a_flat_built_up_roof_still_declines_centauri_dp3(check):
+    r = check(dict(LANDLORD, roof_shape="Flat", roof_type="Built-up (tar and gravel)"))[CENTAURI_DP3]
+    assert r["status"] == "INELIGIBLE"
