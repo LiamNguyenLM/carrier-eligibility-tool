@@ -2573,6 +2573,37 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
         10 xfailed, 5 skipped.
       - Full report: verification/fuzz/REPORT_round38.md.
 
+- **2026-10-12 — Liam's decisions on the Round 38 findings (Round 38b).**
+  - **Losses.**
+    - A theft is always non-weather. Mercury MER-087 declines on one theft
+      loss, unless Mercury counts only paid losses. Its footnote (p.4)
+      reads "*All paid losses (including CAT losses) to the insured's home
+      or personal possessions", so it does, and one theft stays a confirm
+      ("was it paid?").
+    - Travelers TRV-066 is checked against its quote ("1 or more water
+      damage claim(s)"), not a paid-only rule: a water loss refers.
+  - **Centauri DP3 unfenced pool:** Ineligible, as the guide says (PROPERTY
+    - Ineligible), unless the guide names an underwriting path.
+  - **Chubb flat roofs** are decided on the roof shape. A built-up or
+    membrane covering on a Hip or Gable roof is a confirm, not a decline.
+  - **A flat roof with shingle, tile or metal** (Centauri / Progressive
+    DP3) is a confirm for now. Round 14's code check is aligned with Round
+    35's map line.
+  - **Bundled form answers** ("Corporation / partnership" for Mercury;
+    the metal-panel and membrane roof options for Progressive): a confirm
+    naming the distinction, where the guide treats the two halves
+    differently.
+  - **Estate and business trust:** follow each guide's quote. Progressive's
+    business trust -> Refer, since its guide refers trusts.
+  - **Confirm unless the guide is clear (quote it):** Liberty's "wind
+    hazard area", ARI's "All Other Losses", CHU-073 and FOR-121. Vave counts
+    wind/hail as cat.
+  - **Fix:**
+    - decline reasons name the failing answer;
+    - Chubb's citation page follows the county's region table (p.14);
+    - the hold guard knows Progressive HO6's PH6 IDs;
+    - add the missing confirms logged in Round 38 (findings F16).
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
