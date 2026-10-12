@@ -20,6 +20,7 @@ import os
 import random
 import re
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
@@ -28,7 +29,7 @@ for k in ("ELIGIBILITY_RULES_PILOT", "ELIGIBILITY_RULES_SAGE_BATCH", "ELIGIBILIT
     os.environ[k] = "1"
 os.environ["ANTHROPIC_API_KEY"] = "invalid-guard"
 os.environ["OPENAI_API_KEY"] = "invalid-guard"
-os.environ.setdefault("ELIGIBILITY_USAGE_LOG", os.path.join(HERE, ".usage_fuzz.jsonl"))
+os.environ.setdefault("ELIGIBILITY_USAGE_LOG", os.path.join(tempfile.gettempdir(), "usage_fuzz.jsonl"))   # never in the repo
 sys.path.insert(0, ROOT)
 import cards  # noqa: E402
 import confirm_topics as ct  # noqa: E402
@@ -72,6 +73,9 @@ def _status(results):
     return {r.get("carrier"): r.get("status") for r in results}
 
 
+RAN = []          # the checks that compared something on the current profile (a check with nothing to compare skips)
+
+
 def _fail(check, carrier, detail):
     return {"check": check, "carrier": carrier, "detail": detail}
 
@@ -90,6 +94,7 @@ def c2_unticked_blank(pd, checked, base, rng):
     topic = rng.choice(["county", "dwelling_amount"])
     if topic not in checked:
         return out
+    RAN.append(f"unticked_blank:{topic}")
     unticked = _status(run(pd, [t for t in checked if t != topic]))
     blank = dict(pd, **ec.BLANK_WHEN_UNTICKED[topic])
     if topic == "county":
@@ -130,6 +135,7 @@ def c3_monotonic(pd, checked, base, rng):
     if not got:
         return []
     dim, w = got
+    RAN.append(f"monotonic:{dim}")
     before, after = _status(base), _status(run(w, checked))
     return [_fail("monotonic", c, {"dimension": dim, "from": pd.get(dim), "to": w.get(dim), "before": before[c],
                                    "after": after.get(c)})
@@ -180,6 +186,7 @@ def c4_answer_no_hold(pd, checked, base, rng):
              "plumbing_type": "plumbing"}.get(field)
     if topic and topic not in checked:
         return []
+    RAN.append(f"answer_no_hold:{field}")
     before, after = _status(base), _status(run(a, checked))
     return [_fail("answer_no_hold", c, {"field": field, "value": value, "before": before[c], "after": after.get(c)})
             for c in before if before[c] != "INSUFFICIENT_INFORMATION" and after.get(c) == "INSUFFICIENT_INFORMATION"]
@@ -352,6 +359,7 @@ def check_profile(pd, checked, seed, only=None):
     """(failures, coverage) for one profile. only: a set of check names to run (a fixture's replay)."""
     rng = random.Random(f"checks-{seed}")
     want = lambda name: only is None or name in only       # noqa: E731
+    RAN.clear()
     base = run(pd, checked)
     pd_seen, checked_seen = ec.unticked_is_blank(pd, checked)    # what the page renders with
     fails = []

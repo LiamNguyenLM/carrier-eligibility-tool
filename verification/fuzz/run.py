@@ -30,6 +30,7 @@ def one(seed):
         pd, checked = gen.profile(seed)
         fails, coverage, base = checks.check_profile(pd, checked, seed)
         return {"seed": seed, "s": round(time.perf_counter() - t, 2), "fails": fails, "coverage": coverage,
+                "ran": list(checks.RAN),
                 "statuses": {r.get("carrier"): r.get("status") for r in base}}
     except Exception:                                  # noqa: BLE001 -- a crash is a finding
         return {"seed": seed, "s": round(time.perf_counter() - t, 2), "fails": [], "coverage": {},

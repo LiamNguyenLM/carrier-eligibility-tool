@@ -2484,6 +2484,44 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     42a2fde2fa142e84.
   - Fast tier: 4,412 passed, 0 failed. Tier 2: not run.
 
+- **2026-10-11 — Round 38 (bccacc6 .. ).** Last fixes before agent testing,
+  then a randomized self-audit. Zero API throughout.
+  - Step 1 (bccacc6): a held reason names only what is still open. It
+    mentions the 5-mile rule only when the station distance is blank.
+  - Step 3 (9b0c4f5): 55 LOSS_HISTORY rows decide only on count, type and
+    years. Where the guide also turns on paid, amount, remediated, weather
+    or same-peril facts, a loss that could fail gives a confirm.
+    Verdicts on LANDLORD: NatGen Custom360 DP3 goes Not eligible ->
+    Eligible.
+  - Step 4 (447db86): Foremost FOD-055 is clear in the guide (p.20, all 28
+    coastal counties, TDP-3 not in the exception). The row is now RULE,
+    and its reason no longer says "appears to be".
+  - Step 5 (03549d2): a card in a status column no longer repeats the
+    status. The bold first line read as a second section header.
+  - Step 6 (64fe93c): the placement tables are homeowners-only (0 DP
+    policies by construction). A landlord check now says so.
+  - Step 2 (1fd172b): confirm items and the top box are worded from the
+    form's answers; nothing answered is asked again.
+  - Step 7 self-audit: `verification/fuzz/`
+    - gen.py: seeded profiles.
+    - checks.py: the ten zero-API checks.
+    - run.py: the parallel runner.
+    - summarize.py: summary by check and group.
+    - shrink.py: shrinks a failure into fixtures/, which
+      verification/test_fuzz_fixtures.py replays.
+    - findings.jsonl: every finding with its class and status.
+  - Checkpoints (hourly):
+    - 19:05: 600 profiles (seeds 0-599, 14 workers), 0 crashes. One
+      product finding, fixed: F01, a code-decided card lost its row and
+      quote (70 of the first 284 profiles; 9c31e94, 3 fixtures). F02, F03
+      and F05 were harness false positives. Second reader, hour 1: 9 of 10
+      verdicts supported; F06 (Centauri DP3 unfenced pool: Refer vs
+      Ineligible) and F07 (Chubb CHU-004 cites p.10 whatever the county)
+      are for Liam. F04: the live sample is blocked (the classifier would
+      not let the session read the API key); $0 spent. Fast tiers run 3-4x
+      slower than usual next to the fuzz workers. Batch 2 (seeds
+      1000-2999, 10 workers) started 19:04.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"

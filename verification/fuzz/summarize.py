@@ -50,6 +50,8 @@ def main(out, n_groups=40):
     rows, cov = load(out)
     print(f"profiles {len(rows)}  crashes {sum(1 for r in rows if r.get('error'))}")
     by_check = Counter(f["check"] for r in rows for f in r["fails"])
+    ran = Counter(x.split(":")[0] for r in rows for x in r.get("ran") or [])
+    print("comparisons run (checks 2-4; the others run on every profile):", dict(ran))
     print("failures by check:", dict(by_check))
     groups = defaultdict(list)
     for r in rows:
