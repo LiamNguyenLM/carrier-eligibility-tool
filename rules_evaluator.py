@@ -756,7 +756,7 @@ def evidence_text(open_carriers):
     return "\n".join(out)
 
 
-_ROW_ID = re.compile(r"\b[A-Z]{3}-\d{3}\b")      # any batch's row id; filtered to the carrier's own rows
+_ROW_ID = re.compile(r"\b[A-Z][A-Z0-9]{2}-\d{3}\b")   # PH6-NNN too (round 38, F08)      # any batch's row id; filtered to the carrier's own rows
 
 
 def finish_model_record(rec, canon, outcomes):

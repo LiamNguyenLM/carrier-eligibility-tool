@@ -35,7 +35,7 @@ MODEL_LABELLED = tuple(STATUS_LABEL)
 
 # Round 37 step 2 (Liam, 2026-10-10): what an agent reads carries no row IDs (they are on the card's collapsed
 # "Rule IDs" line), no program / file names (display names instead) and none of the engine's own words.
-_ROW = r"[A-Z]{3}-\d{3}"
+_ROW = r"[A-Z][A-Z0-9]{2}-\d{3}"     # round 38 step 7 (F08): Progressive HO6's rows are PH6-NNN
 _RULES_TABLE_LINE = re.compile(r"Rules table: (\d+) rule\(s\) decided from the form pass; none fails\.")
 _LABELLED_ROW = re.compile(rf"\[{_ROW}\]\s*(declines|refers to underwriting|condition not met):\s*")
 _ITEM_ROW = re.compile(rf"\s+--\s+\[{_ROW}\]\s*")
