@@ -243,7 +243,10 @@ REQUIREMENT_OUTCOMES = {
     # ALL-094's own exception reads "Underwriting may approve (see preceding bullet)": an underwriting path
     "ALL-094": ("REFERS_TO_UW", "... or an underwriting approved alternate enclosure (ALL-093); Underwriting may "
                                 "approve"),
-    "CDP-053": ("REFERS_TO_UW", "... or alternate approved enclosure"),
+    # Round 38b (Liam, 2026-10-12): Centauri DP3 lists "Dwellings having unprotected swimming pools" under "PROPERTY -
+    # Ineligible" and names no underwriting path ("alternate approved enclosure" is a kind of enclosure, not a
+    # referral; the next item, existing damage, does say "exceptions may be approved by underwriting"). Was REFERS_TO_UW.
+    "CDP-053": ("DECLINES", "PROPERTY - Ineligible: Dwellings having unprotected swimming pools (no path named)"),
     "PDP-103": ("REFERS_TO_UW", "... or alternate approved enclosure"),
     "SWY-035": ("DECLINES", _POOL_NO_PATH), "SBS-008": ("DECLINES", _POOL_NO_PATH),
     "SLL-003": ("DECLINES", _POOL_NO_PATH), "STO-004": ("DECLINES", _POOL_NO_PATH),

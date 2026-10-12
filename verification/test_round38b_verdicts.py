@@ -59,5 +59,20 @@ def test_an_other_loss_is_a_travelers_confirm_not_a_referral(check):
 def test_one_non_weather_loss_is_a_mercury_confirm_because_only_paid_losses_count(check, types):
     r = check(dict(ONE_LOSS, loss_types=types))[MERCURY]
     assert not _rows(r, "MER-087") and _confirms(r, "MER-087")
-    assert any("paid" in x["rule"].lower() or "paid" in (x.get("detail") or "").lower() for x in _confirms(r, "MER-087")) \
-        or "paid" in json.dumps(_confirms(r, "MER-087")).lower()
+    assert "paid" in _confirms(r, "MER-087")[0]["rule"]      # p.4: "*All paid losses (including CAT losses)"
+
+
+# ---- 2. Centauri DP3 CDP-053: an unprotected pool is Ineligible (p.5 'PROPERTY - Ineligible'; no underwriting path)
+CENTAURI_DP3 = "Centauri_-_DP3_-_11.16.2022"
+
+
+@pytest.mark.parametrize("pool", ["Above Ground - Unfenced", "In Ground - Unfenced"])
+def test_an_unfenced_pool_declines_centauri_dp3(check, pool):
+    r = check(dict(LANDLORD, swimming_pool=pool, pool_accessories="None"))[CENTAURI_DP3]
+    assert r["status"] == "INELIGIBLE" and _rows(r, "CDP-053"), r["reasons"]
+
+
+def test_a_fenced_pool_with_both_boxes_ticked_passes_cdp_053(check):
+    r = check(dict(LANDLORD, swimming_pool="In Ground - Fenced", pool_accessories="None", pool_fence_4ft=True,
+                   pool_gate_locking=True))[CENTAURI_DP3]
+    assert not _rows(r, "CDP-053")
