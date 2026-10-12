@@ -2521,6 +2521,18 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
       not let the session read the API key); $0 spent. Fast tiers run 3-4x
       slower than usual next to the fuzz workers. Batch 2 (seeds
       1000-2999, 10 workers) started 19:04.
+    - 20:00: batch 2 stopped at 976 profiles (it ran the pre-F08 code and
+      kept re-finding known groups); 1,576 profiles in all, 0 crashes.
+      - F08 fixed: Progressive HO6's PH6-NNN row IDs showed raw on cards.
+      - F10 fixed: CDP-023 / PDP-099, flat roof "unless poured concrete";
+        Progressive DP3 flat + listed covering is now Not eligible.
+      - The Step 3 fast tier caught three coverage counts; dated updates
+        are in 3d44949.
+      - Second reader, hour 2: 9 of 10 supported, 1 unclear. F11-F13 are
+        for Liam; F12 (a decline never names the failing answer) recurs.
+      - New check 11: a held reason never asks for an answered field.
+      - Batch 3 (seeds 5000+, 12 workers, all 11 checks) started 19:59 on
+        0cc8857. Fast tier on bccacc6: 4,432 passed, 0 failed.
 
 ## Open work, in priority order (updated 2026-10-02)
 
