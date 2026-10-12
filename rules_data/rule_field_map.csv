@@ -298,7 +298,7 @@ CHU-068,NONE,,,DECLINES,,loss / claims history is not asked
 CHU-069,NONE,,,DECLINES,,loss / claims history is not asked
 CHU-070,NONE,,,DECLINES,,loss / claims history is not asked
 CHU-071,NONE,,,NOTE,,loss / claims history is not asked
-CHU-073,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0} or (losses_3yr in {1} and loss_types none_of {Fire, Liability, Wind or hail, Theft, Other}) or FACT(no loss in the last 3 years other than a single water loss, properly remediated mold or appliance claims, or CAT losses at another location)",always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+CHU-073,losses_5yr;losses_3yr;loss_types,losses_3yr in {0},always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 CHU-074,NONE,,,DECLINES,,loss / claims history is not asked
 CHU-077,NONE,,,DECLINES,,acreage is not asked
 CHU-078,NONE,,,DECLINES,,flood zone is not asked

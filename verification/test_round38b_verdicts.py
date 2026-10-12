@@ -155,3 +155,45 @@ def test_sage_wilshire_still_declines_an_estate_on_its_own_words(check):
     # p.2: "Corporate / Business, LLC, association, partnership or other non-individual owned properties are ineligible."
     r = check(dict(HOME, ownership_type="Estate", county="Bexar", zip=""))[WILSHIRE]
     assert r["status"] == "INELIGIBLE"
+
+
+# ---- 7. confirm unless the guide is clear
+import rules_evaluator as rv  # noqa: E402
+
+FOREMOST, ARI_HOA, VAVE = "Foremost_DP3_and_HO3_-_07.01.2026", "ARI_(HOA+)", "Sage_-_Vave_HO3_-_07.01.2026"
+
+
+@pytest.mark.parametrize("types", [["Water"], ["Wind or hail"]])
+def test_any_3_year_loss_refers_chubb(check, types):
+    # p.9 "Risks or applicants with a loss history will require underwriter approval" (clear)
+    r = check(dict(CHUBB_HOME, dwelling_amount=1500000, losses_5yr="1", loss_types=types, loss_year=2025,
+                   losses_3yr="1"))[CHUBB]
+    assert r["status"] == "REFER" and _rows(r, "CHU-073"), r["reasons"]
+
+
+def row(canon, rid, **pd):
+    return rv.evaluate_carrier(canon, dict(HOME, loss_year=2025, **pd))[rid][0]
+
+
+def test_foremost_multiple_losses_may_require_approval_so_a_confirm():
+    # p.18 "... loss severity or multiple loss activity in the past five years may require approval"
+    assert row(FOREMOST, "FOR-121", losses_5yr="2", loss_types=["Theft"], losses_3yr="1") == "NOTE"
+    assert row(FOREMOST, "FOR-121", losses_5yr="3 or more", loss_types=["Fire"], losses_3yr="2") == "NOTE"
+
+
+@pytest.mark.parametrize("rid", ["ARA-066", "ARA-067"])
+def test_ari_wind_or_hail_against_all_other_losses_is_a_confirm(rid):
+    # "*All Other Losses are losses other than water, fire, theft or liability" -- and Act of Nature claims are their
+    # own line ("Two or more Act of Nature claims"): unclear whether wind/hail counts here
+    assert row(ARI_HOA, rid, losses_5yr="2", loss_types=["Wind or hail"], losses_3yr="2") == "NOTE"
+
+
+def test_liberty_wind_hazard_area_is_a_confirm_on_the_card(check):
+    r = check(dict(HOME, coastal_tier="Tier 1", county="Jefferson", zip=""))[LIBERTY_HO3]
+    assert _confirms(r, "LIB-050")          # "Dwelling located in a brush or wind hazard area" -- never defined
+
+
+@pytest.mark.parametrize("types,want", [(["Wind or hail"], "PASS"), (["Theft"], "FAIL")])
+def test_vave_counts_wind_and_hail_as_cat(types, want):
+    # "two or more losses from any non-Cat causes or liability claims, in the last three years"
+    assert row(VAVE, "VAV-090", losses_5yr="2", loss_types=types, losses_3yr="2") == want

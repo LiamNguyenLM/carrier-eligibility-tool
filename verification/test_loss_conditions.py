@@ -25,7 +25,7 @@ COUNTS = ["0", "1", "2", "3 or more"]
 TYPES = [[], ["Water"], ["Fire"], ["Liability"], ["Wind or hail"], ["Theft"], ["Other"], ["Water", "Fire"],
          ["Liability", "Theft"], ["Wind or hail", "Water"], ["Fire", "Theft"]]
 # rows whose guide condition the form cannot settle (paid, amount, remediated, weather, location...): never a decline
-NEVER_FAIL = ["ALL-151", "SAG-112", "CHU-063", "CHU-073", "MER-087", "MER-088", "SUR-083", "SUR-084", "SFP-088", "SFP-089",
+NEVER_FAIL = ["ALL-151", "SAG-112", "CHU-063", "MER-087", "MER-088", "SUR-083", "SUR-084", "SFP-088", "SFP-089",
               "WIL-089", "WIL-090", "TRI-129", "TRI-130", "MKL-104", "ARA-066", "ARA-067", "ARB-069", "ARB-070",
               "FOR-106", "FOR-107", "TRV-012", "TRV-063", "ODP-126", "SDP-063", "FDP-084", "FOD-035",
               "FOD-036", "CDP-099", "CDP-100", "CDP-102", "NCD-145", "NCD-146", "NCD-150", "STD-143", "STD-154",
