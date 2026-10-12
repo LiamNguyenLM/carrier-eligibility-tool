@@ -131,8 +131,9 @@ only, or already a confirm), per the four readers and review.py.
 
 ## Step 7: the self-audit (18:30-23:00, zero API)
 
-**Profiles run:** 3,040+ (still running at 23:00), over five batches (seeds 0-599, 1000-1980,
-5000-5778, 9000-9366 and 12000+), with 0 crashes. Each profile runs the
+**Profiles run:** 3,409, stopped at 23:00, over five batches (seeds 0-599, 1000-1980,
+5000-5778, 9000-9366 and 12000-12681). The final batch ran the final code: 682 profiles, and its only
+failures were the known F10 Centauri flat-roof case, with 0 crashes. Each profile runs the
 real pipeline (rules pilot + three batches + placement) with a fake model.
 Checks 2-4 compared something on 92-100% of profiles. Each of the eleven
 checks is shown a page it must reject (test_fuzz_fixtures).
