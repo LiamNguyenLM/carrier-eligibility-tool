@@ -280,7 +280,7 @@ LIB-043,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 LIB-045,NONE,,,DECLINES,,other animals and bite claims are not asked
 LIB-046,NONE,,,DECLINES,,other animals and bite claims are not asked
 LIB-047,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
-LIB-048,ownership_type,"ownership_type not in {LLC, Corporation / partnership}",always,DECLINES,,"'a corporation, company, LLC, etc.' (round 35)"
+LIB-048,ownership_type,"ownership_type not in {LLC, Corporation / partnership} and (ownership_type not in {Estate, Trust} or FACT(Liberty accepts an estate- or trust-owned home))",always,DECLINES,,"'a corporation, company, LLC, etc.' (round 35)"
 LIB-049,NONE,,,DECLINES,,not asked by the form
 LIB-050,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
 LIB-051,ppc;dwelling_amount,dwelling_amount <= 3000000,ppc_num == 9,DECLINES,,

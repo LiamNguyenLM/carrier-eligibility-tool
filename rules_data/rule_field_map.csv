@@ -416,7 +416,7 @@ PRO-008,NONE,,,DECLINES,,the form has no field for this
 PRO-009,NONE,,,DECLINES,,the form has no field for this
 PRO-010,NONE,,,REFERS_TO_UW,,the form has no field for this
 PRO-011,NONE,,,REFERS_TO_UW,,the form has no field for this
-PRO-012,ownership_type;trust_type,"ownership_type not in {LLC, Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Land trust, Corporate or business trust})",always,DECLINES,,an unknown trust type holds
+PRO-012,ownership_type;trust_type,"ownership_type not in {LLC, Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Land trust})",always,DECLINES,,an unknown trust type holds
 PRO-013,ownership_type,ownership_type != Trust,always,REFERS_TO_UW,,trust: refer
 PRO-014,NONE,,,REFERS_TO_UW,,the form has no field for this
 PRO-015,NONE,,,DECLINES,,the form has no field for this

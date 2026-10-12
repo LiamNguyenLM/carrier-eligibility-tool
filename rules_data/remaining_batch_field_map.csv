@@ -414,7 +414,7 @@ PDP-044,NONE,,,CONDITION,,not asked by the form
 PDP-046,NONE,,,REFERS_TO_UW,,the number of individual owners is not asked
 PDP-047,NONE,,,DECLINES,,the number of individual owners is not asked
 PDP-048,ownership_type,ownership_type != Trust,always,REFERS_TO_UW,,trust or IRA: prior approval
-PDP-049,ownership_type;trust_type,"ownership_type not in {Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Land trust, Corporate or business trust})",always,DECLINES,,
+PDP-049,ownership_type;trust_type,"ownership_type not in {Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Land trust})",always,DECLINES,,
 PDP-050,NONE,,,REFERS_TO_UW,,the number of individual owners is not asked
 PDP-051,NONE,,,REFERS_TO_UW,,the number of individual owners is not asked
 PDP-052,NONE,,,DECLINES,,the number of individual owners is not asked
@@ -478,7 +478,7 @@ PH6-024,NONE,,,DECLINES,,the number of individual owners is not asked
 PH6-025,NONE,,,DECLINES,,the number of individual owners is not asked
 PH6-026,NONE,,,REFERS_TO_UW,,the number of individual owners is not asked
 PH6-027,ownership_type,ownership_type != Trust,always,REFERS_TO_UW,,trust or IRA: prior approval
-PH6-028,ownership_type;trust_type,"ownership_type not in {Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Land trust, Corporate or business trust})",always,DECLINES,,LLC is PH6-029's
+PH6-028,ownership_type;trust_type,"ownership_type not in {Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Land trust})",always,DECLINES,,"LLC is PH6-029's; a business trust refers (PH6-027, round 38b)"
 PH6-029,ownership_type,ownership_type != LLC,always,REFERS_TO_UW,,
 PH6-030,NONE,,,DECLINES,,not asked by the form
 PH6-031,NONE,,,DECLINES,,not asked by the form

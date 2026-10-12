@@ -88,17 +88,22 @@ def own(rid, owner, trust=None):
 
 ENTITY_LINES = {   # owner -> outcome, then trust type -> outcome
     "ALL-017": ("PASS FAIL FAIL FAIL", "PASS PASS FAIL FAIL OPEN"),
-    "PRO-012": ("PASS FAIL FAIL FAIL", "PASS PASS FAIL FAIL OPEN"),
+    # CHANGED 2026-10-12 (round 38b, Liam: estate and business trust follow each guide's quote; bundled answers are a confirm
+    # where the guide names one half). Progressive refers trusts and names only a land trust: a business trust passes
+    # these rows (PRO-013 / PDP-048 / PH6-027 refer). Mercury names no partnership; Liberty names no estate or trust.
+    # Was: PRO-012 trusts "PASS PASS FAIL FAIL OPEN"; MER-005 owners "PASS FAIL FAIL PASS"; LIB-048 "PASS FAIL FAIL PASS" /
+    # "PASS PASS PASS PASS PASS"; PDP-049 and PH6-028 trusts "PASS PASS FAIL FAIL OPEN".
+    "PRO-012": ("PASS FAIL FAIL FAIL", "PASS PASS FAIL PASS OPEN"),
     "SAG-017": ("PASS FAIL FAIL FAIL", "PASS PASS PASS FAIL OPEN"),
     "SUR-007": ("PASS FAIL FAIL FAIL", "PASS PASS PASS FAIL OPEN"),
     "TRI-021": ("PASS FAIL FAIL FAIL", "PASS PASS PASS FAIL OPEN"),
     "ORI-048": ("PASS FAIL FAIL FAIL", "PASS PASS PASS FAIL OPEN"),
-    "MER-005": ("PASS FAIL FAIL PASS", "PASS PASS PASS FAIL OPEN"),   # "LLC, Corporation, and/or Corporate Trust"
-    "LIB-048": ("PASS FAIL FAIL PASS", "PASS PASS PASS PASS PASS"),
+    "MER-005": ("PASS FAIL NOTE PASS", "PASS PASS PASS FAIL OPEN"),   # "LLC, Corporation, and/or Corporate Trust"
+    "LIB-048": ("PASS FAIL FAIL NOTE", "NOTE NOTE NOTE NOTE NOTE"),
     "SLL-074": ("PASS FAIL FAIL PASS", "PASS PASS PASS PASS PASS"),
     "FOR-093": ("PASS PASS FAIL PASS", "PASS PASS FAIL FAIL OPEN"),   # an LLC is FOR-094's
-    "PDP-049": ("PASS PASS FAIL FAIL", "PASS PASS FAIL FAIL OPEN"),   # an LLC is PDP-120's
-    "PH6-028": ("PASS PASS FAIL FAIL", "PASS PASS FAIL FAIL OPEN"),
+    "PDP-049": ("PASS PASS FAIL FAIL", "PASS PASS FAIL PASS OPEN"),   # an LLC is PDP-120's
+    "PH6-028": ("PASS PASS FAIL FAIL", "PASS PASS FAIL PASS OPEN"),
     "CHO-007": ("PASS FAIL FAIL FAIL", "NOTE NOTE NOTE NOTE NOTE"),   # a trust may still name an individual
     "CDP-069": ("PASS PASS FAIL FAIL", "NOTE NOTE FAIL FAIL OPEN"),   # family member living trust as an ANI
     "NCD-003": ("PASS PASS FAIL PASS", "PASS PASS PASS PASS PASS"),

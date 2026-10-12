@@ -349,8 +349,10 @@ MAP = {
                 "always", "", "an unknown trust type holds"),
     # round 35 step 3e: "business, limited liability corporation, limited partnership, corporation, land trust, or
     # estate"
+    # Round 38b (Liam, 2026-10-12): estate and business trust follow each guide's quote. Progressive names a "land trust"
+    # (declined) and refers "Properties owned in the name of a trust" -- a business trust refers, not declines
     "PRO-012": ("ownership_type;trust_type", not_owned_by("LLC", "Corporation / partnership", "Estate",
-                                                          trusts=(LAND, CORP_TRUST)), "always", "",
+                                                          trusts=(LAND,)), "always", "",
                 "an unknown trust type holds"),
     "PRO-013": ("ownership_type", "ownership_type != Trust", "always", "", "trust: refer"),
     "SWY-011": ("ownership_type", "ownership_type not in {Trust, LLC}", "always", "", "trust or LLC: refer"),

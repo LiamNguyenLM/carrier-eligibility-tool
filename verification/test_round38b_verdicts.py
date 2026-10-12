@@ -129,3 +129,29 @@ def test_progressive_confirms_the_metal_panel_answer(check, canon, rid, base):
     r = check(dict(base, roof_type=PANEL))[canon]
     assert not _rows(r, rid) and _confirms(r, rid), r["reasons"]
     assert _rows(check(dict(base, roof_type="Rolled roofing"))[canon], rid)                # rolled is named
+
+
+# ---- 6. estate and business trust follow each guide's quote
+LIBERTY_HO3, WILSHIRE = "Liberty_Mutual_HO3_-_02.21.2026", "Sage_-_Wilshire_HO3_-_12.02.2025"
+BUSINESS_TRUST = dict(ownership_type="Trust", trust_type="Corporate or business trust")
+
+
+@pytest.mark.parametrize("canon,decline,refer,base", [(PROGRESSIVE_HO3, "PRO-012", "PRO-013", HOME),
+                                                      (PROGRESSIVE_DP3, "PDP-049", "PDP-048", LANDLORD)])
+def test_a_business_trust_refers_progressive_because_its_guide_refers_trusts(check, canon, decline, refer, base):
+    r = check(dict(base, **BUSINESS_TRUST))[canon]
+    assert not _rows(r, decline) and r["status"] == "REFER" and _rows(r, refer), r["reasons"]
+    land = check(dict(base, ownership_type="Trust", trust_type="Land trust"))[canon]
+    assert land["status"] == "INELIGIBLE" and _rows(land, decline)                       # "land trust" is named
+
+
+@pytest.mark.parametrize("owner", [dict(ownership_type="Estate"), BUSINESS_TRUST])
+def test_liberty_confirms_an_estate_or_trust_owner(check, owner):
+    r = check(dict(HOME, **owner))[LIBERTY_HO3]
+    assert not _rows(r, "LIB-048") and _confirms(r, "LIB-048")
+
+
+def test_sage_wilshire_still_declines_an_estate_on_its_own_words(check):
+    # p.2: "Corporate / Business, LLC, association, partnership or other non-individual owned properties are ineligible."
+    r = check(dict(HOME, ownership_type="Estate", county="Bexar", zip=""))[WILSHIRE]
+    assert r["status"] == "INELIGIBLE"

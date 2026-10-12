@@ -222,7 +222,11 @@ MAP = {
     "LIB-028": ("construction_type", MOBILE, "always", "", ""),
     "LIB-033": ("year_built", "FACT(no fuses, knob and tube or aluminum wiring)", "year_built < 1976", "wiring", ""),
     "LIB-034": ("roof_type", NOT_WOOD, "always", "", ""),
-    "LIB-048": ("ownership_type", not_owned_by("LLC", "Corporation / partnership"), "always", "",
+    # Round 38b (Liam, 2026-10-12): "Buildings owned by a corporation, company, LLC, etc." names no estate or trust --
+    # an estate- or trust-owned home is a confirm, not a pass and not a decline
+    "LIB-048": ("ownership_type", not_owned_by("LLC", "Corporation / partnership")
+                + " and (ownership_type not in {Estate, Trust} or FACT(Liberty accepts an estate- or trust-owned home))",
+                "always", "",
                 "'a corporation, company, LLC, etc.' (round 35)"),
     "LIB-051": ("ppc;dwelling_amount", "dwelling_amount <= 3000000", "ppc_num == 9", "", ""),
     "LIB-052": ("ppc;dwelling_amount", "dwelling_amount <= 1000000", "ppc_num == 10", "", ""),

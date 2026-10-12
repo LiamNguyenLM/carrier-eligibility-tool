@@ -238,8 +238,10 @@ MAP = {
     "PDP-048": ("ownership_type", "ownership_type != Trust", "always", "", "trust or IRA: prior approval"),
     "PDP-120": ("ownership_type", "ownership_type != LLC", "always", "", ""),
     # round 35 step 3e: "business, ..., Limited Partnership, Corporation, land trust, or estate"; LLC is PDP-120's
+    # Round 38b (Liam, 2026-10-12): estate and business trust follow each guide's quote. Progressive names a "land trust"
+    # (declined) and refers "Properties owned in the name of a trust" -- a business trust refers, not declines
     "PDP-049": ("ownership_type;trust_type", not_owned_by("Corporation / partnership", "Estate",
-                                                          trusts=(LAND, CORP_TRUST)), "always", "", ""),
+                                                          trusts=(LAND,)), "always", "", ""),
     "PDP-063": ("dwelling_type", "FACT(4 or fewer family units in the fire division)", "dwelling_type == Townhome",
                 "units per fire division", ""),
     "PDP-064": ("construction_type", MOBILE, "always", "", ""),
@@ -262,7 +264,7 @@ MAP = {
     "PH6-027": ("ownership_type", "ownership_type != Trust", "always", "", "trust or IRA: prior approval"),
     "PH6-029": ("ownership_type", "ownership_type != LLC", "always", "", ""),
     "PH6-028": ("ownership_type;trust_type", not_owned_by("Corporation / partnership", "Estate",
-                                                          trusts=(LAND, CORP_TRUST)), "always", "", "LLC is PH6-029's"),
+                                                          trusts=(LAND,)), "always", "", "LLC is PH6-029's; a business trust refers (PH6-027, round 38b)"),
     "PH6-044": ("coastal_tier", "FACT(more than 1,000 ft from the Gulf of Mexico)", TIER1, "distance to the Gulf",
                 "the form's tiers are not distances"),
     "PH6-050": ("ppc", "FACT(visible to neighbors)", "ppc_num >= 9", "visibility", ""),
