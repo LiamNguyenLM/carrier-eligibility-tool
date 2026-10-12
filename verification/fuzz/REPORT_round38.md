@@ -2,7 +2,7 @@
 
 ## Is main safe to push?
 
-**Yes, on the zero-API evidence, with two caveats.**
+**Yes, on the zero-API evidence, with two caveats.** The fast tier is green on the final code.
 
 **Fast tier on the final code (8f8b0f4; later commits are docs only),**
 sharded four ways by test file, each shard in its own worktree with its
@@ -10,7 +10,8 @@ own copy of the store:
 - shard 2: 1,227 passed, 0 failed;
 - shard 3: 1,255 passed, 0 failed, 1 xfailed;
 - shard 4: 1,255 passed, 0 failed, 1 xfailed;
-- shard 1: rerun still running at 23:00. On 5596ca3 it had 1,248 passed, 0 failed, 8 xfailed, and its files don't touch what changed since. I'll update this line when it ends
+- shard 1: 1,248 passed, 0 failed, 8 xfailed.
+- **All four together: 4,985 passed, 0 failed, 10 xfailed, 5 skipped.**
 
 The whole-suite runs:
 - bccacc6 (Step 1): 4,432 passed, 0 failed.

@@ -2569,8 +2569,8 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
         reverted when it contradicted round 35's deliberate flat-roof test.
       - Second readers: 50 verdicts, 46 supported, 2 wrong (F06, F18), 2
         unclear.
-      - Fast tier on 8f8b0f4, sharded: shards 2-4 green; shard 1 green on
-        5596ca3 and rerunning.
+      - Fast tier on 8f8b0f4, sharded four ways: 4,985 passed, 0 failed,
+        10 xfailed, 5 skipped.
       - Full report: verification/fuzz/REPORT_round38.md.
 
 ## Open work, in priority order (updated 2026-10-02)
