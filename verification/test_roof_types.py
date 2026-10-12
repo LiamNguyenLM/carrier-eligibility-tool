@@ -31,7 +31,9 @@ def expect(fail=(), note=(), rest="PASS"):
 
 
 WOOD_ONLY = expect(fail=(WOOD,))
-PROGRESSIVE = expect(fail=(WOOD, BUILT, ROLLED, PANEL), note=(MEMB,))
+# CHANGED 2026-10-12 (round 38b, Liam: a bundled answer is a confirm naming the distinction where the guide names only
+# one half -- Progressive names "tin ... corrugated metal"). Was: fail=(WOOD, BUILT, ROLLED, PANEL).
+PROGRESSIVE = expect(fail=(WOOD, BUILT, ROLLED), note=(MEMB, PANEL))
 ARI = dict(fail=(WOOD, ASB, BUILT, PANEL), note=(SEAM, MSH))
 GAUGE = expect(note=METALS, rest="N/A")
 CASES = {

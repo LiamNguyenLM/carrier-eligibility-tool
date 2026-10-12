@@ -40,7 +40,11 @@ BUILT_UP, ROLLED_ROOF, MEMBRANE, ASBESTOS, TLOCK, SOLAR_ROOF = (I.ROOF_BUILT_UP,
 METAL = _roofs(SEAM, PANEL, MSHINGLE)
 NOT_WOOD = "roof_type not in " + _roofs(WOOD)
 IS_WOOD = "roof_type in " + _roofs(WOOD)
-PROG_ROOF = ("roof_type not in " + _roofs(WOOD, BUILT_UP, ROLLED_ROOF, PANEL)
+# Round 38b (Liam, 2026-10-12): the form's bundled options -- "Metal: corrugated / exposed-fastener / tin / aluminum
+# panels" and "Membrane (rubber/EPDM / TPO / modified bitumen)" -- are a confirm naming the half Progressive names
+# ("tin ... corrugated metal", "rubber membrane"), never a decline on the half it does not
+PROG_ROOF = ("roof_type not in " + _roofs(WOOD, BUILT_UP, ROLLED_ROOF)
+             + " and (roof_type not in " + _roofs(PANEL) + " or FACT(the metal panels are not tin or corrugated))"
              + " and (roof_type not in " + _roofs(MEMBRANE) + " or FACT(the membrane is not rubber))")
 PROG_ROOF_NOTE = "'wood ..., tar and gravel, rubber membrane, tin, rolled roofing, and corrugated metal'"
 FLAT = "(roof_shape == Flat or roof_type in " + _roofs(BUILT_UP, MEMBRANE) + ")"
@@ -338,7 +342,10 @@ MAP = {
                 "FACT(occupied by the trustee, grantor or beneficiary)",
                 "ownership_type == Trust", "who lives there", "as the Sage sister guides' trust-occupancy rows"),
     # round 35 step 3e: "Properties owned by an LLC, Corporation, and/or Corporate Trust" -- the trust type decides
-    "MER-005": ("ownership_type;trust_type", not_owned_by("LLC", "Corporation / partnership", trusts=(CORP_TRUST,)),
+    # Round 38b (Liam, 2026-10-12): Mercury names "an LLC, Corporation, and/or Corporate Trust", not a partnership --
+    # the form's bundled "Corporation / partnership" answer is a confirm naming the distinction
+    "MER-005": ("ownership_type;trust_type", not_owned_by("LLC", trusts=(CORP_TRUST,))
+                + " and (ownership_type != Corporation / partnership or FACT(the owner is a partnership not a corporation))",
                 "always", "", "an unknown trust type holds"),
     # round 35 step 3e: "business, limited liability corporation, limited partnership, corporation, land trust, or
     # estate"

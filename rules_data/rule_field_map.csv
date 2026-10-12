@@ -328,7 +328,7 @@ MER-001,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 MER-002,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
 MER-003,occupancy_type;primary_home_carrier,primary_home_carrier == Mercury,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,Mercury writes the primary,round 30 step 1: the form's 'Primary home insured with'
 MER-004,NONE,,,DECLINES,,the form has no field for this
-MER-005,ownership_type;trust_type,"ownership_type not in {LLC, Corporation / partnership} and (ownership_type != Trust or trust_type not in {Corporate or business trust})",always,DECLINES,,an unknown trust type holds
+MER-005,ownership_type;trust_type,ownership_type not in {LLC} and (ownership_type != Trust or trust_type not in {Corporate or business trust}) and (ownership_type != Corporation / partnership or FACT(the owner is a partnership not a corporation)),always,DECLINES,,an unknown trust type holds
 MER-006,NONE,,,DECLINES,,the form has no field for this
 MER-008,NONE,,,DECLINES,,the form has no field for this
 MER-009,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,
@@ -424,7 +424,7 @@ PRO-016,construction_type,construction_type != Manufactured/Mobile,always,DECLIN
 PRO-017,dwelling_type,FACT(4 or fewer units per fire division),dwelling_type == Townhome,DECLINES,fire division,
 PRO-022,roof_age,FACT(5+ years of life expectancy left),roof_age >= 15,DECLINES,remaining roof life,same assumption as ALL-034
 PRO-023,NONE,,,DECLINES,,the form has no field for this
-PRO-024,roof_type,"roof_type not in {Wood shake / wood shingle, Built-up (tar and gravel), Rolled roofing, Metal: corrugated / exposed-fastener / tin / aluminum panels} and (roof_type not in {Membrane (rubber/EPDM / TPO / modified bitumen)} or FACT(the membrane is not rubber))",always,DECLINES,membrane kind,"'wood ..., tar and gravel, rubber membrane, tin, rolled roofing, and corrugated metal'"
+PRO-024,roof_type,"roof_type not in {Wood shake / wood shingle, Built-up (tar and gravel), Rolled roofing} and (roof_type not in {Metal: corrugated / exposed-fastener / tin / aluminum panels} or FACT(the metal panels are not tin or corrugated)) and (roof_type not in {Membrane (rubber/EPDM / TPO / modified bitumen)} or FACT(the membrane is not rubber))",always,DECLINES,membrane kind,"'wood ..., tar and gravel, rubber membrane, tin, rolled roofing, and corrugated metal'"
 PRO-025,roof_shape;roof_type,FACT(poured concrete or rubber),"(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",DECLINES,flat roof material,
 PRO-026,NONE,,,DECLINES,,the form has no field for this
 PRO-027,NONE,,,DECLINES,,the form has no field for this

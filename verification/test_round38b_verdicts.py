@@ -111,3 +111,21 @@ def test_a_flat_discrete_roof_is_a_confirm_at_centauri_and_progressive_dp3(check
 def test_a_flat_built_up_roof_still_declines_centauri_dp3(check):
     r = check(dict(LANDLORD, roof_shape="Flat", roof_type="Built-up (tar and gravel)"))[CENTAURI_DP3]
     assert r["status"] == "INELIGIBLE"
+
+
+# ---- 5. bundled answers: a confirm naming the half the guide names
+PROGRESSIVE_HO3 = "Progressive_HO3_-_04.01.2026"
+PANEL = "Metal: corrugated / exposed-fastener / tin / aluminum panels"
+
+
+def test_mercury_does_not_decline_corporation_or_partnership_unconfirmed(check):
+    r = check(dict(HOME, ownership_type="Corporation / partnership"))[MERCURY]
+    assert not _rows(r, "MER-005") and _confirms(r, "MER-005")
+    assert check(dict(HOME, ownership_type="LLC"))[MERCURY]["status"] == "INELIGIBLE"      # LLC is named
+
+
+@pytest.mark.parametrize("canon,rid,base", [(PROGRESSIVE_HO3, "PRO-024", HOME), (PROGRESSIVE_DP3, "PDP-098", LANDLORD)])
+def test_progressive_confirms_the_metal_panel_answer(check, canon, rid, base):
+    r = check(dict(base, roof_type=PANEL))[canon]
+    assert not _rows(r, rid) and _confirms(r, rid), r["reasons"]
+    assert _rows(check(dict(base, roof_type="Rolled roofing"))[canon], rid)                # rolled is named
