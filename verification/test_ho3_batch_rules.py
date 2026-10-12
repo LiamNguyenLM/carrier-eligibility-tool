@@ -75,7 +75,8 @@ def test_coverage():
     # CHANGED 2026-10-09 (round 35 steps 3d-f: the follow-up questions): five solar rows gain a line (SBS-040, SLL-058, STO-043, FOR-066, TRV-023); ARB-005 is decided;
     # FOR-093 / FOR-097 read the owner and trust type. Was: 108 / 67 / AMBIGUOUS 1 / same rule 19 / NONE 420.
     # CHANGED 2026-10-10 (round 37 step 4, Liam: the losses and electrical questions decide the loss-history and electrical rows, rules_data/loss_electrical_lines.py). Was: 112 / 70 / same rule 18 / NONE 415.
-    assert kinds == {"decided by a form field": 126, "gated-but-open": 116,
+    # CHANGED 2026-10-11 (round 38 step 3, Liam: a loss row decides only on what the form can settle; NCD-150 on LANDLORD): ARA-066, ARB-069, FOR-121 gained a confirm FACT for the condition the form cannot settle. Was: 126 / 116.
+    assert kinds == {"decided by a form field": 123, "gated-but-open": 119,
                      "same rule as another row": 18, "NONE": 355}
 
 

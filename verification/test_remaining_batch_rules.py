@@ -80,7 +80,8 @@ def test_coverage():
     # CHANGED 2026-10-09 (round 35 steps 3d-f: the follow-up questions): CHO-007 is decided; LDP-018, NCD-003, PDP-049, PH6-028 read the new owners; STD-093 gains a line.
     # Was: 110 / 67 / AMBIGUOUS 1 / same rule 37 / NONE 770.
     # CHANGED 2026-10-10 (round 37 step 4, Liam: the losses and electrical questions decide the loss-history and electrical rows, rules_data/loss_electrical_lines.py). Was: 113 / 70 / same rule 33 / NONE 769.
-    assert kinds == {"decided by a form field": 139, "gated-but-open": 102,
+    # CHANGED 2026-10-11 (round 38 step 3, Liam: a loss row decides only on what the form can settle; NCD-150 on LANDLORD): CDP-099, CDP-100, CDP-102, NCD-145, NCD-146, ODP-126, FDP-084 gained a confirm FACT for the condition the form cannot settle. Was: 139 / 102.
+    assert kinds == {"decided by a form field": 132, "gated-but-open": 109,
                      "same rule as another row": 33, "NONE": 711}
 
 
