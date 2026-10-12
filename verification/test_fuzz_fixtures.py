@@ -77,3 +77,12 @@ def test_the_pipeline_checks_reject_a_changed_answer(monkeypatch):
     monkeypatch.setattr(checks, "answered", lambda pd, rng: ("fire_station_miles", 4.0))
     assert checks.c4_answer_no_hold(dict(pd, fire_station_miles=None), list(checked) + ["ppc"], base,
                                     random.Random(1))
+
+
+def test_the_held_reason_check_rejects_asking_for_an_answered_distance():
+    import checks
+    pd = {"fire_station_miles": 4.0, "hydrant_1000ft": "Unknown", "county": "Harris", "dwelling_amount": None}
+    held = [_rec("Sage_-_SURE_DP-3_-_01.31.2026", "INSUFFICIENT_INFORMATION",
+                 reasons=["Held: if the fire station is more than 5 miles away ... Confirm the distance."])]
+    assert checks.c11_held_reasks(pd, None, held)
+    assert not checks.c11_held_reasks(dict(pd, fire_station_miles=None), None, held)

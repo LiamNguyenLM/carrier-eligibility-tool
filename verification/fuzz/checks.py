@@ -117,6 +117,8 @@ def worse(pd, rng):
         options.append("year_built")
     if pd.get("losses_5yr") in ("0", "1", "2"):
         options.append("losses_5yr")
+    if pd.get("fire_station_miles") is not None:
+        options.append("fire_station_miles")
     if not options:
         return None
     dim = rng.choice(options)
@@ -125,6 +127,8 @@ def worse(pd, rng):
         w["roof_age"] = min(age, 100, pd["roof_age"] + rng.choice([1, 5, 10, 20]))
     elif dim == "year_built":
         w["year_built"] = max(1800, pd["year_built"] - rng.choice([1, 5, 10, 30]))
+    elif dim == "fire_station_miles":
+        w["fire_station_miles"] = round(pd["fire_station_miles"] + rng.choice([0.5, 2.0, 5.0]), 1)
     else:
         w["losses_5yr"] = {"0": "1", "1": "2", "2": "3 or more"}[pd["losses_5yr"]]
     return dim, w
@@ -324,6 +328,34 @@ def c8_page(pd, checked, base):
     return out
 
 
+# a held reason or a Missing item that asks for an answered field (round 38 step 1, generalized)
+HELD_REASKS = {
+    "fire_station_miles": [r"confirm the distance", r"station distance", r"distance to the (responding )?fire station"],
+    "hydrant_1000ft": [r"confirm the hydrant", r"whether a hydrant is within", r"hydrant within 1,000 ft if not given"],
+    "county": [r"\bwhich county\b", r"county is not given", r"\bcounty -- "],
+    "dwelling_amount": [r"coverage a is (also )?needed", r"dwelling amount \(coverage a\)"],
+}
+
+
+def c11_held_reasks(pd, checked, base):
+    out = []
+    on = {"fire_station_miles": "ppc", "hydrant_1000ft": "ppc", "county": "county", "dwelling_amount": "dwelling_amount"}
+    answered = [f for f in HELD_REASKS if (checked is None or on[f] in checked)
+                and pd.get(f) not in (None, "", "Unknown")]
+    for r in base:
+        if r.get("status") not in ("INSUFFICIENT_INFORMATION", "REFER"):
+            continue
+        texts = [cards.agent_text(x) for x in (r.get("reasons") or [])[:1] + (r.get("missing_info") or [])
+                 if isinstance(x, str)]
+        for f in answered:
+            for t in texts:
+                if any(re.search(rx, t.lower()) for rx in HELD_REASKS[f]):
+                    out.append(_fail("held_reasks", r.get("carrier"), {"field": f, "value": pd.get(f),
+                                                                       "text": t[:200]}))
+                    break
+    return out
+
+
 def c9_placement(pd, checked, base):
     p = placement.panel(base, pd)
     if not p:
@@ -352,7 +384,7 @@ def c10_coverage(pd, checked):
 
 
 CHECKS = ("determinism", "unticked_blank", "monotonic", "answer_no_hold", "routing", "deciding_row", "no_reask",
-          "page", "placement")
+          "page", "placement", "held_reasks")
 
 
 def check_profile(pd, checked, seed, only=None):
@@ -381,5 +413,7 @@ def check_profile(pd, checked, seed, only=None):
         fails += c8_page(pd_seen, checked_seen, base)
     if want("placement"):
         fails += c9_placement(pd_seen, checked_seen, base)
+    if want("held_reasks"):
+        fails += c11_held_reasks(pd_seen, checked_seen, base)
     coverage = c10_coverage(pd_seen, checked_seen) if only is None else {}
     return fails, coverage, base
