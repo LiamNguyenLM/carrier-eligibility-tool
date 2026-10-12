@@ -44,6 +44,8 @@ PROG_ROOF = ("roof_type not in " + _roofs(WOOD, BUILT_UP, ROLLED_ROOF, PANEL)
              + " and (roof_type not in " + _roofs(MEMBRANE) + " or FACT(the membrane is not rubber))")
 PROG_ROOF_NOTE = "'wood ..., tar and gravel, rubber membrane, tin, rolled roofing, and corrugated metal'"
 FLAT = "(roof_shape == Flat or roof_type in " + _roofs(BUILT_UP, MEMBRANE) + ")"
+CHUBB_FLAT = ("roof_shape != Flat and (roof_type not in " + _roofs(BUILT_UP, MEMBRANE)
+              + " or FACT(the built-up or membrane roof is not flat or low-slope))")
 SEASONAL = "occupancy_type in {Seasonal, Secondary Home}"
 DOGS = "has_dogs == Yes"
 BREED = "always || aggressive_breed == No"      # before round 35: AMBIGUOUS (the form's list was not the carrier's)
@@ -193,8 +195,11 @@ MAP = {
                 "prior roof loss; renovation", ""),
     "SAG-033": ("roof_type", "FACT(steel, 29 gauge or heavier)", "roof_type in " + METAL, "metal roof gauge", ""),
     # round 35 step 2: El Paso flat roofs get "underwriting consideration" -- a referral (CHU-111), not a pass
-    "CHU-012": ("roof_shape;roof_type;county", "not " + FLAT, "county != El Paso", "", "El Paso is CHU-111's"),
-    "CHU-111": ("roof_shape;roof_type;county", "not " + FLAT, "county == El Paso", "",
+    # Round 38b (Liam, 2026-10-12): Chubb's flat-roof rule is decided on the roof shape; a built-up or membrane covering
+    # on a Hip or Gable roof is a confirm, not a decline
+    "CHU-012": ("roof_shape;roof_type;county", CHUBB_FLAT, "county != El Paso", "roof is not flat or low-slope",
+                "El Paso is CHU-111's; shape decides (round 38b)"),
+    "CHU-111": ("roof_shape;roof_type;county", CHUBB_FLAT, "county == El Paso", "roof is not flat or low-slope",
                 "split from CHU-012 (round 35): underwriting consideration in El Paso"),
     "CHU-014": ("roof_type", "FACT(wildfire score not 10-50)", IS_WOOD, "wildfire score", ""),
     "CHU-020": ("roof_type;county", NOT_WOOD, "county not in " + CHUBB_COASTAL, "",

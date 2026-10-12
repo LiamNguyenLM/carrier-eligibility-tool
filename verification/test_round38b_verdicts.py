@@ -76,3 +76,21 @@ def test_a_fenced_pool_with_both_boxes_ticked_passes_cdp_053(check):
     r = check(dict(LANDLORD, swimming_pool="In Ground - Fenced", pool_accessories="None", pool_fence_4ft=True,
                    pool_gate_locking=True))[CENTAURI_DP3]
     assert not _rows(r, "CDP-053")
+
+
+# ---- 3. Chubb CHU-012: flat roofs are decided on the shape; built-up / membrane on a pitched roof is a confirm
+CHUBB = "CHUBB_HO_-_05.22.2026"
+CHUBB_HOME = dict(HOME, county="Tom Green", zip="", dwelling_amount=330000)     # second reader hour 4, seed 5583
+
+
+@pytest.mark.parametrize("shape,cover", [("Hip", "Built-up (tar and gravel)"),
+                                         ("Gable", "Membrane (rubber/EPDM / TPO / modified bitumen)")])
+def test_a_pitched_roof_with_a_low_slope_covering_is_a_chubb_confirm(check, shape, cover):
+    r = check(dict(CHUBB_HOME, roof_shape=shape, roof_type=cover))[CHUBB]
+    assert r["status"] != "INELIGIBLE" and not _rows(r, "CHU-012"), r["reasons"]
+    assert _confirms(r, "CHU-012")
+
+
+def test_a_flat_shape_still_declines_chubb(check):
+    r = check(dict(CHUBB_HOME, roof_shape="Flat", roof_type="Composition Shingle"))[CHUBB]
+    assert r["status"] == "INELIGIBLE" and _rows(r, "CHU-012"), r["reasons"]

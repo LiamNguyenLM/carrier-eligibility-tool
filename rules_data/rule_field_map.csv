@@ -257,8 +257,8 @@ CHU-004,occupancy_type;dwelling_type;primary_home_carrier,primary_home_carrier =
 CHU-005,occupancy_type,FACT(Chubb writes the primary residence),occupancy_type == Tenant Occupied,CONDITION,Chubb writes the primary,
 CHU-009,NONE,,,CONDITION,,the form has no field for this
 CHU-011,NONE,,,UNKNOWN,,the form has no field for this
-CHU-012,roof_shape;roof_type;county,"not (roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",county != El Paso,DECLINES,,El Paso is CHU-111's
-CHU-111,roof_shape;roof_type;county,"not (roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",county == El Paso,REFERS_TO_UW,,split from CHU-012 (round 35): underwriting consideration in El Paso
+CHU-012,roof_shape;roof_type;county,"roof_shape != Flat and (roof_type not in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)} or FACT(the built-up or membrane roof is not flat or low-slope))",county != El Paso,DECLINES,roof is not flat or low-slope,El Paso is CHU-111's; shape decides (round 38b)
+CHU-111,roof_shape;roof_type;county,"roof_shape != Flat and (roof_type not in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)} or FACT(the built-up or membrane roof is not flat or low-slope))",county == El Paso,REFERS_TO_UW,roof is not flat or low-slope,split from CHU-012 (round 35): underwriting consideration in El Paso
 CHU-014,roof_type,FACT(wildfire score not 10-50),roof_type in {Wood shake / wood shingle},DECLINES,wildfire score,
 CHU-016,NONE,,,DECLINES,,the form has no field for this
 CHU-017,NONE,,,DECLINES,,the form has no field for this

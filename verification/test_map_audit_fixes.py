@@ -91,8 +91,13 @@ def test_chubb_does_not_ask_a_primary_condo_about_its_primary_home():
 def test_chubb_flat_roof_declines_outside_el_paso_and_refers_in_it(county, decline, refer):
     assert (row("CHU-012", roof_shape="Flat", county=county), row("CHU-111", roof_shape="Flat", county=county)) == \
         (decline, refer)
-    rec = card("CHUBB_HO_-_05.22.2026", roof_type="Built-up (tar and gravel)", county=county, dwelling_amount=2000000)
+    # CHANGED 2026-10-12 (round 38b, Liam: Chubb's flat-roof rule is decided on the shape). Was: a built-up covering on the
+    # default (Gable) roof declined / referred; now the Flat shape does, and Gable + built-up is a confirm.
+    rec = card("CHUBB_HO_-_05.22.2026", roof_shape="Flat", roof_type="Built-up (tar and gravel)", county=county,
+               dwelling_amount=2000000)
     assert rec["status"] == ("INELIGIBLE" if county == "Travis" else "REFER")
+    pitched = card("CHUBB_HO_-_05.22.2026", roof_type="Built-up (tar and gravel)", county=county, dwelling_amount=2000000)
+    assert pitched["status"] == "ELIGIBLE"
 
 
 @pytest.mark.parametrize("rid,pd,want", [

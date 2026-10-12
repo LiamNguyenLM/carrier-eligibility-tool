@@ -55,7 +55,9 @@ CASES = {
     **{rid: GAUGE for rid in ("SAG-033", "SUR-149", "SFP-155", "WIL-153", "TRI-041", "ODP-077", "SDP-114", "FDP-139")},
     # flat-roof rows on a gabled roof: only the low-slope coverings make the roof flat
     "ALL-038": expect(note=(BUILT, MEMB), rest="N/A"),
-    "CHU-012": expect(fail=(BUILT, MEMB)), "MER-016": expect(fail=(BUILT, MEMB)),
+    # CHANGED 2026-10-12 (round 38b, Liam: Chubb's flat-roof rule is decided on the shape; a built-up or membrane covering
+    # on a Hip or Gable roof is a confirm). Was: expect(fail=(BUILT, MEMB)).
+    "CHU-012": expect(note=(BUILT, MEMB)), "MER-016": expect(fail=(BUILT, MEMB)),
     "CDP-023": expect(fail=(BUILT, MEMB), rest="N/A"), "PDP-099": expect(fail=(BUILT, MEMB), rest="N/A"),
 }
 
