@@ -322,7 +322,9 @@ ELECTRICAL = {
     "MER-034": f"{none_of(FUSES)} and (not ({none_of(BREAKERS)}) or FACT(the system is all circuit breakers))",
     "MER-035": f"{none_of(FPE)} and FACT(no Magnetrip or Sylvania or Challenger panel)",
     "MER-036": none_of(AL),
-    "PRO-040": none_of(KT, AL, FUSES, FPE),
+    # Round 38 step 7 (self-audit F15, 2026-10-11): Progressive names Federal Pacific only, and the form's answer is
+    # "Federal Pacific or Zinsco panel" -- that answer alone is a confirm (as FOR-041), never a decline
+    "PRO-040": none_of(KT, AL, FUSES) + " and (" + none_of(FPE) + " or FACT(the panel is Zinsco not Federal Pacific))",
     "SWY-027": f"{none_of(AL)} or FACT(aluminum wiring retrofitted with AlumiConn or COPALUM connectors)",
     "SWY-028": f"{none_of(KT)} and FACT(no carbon tetrachloride wiring or cloth wiring without a romex layer)",
     "SWY-029": f"{none_of(FUSES, FPE)} and FACT(no split bus or GTE Sylvania or Challenger panel)",
@@ -366,8 +368,8 @@ ELECTRICAL = {
     "CHO-040": f"{none_of(FPE)} and FACT(no GTE Sylvania or Challenger panel)",
     "NCD-086": none_of(KT, AL),
     "NCD-087": none_of(FPE),
-    "PDP-087": none_of(FUSES, AL, KT, FPE),
-    "PH6-073": none_of(KT, AL, FUSES, FPE),
+    "PDP-087": none_of(FUSES, AL, KT) + " and (" + none_of(FPE) + " or FACT(the panel is Zinsco not Federal Pacific))",
+    "PH6-073": none_of(KT, AL, FUSES) + " and (" + none_of(FPE) + " or FACT(the panel is Zinsco not Federal Pacific))",
     "MDP-037": none_of(FUSES, KT, AL),
     "MDP-039": f"{none_of(FPE)} and FACT(no Sylvania or Challenger panel)",
     "ODP-084": f"{none_of(FPE)} and FACT(no Magnetrip or Challenger or Sylvania panel)",

@@ -81,7 +81,9 @@ def test_coverage():
     # Was: 110 / 67 / AMBIGUOUS 1 / same rule 37 / NONE 770.
     # CHANGED 2026-10-10 (round 37 step 4, Liam: the losses and electrical questions decide the loss-history and electrical rows, rules_data/loss_electrical_lines.py). Was: 113 / 70 / same rule 33 / NONE 769.
     # CHANGED 2026-10-11 (round 38 step 3, Liam: a loss row decides only on what the form can settle; NCD-150 on LANDLORD): CDP-099, CDP-100, CDP-102, NCD-145, NCD-146, ODP-126, FDP-084 gained a confirm FACT for the condition the form cannot settle. Was: 139 / 102.
-    assert kinds == {"decided by a form field": 132, "gated-but-open": 109,
+    # CHANGED 2026-10-11 (round 38 step 7, F15: Progressive DP3 / HO6 name Federal Pacific only): PDP-087 and PH6-073
+    # gained a confirm FACT for the combined Federal Pacific / Zinsco answer. Was: 132 / 109.
+    assert kinds == {"decided by a form field": 130, "gated-but-open": 111,
                      "same rule as another row": 33, "NONE": 711}
 
 

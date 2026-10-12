@@ -162,7 +162,9 @@ def test_the_common_loss_answers(rid, answers, want):
 
 
 @pytest.mark.parametrize("rid,answers,want", [
-    ("PRO-040", ["Circuit breakers", "Federal Pacific or Zinsco panel"], "FAIL"),
+    # CHANGED 2026-10-11 (round 38 step 7, F15: Progressive names Federal Pacific only; the form's combined answer
+    # alone is a confirm, as FOR-041). Was FAIL.
+    ("PRO-040", ["Circuit breakers", "Federal Pacific or Zinsco panel"], "NOTE"),
     ("SWY-029", ["Federal Pacific or Zinsco panel"], "FAIL"),
     ("MER-034", ["Circuit breakers"], "PASS"),                   # 100% circuit breakers
     ("MER-034", ["Circuit breakers", "Fuses"], "FAIL"),

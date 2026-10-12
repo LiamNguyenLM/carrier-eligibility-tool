@@ -437,7 +437,7 @@ PRO-036,NONE,,,DECLINES,,siding / construction details are not form options
 PRO-037,NONE,,,DECLINES,,siding / construction details are not form options
 PRO-038,NONE,,,CONDITION,,"applies only to plumbing replaced as a required update, which the form does not ask"
 PRO-039,plumbing_type;year_built,"plumbing_type not in {Galvanized, Polybutylene} and pex_2011 == True",always,DECLINES,,AMBIGUOUS only for PEX in a home built before 2011
-PRO-040,electrical,"electrical none_of {Knob-and-tube wiring, Aluminum branch wiring, Fuses, Federal Pacific or Zinsco panel}",always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
+PRO-040,electrical,"electrical none_of {Knob-and-tube wiring, Aluminum branch wiring, Fuses} and (electrical none_of {Federal Pacific or Zinsco panel} or FACT(the panel is Zinsco not Federal Pacific))",always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
 PRO-041,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
 PRO-042,NONE,,,CONDITION,,"heating, cooling and water heater are not asked"
 PRO-043,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"
