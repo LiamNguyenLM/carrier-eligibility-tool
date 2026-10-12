@@ -24,12 +24,14 @@ import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
-for k in ("ELIGIBILITY_RULES_PILOT", "ELIGIBILITY_RULES_SAGE_BATCH", "ELIGIBILITY_RULES_HO3_BATCH",
-          "ELIGIBILITY_RULES_DP_BATCH", "ELIGIBILITY_PLACEMENT"):
-    os.environ[k] = "1"
-os.environ["ANTHROPIC_API_KEY"] = "invalid-guard"
-os.environ["OPENAI_API_KEY"] = "invalid-guard"
-os.environ.setdefault("ELIGIBILITY_USAGE_LOG", os.path.join(tempfile.gettempdir(), "usage_fuzz.jsonl"))   # never in the repo
+# The live configuration (rules pilot + three batches + placement, Haiku's path replaced by a fake). Importing this
+# module changes nothing: run.py and shrink.py call configure(); a test sets the same with monkeypatch (LIVE_ENV,
+# LIVE_FLAGS, fake), so nothing leaks into the tests that run after it.
+LIVE_ENV = {"ELIGIBILITY_RULES_PILOT": "1", "ELIGIBILITY_RULES_SAGE_BATCH": "1", "ELIGIBILITY_RULES_HO3_BATCH": "1",
+            "ELIGIBILITY_RULES_DP_BATCH": "1", "ELIGIBILITY_PLACEMENT": "1", "ANTHROPIC_API_KEY": "invalid-guard",
+            "OPENAI_API_KEY": "invalid-guard",
+            "ELIGIBILITY_USAGE_LOG": os.path.join(tempfile.gettempdir(), "usage_fuzz.jsonl")}   # never in the repo
+LIVE_FLAGS = ("RULES_PILOT", "RULES_SAGE_BATCH", "RULES_HO3_BATCH", "RULES_DP_BATCH")
 sys.path.insert(0, ROOT)
 import cards  # noqa: E402
 import confirm_topics as ct  # noqa: E402
@@ -48,7 +50,14 @@ def _fake(system, user, max_tokens):
                                      "citations": [], "missing_info": [], "notes": ""} for n in names]}), dict(USAGE)
 
 
-ec._complete = _fake
+def configure():
+    """For a standalone run (run.py, shrink.py): the live configuration, zero API."""
+    os.environ.update(LIVE_ENV)
+    for flag in LIVE_FLAGS:
+        setattr(ec, flag, True)
+    ec._complete = _fake
+
+
 BATCHES_ON = ("sage", "ho3", "dp")
 RANK = {"ELIGIBLE": 0, "REFER": 1, "INSUFFICIENT_INFORMATION": 1, "INELIGIBLE": 2}
 HEDGE = re.compile(r"\b(appears? to|seems? to|likely|probably|presumably|might be)\b", re.I)

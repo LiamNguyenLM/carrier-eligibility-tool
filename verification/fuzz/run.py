@@ -22,6 +22,7 @@ def _init():
     global checks, gen
     import checks  # noqa: F401 -- loads the store and the rules once per worker
     import gen     # noqa: F401
+    checks.configure()
 
 
 def one(seed):

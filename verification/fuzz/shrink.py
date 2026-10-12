@@ -12,6 +12,8 @@ sys.path.insert(0, HERE)
 import checks  # noqa: E402
 import gen  # noqa: E402
 
+checks.configure()
+
 # the plainest answer for each field; a shrink step resets one field to it (or drops an optional key)
 PLAIN = {"ppc": "4", "fire_station_miles": 2.0, "hydrant_1000ft": "Yes", "coastal_tier": "Not Coastal",
          "occupancy_type": "Owner Occupied", "ownership_type": "Individual Owner", "year_built": 2005, "roof_age": 5,

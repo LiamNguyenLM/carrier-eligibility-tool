@@ -25,9 +25,21 @@ def _param(path):
     return pytest.param(path, id=f["name"], marks=marks)
 
 
-@pytest.mark.parametrize("path", [_param(p) for p in FIXTURES])
-def test_fuzz_fixture(path):
+@pytest.fixture
+def live(monkeypatch):
+    """The live configuration for this test only (checks.configure() would leak into the tests after it)."""
     import checks
+    for k, v in checks.LIVE_ENV.items():
+        monkeypatch.setenv(k, v)
+    for flag in checks.LIVE_FLAGS:
+        monkeypatch.setattr(checks.ec, flag, True)
+    monkeypatch.setattr(checks.ec, "_complete", checks._fake)
+    return checks
+
+
+@pytest.mark.parametrize("path", [_param(p) for p in FIXTURES])
+def test_fuzz_fixture(path, live):
+    checks = live
     f = _load(path)
     got, _, _ = checks.check_profile(f["pd"], f["checked"], f["seed"], only={f["check"]})
     mine = [x for x in got if x["check"] == f["check"] and x["carrier"] == f["carrier"]]
