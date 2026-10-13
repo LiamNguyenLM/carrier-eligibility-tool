@@ -235,13 +235,16 @@ def test_the_live_client_counts_every_http_request():
 @pytest.mark.parametrize("statuses,attempts", [([200], 1), ([529, 529, 200], 3), ([500, 200], 2)])
 def test_each_model_call_reports_its_wall_time_and_http_attempts(monkeypatch, statuses, attempts):
     monkeypatch.setattr(ec.client._client, "_transport", _transport(statuses))
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
+    # Round 38d (Liam, 2026-10-13): tests never rely on a key in the environment (the fast tier now runs with none);
+    # the mocked client gets a fake one of its own. Was: monkeypatch.setenv("ANTHROPIC_API_KEY", "test").
+    monkeypatch.setattr(ec.client, "api_key", "fake-key-for-the-mock-transport")
     text, usage = ec._complete("system", "user", 100)
     assert usage["attempts"] == attempts and usage["wall_s"] >= 0 and not usage.get("fallback")
 
 
 def test_a_fallback_call_reports_the_attempts_it_spent_on_anthropic(monkeypatch):
     monkeypatch.setattr(ec.client._client, "_transport", _transport([529] * 20))
+    monkeypatch.setattr(ec.client, "api_key", "fake-key-for-the-mock-transport")      # round 38d (see above)
     monkeypatch.setattr(ec, "_complete_openai", lambda *a, **k: ("{}", {"input_tokens": 1, "output_tokens": 1}))
     text, usage = ec._complete("system", "user", 100)
     assert usage["fallback"] is True and usage["attempts"] == 7          # max_retries=6: 1 + 6
