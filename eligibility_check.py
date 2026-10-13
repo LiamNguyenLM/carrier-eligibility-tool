@@ -3207,7 +3207,7 @@ def _apply_structured_overrides(results, relevant_carriers, property_details, ch
             )
             if s_status == "INELIGIBLE":
                 _force_ineligible(r, s_reasons[0])
-            elif s_status in ("ACV", "EXCLUDED"):
+            elif s_status in ("ACV", "EXCLUDED", "CONFIRM"):        # CONFIRM: round 38d, the bundled panel answer
                 _append_note(r, s_reasons[0])
             elif s_status == "INSUFFICIENT_INFORMATION":
                 mi = r.setdefault("missing_info", [])

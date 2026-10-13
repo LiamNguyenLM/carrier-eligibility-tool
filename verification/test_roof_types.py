@@ -46,10 +46,12 @@ CASES = {
     "ARA-007": expect(**ARI), "ARB-006": expect(fail=ARI["fail"] + (SLATE,), note=ARI["note"]),
     "ARA-056": expect(fail=METALS), "ARB-055": expect(fail=METALS),   # "Metal roofs must be pre-approved"
     "ORI-012": expect(fail=(WOOD, BUILT, ROLLED, MEMB, ASB, TLOCK, SOLAR), note=(OTHER,)),
-    "ORI-059": expect(fail=(PANEL, TLOCK)),                            # "corrugated metal, T-lock shingles"
-    "TWI-037": expect(fail=(WOOD, ASB, SLATE, MSH, PANEL)),           # standing seam is eligible
+    # CHANGED 2026-10-13 (round 38d, Liam's decision 2: the bundled panel answer is a confirm naming "corrugated").
+    # Was: PANEL in fail for ORI-059, TWI-037 and CDP-021.
+    "ORI-059": expect(fail=(TLOCK,), note=(PANEL,)),                  # "corrugated metal, T-lock shingles"
+    "TWI-037": expect(fail=(WOOD, ASB, SLATE, MSH), note=(PANEL,)),   # standing seam is eligible
     "TRV-041": expect(fail=(ASB, TLOCK, WOOD, ROLLED)),
-    "CDP-021": expect(fail=(PANEL,)), "CDP-027": expect(fail=(ROLLED,)),
+    "CDP-021": expect(note=(PANEL,)), "CDP-027": expect(fail=(ROLLED,)),
     "CHO-024": expect(fail=(WOOD, BUILT, ROLLED, ASB, MEMB), note=METALS),
     "NCD-097": expect(fail=(TLOCK, ROLLED, WOOD, BUILT), note=(MEMB, TILE)),
     "STD-064": expect(note=METALS), "STD-065": expect(note=(PANEL,)),  # "Aluminum", "Tin"

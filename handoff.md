@@ -2664,6 +2664,20 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
   - Zero-API runs (the fast tier) run without `ELIGIBILITY_DOTENV`, so no key
     is loaded.
 
+- **2026-10-13 — Liam's decisions (Round 38d step 2).**
+  1. **Foremost FOR-121:** 2+ losses in 5 years refer. "May require
+     approval" names an underwriting path (Round 31 rule); one loss is a
+     confirm on its severity. Reverses round 38b's confirm.
+  2. **CDP-021 / ORI-059 / TWI-037:** the form's "Metal: corrugated /
+     exposed-fastener / tin / aluminum panels" answer is a confirm naming
+     "corrugated" (as Progressive's tin/corrugated rows), not a decline.
+     TWICO's code check (structured_rules.twico_roof_settlement) returns
+     CONFIRM for that answer. A roof named "corrugated" outright still
+     declines.
+  3. **PDP-103 / PRO-051 stay Refer:** "approved alternate enclosure" is an
+     underwriting path. Centauri DP3 (CDP-053) has no such path and
+     declines.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"

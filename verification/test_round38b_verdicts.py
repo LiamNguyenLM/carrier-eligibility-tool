@@ -177,8 +177,11 @@ def row(canon, rid, **pd):
 
 def test_foremost_multiple_losses_may_require_approval_so_a_confirm():
     # p.18 "... loss severity or multiple loss activity in the past five years may require approval"
-    assert row(FOREMOST, "FOR-121", losses_5yr="2", loss_types=["Theft"], losses_3yr="1") == "NOTE"
-    assert row(FOREMOST, "FOR-121", losses_5yr="3 or more", loss_types=["Fire"], losses_3yr="2") == "NOTE"
+    # CHANGED 2026-10-13 (round 38d, Liam's decision 1: "may require approval" names an underwriting path): 2+ losses
+    # refer (FAIL on a REFERS_TO_UW row); one loss is a confirm on its severity. Was: NOTE for 2 and 3+.
+    assert row(FOREMOST, "FOR-121", losses_5yr="2", loss_types=["Theft"], losses_3yr="1") == "FAIL"
+    assert row(FOREMOST, "FOR-121", losses_5yr="3 or more", loss_types=["Fire"], losses_3yr="2") == "FAIL"
+    assert row(FOREMOST, "FOR-121", losses_5yr="1", loss_types=["Fire"], losses_3yr="1") == "NOTE"
 
 
 @pytest.mark.parametrize("rid", ["ARA-066", "ARA-067"])

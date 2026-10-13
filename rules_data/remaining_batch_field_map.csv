@@ -9,7 +9,7 @@ CDP-014,dwelling_amount,always,always,REFERS_TO_UW,,decided by CDP-096 (the same
 CDP-017,NONE,,,REFERS_TO_UW,,not asked by the form
 CDP-019,NONE,,,DECLINES,,roof condition and layers are not asked
 CDP-020,NONE,,,DECLINES,,roof condition and layers are not asked
-CDP-021,roof_type,roof_type not in {Metal: corrugated / exposed-fastener / tin / aluminum panels},always,DECLINES,,corrugated metal (round 35)
+CDP-021,roof_type,(roof_type not in {Metal: corrugated / exposed-fastener / tin / aluminum panels} or FACT(the metal panels are not corrugated)),always,DECLINES,metal panels are not corrugated,corrugated metal (round 35); the panel answer is a confirm (round 38d)
 CDP-022,roof_type,roof_type not in {Wood shake / wood shingle},always,DECLINES,,
 CDP-023,roof_shape;roof_type,"roof_type not in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen), Rolled roofing} and FACT(poured concrete flat roof)","(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",DECLINES,poured concrete roof,"built-up, membrane and rolled are not poured concrete"
 CDP-024,NONE,,,DECLINES,,roof condition and layers are not asked

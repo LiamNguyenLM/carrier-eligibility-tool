@@ -78,7 +78,9 @@ POOL_4FT = ("swimming_pool;pool_fence_4ft;pool_gate_locking", FENCED + " and " +
             "fence 4 ft; locking gate", "an approved alternative enclosure also qualifies (not a form option)")
 WOOD_ROOF = ("roof_type", NOT_WOOD, "always", "", "")
 ROLLED = ("roof_type", "roof_type not in " + _roofs(ROLLED_ROOF), "always", "", "rolled roofing (round 35)")
-CORRUGATED = ("roof_type", "roof_type not in " + _roofs(PANEL), "always", "", "corrugated metal (round 35)")
+# Round 38d (Liam, 2026-10-13, decision 2): the guide names "corrugated"; the form's bundled panel answer is a confirm
+CORRUGATED = ("roof_type", "(roof_type not in " + _roofs(PANEL) + " or FACT(the metal panels are not corrugated))", "always", "metal panels are not corrugated",
+              "corrugated metal (round 35); the panel answer is a confirm (round 38d)")
 
 
 def same_as(rid, field="occupancy_type"):

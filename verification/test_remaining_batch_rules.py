@@ -83,7 +83,9 @@ def test_coverage():
     # CHANGED 2026-10-11 (round 38 step 3, Liam: a loss row decides only on what the form can settle; NCD-150 on LANDLORD): CDP-099, CDP-100, CDP-102, NCD-145, NCD-146, ODP-126, FDP-084 gained a confirm FACT for the condition the form cannot settle. Was: 139 / 102.
     # CHANGED 2026-10-11 (round 38 step 7, F15: Progressive DP3 / HO6 name Federal Pacific only): PDP-087 and PH6-073
     # gained a confirm FACT for the combined Federal Pacific / Zinsco answer. Was: 132 / 109.
-    assert kinds == {"decided by a form field": 130, "gated-but-open": 111,
+    # CHANGED 2026-10-13 (round 38d, Liam's decision 2: the bundled panel answer is a confirm naming "corrugated"): CDP-021
+    # gained a confirm FACT. Was: 130 / 111.
+    assert kinds == {"decided by a form field": 129, "gated-but-open": 112,
                      "same rule as another row": 33, "NONE": 711}
 
 

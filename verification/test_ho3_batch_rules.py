@@ -78,7 +78,9 @@ def test_coverage():
     # CHANGED 2026-10-11 (round 38 step 3, Liam: a loss row decides only on what the form can settle; NCD-150 on LANDLORD): ARA-066, ARB-069, FOR-121 gained a confirm FACT for the condition the form cannot settle. Was: 126 / 116.
     # CHANGED 2026-10-12 (round 38b, Liam: estate and trust follow each guide's quote): LIB-048 gained a confirm FACT for an
     # estate- or trust-owned home. Was: 123 / 119.
-    assert kinds == {"decided by a form field": 122, "gated-but-open": 120,
+    # CHANGED 2026-10-13 (round 38d, Liam's decision 2: the bundled panel answer is a confirm naming "corrugated"): ORI-059, TWI-037
+    # gained a confirm FACT. Was: 122 / 120.
+    assert kinds == {"decided by a form field": 120, "gated-but-open": 122,
                      "same rule as another row": 18, "NONE": 355}
 
 

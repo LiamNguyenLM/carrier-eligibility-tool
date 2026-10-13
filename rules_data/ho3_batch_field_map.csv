@@ -213,7 +213,7 @@ FOR-117,losses_5yr;losses_3yr;loss_types,losses_5yr in {0} or (loss_types none_o
 FOR-118,NONE,,,DECLINES,,loss / claims history is not asked
 FOR-119,NONE,,,DECLINES,,loss / claims history is not asked
 FOR-120,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
-FOR-121,losses_5yr;losses_3yr;loss_types,losses_5yr in {0} or FACT(Foremost does not require approval for this loss history -- loss severity or multiple losses in the past 5 years may require it),always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+FOR-121,losses_5yr;losses_3yr;loss_types,losses_5yr in {0} or (losses_5yr in {1} and FACT(the one loss in the past 5 years was not a severe loss)),always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 FOR-122,NONE,,,REFERS_TO_UW,,loss / claims history is not asked
 FOR-123,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0} or loss_types none_of {Fire, Other} or FACT(no fire loss over $5000 in the past 5 years)",always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
 FOR-124,NONE,,,CONDITION,,loss / claims history is not asked
@@ -345,7 +345,7 @@ ORI-054,NONE,,,DECLINES,,siding / construction details are not form options
 ORI-055,NONE,,,DECLINES,,siding / construction details are not form options
 ORI-056,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,barndominiums are not a form option
 ORI-057,NONE,,,DECLINES,,siding / construction details are not form options
-ORI-059,roof_type,"roof_type not in {Metal: corrugated / exposed-fastener / tin / aluminum panels, T-lock shingle}",always,DECLINES,,"'corrugated metal, T-lock shingles' (round 35)"
+ORI-059,roof_type,roof_type not in {T-lock shingle} and (roof_type not in {Metal: corrugated / exposed-fastener / tin / aluminum panels} or FACT(the metal panels are not corrugated)),always,DECLINES,metal panels are not corrugated,"'corrugated metal, T-lock shingles' (round 35); the panel answer is a confirm (round 38d)"
 ORI-060,NONE,,,DECLINES,,roof condition and layers are not asked
 ORI-061,NONE,,,DECLINES,,siding / construction details are not form options
 ORI-062,NONE,,,DECLINES,,siding / construction details are not form options
@@ -521,7 +521,7 @@ TWI-032,NONE,,,DECLINES,,siding / construction details are not form options
 TWI-034,NONE,,,REFERS_TO_UW,,"unit count, foundation and original use are not asked"
 TWI-035,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,prefabricated homes are not a form option
 TWI-036,NONE,,,DECLINES,,acreage is not asked
-TWI-037,roof_type,"roof_type not in {Wood shake / wood shingle, Asbestos shingle, Slate, Metal: shingle / tile / shake (incl. stone-coated), Metal: corrugated / exposed-fastener / tin / aluminum panels}",always,DECLINES,,standing seam is eligible (round 35)
+TWI-037,roof_type,"roof_type not in {Wood shake / wood shingle, Asbestos shingle, Slate, Metal: shingle / tile / shake (incl. stone-coated)} and (roof_type not in {Metal: corrugated / exposed-fastener / tin / aluminum panels} or FACT(the metal panels are not corrugated))",always,DECLINES,metal panels are not corrugated,standing seam is eligible (round 35); the panel answer is a confirm (round 38d)
 TWI-038,NONE,,,DECLINES,,roof condition and layers are not asked
 TWI-039,plumbing_type,"plumbing_type not in {Galvanized, Polybutylene}",always,DECLINES,,
 TWI-040,NONE,,,DECLINES,,"heating, cooling and water heater are not asked"

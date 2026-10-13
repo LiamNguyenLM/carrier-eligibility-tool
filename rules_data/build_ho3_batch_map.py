@@ -268,8 +268,10 @@ MAP = {
                 "'corporation, LLC, partnership, LLP, estate, association or any other business entity' (round 35)"),
     "ORI-050": ("year_built", "year_built >= 1900", "always", "", ""),
     "ORI-056": ("construction_type", MOBILE, "always", "", "barndominiums are not a form option"),
-    "ORI-059": ("roof_type", "roof_type not in " + _roofs(PANEL, TLOCK), "always", "",
-                "'corrugated metal, T-lock shingles' (round 35)"),
+    # Round 38d (Liam, 2026-10-13, decision 2): ORI-059 / TWI-037 name "corrugated metal"; the form's bundled panel
+    # answer ("corrugated / exposed-fastener / tin / aluminum panels") is a confirm naming "corrugated", not a decline
+    "ORI-059": ("roof_type", "roof_type not in " + _roofs(TLOCK) + " and (roof_type not in " + _roofs(PANEL) + " or FACT(the metal panels are not corrugated))", "always", "metal panels are not corrugated",
+                "'corrugated metal, T-lock shingles' (round 35); the panel answer is a confirm (round 38d)"),
     "ORI-092": ("has_dogs", "FACT(no animal with a bite history or aggression)", DOGS, "bite history", ""),
     "ORI-102": money("dwelling_amount between 350000 and 2000000"),
     # ================= Swyfft Benchmark (Surplus) HO3
@@ -339,8 +341,8 @@ MAP = {
     "TWI-020": same_as("TWI-039", "plumbing_type"),
     "TWI-035": ("construction_type", MOBILE, "always", "", "prefabricated homes are not a form option"),
     # "wood, asbestos, slate, aluminum shake, metal tile/shake/shingle, corrugated metal roofs"
-    "TWI-037": ("roof_type", "roof_type not in " + _roofs(WOOD, ASBESTOS, "Slate", MSHINGLE, PANEL), "always", "",
-                "standing seam is eligible (round 35)"),
+    "TWI-037": ("roof_type", "roof_type not in " + _roofs(WOOD, ASBESTOS, "Slate", MSHINGLE) + " and (roof_type not in " + _roofs(PANEL) + " or FACT(the metal panels are not corrugated))", "always",
+                "metal panels are not corrugated", "standing seam is eligible (round 35); the panel answer is a confirm (round 38d)"),
     "TWI-055": same_as("TWI-037", "roof_type"), "TWI-057": same_as("TWI-037", "roof_type"),
     "TWI-042": ("occupancy_type", NOT_VACANT, "always", "", ""),
     "TWI-044": ("coastal_tier", "FACT(not on a barrier island)", TIER1, "barrier island", ""),

@@ -272,9 +272,10 @@ ROUND38_LOSS = {
     'FOD-036': 'losses_5yr in {0, 1} or (losses_5yr in {2} and loss_types none_of {Water, Fire, Other}) or FACT(fewer than 3 paid losses and fewer than 2 paid fire smoke water appliance water plumbing or accidental discharge losses in the last 5 years not counting WDR-1 or MDR-1 certified claims)',  # paid,weather_vs_nonweather,other: WDR-1 and MDR-1 certified losses do not count
     'FOR-106': 'losses_5yr in {0} or loss_types none_of {Fire, Other} or FACT(no paid fire or smoke loss in the past 5 years)',  # paid
     'FOR-107': 'losses_5yr in {0, 1, 2} or FACT(fewer than 3 paid losses in the past 5 years, not counting appliance-related water or mold losses with a WDR-1 or MDR-1 remediation certificate)',  # paid,remediated_or_open,other: appliance-related water and mold losses with a WDR-1/MDR-1 
-    # Round 38b (Liam, 2026-10-12: confirm unless the guide is clear). p.18: "Applicant/Insured with loss severity or
-    # multiple loss activity in the past five years may require approval" -- "may": a confirm, never a referral.
-    'FOR-121': 'losses_5yr in {0} or FACT(Foremost does not require approval for this loss history -- loss severity or multiple losses in the past 5 years may require it)',
+    # Round 38d (Liam, 2026-10-13, decision 1; was a confirm in round 38b): p.18 "Applicant/Insured with loss severity or
+    # multiple loss activity in the past five years may require approval" -- "may require approval" names an underwriting
+    # path (round 31 rule): 2 or more losses refer; one loss is a confirm on its severity
+    'FOR-121': 'losses_5yr in {0} or (losses_5yr in {1} and FACT(the one loss in the past 5 years was not a severe loss))',
     'MER-087': 'losses_5yr in {0} or (losses_5yr in {1} and loss_types none_of {Fire, Liability, Wind or hail, Theft, Other}) or loss_types none_of {Water, Fire, Liability, Theft, Other} or FACT(no paid non-weather loss to the home or personal possessions in the last 5 years other than a single non-weather water loss or remediated appliance water or mold losses)',  # paid,weather_vs_nonweather,remediated_or_open,other: a single non-weather water loss alone
     'MER-088': 'losses_5yr in {0, 1} or FACT(fewer than 2 paid losses to the home or personal possessions in the last 5 years, not counting remediated appliance water or mold losses)',  # paid,remediated_or_open,other: only losses to the home or personal possessions count
     'MKL-104': 'losses_5yr in {0} or loss_types none_of {Fire, Other} or FACT(no fire loss over $25000 in the past 5 years other than one caused by wildfire or lightning)',  # amount,other: fire excluding wildfire or lightning cause

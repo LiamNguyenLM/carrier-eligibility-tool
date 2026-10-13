@@ -408,6 +408,11 @@ def twico_roof_settlement(roof_type, roof_age):
         return "INSUFFICIENT_INFORMATION", [f"Roof type {roof_type!r} not found in TWICO's roof settlement table."]
     if "metal" in rt and "shingle" in rt and "standing" not in rt:
         return "INELIGIBLE", ["Metal shingle roofing is ineligible regardless of age."]
+    # Round 38d (Liam, 2026-10-13, decision 2): the form's bundled "Metal: corrugated / exposed-fastener / tin / aluminum
+    # panels" answer is a confirm naming "corrugated" (TWI-037), not a decline -- the guide names only corrugated
+    if "exposed-fastener" in rt:
+        return "CONFIRM", [f"TWICO lists corrugated metal roofs as ineligible; this roof is {roof_type!r}: confirm the "
+                           f"metal panels are not corrugated."]
     if any(k in rt for k in _TWICO_UNCONDITIONALLY_INELIGIBLE_KEYWORDS):
         return "INELIGIBLE", [f"{roof_type} is an ineligible roof material regardless of age."]
 
