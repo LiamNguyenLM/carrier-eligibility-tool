@@ -2678,6 +2678,23 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
      underwriting path. Centauri DP3 (CDP-053) has no such path and
      declines.
 
+- **2026-10-13 — Round 38d step 3: the live tests (Haiku 5.5 low, pilot +
+  three batches, placement ON, d63f0de, from a worktree via
+  ELIGIBILITY_DOTENV).**
+  - **Tier 2:** 29 passed, 0 failed, 7 xfailed (all long-standing); 46
+    checks, 11 min, $0.096.
+  - **Profiles (machine idle):**
+    - Liam's Harris HO3: 14.4 s, $0.003. 16 Eligible / 3 Not eligible / 6
+      Insufficient / 2 guide unavailable (the known mis-filed NatGen
+      Custom360 HO3 and Occidental HO3).
+    - LANDLORD: 8.1 s, $0.001. 6 / 2 Refer / 2 / 3; NatGen Custom360 DP3
+      Eligible.
+    - Harris + 1 water loss: 10.1 s. Travelers HO3 Refer (TRV-066,
+      "Losses: 1 in 5 yrs (water) ...").
+    - Harris + 1 theft loss: 7.8 s. Mercury HO3 Eligible, with the MER-087
+      confirm.
+  - Live spend for the round: about $0.11.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
