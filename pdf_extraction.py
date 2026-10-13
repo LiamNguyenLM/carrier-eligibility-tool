@@ -304,6 +304,8 @@ def load_guide_documents(pdf_path, table_settings=None):
     """(documents, source) for one guide PDF: "pdf", "pdf (text flow order)", or "ocr text".
     The one entry point for load_docs.py and upload_carrier.py."""
     name = os.path.basename(pdf_path)
+    if name in UPLOAD_PATH_FILES:                # round 39: hidden text dropped, one document per section
+        return load_upload_documents(pdf_path)[0], "pdf (upload path: visible text, sections)"
     flow = name in FLOW_ORDER_FILES
     docs = load_pdf_as_documents(pdf_path, table_settings=table_settings, text_flow=flow)
     if not any(d.page_content.strip() for d in docs) and os.path.exists(ocr_text_path(name)):
@@ -330,3 +332,186 @@ if __name__ == "__main__":
         print(f"--- page {d.metadata['page']} (is_table={d.metadata['is_table']}) ---")
         print(d.page_content)
         print()
+
+
+# --- Round 39 steps 2a / 2b (Liam, 2026-10-12): the upload path ----------------------------------------------------
+#
+# 2b. HIDDEN TEXT. "The Hartford HO3 10.12.2026.pdf" is an Excel export: page 1 carries ~1,300 characters of an auto
+#     guide ("MVR", "Vehicle", "PIP", "Accidents") in blue, stacked on one line and off the page's left edge, none of
+#     it visible on the rendered page. A character is dropped when it is not visible on the rendered page AND it is
+#     off the page, or not black/gray, or part of a run stacked on itself. Text that is merely under an image (black)
+#     is kept: Centauri DP3 has a version stamp under its logo, and its rules are in black text.
+# 2a. SECTIONS. A guide's own headings decide what a line means (the Hartford's "Swimming pool on premises -> Decline"
+#     is under "Rental Property Protection Plus", the landlord program, not the homeowners form). Each section becomes
+#     its own document, and every chunk of it starts with "[<heading>]", so the prompt shows the section.
+# Both run for every NEW upload (upload_carrier.add_carrier_to_database) and, on a full rebuild, for the files below;
+# every other guide on file is read exactly as before (its stored text is byte-identical).
+UPLOAD_PATH_FILES = {"The_Hartford_HO3_-_07.09.2026.pdf"}
+_RENDER_DPI = 144
+_VISIBLE_TOLERANCE = 90
+_STACKED = 1.3
+
+
+def _rgb(color):
+    if isinstance(color, (int, float)):
+        color = (color,)
+    if not isinstance(color, (tuple, list)) or not color:
+        return None
+    try:
+        color = tuple(float(x) for x in color)
+    except (TypeError, ValueError):
+        return None
+    if len(color) == 1:
+        return (color[0] * 255,) * 3
+    if len(color) == 3:
+        return tuple(x * 255 for x in color)
+    if len(color) == 4:
+        c, m, y, k = color
+        return tuple(255 * (1 - v) * (1 - k) for v in (c, m, y))
+    return None
+
+
+def _drawn(px, size, box, rgb):
+    """Is the character's own colour on the rendered page inside its box?"""
+    x0, y0, x1, y1 = box
+    for x in range(max(0, x0), min(size[0] - 1, x1) + 1):
+        for y in range(max(0, y0), min(size[1] - 1, y1) + 1):
+            p = px[x, y]
+            if ((p[0] - rgb[0]) ** 2 + (p[1] - rgb[1]) ** 2 + (p[2] - rgb[2]) ** 2) ** 0.5 < _VISIBLE_TOLERANCE:
+                return True
+    return False
+
+
+def hidden_chars(page):
+    """The page's characters that are not visible and are off-page, coloured or stacked (see 2b above)."""
+    W, H = page.width, page.height
+    chars = [c for c in page.chars if c.get("text", "").strip()]
+    hidden = {id(c) for c in chars if c["x1"] <= 0 or c["x0"] >= W or c["bottom"] <= 0 or c["top"] >= H}
+    groups = {}
+    for c in chars:
+        groups.setdefault((round(c["top"] / 2), str(c.get("non_stroking_color")), round(c["size"], 1)), []).append(c)
+    stacked = set()
+    for g in groups.values():
+        span = max(c["x1"] for c in g) - min(c["x0"] for c in g)
+        if len(g) >= 10 and span > 0 and sum(c["width"] for c in g) / span >= _STACKED:
+            stacked.update(id(c) for c in g)
+    def coloured(c):                        # not black or a gray: the colour channels differ
+        rgb = _rgb(c.get("non_stroking_color"))
+        return rgb is None or max(rgb) - min(rgb) > 30
+    suspects = [c for c in chars if id(c) not in hidden and (id(c) in stacked or coloured(c))]
+    if suspects:
+        img = page.to_image(resolution=_RENDER_DPI).original.convert("RGB")
+        px, sx, sy = img.load(), img.width / float(W), img.height / float(H)
+        for c in suspects:
+            rgb = _rgb(c.get("non_stroking_color"))
+            box = (int(c["x0"] * sx), int(c["top"] * sy), int(c["x1"] * sx) + 1, int(c["bottom"] * sy) + 1)
+            if rgb is None or not _drawn(px, img.size, box, rgb):
+                hidden.add(id(c))
+    return [c for c in chars if id(c) in hidden]
+
+
+def visible_page(page):
+    """(the page without its hidden characters, how many were dropped)."""
+    keys = {(c["x0"], c["top"], c["text"]) for c in hidden_chars(page)}
+    if not keys:
+        return page, 0
+    return page.filter(lambda o: not (o.get("object_type") == "char" and (o["x0"], o["top"], o["text"]) in keys)), len(keys)
+
+
+_HEADER_LINES = {"condition action", "condition", "action"}
+
+
+def _is_heading(line):
+    """A line that starts with a bold run and has nothing after it but a parenthetical: "Losses", "Rental Property
+    Protection Plus", "High Value Homes ($1,500,000+)" -- not "APPLIANCE RELATED LOSS MEANS: a loss arising ..."."""
+    chars = [c for c in line.get("chars", []) if c.get("text", "").strip()]
+    text = line["text"].strip()
+    if not chars or not (2 < len(text) <= 70) or not text[0].isupper():     # "in the counties of:" continues a line
+        return False
+    if text.lower() in _HEADER_LINES or text.lower().startswith("note"):
+        return False
+    n = 0
+    while n < len(chars) and "bold" in chars[n]["fontname"].lower():
+        n += 1
+    rest = "".join(c["text"] for c in chars[n:]).strip()
+    if n < 3:
+        return False
+    if not rest or rest.startswith("("):
+        return True
+    # a bold condition with its action on the same line ("Unfenced inground swimming pool  Decline"): a heading of
+    # its own, holding that line
+    return "row" if re.match(r"(Decline|Refer|Accept|Required|Coverage available|See )", rest) else False
+
+
+def section_documents(lines, page_index, boilerplate=frozenset(), first_page=False):
+    """One page's lines (pdfplumber extract_text_lines) as one Document per section: "[<heading>]" then its lines,
+    metadata section=<heading>. A page header repeated on most pages (boilerplate) is kept once, on the first page,
+    as "[Guide header]"; a heading wrapped over two lines is one heading; lines before a page's first heading
+    continue the last section of the page before (section_documents.last)."""
+    docs, heading, body, header = [], getattr(section_documents, "last", ""), [], []
+    prev_heading = False
+
+    def flush():
+        text = "\n".join(body).strip()
+        if text:
+            docs.append(Document(page_content=(f"[{heading}]\n" if heading else "") + text,
+                                 metadata={"page": page_index, "is_table": False, "section": heading}))
+    for line in lines:
+        text = line["text"].strip()
+        if text in boilerplate:
+            if first_page:
+                header.append(text)
+            continue
+        kind = _is_heading(line)
+        if kind == "row":
+            flush()
+            head = re.split(r"\s+(?=Decline|Refer|Accept|Required|Coverage available|See )", text, maxsplit=1)[0]
+            heading, body = head.strip().rstrip(":"), [line["text"]]
+            prev_heading = False
+            continue
+        if kind:
+            if prev_heading and not body:
+                heading = (heading + " " + text).rstrip(":")
+            else:
+                flush()
+                heading, body = text.rstrip(":"), []
+            prev_heading = True
+            continue
+        body.append(line["text"])
+        prev_heading = False
+    flush()
+    if header:
+        docs.insert(0, Document(page_content="[Guide header]\n" + "\n".join(header),
+                                metadata={"page": page_index, "is_table": False, "section": "Guide header"}))
+    section_documents.last = heading
+    return docs
+
+
+def load_upload_documents(path_or_fileobj):
+    """Round 39: the upload path -- hidden text dropped (2b), one Document per section (2a). Returns (docs, dropped)."""
+    pages, dropped = [], 0
+    with pdfplumber.open(path_or_fileobj) as pdf:
+        for page in pdf.pages:
+            page, n = visible_page(page)
+            dropped += n
+            pages.append(page.extract_text_lines())
+            page.flush_cache()
+    counts = {}
+    for lines in pages:
+        for t in {ln["text"].strip() for ln in lines}:
+            counts[t] = counts.get(t, 0) + 1
+    boilerplate = frozenset(t for t, n in counts.items() if len(pages) > 2 and n > len(pages) / 2)
+    docs = []
+    section_documents.last = ""
+    for i, lines in enumerate(pages):
+        docs.extend(section_documents(lines, i, boilerplate, first_page=(i == 0)))
+    return docs, dropped
+
+
+def section_prefixed(chunks):
+    """Every chunk of a section starts with its "[<heading>]" (the splitter keeps it only on the first piece)."""
+    for c in chunks:
+        s = c.metadata.get("section")
+        if s and not c.page_content.startswith(f"[{s}]"):
+            c.page_content = f"[{s}]\n" + c.page_content
+    return chunks

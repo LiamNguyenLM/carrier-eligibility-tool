@@ -124,8 +124,9 @@ def test_upload_and_remove_drop_the_cached_reads(fake, monkeypatch, write):
         assert upload_carrier.remove_carrier_from_database("B") == 2
     else:
         from langchain_core.documents import Document
-        monkeypatch.setattr(upload_carrier, "load_pdf_as_documents",
-                            lambda *a, **k: [Document(page_content="x " * 400, metadata={"page": 1})])
+        # round 39: an upload reads through load_upload_documents (hidden text dropped, sections) -> (docs, dropped)
+        monkeypatch.setattr(upload_carrier, "load_upload_documents",
+                            lambda *a, **k: ([Document(page_content="x " * 400, metadata={"page": 1})], 0))
         monkeypatch.setattr(upload_carrier, "chunk_documents", lambda docs, splitter: docs)
         assert upload_carrier.add_carrier_to_database(b"%PDF-1.4", "Zeta_HO3") == (1, None)
         assert any(m.get("carrier") == "Zeta_HO3" for _, m in fake.rows)

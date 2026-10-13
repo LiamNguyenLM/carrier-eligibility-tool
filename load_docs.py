@@ -10,7 +10,7 @@ from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_community.vectorstores import Chroma
 import os
 
-from pdf_extraction import load_guide_documents, chunk_documents
+from pdf_extraction import load_guide_documents, chunk_documents, section_prefixed
 
 PDF_FOLDER = "Carrier_Eligibility_PDFs"
 DB_FOLDER = "./carrier_docs_db"  # point this at a fresh folder (e.g. ./carrier_docs_db_v2) to re-index without overwriting the live DB
@@ -56,7 +56,7 @@ def main():
             print("  ERROR loading " + pdf_file + ": " + str(e))
             continue
 
-        chunks = chunk_documents(pages, splitter)
+        chunks = section_prefixed(chunk_documents(pages, splitter))   # round 39: no-op unless the file has sections
         chunks = [c for c in chunks if c.page_content.strip() and len(c.page_content.strip()) > 20]
         print("  Created " + str(len(chunks)) + " chunks")
 

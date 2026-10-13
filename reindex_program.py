@@ -18,7 +18,7 @@ from langchain_community.vectorstores import Chroma  # noqa: E402
 from langchain_text_splitters import RecursiveCharacterTextSplitter  # noqa: E402
 
 from load_docs import PDF_FOLDER, detect_lob  # noqa: E402
-from pdf_extraction import chunk_documents, load_guide_documents  # noqa: E402
+from pdf_extraction import chunk_documents, load_guide_documents, section_prefixed  # noqa: E402
 
 
 def reindex(db_folder, pdf_file):
@@ -28,7 +28,7 @@ def reindex(db_folder, pdf_file):
     before = store._collection.get(where={"carrier": program}, include=[])["ids"]
     pages, source = load_guide_documents(os.path.join(PDF_FOLDER, pdf_file))
     splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=75)
-    chunks = [c for c in chunk_documents(pages, splitter) if len(c.page_content.strip()) > 20]
+    chunks = [c for c in section_prefixed(chunk_documents(pages, splitter)) if len(c.page_content.strip()) > 20]
     for c in chunks:
         c.metadata.update(carrier=program, source_file=pdf_file, lob=detect_lob(pdf_file), state="TX")
         c.metadata.setdefault("is_table", False)

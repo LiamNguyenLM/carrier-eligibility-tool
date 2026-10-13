@@ -6,8 +6,8 @@ import gc
 
 from shared_resources import get_embeddings, get_vectorstore, DB_FOLDER
 import store_cache
-from pdf_extraction import (load_pdf_as_documents, chunk_documents, FLOW_ORDER_FILES, ocr_text_path,
-                            load_ocr_text_as_documents)
+from pdf_extraction import (load_pdf_as_documents, chunk_documents, FLOW_ORDER_FILES, ocr_text_path,  # noqa: F401
+                            load_ocr_text_as_documents, load_upload_documents, section_prefixed)
 
 
 def detect_lob_from_name(carrier_name):
@@ -39,8 +39,10 @@ def add_carrier_to_database(pdf_bytes, carrier_name):
         # fragments. See pdf_extraction.py for details.
         # Round 29 step 5: the overlapping-label guides read in text-flow order, and a
         # scanned guide falls back to its OCR text file (pdf_extraction.load_guide_documents).
+        # Round 39 steps 2a/2b: a new upload drops text not visible on the rendered page (the Hartford's page 1 held
+        # a hidden auto guide) and keeps each section's heading on its chunks (pdf_extraction.load_upload_documents).
         name = carrier_name + ".pdf"
-        pages = load_pdf_as_documents(tmp_path, text_flow=name in FLOW_ORDER_FILES)
+        pages, hidden_dropped = load_upload_documents(tmp_path)
         if not any(p.page_content.strip() for p in pages) and os.path.exists(ocr_text_path(name)):
             pages = load_ocr_text_as_documents(ocr_text_path(name))
     except Exception as e:
@@ -53,7 +55,7 @@ def add_carrier_to_database(pdf_bytes, carrier_name):
         chunk_size=500,
         chunk_overlap=75
     )
-    chunks = chunk_documents(pages, splitter)
+    chunks = section_prefixed(chunk_documents(pages, splitter))
 
     chunks = [c for c in chunks if c.page_content.strip() and len(c.page_content.strip()) > 20]
     if not chunks:
