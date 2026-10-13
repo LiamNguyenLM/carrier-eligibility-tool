@@ -2604,6 +2604,47 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     - the hold guard knows Progressive HO6's PH6 IDs;
     - add the missing confirms logged in Round 38 (findings F16).
 
+- **2026-10-12 — Round 38b (bc3c01e .. ), Liam's decisions applied.** Zero API.
+  Each commit had its own fast tier, an 8-way node split of the suite across
+  wt-shard1..8 (scratchpad r38b/fast8.sh). Verdict changes:
+  - Travelers TRV-066: 1 water loss -> Refer ("1 or more water damage
+    claim(s)").
+  - Mercury MER-087: one theft stays a confirm; the footnote counts only
+    "paid losses".
+  - Centauri DP3 CDP-053: unfenced pool -> Not eligible (no underwriting
+    path named).
+    - Progressive PDP-103 / PRO-051 have the same "approved alternate
+      enclosure" wording and still refer. For Liam.
+  - Chubb CHU-012 / CHU-111: decided on the roof shape. Built-up or
+    membrane on a Hip or Gable roof is a confirm.
+  - Centauri / Progressive DP3: a flat roof with shingle, tile or metal is
+    a confirm. structured_rules.centauri_dp3_flat_roof returns CONFIRM,
+    aligned with CDP-023.
+  - Mercury MER-005: "Corporation / partnership" is a confirm. Progressive
+    PRO-024 / PDP-098 / PH6-077: the metal-panel option is a confirm.
+    - CDP-021, ORI-059 and TWI-037 also name only "corrugated" and still
+      decline the panel answer. For Liam.
+  - Progressive PRO-012 / PDP-049 / PH6-028: a business trust refers.
+    Liberty LIB-048: an estate or trust owner is a confirm. Sage keeps
+    declining an estate.
+  - Chubb CHU-073: any loss in the last 3 years refers. Foremost FOR-121:
+    "may require approval" is a confirm. ARI's "All Other Losses" and
+    Liberty's "wind hazard area" stay confirms. Vave already counts
+    wind/hail as cat.
+  - **Display:**
+    - reasons lead with the failing answer ("Roof: Slate — ...");
+    - Chubb's tier-table citations cite the county's region page (p.14
+      lists; Harris "11-12");
+    - the hold guard knows PH6 IDs;
+    - NatGen Premier's closed citation has its page.
+  - **Tests:** verification/test_round38b_verdicts.py holds a zero-API test
+    for every change.
+  - **Fast tier per commit:** bc3c01e 4,989 passed / 0 failed; b4b8c3b 3 failed (two TopicForm app tests and the 50-writer test, run across
+    an overnight sleep; all pass alone); 35485c4 4,995/0; a584328 5,007/0; 9d22b65 1 failed (the MER-005 grid
+    row, updated in fce93d1 as its message says); fce93d1 5,015/0; e6d0ea4 5,022/0; 9d3a55b 5,027/0; 830bc86
+    5,032/0; 3898dcc 5,070/0; 6e91028 5,072 passed, 3 failed (three app tests across a 28-hour sleep; 3/3 pass
+    alone). Tier 2 not run (live API blocked).
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
