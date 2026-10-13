@@ -10,8 +10,8 @@ Then copy the store to carrier_docs_db_seed/ to re-seed."""
 import os
 import sys
 
-from dotenv import load_dotenv
-load_dotenv()
+from env_setup import load_env  # round 38d: ELIGIBILITY_DOTENV, else the .env here
+load_env()
 
 from langchain_community.embeddings import FastEmbedEmbeddings  # noqa: E402
 from langchain_community.vectorstores import Chroma  # noqa: E402

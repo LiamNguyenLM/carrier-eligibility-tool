@@ -2645,6 +2645,25 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     5,032/0; 3898dcc 5,070/0; 6e91028 5,072 passed, 3 failed (three app tests across a 28-hour sleep; 3/3 pass
     alone). Tier 2 not run (live API blocked).
 
+- **2026-10-13 — Round 38d step 1: API key for live tests (Liam).** Worktrees have no `.env` (it is git-ignored and lives only in the main
+  checkout). Liam set the Windows user variable `ELIGIBILITY_DOTENV` to the
+  main checkout's `.env`; `env_setup.load_env()` (used by app.py,
+  eligibility_check.py, load_docs.py, reindex_program.py, the root test
+  scripts and the verification scripts) loads that file when the variable is
+  set, otherwise `load_dotenv()` as before. Values already in the environment
+  win, so Railway is unchanged.
+  
+  - Never open, print, cat, copy, grep or summarise `.env` or any key, and
+    never echo `os.environ` values. Never put a key in a test, log, fixture
+    or commit.
+  - Never set `ANTHROPIC_API_KEY` in your own shell or in settings: Claude
+    Code would use it for its own login and bill the API credit instead of
+    Liam's seat.
+  - `python verification/check_api.py` makes one tiny Haiku call and prints
+    only "API OK: <model>, <n> tokens" or the error type.
+  - Zero-API runs (the fast tier) run without `ELIGIBILITY_DOTENV`, so no key
+    is loaded.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"

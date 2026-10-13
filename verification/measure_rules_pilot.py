@@ -14,8 +14,8 @@ sys.path.insert(0, os.path.join(HERE, ".."))
 sys.path.insert(0, HERE)
 os.chdir(os.path.join(HERE, ".."))
 
-from dotenv import load_dotenv  # noqa: E402
-load_dotenv(".env")
+from env_setup import load_env  # noqa: E402 -- round 38d: ELIGIBILITY_DOTENV, else ./.env
+load_env()
 
 import eligibility_check as ec  # noqa: E402
 from profiles import (STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE,  # noqa: E402

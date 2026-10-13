@@ -67,3 +67,24 @@ undisclosed failure rate. Either make the affected step deterministic
 times in a row and report the actual pass rate. "Occasionally gets
 distracted, not fully solved" belongs in a test assertion, not only in a
 prose summary.
+
+## API keys and live tests (Liam, 2026-10-13)
+
+Worktrees have no `.env` (it is git-ignored and lives only in the main
+checkout). Liam set the Windows user variable `ELIGIBILITY_DOTENV` to the
+main checkout's `.env`; `env_setup.load_env()` (used by app.py,
+eligibility_check.py, load_docs.py, reindex_program.py, the root test
+scripts and the verification scripts) loads that file when the variable is
+set, otherwise `load_dotenv()` as before. Values already in the environment
+win, so Railway is unchanged.
+
+- Never open, print, cat, copy, grep or summarise `.env` or any key, and
+  never echo `os.environ` values. Never put a key in a test, log, fixture
+  or commit.
+- Never set `ANTHROPIC_API_KEY` in your own shell or in settings: Claude
+  Code would use it for its own login and bill the API credit instead of
+  Liam's seat.
+- `python verification/check_api.py` makes one tiny Haiku call and prints
+  only "API OK: <model>, <n> tokens" or the error type.
+- Zero-API runs (the fast tier) run without `ELIGIBILITY_DOTENV`, so no key
+  is loaded.

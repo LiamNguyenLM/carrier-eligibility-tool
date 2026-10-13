@@ -2,8 +2,8 @@
 # (Or re-run into a fresh DB_FOLDER to rebuild after this pdfplumber upgrade
 #  -- see the migration notes in the accompanying README.)
 
-from dotenv import load_dotenv
-load_dotenv()
+from env_setup import load_env  # round 38d: ELIGIBILITY_DOTENV, else the .env here
+load_env()
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import FastEmbedEmbeddings

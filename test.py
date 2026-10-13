@@ -1,5 +1,5 @@
-from dotenv import load_dotenv
-load_dotenv()
+from env_setup import load_env  # round 38d: ELIGIBILITY_DOTENV, else the .env here
+load_env()
 
 import anthropic
 

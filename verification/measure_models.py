@@ -19,8 +19,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT)
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "verification"))
-from dotenv import load_dotenv  # noqa: E402
-load_dotenv(".env")
+from env_setup import load_env  # noqa: E402 -- round 38d: ELIGIBILITY_DOTENV, else ./.env
+load_env()
 import eligibility_check as ec  # noqa: E402
 import measure_rules_pilot as M  # noqa: E402
 import profiles as P  # noqa: E402

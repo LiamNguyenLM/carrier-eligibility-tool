@@ -1,4 +1,6 @@
 import streamlit as st
+
+from env_setup import load_env  # noqa: F401 -- round 38d: the shared .env loader, re-exported here
 from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_community.vectorstores import Chroma
 

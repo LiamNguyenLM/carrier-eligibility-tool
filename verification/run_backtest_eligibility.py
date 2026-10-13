@@ -161,8 +161,8 @@ def _worker_init(env):
     os.chdir(ROOT)
     sys.path.insert(0, ROOT)
     os.environ.update(env)
-    from dotenv import load_dotenv
-    load_dotenv(os.path.join(ROOT, ".env"))
+    from env_setup import load_env      # round 38d: ELIGIBILITY_DOTENV, else ROOT/.env
+    load_env()
     global _EC
     import eligibility_check
     _EC = eligibility_check
