@@ -43,4 +43,5 @@ Swyfft_-_Benchmark_(Surplus)_HO3
 Swyfft_-_Lloyds_(Surplus)_HO3
 Swyfft_-_Topa_(Surplus)_HO3
 TWICO_HO3
+The_Hartford_HO3_-_07.09.2026
 Travelers_HO3_-_06.12.2026
