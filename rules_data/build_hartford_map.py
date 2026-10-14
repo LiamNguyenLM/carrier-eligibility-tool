@@ -24,7 +24,6 @@ sys.path.insert(0, HERE)
 from build_rule_field_map import BUILT_UP, DOGS, MEMBRANE, ROLLED_ROOF, SEASONAL, WOOD, _breeds, _roofs  # noqa: E402
 from build_rule_field_map import ASBESTOS, NONE_NOTE  # noqa: E402
 from build_sage_batch_map import BATCH_NONE_NOTE, KINDS, kind  # noqa: E402
-from loss_electrical_lines import count  # noqa: E402
 
 RULES = os.path.join(HERE, "carrier_rules_hartford_v1.csv")
 OUT = os.path.join(HERE, "hartford_field_map.csv")
@@ -50,6 +49,18 @@ TWO_WATER_SAY = ("2 water losses: only acceptable if both were appliance-related
 # never left to the model. Facts with no form field read an always-on field (occupancy_type) so no topic skips them.
 OWNERS_HOME = ("occupancy_type", NOT_TENANT)            # the RPP+ row decides the same fact on a rental
 EVERY_HOME = ("occupancy_type", "always")
+
+
+def recent_type(kind, fact):
+    """A loss of `kind` in the 3 years. Fails when a loss in the 3 years is certainly of `kind`: every loss answered is
+    recent (1 of 1, 2 of 2), or every loss answered is of `kind`. A loss of `kind` that may be the older one, or an
+    "Other" loss, is a confirm. (The shared loss_electrical_lines.count reads any type among the 5-year losses as
+    recent -- step 5d, second reader; "every loss is of kind" -- step 5b, monotonic invariant.)"""
+    all_recent = "((losses_5yr in {1} and losses_3yr in {1}) or (losses_5yr in {2} and losses_3yr in {2}))"
+    others = ", ".join(t for t in ("Water", "Fire", "Liability", "Wind or hail", "Theft", "Other") if t != kind)
+    certain = f"({all_recent} or loss_types none_of {{{others}}})"
+    return (f"losses_3yr in {{0}} or (loss_types none_of {{{kind}, Other}}) or (not ({certain} and not (loss_types "
+            f"none_of {{{kind}}})) and FACT({fact}))")
 
 
 # p.8: "Breed is Pit Bull, Staffordshire Terrier, Presa Canario, Rottweiler or [a mix]" -- a closed list
@@ -100,12 +111,12 @@ MAP = {
                 "claims))", "always", "",
                 CONFIRM_NOTE + "; appliance and mold claims are water / other losses; exactly 2 water losses: "
                 "Liam's wording (2026-10-14)"),
-    "HAR-028": (LOSSES, count(3, 1, "the fire loss was more than 3 years ago", types=("Fire",)), "always", "",
-                CONFIRM_NOTE),
+    "HAR-028": (LOSSES, recent_type("Fire", "the fire loss was more than 3 years ago"), "always", "", CONFIRM_NOTE
+                + "; fails only when every loss is known to be in the 3 years (step 5d)"),
     "HAR-029": ("ppc;occupancy_type;" + LOSSES, "losses_3yr in {0}", "ppc_num >= 10 and " + NOT_TENANT, "",
                 CONFIRM_NOTE + "; a rental in class 10 is declined by HAR-074"),
-    "HAR-030": (LOSSES, count(3, 1, "the liability loss was more than 3 years ago", types=("Liability",)), "always",
-                "", CONFIRM_NOTE),
+    "HAR-030": (LOSSES, recent_type("Liability", "the liability loss was more than 3 years ago"), "always", "",
+                CONFIRM_NOTE + "; fails only when every loss is known to be in the 3 years (step 5d)"),
     # -- Number of families (p.4): Step 4 decides these from "Units in the building"
     "HAR-033": ("occupancy_type", "FACT(a 1- or 2-family dwelling)", NOT_TENANT, "number of families",
                 "owner's home; a rental: HAR-071"),

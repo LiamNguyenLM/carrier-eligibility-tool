@@ -88,6 +88,14 @@ CASES = [
     ("HAR-028", OWN, dict(LOSS, loss_types=["Fire"]), "FAIL"),
     ("HAR-028", OWN, dict(LOSS, loss_types=["Fire"], loss_year=2021, losses_3yr="0"), "PASS"),
     ("HAR-028", OWN, dict(LOSS, loss_types=["Water"]), "PASS"),
+    # step 5d (second reader): a fire / liability loss that may be more than 3 years old is a confirm, not a decline
+    ("HAR-028", OWN, dict(LOSS, losses_5yr="2", losses_3yr="1", loss_types=["Fire", "Water"]), "NOTE"),
+    ("HAR-028", OWN, dict(LOSS, losses_5yr="2", losses_3yr="2", loss_types=["Fire", "Water"]), "FAIL"),
+    ("HAR-030", OWN, dict(LOSS, losses_5yr="2", losses_3yr="1", loss_types=["Liability", "Theft"]), "NOTE"),
+    ("HAR-030", OWN, dict(LOSS, losses_5yr="2", losses_3yr="2", loss_types=["Liability", "Theft"]), "FAIL"),
+    # step 5b (monotonic invariant): every loss is a fire / liability loss -- the recent one is too
+    ("HAR-028", OWN, dict(LOSS, losses_5yr="2", losses_3yr="1", loss_types=["Fire"]), "FAIL"),
+    ("HAR-030", OWN, dict(LOSS, losses_5yr="3 or more", losses_3yr="1", loss_types=["Liability"]), "FAIL"),
     ("HAR-029", OWN, dict(LOSS, loss_types=["Theft"], ppc="9"), "N/A"),
     ("HAR-029", OWN, dict(LOSS, loss_types=["Theft"], ppc="10"), "FAIL"),
     ("HAR-029", OWN, dict(ppc="10"), "PASS"),
@@ -187,3 +195,12 @@ ONE_SIDED = {
                                      (dict(RENT, primary_home_carrier=""), "INSUFFICIENT_INFORMATION")])
 def test_the_base_profiles(pd, want):
     assert status(pd) == want
+
+
+@pytest.mark.xfail(strict=True, reason="the form does not say which loss had which type: one more loss in 5 years "
+                                       "(2 of 2 recent -> 3+ with 2 recent) makes a certain recent fire a maybe "
+                                       "(for Liam, round 39)")
+def test_one_more_old_loss_never_turns_a_fire_decline_into_a_confirm():
+    two = dict(OWN, **dict(LOSS, losses_5yr="2", losses_3yr="2", loss_types=["Fire", "Water"]))
+    assert status(two) == "INELIGIBLE"
+    assert status(dict(two, losses_5yr="3 or more")) == "INELIGIBLE"
