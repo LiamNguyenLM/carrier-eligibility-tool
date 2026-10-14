@@ -34,7 +34,7 @@ H, WB = "The_Hartford_HO3_-_07.09.2026", "The Hartford HO3"
 FMAP = rv._load("map", rv.HARTFORD_MAP_CSV)
 RPP_ROWS = {f"HAR-0{n}" for n in range(70, 78)}
 OCCUPANCY_GATED = {rid for rid, m in {**FMAP, "CFG-001": rv._map()["CFG-001"]}.items()
-                   if "occupancy_type" in (m["gate"] or "")}
+                   if "occupancy_type" in (m["gate"] or "") + (m["test"] or "")}     # HAR-058: in its test
 
 FACTORS = {
     "occupancy_type": ["Owner Occupied", "Seasonal", "Secondary Home", "Tenant Occupied"],

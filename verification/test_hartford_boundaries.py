@@ -136,6 +136,10 @@ CASES = [
     ("HAR-062", OWN, {"has_dogs": "Yes", "dog_breeds": [I.DOG_UNSURE]}, "OPEN"),
     ("HAR-062", OWN, {"has_dogs": "Yes", "dog_breeds": ["American Bully"]}, "NOTE"),        # step 5d
     ("HAR-062", OWN, {"has_dogs": "Yes", "dog_breeds": ["American Bull Terrier"]}, "NOTE"),
+    # p.8 Condition of Property (step 5d, second reader): an unfenced above-ground pool refers
+    ("HAR-058", OWN, {"swimming_pool": "Above Ground - Unfenced"}, "FAIL"),
+    ("HAR-058", OWN, {"swimming_pool": "In Ground - Fenced"}, "NOTE"),
+    ("HAR-058", RENT, {"swimming_pool": "Above Ground - Unfenced"}, "NOTE"),            # HAR-076 declines it
     ("HAR-063", OWN, {"has_dogs": "Yes", "dog_breeds": [I.DOG_NONE]}, "NOTE"),
     ("HAR-064", OWN, dict(LOSS, has_dogs="Yes", dog_breeds=[I.DOG_NONE], loss_types=["Liability"]), "NOTE"),
     ("HAR-064", OWN, dict(LOSS, has_dogs="Yes", dog_breeds=[I.DOG_NONE], loss_types=["Water"]), "PASS"),
@@ -191,6 +195,7 @@ ONE_SIDED = {
     "HAR-064": ("PASS", "no liability loss passes; a liability loss is a confirm (whether a dog caused it is not asked)"),
     "HAR-022": ("N/A", "an estate is always a confirm on the guide's exception (the settlement is not asked)"),
     "HAR-025": ("FAIL", "a corporate trust fails; any other trust is a confirm (its beneficiaries are not asked)"),
+    "HAR-058": ("FAIL", "an unfenced above-ground pool fails; the rest of the property's condition is a confirm"),
     "HAR-024": ("PASS", "a land trust is a confirm (whether it is in a person's name is not asked); a corporate trust "
                         "fails HAR-025 instead"),
 }

@@ -147,6 +147,11 @@ MAP = {
                 "American Bull Terrier} or FACT(the American Bully or Bull Terrier is not a pit bull type))", DOGS,
                 "pit bull type", "'or mix' of the four breeds; pit-bull-type breeds the form names are a confirm "
                 "(step 5d)"),
+    # -- Condition of Property (p.8): 'unfenced pools, hot tubs, ponds or trampolines' refer (step 5d, second reader);
+    # an unfenced in-ground pool on an owner's home is declined by HAR-060, any pool on a rental by HAR-076
+    "HAR-058": ("swimming_pool;occupancy_type", "(occupancy_type == Tenant Occupied or swimming_pool not in {Above Ground "
+                "- Unfenced}) and FACT(no unrepaired damage, poor upkeep, hot tub, pond or other unusual hazard)",
+                "always", "condition of the property", "an unfenced above-ground pool refers; the rest is not asked"),
     "HAR-063": ("has_dogs", "FACT(no dog has bitten anyone or shown undue aggressiveness)", DOGS, "bite history", ""),
     "HAR-064": ("has_dogs;" + LOSSES, "losses_5yr in {0} or loss_types none_of {Liability, Other} or FACT(no liability "
                 "loss was caused by a dog the insured still owns)", DOGS, "", CONFIRM_NOTE),

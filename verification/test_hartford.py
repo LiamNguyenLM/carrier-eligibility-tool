@@ -109,9 +109,13 @@ def test_c_an_unfenced_in_ground_pool_is_declined(check):
     _decides(check(dict(OWN, swimming_pool="In Ground - Unfenced", pool_accessories="None")), "INELIGIBLE", "HAR-060")
 
 
-def test_c_an_unfenced_above_ground_pool_is_not_the_in_ground_rule(check):
-    r = check(dict(OWN, swimming_pool="Above Ground - Unfenced", pool_accessories="None"))
-    assert r["status"] == "ELIGIBLE" and not _rows(r, "HAR-060"), r["reasons"]
+@pytest.mark.parametrize("pool", ["Above Ground - Unfenced"])
+def test_c_an_unfenced_above_ground_pool_refers_on_the_condition_of_property(check, pool):
+    """CHANGED DELIBERATELY (step 5d, second reader, 2026-10-14): p.8 Condition of Property lists unfenced pools
+    among the conditions that refer; HAR-060 declines only an unfenced IN-ground pool. Was Eligible."""
+    r = check(dict(OWN, swimming_pool=pool, pool_accessories="None"))
+    _decides(r, "REFER", "HAR-058")
+    assert not _rows(r, "HAR-060")
 
 
 # d. an LLC: Not eligible; a family trust with the grantor in residence: Eligible
@@ -365,7 +369,8 @@ def test_data_files_carry_their_source_header():
 
 def test_every_deciding_row_has_exactly_one_map_line_and_the_file_is_the_builders():
     deciding = {rid for rid, r in RULES.items() if r["Tool handling"] in rv.DECIDING}
-    assert len(RULES) == 85 and len(deciding) == 60 and set(FMAP) == deciding
+    # CHANGED DELIBERATELY (step 5d, 2026-10-14): HAR-058 (Condition of Property) decides an unfenced pool. Was 60.
+    assert len(RULES) == 85 and len(deciding) == 61 and set(FMAP) == deciding
     assert {r["Carrier"] for r in RULES.values()} == {"The Hartford HO3"}
     assert not set(RULES) & (set(rv._rules()) - set(RULES))           # ids never collide with another batch
     for rid, m in FMAP.items():
@@ -391,7 +396,8 @@ def test_coverage():
     # CHANGED DELIBERATELY (Liam, 2026-10-14): every deciding row has a line, a FACT(...) confirm where the form never
     # asks -- the 21 NONE rows got one (HAR-011 reads HAR-010's: the same fact). Was 18 / 19 / same rule 2 / NONE 21.
     # CHANGED (step 5d, second reader, 2026-10-14): HAR-062 gained a confirm FACT (pit-bull-type breeds). Was 18 / 39.
-    assert kinds == {"decided by a form field": 17, "gated-but-open": 40, "same rule as another row": 3}
+    # CHANGED (step 5d, second reader, 2026-10-14): HAR-058 (Condition of Property) is new. Was 17 / 40.
+    assert kinds == {"decided by a form field": 17, "gated-but-open": 41, "same rule as another row": 3}
 
 
 def test_no_deciding_row_is_left_to_the_model_or_the_also_confirm_list():
@@ -435,7 +441,8 @@ def test_the_general_rows_on_a_rental():
         "HAR-002", "HAR-003", "HAR-004", "HAR-005", "HAR-006", "HAR-007", "HAR-008", "HAR-009", "HAR-010", "HAR-011",
         "HAR-016", "HAR-017", "HAR-018", "HAR-021", "HAR-022", "HAR-023", "HAR-024", "HAR-025", "HAR-027", "HAR-028",
         "HAR-030", "HAR-035", "HAR-036", "HAR-040", "HAR-043", "HAR-045", "HAR-046", "HAR-048", "HAR-050", "HAR-051",
-        "HAR-052", "HAR-056", "HAR-061", "HAR-062", "HAR-063", "HAR-064", "HAR-065", "HAR-066", "HAR-067", "HAR-068"]
+        "HAR-052", "HAR-056", "HAR-058", "HAR-061", "HAR-062", "HAR-063", "HAR-064", "HAR-065", "HAR-066", "HAR-067",
+        "HAR-068"]
     # the rows an RPP+ row replaces (or that cannot apply to a rental) are gated off a rental
     for rid in ("HAR-013", "HAR-014", "HAR-015", "HAR-026", "HAR-029", "HAR-033", "HAR-034", "HAR-037", "HAR-038",
                 "HAR-042", "HAR-060"):
