@@ -95,8 +95,9 @@ MAP = {
                 + TWO_WATER + ") and loss_types none_of {Fire, Liability, Wind or hail, Theft} and FACT(the losses "
                 "beyond one are remediated appliance-related or mold claims, with Hartford form PC-327 or PC-326)) or "
                 "(losses_5yr in {3 or more} and losses_3yr in {2} and not (loss_types none_of {Fire, Liability, Wind "
-                "or hail, Theft}) and FACT(the fire, liability, wind or theft losses are more than 3 years old and the "
-                "2 recent ones are remediated appliance-related or mold claims))", "always", "",
+                "or hail, Theft}) and not (loss_types none_of {Water, Other}) and FACT(the fire, liability, wind or "
+                "theft losses are more than 3 years old and the 2 recent ones are remediated appliance-related or mold "
+                "claims))", "always", "",
                 CONFIRM_NOTE + "; appliance and mold claims are water / other losses; exactly 2 water losses: "
                 "Liam's wording (2026-10-14)"),
     "HAR-028": (LOSSES, count(3, 1, "the fire loss was more than 3 years ago", types=("Fire",)), "always", "",

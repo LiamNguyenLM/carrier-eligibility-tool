@@ -80,6 +80,11 @@ CASES = [
     ("HAR-027", OWN, dict(LOSS, losses_5yr="2", losses_3yr="2", loss_types=["Theft"]), "FAIL"),
     ("HAR-027", OWN, dict(LOSS, losses_5yr="2", losses_3yr="2", loss_types=["Water"]), "NOTE"),
     ("HAR-027", OWN, dict(LOSS, losses_5yr="2", losses_3yr="2"), "NOTE"),            # types blank: a confirm
+    # step 5b (monotonic invariant, 2026-10-14): one more loss in 5 years never turns a decline into a confirm -- with
+    # no water / other loss the 2 recent losses cannot be the appliance or mold exception
+    ("HAR-027", OWN, dict(LOSS, losses_5yr="3 or more", losses_3yr="2", loss_types=["Theft", "Wind or hail"]), "FAIL"),
+    ("HAR-027", OWN, dict(LOSS, losses_5yr="3 or more", losses_3yr="2", loss_types=["Fire", "Liability"]), "FAIL"),
+    ("HAR-027", OWN, dict(LOSS, losses_5yr="3 or more", losses_3yr="2", loss_types=["Water", "Theft"]), "NOTE"),
     ("HAR-028", OWN, dict(LOSS, loss_types=["Fire"]), "FAIL"),
     ("HAR-028", OWN, dict(LOSS, loss_types=["Fire"], loss_year=2021, losses_3yr="0"), "PASS"),
     ("HAR-028", OWN, dict(LOSS, loss_types=["Water"]), "PASS"),
