@@ -73,7 +73,10 @@ CASES = [
     ("HAR-024", OWN, {"ownership_type": "Trust", "trust_type": "Family trust"}, "PASS"),
     ("HAR-024", OWN, {"ownership_type": "Trust", "trust_type": "Unknown"}, "OPEN"),
     ("HAR-025", OWN, {"ownership_type": "Trust", "trust_type": "Corporate or business trust"}, "FAIL"),
-    ("HAR-025", OWN, {"ownership_type": "Trust", "trust_type": "Revocable living trust"}, "PASS"),
+    # CHANGED DELIBERATELY (step 5d, second reader, 2026-10-14): a family trust may still name a business beneficiary
+    # -- a confirm, no longer a pass
+    ("HAR-025", OWN, {"ownership_type": "Trust", "trust_type": "Revocable living trust"}, "NOTE"),
+    ("HAR-025", OWN, {"ownership_type": "Trust", "trust_type": "Family trust"}, "NOTE"),
     ("HAR-026", OWN, {"ownership_type": "Trust", "trust_type": "Family trust"}, "NOTE"),
     ("HAR-026", RENT, {"ownership_type": "Trust", "trust_type": "Family trust"}, "N/A"),
     ("HAR-027", OWN, dict(LOSS, losses_5yr="2", losses_3yr="1", loss_types=["Theft"]), "PASS"),
@@ -185,6 +188,7 @@ ONE_SIDED = {
     "HAR-036": ("FAIL", "an asbestos roof fails; any other roof is a confirm (other asbestos materials are not asked)"),
     "HAR-064": ("PASS", "no liability loss passes; a liability loss is a confirm (whether a dog caused it is not asked)"),
     "HAR-022": ("N/A", "an estate is always a confirm on the guide's exception (the settlement is not asked)"),
+    "HAR-025": ("FAIL", "a corporate trust fails; any other trust is a confirm (its beneficiaries are not asked)"),
     "HAR-024": ("PASS", "a land trust is a confirm (whether it is in a person's name is not asked); a corporate trust "
                         "fails HAR-025 instead"),
 }

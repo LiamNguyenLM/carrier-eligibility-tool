@@ -95,9 +95,9 @@ MAP = {
     "HAR-024": ("ownership_type;trust_type", "trust_type in {Family trust, Revocable living trust, Corporate or "
                 "business trust} or FACT(the trust is in the name of an individual or family)", TRUST,
                 "trust in an individual's or family's name", "a corporate trust is decided by HAR-025"),
-    "HAR-025": ("ownership_type;trust_type", "trust_type not in {Corporate or business trust} and (trust_type in "
-                "{Family trust, Revocable living trust} or FACT(no grantor or beneficiary of the trust is a business "
-                "or other non-individual))", TRUST, "grantor / beneficiaries", ""),
+    "HAR-025": ("ownership_type;trust_type", "trust_type not in {Corporate or business trust} and FACT(no grantor or "
+                "beneficiary of the trust is a business or other non-individual)", TRUST, "grantor / beneficiaries",
+                "step 5d (second reader): a family trust can still name a charity or company as a beneficiary"),
     "HAR-026": ("ownership_type;occupancy_type", "FACT(the grantor of the trust lives in the home)",
                 TRUST + " and " + NOT_TENANT, "grantor in residence",
                 "owner's home only: the tenant-occupied HO3 has no occupancy restriction (HAR-078)"),
