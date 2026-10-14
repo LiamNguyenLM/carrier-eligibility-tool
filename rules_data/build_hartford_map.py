@@ -143,7 +143,10 @@ MAP = {
     "HAR-060": ("swimming_pool;occupancy_type", "swimming_pool not in {In Ground - Unfenced}", NOT_TENANT, "",
                 "owner's home; any pool on a rental: HAR-076"),
     # -- Dogs (p.8)
-    "HAR-062": ("has_dogs;dog_breeds", "dog_breeds none_of " + BREEDS, DOGS, "", "'or mix' of the four breeds"),
+    "HAR-062": ("has_dogs;dog_breeds", "dog_breeds none_of " + BREEDS + " and (dog_breeds none_of {American Bully, "
+                "American Bull Terrier} or FACT(the American Bully or Bull Terrier is not a pit bull type))", DOGS,
+                "pit bull type", "'or mix' of the four breeds; pit-bull-type breeds the form names are a confirm "
+                "(step 5d)"),
     "HAR-063": ("has_dogs", "FACT(no dog has bitten anyone or shown undue aggressiveness)", DOGS, "bite history", ""),
     "HAR-064": ("has_dogs;" + LOSSES, "losses_5yr in {0} or loss_types none_of {Liability, Other} or FACT(no liability "
                 "loss was caused by a dog the insured still owns)", DOGS, "", CONFIRM_NOTE),

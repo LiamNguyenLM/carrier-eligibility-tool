@@ -134,6 +134,8 @@ CASES = [
     *[("HAR-062", OWN, {"has_dogs": "Yes", "dog_breeds": [b]}, "PASS") for b in ("Akita", "Chow Chow",
                                                                                   "Doberman Pinscher", I.DOG_NONE)],
     ("HAR-062", OWN, {"has_dogs": "Yes", "dog_breeds": [I.DOG_UNSURE]}, "OPEN"),
+    ("HAR-062", OWN, {"has_dogs": "Yes", "dog_breeds": ["American Bully"]}, "NOTE"),        # step 5d
+    ("HAR-062", OWN, {"has_dogs": "Yes", "dog_breeds": ["American Bull Terrier"]}, "NOTE"),
     ("HAR-063", OWN, {"has_dogs": "Yes", "dog_breeds": [I.DOG_NONE]}, "NOTE"),
     ("HAR-064", OWN, dict(LOSS, has_dogs="Yes", dog_breeds=[I.DOG_NONE], loss_types=["Liability"]), "NOTE"),
     ("HAR-064", OWN, dict(LOSS, has_dogs="Yes", dog_breeds=[I.DOG_NONE], loss_types=["Water"]), "PASS"),

@@ -390,7 +390,8 @@ def test_coverage():
     kinds = collections.Counter(builder.kind(builder.MAP.get(rid, ("NONE", "", "", "", ""))) for rid in FMAP)
     # CHANGED DELIBERATELY (Liam, 2026-10-14): every deciding row has a line, a FACT(...) confirm where the form never
     # asks -- the 21 NONE rows got one (HAR-011 reads HAR-010's: the same fact). Was 18 / 19 / same rule 2 / NONE 21.
-    assert kinds == {"decided by a form field": 18, "gated-but-open": 39, "same rule as another row": 3}
+    # CHANGED (step 5d, second reader, 2026-10-14): HAR-062 gained a confirm FACT (pit-bull-type breeds). Was 18 / 39.
+    assert kinds == {"decided by a form field": 17, "gated-but-open": 40, "same rule as another row": 3}
 
 
 def test_no_deciding_row_is_left_to_the_model_or_the_also_confirm_list():
