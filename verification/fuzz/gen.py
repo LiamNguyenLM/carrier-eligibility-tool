@@ -132,6 +132,15 @@ def profile(seed):
         checked = [k for k in keys if rng.random() < 0.7]
     else:
         checked = keys
+    # Round 39: a rental's questions (as app.py). Drawn last, so every earlier answer of a seed is unchanged.
+    if pd["occupancy_type"] == intake_fields.RENTAL_OCCUPANCY:
+        pd["primary_home_carrier"] = _pick(rng, intake_fields.PRIMARY_HOME_CHOICES,
+                                           None if edge else [4] + [1] * (len(intake_fields.PRIMARY_HOME_CHOICES) - 1))
+        for key, choices in (("rental_units_total", intake_fields.RENTAL_UNITS_CHOICES),
+                             ("rental_term", intake_fields.RENTAL_TERM_CHOICES)):
+            v = _pick(rng, choices)
+            if v:
+                pd[key] = v
     return pd, checked
 
 

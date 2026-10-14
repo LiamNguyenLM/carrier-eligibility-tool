@@ -50,7 +50,13 @@ DISPLAY = {
     "Swyfft_-_Lloyds_(Surplus)_HO3": "Swyfft Lloyds Surplus (HO3)",
     "Swyfft_-_Topa_(Surplus)_HO3": "Swyfft Topa Surplus (HO3)",
     "TWICO_HO3": "TWICO (HO3)",
+    "The_Hartford_HO3_-_07.09.2026": "The Hartford (HO3)",
     "Travelers_HO3_-_06.12.2026": "Travelers (HO3)",
+}
+# Round 39 step 1 (Liam, 2026-10-12, decision 1): a program written on another occupancy under its own name.
+# program -> {occupancy: name}. eligibility_check stamps the record ("display_name"); record_name reads it.
+OCCUPANCY_NAMES = {
+    "The_Hartford_HO3_-_07.09.2026": {"Tenant Occupied": "The Hartford (HO3 rental: Rental Property Protection Plus)"},
 }
 
 # Round 37 follow-up (Liam, 2026-10-11): the guides on file that are only a carrier's summary / quick-reference
@@ -80,6 +86,16 @@ def display_name(program):
     base = name[:form.start()] if form else name
     base = re.sub(r"[_]+", " ", base).replace(" - ", " ").strip(" -")
     return f"{base} ({form.group(1).replace('-', '').replace('_', ' / ')})" if form else base or program
+
+
+def occupancy_name(program, occupancy):
+    """The program's name for this occupancy, or None when it has no other name."""
+    return OCCUPANCY_NAMES.get(program or "", {}).get(occupancy)
+
+
+def record_name(rec):
+    """A result record's name on the page: the occupancy's name the check stamped, else the display name."""
+    return rec.get("display_name") or display_name(rec.get("carrier", ""))
 
 
 def guide_date(program):

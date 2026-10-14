@@ -1,0 +1,6 @@
+# source: CFIG's own underwriting experience -- rules the carriers' guides do not state. One row per entry: the rule
+# columns (as a rules table) and its map line (as a field map) together. Each entry names who said it and when.
+# Read by rules_evaluator (CFIG_KNOWLEDGE_CSV) for the carrier in the Carrier column, with that carrier's rows.
+# Round 39 (2026-10-13): the first entry (Liam's decision 2, 2026-10-12).
+Rule ID,Carrier,Topic,State,Effect,Plain rule,Check type,Value,Unit,Applies when,Exceptions / cure,Verbatim quote from guide,PDF page,Source,Tool handling,row_id,field,test,gate,outcome_if_fail,open_fact,map_note
+CFG-001,The Hartford HO3,POOL,RULE,DECLINES,"CFIG experience: The Hartford does not accept diving boards (Jonathan, 2026-10-12)",YES_NO,,,Home has a pool (not on a tenant-occupied home: HAR-076 declines any pool there),,,,"Jonathan, 2026-10-12 (recorded by Liam); the guide does not mention diving boards",EVALUATE,CFG-001,swimming_pool;pool_accessories;occupancy_type,"pool_accessories not in {Diving board only, Both slide and diving board}",swimming_pool not in {No Pool} and occupancy_type != Tenant Occupied,DECLINES,,"CFIG knowledge base, not the guide"

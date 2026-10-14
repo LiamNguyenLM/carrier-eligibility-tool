@@ -178,6 +178,14 @@ def answered(pd, rng):
         options.append(("harris_east_146", rng.choice(["Yes", "No"])))
     if pd.get("plumbing_type") == "Unknown":
         options.append(("plumbing_type", rng.choice(["Copper", "PVC", "Galvanized"])))
+    # round 39: the rental questions (a tenant-occupied home)
+    if pd.get("occupancy_type") == intake_fields.RENTAL_OCCUPANCY:
+        if intake_fields.primary_home_carrier(pd.get("primary_home_carrier")) is None:
+            options.append(("primary_home_carrier", rng.choice(["The Hartford", "Travelers", "Other carrier"])))
+        if pd.get("rental_units_total") in (None, "", "Unknown"):
+            options.append(("rental_units_total", rng.choice(["1-4", "5 or more"])))
+        if pd.get("rental_term") in (None, "", "Unknown"):
+            options.append(("rental_term", rng.choice(["Long-term", "Short-term"])))
     return rng.choice(options) if options else None
 
 
@@ -218,7 +226,8 @@ def c5_routing(pd, checked, base):
         if occ == "Owner Occupied" and DP_NAME.search(c):
             out.append(_fail("routing", c, {"occupancy": occ, "why": "dwelling-fire program on an owner's home"}))
         if occ in ("Tenant Occupied", "Vacant") and HO_NAME.search(c) and not (
-                pd.get("dwelling_type") == "Condo" and occ in ec.CONDO_UNIT_OCCUPANCIES.get(c, ())):
+                pd.get("dwelling_type") == "Condo" and occ in ec.CONDO_UNIT_OCCUPANCIES.get(c, ())) and not (
+                ec._rental_ho3_fits(c, occ, pd)):          # round 39: The Hartford's rental HO3 (RPP+)
             out.append(_fail("routing", c, {"occupancy": occ, "why": "homeowners program on a landlord home"}))
     return out
 

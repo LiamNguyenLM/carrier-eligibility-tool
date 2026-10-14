@@ -28,6 +28,7 @@ except Exception:
 
 from shared_resources import get_embeddings, get_vectorstore
 import data_defects
+import display_names
 import guides
 import intake_fields
 import quotes
@@ -158,6 +159,8 @@ RULES_BATCH_SWITCHES = {
     "sage": ("RULES_SAGE_BATCH", "Sage batch"),
     "ho3": ("RULES_HO3_BATCH", "HO3 batch"),
     "dp": ("RULES_DP_BATCH", "DP batch"),
+    # Round 39 step 1: The Hartford HO3 rides the HO3 batch's switch (no new Railway variable)
+    "hartford": ("RULES_HO3_BATCH", "Hartford"),
 }
 
 
@@ -1495,7 +1498,8 @@ def _fits_occupancy(carrier, occupancy, combined):
     is_ho, is_dp = carrier_programs(carrier)
     if occupancy == "Owner Occupied" and is_dp:
         return False
-    if occupancy != "Owner Occupied" and is_ho and not _owners_other_home_fits(carrier, occupancy):
+    if (occupancy != "Owner Occupied" and is_ho and not _owners_other_home_fits(carrier, occupancy)
+            and not _rental_ho3_fits(carrier, occupancy)):
         return False
     return True
 
@@ -1509,6 +1513,18 @@ OWNERS_OTHER_HOMES = ("Seasonal", "Secondary Home")
 
 def _owners_other_home_fits(carrier, occupancy):
     return occupancy in OWNERS_OTHER_HOMES and not _is_condo_program(carrier)
+
+
+# Round 39 step 1 (Liam, 2026-10-12, decision 1): CFIG writes The Hartford's tenant-occupied HO3, Rental Property
+# Protection Plus -- a rental the owner does not live in, covered only when the owner's own home is with The
+# Hartford (HAR-070). A tenant-occupied home is routed to it as to the DP programs; its RPP+ rows decide. Not a condo
+# unit: the guide writes a rented condominium on the HO6 form, which CFIG does not offer.
+RENTAL_HO3_OCCUPANCIES = {"The_Hartford_HO3_-_07.09.2026": ("Tenant Occupied",)}
+
+
+def _rental_ho3_fits(carrier, occupancy, property_details=None):
+    return (occupancy in RENTAL_HO3_OCCUPANCIES.get(carrier, ())
+            and (property_details is None or _dwelling_type(property_details) != "Condo"))
 
 
 # Round 30 step 4 (Liam, 2026-10-08, decision 4): a condo unit that is not owner-occupied goes to an
@@ -3600,6 +3616,12 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
     if fallback:
         for r in results:
             r["model_fallback"] = True
+    # Round 39 step 1: a program's name for this occupancy ("The Hartford (HO3 rental: Rental Property Protection
+    # Plus)" on a tenant-occupied check); the cards read it (display_names.record_name)
+    for r in results:
+        name = display_names.occupancy_name(r.get("carrier"), property_details.get("occupancy_type"))
+        if name:
+            r["display_name"] = name
     LAST_CHECK_INFO.clear()
     LAST_CHECK_INFO.update(model=ELIGIBILITY_MODEL, effort=ELIGIBILITY_EFFORT if not _is_openai_model(
         ELIGIBILITY_MODEL) else ELIGIBILITY_REASONING_EFFORT, fallback=fallback,
@@ -3732,6 +3754,9 @@ def _check_eligibility(property_details, carrier_subset=None, checked_topics=Non
     if _dwelling_type(property_details) == "Condo":
         relevant_carriers = sorted(set(relevant_carriers) | {
             c for c in get_all_carriers() if _condo_unit_fits(c, occupancy, property_details)})
+        # Round 39: a rented condo unit is not a Rental Property Protection Plus risk (HO6, not offered)
+        relevant_carriers = [c for c in relevant_carriers if c not in RENTAL_HO3_OCCUPANCIES
+                             or _rental_ho3_fits(c, occupancy, property_details)]
     # Carriers whose guide on file is unusable (data_defects: wrong document,
     # or none at all) are left out of the prompt entirely and shown as a fixed
     # warning row instead -- see _add_fixed_rows. Absent programs (Centauri
@@ -4225,7 +4250,8 @@ def _check_eligibility(property_details, carrier_subset=None, checked_topics=Non
             else:
                 is_ho3, is_dp3 = carrier_programs(name)
             if (occupancy != "Owner Occupied" and is_ho3 and not _owners_other_home_fits(canon or name, occupancy)
-                    and not _condo_unit_fits(canon or name, occupancy, property_details)):
+                    and not _condo_unit_fits(canon or name, occupancy, property_details)
+                    and not _rental_ho3_fits(canon or name, occupancy, property_details)):
                 continue
             if occupancy == "Owner Occupied" and is_dp3:
                 continue

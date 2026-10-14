@@ -52,6 +52,9 @@ FORM_FIELDS = {
     "primary_home_carrier": (r"(insures?|writes?|written|insured)\b.{0,40}\bprimary",
                              r"primary\b.{0,40}\b(insur|written|writes)", r"primary (home|residence|dwelling) carrier"),
     "primary_home_miles": (r"(distance|miles)\b.{0,30}\bprimary", r"primary\b.{0,30}\b(distance|miles)"),
+    # Round 39 step 1: asked for a tenant-occupied home
+    "rental_units_total": (r"rental units", r"units? (the owner|owned)", r"\bduplex\b"),
+    "rental_term": (r"short[- ]term", r"long[- ]term tenant", r"\b(nightly|weekly) rental", r"\blease\b"),
 }
 
 # Round 30 step 1 (Liam, 2026-10-08, decision 1): "Primary home insured with", shown only for a
@@ -67,11 +70,19 @@ PRIMARY_HOME_CARRIERS = {
     "Sage: Occidental": ("Sage_-_Occidental",), "Sage: SURE": ("Sage_-_SURE",),
     "Sage: SafePort": ("Sage_-_SafePort",), "Sage: Trium": ("Sage_-_Trium",), "Sage: Vave": ("Sage_-_Vave",),
     "Sage: Wilshire": ("Sage_-_Wilshire",), "Steadily": ("Steadily_",), "Swyfft": ("Swyfft_",),
-    "TWICO": ("TWICO_",), "Travelers": ("Travelers_",),
+    "TWICO": ("TWICO_",), "The Hartford": ("The_Hartford",), "Travelers": ("Travelers_",),
 }
 OTHER_CARRIER, UNKNOWN_CARRIER = "Other carrier", "Unknown"
 PRIMARY_HOME_CHOICES = ("",) + tuple(PRIMARY_HOME_CARRIERS) + (OTHER_CARRIER, UNKNOWN_CARRIER)
 OWNERS_OTHER_HOMES = ("Seasonal", "Secondary Home")
+# Round 39 step 1 (Liam, 2026-10-12): a tenant-occupied home asks where the owner's own home is insured (the same
+# primary_home_carrier answer, under its own label) and two optional rental questions. Blank / Unknown is unknown:
+# the owner's-home answer holds The Hartford's rental program (HAR-070) and decides nothing else today; the rental
+# questions are confirms (rules_evaluator.CONFIRM_FIELDS). Stored values hold no comma; labels may.
+RENTAL_OCCUPANCY = "Tenant Occupied"
+RENTAL_UNITS_CHOICES = ("", "1-4", "5 or more", "Unknown")
+RENTAL_TERM_CHOICES = ("", "Long-term", "Short-term", "Unknown")
+RENTAL_TERM_LABELS = {"Long-term": "Long-term tenant (lease)", "Short-term": "Short-term (nightly, weekly or monthly)"}
 
 
 def primary_home_label(program):

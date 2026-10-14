@@ -105,7 +105,7 @@ def _send_feedback(record, property_details, key, checked=None):
     feedback.append(feedback.record(record, property_details, st.session_state.get(f"fb_choice_{key}"),
                                     st.session_state.get(f"fb_comment_{key}", ""),
                                     name=st.session_state.get("tester_name", ""), model=model,
-                                    display_name=display_names.display_name(record.get("carrier", "")),
+                                    display_name=display_names.record_name(record),
                                     checked_topics=checked))
     st.session_state[f"fb_sent_{key}"] = True
 
@@ -254,6 +254,22 @@ with tab1:
             primary_home_miles = intake_fields.parse_primary_home_miles(st.text_input(
                 "Distance to the primary home (miles)", value="", key="primary_miles",
                 placeholder="e.g. 40 — leave blank if unknown"))
+        # Round 39 step 1 (Liam, 2026-10-12): a rental -- where the owner's own home is insured (The Hartford's
+        # rental program needs it there), how many rental units the owner has, and the rental term.
+        rental_units_total = rental_term = None
+        if occupancy_type == intake_fields.RENTAL_OCCUPANCY:
+            primary_home_carrier = st.selectbox(
+                "Where is the owner's own home insured?", list(intake_fields.PRIMARY_HOME_CHOICES),
+                key="owner_home_carrier", format_func=lambda v: v or "— pick one —",
+                help="The Hartford writes a rental (Rental Property Protection Plus) only when it insures the "
+                     "owner's own home. Blank holds The Hartford only.")
+            rental_units_total = st.selectbox(
+                "Rental units the owner has in total (a duplex counts as 2)",
+                list(intake_fields.RENTAL_UNITS_CHOICES), key="rental_units",
+                format_func=lambda v: v or "— optional —")
+            rental_term = st.selectbox(
+                "Rented to", list(intake_fields.RENTAL_TERM_CHOICES), key="rental_term",
+                format_func=lambda v: intake_fields.RENTAL_TERM_LABELS.get(v, v) or "— optional —")
 
     has_dogs = st.toggle("Dogs on Premises", key="dogs",
                          on_change=_autotick, args=("dogs", "dogs", False))
@@ -477,6 +493,13 @@ with tab1:
             if occupancy_type in intake_fields.OWNERS_OTHER_HOMES:
                 property_details["primary_home_carrier"] = primary_home_carrier or ""
                 property_details["primary_home_miles"] = primary_home_miles
+            # Round 39 step 1: the same answer for a rental, and the two rental questions (only when answered)
+            if occupancy_type == intake_fields.RENTAL_OCCUPANCY:
+                property_details["primary_home_carrier"] = primary_home_carrier or ""
+                if rental_units_total:
+                    property_details["rental_units_total"] = rental_units_total
+                if rental_term:
+                    property_details["rental_term"] = rental_term
             # Round 35 steps 3d-f: present only when the question was shown (the same reason).
             if ownership_type == "Trust":
                 property_details["trust_type"] = trust_type
@@ -529,7 +552,7 @@ with tab1:
             _not_checked = _early["unrecognised"] + _early["guide_unavailable"] + _early["not_evaluated"]
             if _not_checked:
                 st.warning(f"Could not check {len(_not_checked)} carrier{'s' if len(_not_checked) != 1 else ''}: "
-                           + ", ".join(display_names.display_name(r.get("carrier", "")) for r in _not_checked)
+                           + ", ".join(display_names.record_name(r) for r in _not_checked)
                            + " — see \"Could Not Be Checked\" at the bottom of the results.")
 
             # Round 37 step 1 (Liam, 2026-10-10): the questions to ask the client once, on the phone.
@@ -594,7 +617,7 @@ with tab1:
                     st.caption("No problem found on the checked items.")
                 if eligible:
                     for carrier in eligible:
-                        with st.expander(display_names.display_name(carrier["carrier"])):
+                        with st.expander(display_names.record_name(carrier)):
                             render_carrier(carrier)
                 else:
                     st.info("No carriers fully eligible.")
@@ -606,7 +629,7 @@ with tab1:
                 st.markdown("### Refer to Underwriting")
                 if refer:
                     for carrier in refer:
-                        with st.expander(display_names.display_name(carrier["carrier"])):
+                        with st.expander(display_names.record_name(carrier)):
                             render_carrier(carrier)
                 else:
                     st.info("No carriers to refer to underwriting.")
@@ -615,7 +638,7 @@ with tab1:
                 st.markdown("### Insufficient Information")
                 if insufficient_info:
                     for carrier in insufficient_info:
-                        with st.expander(display_names.display_name(carrier["carrier"])):
+                        with st.expander(display_names.record_name(carrier)):
                             render_carrier(carrier)
                 else:
                     st.info("No carriers pending missing information.")
@@ -624,7 +647,7 @@ with tab1:
                 st.markdown("### Not Eligible")
                 if not_eligible:
                     for carrier in not_eligible:
-                        with st.expander(display_names.display_name(carrier["carrier"])):
+                        with st.expander(display_names.record_name(carrier)):
                             render_carrier(carrier)
                 else:
                     st.success("No carriers fully ineligible.")

@@ -430,6 +430,9 @@ def card_items(rec, pd=None, checked=None):
             if reworded and key in _STILL_OPEN_RX:     # the clause about what is still open, not the answered one
                 quoted = next((c for c in re.split(r";\s", quoted) if _STILL_OPEN_RX[key].search(c)), quoted)
             text = f"{text} — guide: {_short(quoted)}"
+        says = [r["say"] for r in ranked if r.get("say")]      # round 39: wording Liam set (CARD_WORDING)
+        if says:
+            text = ask = " ".join(dict.fromkeys(says))
         items.append({"key": key, "text": text, "ask": ask, "effect": ranked[0].get("effect") or "",
                       "rows": sorted({r.get("row") for r in rules if r.get("row")}), "count": len(rules)})
 

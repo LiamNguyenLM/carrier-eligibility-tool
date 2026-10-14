@@ -90,7 +90,7 @@ def warning_line(rec):
     """A Could Not Be Checked row's one line: the carrier (its display name, round 36 step 5) and its reason."""
     import display_names
     reasons = [x for x in (rec.get("reasons") or []) if isinstance(x, str) and x.strip()]
-    return f"**{display_names.display_name(rec.get('carrier', ''))}** — " + (
+    return f"**{display_names.record_name(rec)}** — " + (
         agent_text(reasons[0]) if reasons else "could not be checked.")
 
 

@@ -1,0 +1,62 @@
+# source: rules_data/build_hartford_map.py over rules_data/carrier_rules_hartford_v1.csv (The Hartford HO3 version 1, reviewed by Claude); built 2026-10-13 (round 39 step 1). Grammar: rules_data/RULE_FIELD_MAP.md.
+row_id,field,test,gate,outcome_if_fail,open_fact,map_note
+HAR-002,dwelling_amount,dwelling_amount <= 2500000,always,DECLINES,,
+HAR-003,dwelling_amount,dwelling_amount <= 1500000,always,REFERS_TO_UW,,"'Coverage A greater than $1,500,000: Refer prior to binding'"
+HAR-004,losses_5yr;losses_3yr;loss_types,always,always,DECLINES,,"decided by HAR-027 (2+ losses in 3 years, every home)"
+HAR-005,dwelling_amount;ppc,ppc_num <= 8,dwelling_amount >= 1500000,DECLINES,,Protection Class 9 or 10 (incl. 10W)
+HAR-006,dwelling_amount,FACT(an active central fire and burglar alarm),dwelling_amount >= 1500000,DECLINES,central alarm,High Value Homes only; the alarm is not asked
+HAR-007,electrical,FACT(the electrical service is at least 100 amps),always,DECLINES,service amps,service amps are not asked; fuses and wiring: HAR-008 / HAR-009
+HAR-008,electrical,"electrical none_of {Knob-and-tube wiring, Aluminum branch wiring}",always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
+HAR-009,electrical,electrical none_of {Fuses},always,DECLINES,,round 37 step 4: decided from the electrical question; blank or Unknown is a confirm
+HAR-010,occupancy_type,FACT(a thermostatically controlled central heat source heats the whole home),always,DECLINES,central heat,heating is not asked; thermostatic electric baseboard heat in every room counts
+HAR-011,occupancy_type,always,always,DECLINES,,decided by HAR-010 (the same fact: a central heat source)
+HAR-013,occupancy_type,"FACT(no wood, coal or pellet stove in a Protection Class 10 home)",occupancy_type != Tenant Occupied,DECLINES,wood stove,"stoves are not asked; not gated on PPC, so a blank PPC never holds; a rental: HAR-075"
+HAR-014,occupancy_type,"FACT(any wood, coal or pellet stove was professionally installed or approved by a Fire Marshal or qualified professional)",occupancy_type != Tenant Occupied,DECLINES,wood stove installation,a rental: HAR-075
+HAR-015,occupancy_type,"FACT(any wood, coal or pellet stove is professionally cleaned every year, flue and chimney included)",occupancy_type != Tenant Occupied,DECLINES,wood stove cleaning,a rental: HAR-075
+HAR-016,roof_shape,roof_shape != Flat,always,DECLINES,,'Flat Roofs: Decline'
+HAR-017,roof_type,"roof_type not in {Wood shake / wood shingle, Rolled roofing, Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)} and (roof_type not in {Other} or FACT(the roof is not foam))",always,DECLINES,foam roof,built-up / hot mopped and rock or gravel are the Built-up option; rubber/membrane the Membrane one
+HAR-018,dwelling_amount,FACT(Coverage A is at least 100% of the replacement cost),always,DECLINES,insurance to value,the replacement cost is not asked
+HAR-021,ownership_type,FACT(fewer than three unrelated individuals own the home),ownership_type == Individual Owner,REFERS_TO_UW,number of owners,the number of owners is not asked
+HAR-022,ownership_type,FACT(the resident applicant will own the home when the estate is settled),ownership_type == Estate,DECLINES,estate settlement,the guide names the exception
+HAR-023,ownership_type,"ownership_type not in {LLC, Corporation / partnership}",always,DECLINES,,"'A business, LLC or other non-individual'; trusts and estates: their own rows"
+HAR-024,ownership_type;trust_type,"trust_type in {Family trust, Revocable living trust, Corporate or business trust} or FACT(the trust is in the name of an individual or family)",ownership_type == Trust,DECLINES,trust in an individual's or family's name,a corporate trust is decided by HAR-025
+HAR-025,ownership_type;trust_type,"trust_type not in {Corporate or business trust} and (trust_type in {Family trust, Revocable living trust} or FACT(no grantor or beneficiary of the trust is a business or other non-individual))",ownership_type == Trust,DECLINES,grantor / beneficiaries,
+HAR-026,ownership_type;occupancy_type,FACT(the grantor of the trust lives in the home),ownership_type == Trust and occupancy_type != Tenant Occupied,DECLINES,grantor in residence,owner's home only: the tenant-occupied HO3 has no occupancy restriction (HAR-078)
+HAR-027,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1} or (losses_3yr in {2} and loss_types none_of {Fire, Liability, Wind or hail, Theft, Other} and FACT(2 water losses: only acceptable if both were appliance-related and remediated, with Hartford form PC-327; otherwise Not eligible)) or (not (losses_3yr in {2} and loss_types none_of {Fire, Liability, Wind or hail, Theft, Other}) and loss_types none_of {Fire, Liability, Wind or hail, Theft} and FACT(the losses beyond one are remediated appliance-related or mold claims, with Hartford form PC-327 or PC-326)) or (losses_5yr in {3 or more} and losses_3yr in {2} and not (loss_types none_of {Fire, Liability, Wind or hail, Theft}) and FACT(the fire, liability, wind or theft losses are more than 3 years old and the 2 recent ones are remediated appliance-related or mold claims))",always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm; appliance and mold claims are water / other losses; exactly 2 water losses: Liam's wording (2026-10-14)
+HAR-028,losses_5yr;losses_3yr;loss_types,losses_3yr in {0} or (loss_types none_of {Fire} and (loss_types none_of {Other} or FACT(the fire loss was more than 3 years ago))),always,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+HAR-029,ppc;occupancy_type;losses_5yr;losses_3yr;loss_types,losses_3yr in {0},ppc_num >= 10 and occupancy_type != Tenant Occupied,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm; a rental in class 10 is declined by HAR-074
+HAR-030,losses_5yr;losses_3yr;loss_types,losses_3yr in {0} or (loss_types none_of {Liability} and (loss_types none_of {Other} or FACT(the liability loss was more than 3 years ago))),always,REFERS_TO_UW,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+HAR-033,occupancy_type,FACT(a 1- or 2-family dwelling),occupancy_type != Tenant Occupied,DECLINES,number of families,owner's home; a rental: HAR-071
+HAR-034,occupancy_type,FACT(no more than 2 boarders or roomers per family),occupancy_type != Tenant Occupied,DECLINES,boarders,a note under Number of Families (an owner-occupied qualifying dwelling)
+HAR-035,construction_type,"FACT(not of unique construction: earth, straw bale, geodesic dome, log, houseboat or underground)",always,DECLINES,unique construction,'including but not limited to'
+HAR-036,roof_type,roof_type not in {Asbestos shingle} and FACT(no other asbestos building materials),always,DECLINES,asbestos materials,an asbestos roof decides; other materials are not asked
+HAR-037,occupancy_type,"FACT(no business or farming is conducted from the premises, working from home for an employer aside)",occupancy_type != Tenant Occupied,DECLINES,business on the premises,a rental: HAR-073
+HAR-038,occupancy_type,FACT(no day care on the premises),occupancy_type != Tenant Occupied,DECLINES,day care,a rental: HAR-073
+HAR-040,construction_type,FACT(no mobile home or trailer on the property as an other structure),always,DECLINES,mobile home or trailer on the property,
+HAR-042,occupancy_type,"FACT(the home is not under construction, or it is built by a professional contractor, completed within 120 days and occupied by the applicant on completion)",occupancy_type != Tenant Occupied,CONDITION,under construction,construction status is not asked; the applicant occupies it: an owner's home
+HAR-043,construction_type,"FACT(not elevated on piers or pilings, and no open foundation)",always,DECLINES,foundation,the foundation is not asked
+HAR-045,occupancy_type,occupancy_type != Vacant,always,DECLINES,,
+HAR-046,occupancy_type;rental_term,rental_term not in {Short-term},occupancy_type == Tenant Occupied,DECLINES,,the rental term is asked for a tenant-occupied home; blank or Unknown is a confirm
+HAR-048,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,
+HAR-050,construction_type,"FACT(not a modular home that ever had a vehicle registration, axles, I-beams, steel under-framing or a HUD plate)",construction_type != Manufactured/Mobile,DECLINES,modular home history,a manufactured home: HAR-048
+HAR-051,county,FACT(not exposed to brush or forest fire or to wavewash),always,DECLINES,brush fire / wavewash,
+HAR-052,coastal_tier;county,FACT(more than 2000 feet from the coastline and not on a barrier island),"coastal_tier == Tier 1 or county in {Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Jefferson, Kenedy, Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy}",DECLINES,distance to the coastline,"the guide's Tier I counties, or the form's Tier 1"
+HAR-056,county,FACT(no roof characteristics subject to excessive hail exposure),"county in {Collin, Dallas, Denton, Ellis, Grayson, Hood, Hunt, Johnson, Kaufman, Parker, Rockwall, Somervell, Tarrant, Wise}",DECLINES,roof hail exposure,the guide does not say which roof characteristics: a confirm
+HAR-059,occupancy_type;primary_home_carrier,primary_home_carrier in {The Hartford},"occupancy_type in {Seasonal, Secondary Home}",DECLINES,primary home with The Hartford,the form's 'Primary home insured with'
+HAR-060,swimming_pool;occupancy_type,swimming_pool not in {In Ground - Unfenced},occupancy_type != Tenant Occupied,DECLINES,,owner's home; any pool on a rental: HAR-076
+HAR-061,occupancy_type,"FACT(no trampoline, or it has safety netting)",always,DECLINES,trampoline,
+HAR-062,has_dogs;dog_breeds,"dog_breeds none_of {Pit Bull (American Pit Bull Terrier), American Staffordshire Terrier, Staffordshire Bull Terrier, Presa Canario, Rottweiler}",has_dogs == Yes,DECLINES,,'or mix' of the four breeds
+HAR-063,has_dogs,FACT(no dog has bitten anyone or shown undue aggressiveness),has_dogs == Yes,DECLINES,bite history,
+HAR-064,has_dogs;losses_5yr;losses_3yr;loss_types,"losses_5yr in {0} or loss_types none_of {Liability, Other} or FACT(no liability loss was caused by a dog the insured still owns)",has_dogs == Yes,DECLINES,,round 37 step 4: decided from the losses questions; blank or Unknown is a confirm
+HAR-065,occupancy_type,FACT(no prior Hartford policy of the applicant was cancelled for non-payment in the past 12 months),always,DECLINES,prior Hartford cancellation,
+HAR-066,occupancy_type,"FACT(the risk was not declined, cancelled or non-renewed by Hartford underwriting in the past 12 months)",always,DECLINES,prior Hartford decline,
+HAR-067,occupancy_type,FACT(the risk was not declined for reinstatement in the past 12 months),always,DECLINES,reinstatement,
+HAR-068,occupancy_type,FACT(the customer owes The Hartford no earned premium),always,DECLINES,earned premium,
+HAR-070,occupancy_type;primary_home_carrier,primary_home_carrier in {The Hartford},occupancy_type == Tenant Occupied,DECLINES,owner's home with The Hartford,the form's 'Where is the owner's own home insured?' (a hold when blank)
+HAR-071,occupancy_type,FACT(a 1- or 2-family dwelling),occupancy_type == Tenant Occupied,DECLINES,number of families,
+HAR-072,occupancy_type;rental_term,always,occupancy_type == Tenant Occupied,DECLINES,,decided by HAR-046 (the rental term)
+HAR-073,occupancy_type,"FACT(no business, day care or farming on the premises)",occupancy_type == Tenant Occupied,DECLINES,business on the premises,an owner's home: HAR-037 / HAR-038
+HAR-074,occupancy_type;ppc,ppc_num <= 9,occupancy_type == Tenant Occupied,DECLINES,,Protection Class 10 (incl. 10W)
+HAR-075,occupancy_type,"FACT(no wood, coal or pellet stove)",occupancy_type == Tenant Occupied,DECLINES,wood stove,
+HAR-076,occupancy_type;swimming_pool,swimming_pool in {No Pool},occupancy_type == Tenant Occupied,DECLINES,,'Swimming pool on premises (in or above ground)'
+HAR-077,occupancy_type;rental_units_total,rental_units_total not in {5 or more},occupancy_type == Tenant Occupied,DECLINES,,the form's 'Rental units the owner has in total'; blank or Unknown is a confirm

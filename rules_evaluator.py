@@ -61,6 +61,13 @@ HO3_BATCH_MAP_CSV = os.path.join(HERE, "rules_data", "ho3_batch_field_map.csv")
 # eligibility_check.RULES_DP_BATCH is on.
 DP_BATCH_RULES_CSV = os.path.join(HERE, "rules_data", "carrier_rules_remaining_v1.csv")
 DP_BATCH_MAP_CSV = os.path.join(HERE, "rules_data", "remaining_batch_field_map.csv")
+# Round 39 step 1 (2026-10-13): The Hartford HO3, its own batch, switched by the HO3 batch's flag
+# (eligibility_check.RULES_BATCH_SWITCHES: no new Railway variable).
+HARTFORD_RULES_CSV = os.path.join(HERE, "rules_data", "carrier_rules_hartford_v1.csv")
+HARTFORD_MAP_CSV = os.path.join(HERE, "rules_data", "hartford_field_map.csv")
+# Round 39 (Liam's decision 2, 2026-10-12): CFIG's own experience -- rules a carrier's guide does not state. One file,
+# each row both a rule and its map line, read with the rows of the carrier it names (rules_data/cfig_knowledge.csv).
+CFIG_KNOWLEDGE_CSV = os.path.join(HERE, "rules_data", "cfig_knowledge.csv")
 
 # workbook carrier name -> pipeline carrier
 PILOT_CARRIERS = {
@@ -92,6 +99,7 @@ HO3_BATCH_CARRIERS = {
     "TWICO HO3": "TWICO_HO3",
     "Travelers Quantum Home 2.0": "Travelers_HO3_-_06.12.2026",
 }
+HARTFORD_CARRIERS = {"The Hartford HO3": "The_Hartford_HO3_-_07.09.2026"}
 # An owner's own home (round 29 decision 2): the occupancies a homeowners program sees.
 OWNERS_HOMES = ("Owner Occupied", "Seasonal", "Secondary Home")
 # The remaining batch (round 29 step 8). NatGen Premier Dwelling Fire (NPD) is not here: it is
@@ -139,6 +147,9 @@ BATCHES = {
            "scope": {"Foremost Dwelling Fire (TDP-3)": NOT_OWNERS_HOMES},
            # workbook carrier -> (the other workbook carrier whose rows it also reads, which of them)
            "shares": {"Foremost Dwelling Fire (TDP-3)": ("Foremost Choice Homeowners", _foremost_shared)}},
+    # Round 39: the HO3 and its tenant-occupied HO3 (Rental Property Protection Plus) in one table; the RPP+ rows are
+    # gated on a tenant-occupied home (rules_data/build_hartford_map.py)
+    "hartford": {"rules": HARTFORD_RULES_CSV, "map": HARTFORD_MAP_CSV, "carriers": HARTFORD_CARRIERS},
 }
 WB_TO_CANON = {wb: canon for b in BATCHES.values() for wb, canon in b["carriers"].items()}
 CANON_TO_WB = {}
@@ -156,6 +167,7 @@ FIELD_TOPIC = {   # map field -> round 21 topic (always-on fields -> None)
     "occupancy_type": None, "ownership_type": None, "dwelling_type": None,
     "fire_station_miles": "ppc", "hydrant_1000ft": "ppc",     # round 26, decision B
     "primary_home_carrier": None, "primary_home_miles": None,  # round 30 step 1 (with occupancy)
+    "rental_units_total": None, "rental_term": None,           # round 39: asked for a tenant-occupied home
 }
 # Round 30 step 2, class (c): rows Liam decided by name stay HOLDS even when they are open only on
 # a fact the form never asks.
@@ -181,9 +193,11 @@ BLANK_IS_NOTE = {"dwelling_amount", "county", "zip", "sage_territory", "south_of
 # Round 37 step 4 (Liam, 2026-10-10): the losses and electrical questions. Blank or Unknown is a "Confirm:" note,
 # never a hold -- alone, and also when the row is open on a FACT besides.
 CONFIRM_FIELDS = {"losses_5yr", "losses_3yr", "loss_types", "electrical"}
+# Round 39 step 1 (Liam, 2026-10-12): the rental questions for a tenant-occupied home; blank or Unknown is a confirm.
+CONFIRM_FIELDS |= {"rental_units_total", "rental_term"}
 BLANK_IS_NOTE = BLANK_IS_NOTE | CONFIRM_FIELDS
 BLANK_LABEL = {"dwelling_amount": "Coverage A", "losses_5yr": "losses", "losses_3yr": "losses", "loss_types": "losses",
-               "electrical": "electrical"}
+               "electrical": "electrical", "rental_units_total": "rental units owned", "rental_term": "rental term"}
 
 
 # --------------------------------------------------------------------------- data
@@ -297,6 +311,7 @@ def _rules():
         for name, b in BATCHES.items():
             if name not in ("pilot", "sage"):
                 out.update(_load("rules", b["rules"]))
+        out.update(_load("rules", CFIG_KNOWLEDGE_CSV))
         _CACHE["all_rules"] = out
     return _CACHE["all_rules"]
 
@@ -307,6 +322,7 @@ def _map():
         for name, b in BATCHES.items():
             if name not in ("pilot", "sage"):
                 out.update(_load("map", b["map"]))
+        out.update(_load("map", CFIG_KNOWLEDGE_CSV))
         _CACHE["all_map"] = out
     return _CACHE["all_map"]
 
@@ -365,6 +381,9 @@ def facts(pd, today=None):
     # Round 30 step 1 (decision 1): asked only for a Seasonal / Secondary Home; blank / Unknown is unknown.
     f["primary_home_carrier"] = intake_fields.primary_home_carrier(pd.get("primary_home_carrier"))
     f["primary_home_miles"] = intake_fields.parse_primary_home_miles(pd.get("primary_home_miles"))
+    # Round 39 step 1: asked only for a tenant-occupied home; blank / Unknown is unknown (a confirm: CONFIRM_FIELDS)
+    f["rental_units_total"] = intake_fields.answer(pd.get("rental_units_total"))
+    f["rental_term"] = intake_fields.answer(pd.get("rental_term"))
     for box in ("pool_fence_4ft", "pool_gate_locking"):      # unticked = unknown, never "no"
         f[box] = True if intake_fields.pool_box(pd, box) else None
     return f
@@ -657,10 +676,17 @@ def chubb_region_page(county):
 def citation(r, property_details=None):
     """The citation code attaches for a row: id + page + the workbook quote. property_details (round 38b): a Chubb
     tier-table row cites the county's region page."""
+    if is_cfig(r):       # round 39: CFIG's experience, not the guide's words
+        return f"{WB_TO_CANON[r['Carrier']]}: [{r['Rule ID']}] CFIG knowledge base: \"{r['Plain rule']}\""
     page = _page(r)
     if property_details is not None and r["Carrier"] == "Chubb HO" and str(page) == "10":
         page = chubb_region_page(property_details.get("county"))
     return f"{WB_TO_CANON[r['Carrier']]}: [{r['Rule ID']}] p.{page}: \"{r['Verbatim quote from guide']}\""
+
+
+def is_cfig(r):
+    """A row of the CFIG knowledge base (rules_data/cfig_knowledge.csv), not of a guide."""
+    return r["Rule ID"].startswith("CFG-")
 
 
 def evaluate_carrier(canon, pd, checked=None, wb=None):
@@ -704,6 +730,14 @@ def also_confirm(canon, outcomes):
     return notes
 
 
+# Round 39 (Liam, 2026-10-14): confirms whose wording Liam set. row -> the FACT(...) text of its map line; when the
+# row is a confirm on exactly that fact, the card shows the text as written instead of its topic's question.
+CARD_WORDING = {
+    "HAR-027": "2 water losses: only acceptable if both were appliance-related and remediated, with Hartford form "
+               "PC-327; otherwise Not eligible",
+}
+
+
 def confirm_items(canon, outcomes):
     """Round 37 step 1: also_confirm's rows as data, for the card's "Before you quote, confirm:" list
     (confirm_topics): [{row, category, effect, rule, kind}], kind "not_asked" (a NONE row, or a NOTE on a fact
@@ -720,7 +754,11 @@ def confirm_items(canon, outcomes):
         else:
             continue
         r = rules[rid]
-        out.append({"row": rid, "category": r["Topic"], "effect": r["Effect"], "rule": r["Plain rule"], "kind": kind})
+        item = {"row": rid, "category": r["Topic"], "effect": r["Effect"], "rule": r["Plain rule"], "kind": kind}
+        say = CARD_WORDING.get(rid)
+        if say and d == "confirm: " + say:
+            item["say"] = say + "."              # the card shows it word for word (confirm_topics.card_items)
+        out.append(item)
     for r in rules.values():
         if r["Carrier"] == wb and r["Tool handling"] == "CONDITION_STANDARD":
             out.append({"row": r["Rule ID"], "category": r["Topic"], "effect": r["Effect"], "rule": r["Plain rule"],
@@ -737,6 +775,7 @@ _ANSWER_LABEL = {
     "coastal_tier": "Coastal tier", "ppc": "PPC", "hydrant_1000ft": "Hydrant within 1,000 ft",
     "dwelling_type": "Dwelling", "swimming_pool": "Pool", "pool_accessories": "Pool extras", "solar_type": "Solar",
     "primary_home_carrier": "Primary home with", "harris_east_146": "East of Hwy 146",
+    "rental_units_total": "Rental units owned", "rental_term": "Rental term",
 }
 
 
@@ -1105,9 +1144,23 @@ def _coverage_note_applies(row, pd):
 # Round 30 step 3 (Liam, 2026-10-08, decision 3): INFO_ONLY rows the card still states when they apply.
 # row id -> (applies to this property?, the card's note). FOD-005: TDP-3 has no vacant use type, and
 # Foremost writes vacant dwellings on TDP-1 -- a note, never a decline (it was inferred from the grid).
+def _county_in(names):
+    return lambda pd: intake_fields.normalize_county(pd.get("county")) in names
+
+
+# Round 39 step 1 (Liam, 2026-10-12): The Hartford's wind/hail rows are notes (p.7, Catastrophe Management).
+HARTFORD_TIER_I = _county_names("""Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Jefferson, Kenedy,
+    Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy""")
+HARTFORD_TIER_II = _county_names("Harris, Fort Bend, Hardin, Jackson, Liberty, Orange, Wharton")
 PROGRAM_NOTES = {
     "FOD-005": (lambda pd: pd.get("occupancy_type") == "Vacant",
                 "Foremost writes vacant dwellings on TDP-1, not TDP-3; quote TDP-1 (FOD-005)."),
+    "HAR-053": (_county_in(HARTFORD_TIER_I),
+                "Coverage (not eligibility): Tier I county -- The Hartford requires a windstorm or hail exclusion "
+                "(HAR-053)."),
+    "HAR-054": (_county_in(HARTFORD_TIER_II),
+                "Coverage (not eligibility): Tier II county -- a minimum 2% windstorm or hail deductible is required "
+                "(HAR-054)."),
 }
 
 
