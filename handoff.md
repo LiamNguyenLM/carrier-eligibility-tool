@@ -2694,6 +2694,128 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     - Harris + 1 theft loss: 7.8 s. Mercury HO3 Eligible, with the MER-087
       confirm.
   - Live spend for the round: about $0.11.
+- **2026-10-12 — Liam's decisions (Round 39): The Hartford.**
+  1. CFIG writes the Hartford HO3 and its tenant-occupied HO3, "Rental
+     Property Protection Plus" (RPP+): a rental the owner does not live in,
+     covered only when the owner's own home is with The Hartford (Jonathan).
+     It shows as "The Hartford (HO3 rental: Rental Property Protection Plus)"
+     on a rental check. HO4 and HO6 are not offered.
+  2. Hartford pools: a pool is allowed, but no diving boards. This is CFIG
+     experience (Jonathan); the guide does not mention diving boards. It is
+     the first entry of the CFIG knowledge base, `rules_data/cfig_knowledge.csv`
+     (CFG-001): "CFIG experience: The Hartford does not accept diving boards
+     (Jonathan, 2026-10-12)".
+- **2026-10-14 — Liam's decisions (Round 39).**
+  - Every deciding Hartford row has a map line, a FACT confirm where the form
+    never asks; no row is left to the model. The 21 rows that had no line got
+    one; HAR-011 reads HAR-010's (the same fact).
+  - Case k: one water loss is Eligible. Two water losses in 3 years are a
+    confirm worded "2 water losses: only acceptable if both were
+    appliance-related and remediated, with Hartford form PC-327; otherwise Not
+    eligible." (`rules_evaluator.CARD_WORDING`).
+  - The fast tier runs through `fast8g.sh`: one run at a time on the shards,
+    which are recreated fresh after a killed run.
+- **2026-10-15 — Round 39: what changed (r39-dev, d6c137c..7fd4cc8).**
+  - **The Hartford HO3** (guide 07/09/2026, 47 chunks in the seed):
+    - its own table, riding `RULES_HO3_BATCH`; the panel line ends
+      "+ Hartford ON (1 more)";
+    - 61 deciding rows, all with a line (19 decided by a form field,
+      39 confirms, 3 "decided by");
+    - RPP+ rows are gated on a rental, and the general rows they replace are
+      gated off it;
+    - the Tier I exclusion and Tier II 2% deductible appear as notes.
+  - **General rows that also apply to an RPP+ rental:** HAR-002..011,
+    016..018, 021..025, 027, 028, 030, 035, 036, 040, 043, 045, 046, 048, 050,
+    051, 052, 056, 058, 061..068.
+    - **Owner's home only:** HAR-013/014/015 (stoves; HAR-075 on a rental),
+      026 (trust grantor; HAR-078), 029 (PC10 + loss; HAR-074), 033/034
+      (families, boarders; HAR-071), 037/038 (business, day care; HAR-073),
+      042 (under construction), 059 (seasonal) and 060 (pool; HAR-076).
+  - **Routing.** A tenant-occupied home (not a condo unit) goes to the
+    Hartford as RPP+.
+  - **Form, tenant-occupied:**
+    - "Where is the owner's own home insured?": blank holds the Hartford only;
+    - "Rental units the owner has in total";
+    - "Rented to".
+  - **Form, a house:** "Units in the building" decides 21 family/unit rows
+    across all tables (`rules_data/units_lines.py`). A blank answer is a
+    confirm.
+  - **Form help.** Under Dwelling type: "Renting an apartment? ...". The solar
+    questions now say how many carriers hold until they are answered (six on
+    an owner's home).
+  - **Upload path** (new uploads, and the Hartford):
+    - hidden text is dropped (1,166 characters of a hidden auto guide on the
+      Hartford's p.1);
+    - every chunk keeps its section heading;
+    - the guide date is read from the text and the card says where it came
+      from;
+    - the upload asks the display name, forms and occupancies, and routing
+      uses them.
+  - **Guide-only carriers** (no table yet): the card says so, and the model
+    alone never makes one Not eligible (its decline becomes "Refer: check with
+    underwriting" plus the quote).
+  - **Agent text.** Every field is named by its form label (never
+    `plumbing_type`). Architectural shingles get the asphalt settlement notes,
+    and "all other roofs" rows reach the coverings they mean.
+  - **Model omissions.** A rules-table carrier the model leaves out, held only
+    on blank answers, is held by code instead of "No answer came back".
+  - **Runbook.** `pilot_structured_rules/ADD_CARRIER.md` plus
+    `rules_data/add_carrier/` (prepare_guide, quote_check, review_sheet).
+- **2026-10-15 — Round 39 results.**
+  - **Fast tier** (fresh shards, `fast8g.sh`):
+    - d6c137c: 5110 passed, 0 failed.
+    - fceef32 (the seed before step 1): 4 failed, all fixed by step 1.
+    - 5907907: 16 failed, all deliberate, updated in de6777a.
+    - 06849c2: 5489 passed, 0 failed, 10 xfailed.
+    - 2c6ba3d: 5523 passed, 0 failed, 10 xfailed.
+    - 7fd4cc8 (step 4, the last code commit): 5626 passed, 0 failed, 10 xfailed.
+  - **Live** (Haiku 5.5 low, pilot + all batches, placement ON):
+    - Profile a (Harris, fenced in-ground pool, both boxes, at 86a1f68): The
+      Hartford (HO3) Eligible, Tier II 2% note, guide date 07/09/2026; 22.1 s,
+      $0.0032.
+    - 300 Hartford-weighted profiles: $0.49, 0 errors, 0 fallbacks; wall time
+      median 10.0 s, p90 16.4 s, max 34.3 s.
+    - The live Hartford verdict matched the code's in 296/300. The 4 others
+      were the model leaving out a rental held on the owner's-home answer;
+      fixed in 47ada79.
+  - **Deep check** (`verification/hartford_deep.py`, 104 pairwise + 5,000
+    random): 0 invariant failures after two fixes it found (HAR-027, then
+    HAR-028/030); 500 owner/RPP+ pairs, 0 unexplained.
+  - **Second reader** (fresh agent, page images): 54 agree, 3 disagree,
+    4 unsure.
+    - Fixed: HAR-028/030 (an older fire or liability loss), HAR-025 (family
+      trust beneficiaries), HAR-062 (pit-bull-type breeds), HAR-058 (an
+      unfenced above-ground pool refers).
+  - **Runbook test** (two fresh agents, from the PDF, without Claude's table):
+    - 115 rows; all 61 of Claude's deciding rows found.
+    - 3 more: the p.8 pool referral (now HAR-058), fire-truck access (inside
+      HAR-058's confirm), and a repeated mobile-home row.
+    - It read the seasonal row as a CONDITION (Refer) where Liam's case f says
+      Not eligible.
+  - **Seed Fingerprint:** 42 carriers, 2,585 chunks, documents
+    669da5383ec1b1ec, metadata 338aa3f637749dfc (was 41 / 2,538). Railway
+    holds the Hartford as an upload ("The Hartford HO3 10.12.2026"): deploy
+    once with FORCE_RESEED=1 after downloading feedback (it wipes uploads),
+    then unset it. No new Railway variable.
+- **For Liam (Round 39).**
+  1. Two water losses: Jonathan's wording leaves out mold claims (form PC-326),
+     which p.3 also accepts (second reader).
+  2. HAR-052, the 2,000-ft / barrier-island confirm, shows only in Tier I.
+     Harris, Jackson and Orange have bay shoreline. Extending it adds a confirm
+     to every Harris card.
+  3. The shared loss template (`loss_electrical_lines.count`) reads a loss
+     type listed among the 5-year losses as recent. The Hartford no longer
+     does; other carriers' typed loss rows still do.
+  4. Named xfail: 2 recent fire/water losses decline, but with one more older
+     loss the fire may be the old one. The form does not say which loss had
+     which type.
+  5. Not ask the model at all for a carrier held only on blank answers: it
+     cannot decide them, and that would save the call.
+  6. "All roof types" rows (Sage's cosmetic hail exclusion, Markel's roof
+     exclusion form) show on no card; they are not roof-age rules.
+  7. HARTFORD_EXPECTED.csv (60 scenarios) and the review sheet are in
+     `pilot_structured_rules/hartford/`, with a column for Jonathan.
+  8. Placement has no Hartford history until the next monthly refresh.
 
 ## Open work, in priority order (updated 2026-10-02)
 
