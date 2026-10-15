@@ -67,6 +67,8 @@ SUMMARY_SHEETS = frozenset({
     "Swyfft_-_Topa_(Surplus)_HO3",
 })
 SUMMARY_SHEET_LINE = "We have only this carrier's summary sheet; confirm details with underwriting."
+# Round 39 step 2e (Liam): a carrier with no rules table yet -- its verdict is the model's reading of the guide.
+GUIDE_ONLY_LINE = "No rules table yet: verdict read from the guide by the model. Check before quoting."
 
 # Dates the file name writes in a form data_defects.guide_date does not read (it reads MM.DD.YYYY).
 OTHER_DATES = {

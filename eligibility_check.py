@@ -727,6 +727,7 @@ def get_all_carriers():
     return set(store_cache.carriers(get_vectorstore()._collection))
 
 
+
 # Carriers whose FILENAME carries no product token at all. Each is classified
 # from its own document text, quoted below, rather than guessed from the name
 # -- "HOA+"/"HOB" are Texas homeowners form names, but nothing in the string
@@ -1955,6 +1956,28 @@ def _code_owns_cards(results):
         if r["status"] == "INELIGIBLE":
             r["missing_info"] = []
         r["decided_by_code"] = True
+
+
+def _guide_only_cards(results):
+    """Round 39 steps 2e / 2f (Liam): a carrier with no rules table in any batch (a new upload) is judged from its guide
+    text by the model alone. Its card says so (display_names.GUIDE_ONLY_LINE), and the model alone never makes it Not
+    eligible: its decline becomes "Refer: check with underwriting" with the guide's quote (the citation stays in
+    Details). A decline a code rule decided stands."""
+    tabled = set(rules_evaluator.WB_TO_CANON.values())
+    for r in results:
+        if r.get("carrier") in tabled or r.get("rules_table") or r.get("status") not in MODEL_STATUSES:
+            continue
+        r["guide_only"] = True
+        if r.get("status") != "INELIGIBLE" or r.get("decided_by_code"):
+            continue
+        reasons = [x for x in r.get("reasons") or [] if isinstance(x, str) and x.strip()]
+        quote = next((m.group(1) for c in r.get("citations") or [] if isinstance(c, str)
+                      for m in [re.search(r"[\"“]([^\"”]{8,})[\"”]", c)] if m), None)
+        r.setdefault("diagnostics", {})["model_status"] = "INELIGIBLE"
+        r["status"], r["flaw_count"] = "REFER", 0
+        r["reasons"] = (["Refer: check with underwriting -- the model read this guide as a decline"
+                         + (f': "{quote}"' if quote else (f": {reasons[0]}" if reasons else "")) + "."]
+                        + reasons)
 
 
 def _append_note(result, text):
@@ -4340,6 +4363,7 @@ def _check_eligibility(property_details, carrier_subset=None, checked_topics=Non
         # Last, after every rule that can set a status: a code-decided verdict
         # owns the card (round 26 step 2).
         _code_owns_cards(filtered)
+        _guide_only_cards(filtered)                            # round 39 steps 2e / 2f
 
         final = _add_fixed_rows(filtered, relevant_carriers, unavailable, defects, unrecognised)
         final += [_closed_program_row(c) for c in closed]

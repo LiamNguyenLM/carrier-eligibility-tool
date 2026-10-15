@@ -186,6 +186,8 @@ def confirm_html(rec, property_details=None, checked=None):
     shown, more, ids = confirm_topics.card_list(rec, property_details, checked)
     summary = (f"<p><i>{display_names.SUMMARY_SHEET_LINE}</i></p>"
                if rec.get("carrier") in display_names.SUMMARY_SHEETS else "")
+    if rec.get("guide_only"):                                  # round 39 step 2e
+        summary = f"<p><i>{display_names.GUIDE_ONLY_LINE}</i></p>" + summary
     if not shown:
         return summary
 
