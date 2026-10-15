@@ -3485,8 +3485,8 @@ def _rules_pilot_model_records(raw, open_carriers):
         parsed = json.loads(body)
         recs = parsed.get("carriers", parsed) if isinstance(parsed, dict) else parsed
     except (ValueError, AttributeError):
-        print("RULES PILOT: unparseable pilot answer; its carriers get NOT_EVALUATED rows")
-        return []
+        print("RULES PILOT: unparseable pilot answer; its carriers get NOT_EVALUATED rows (held-only ones: code)")
+        recs = []
     out, done = [], set()
     for r in recs if isinstance(recs, list) else []:
         if not isinstance(r, dict):
@@ -3496,6 +3496,16 @@ def _rules_pilot_model_records(raw, open_carriers):
             continue
         done.add(canon)
         out.append(rules_evaluator.finish_model_record(r, canon, open_carriers[canon]))
+    # Round 39 step 5e (live, Haiku 5.5 low): the model left The Hartford out of 4 of its 10 held rule checks (each a
+    # rental held on the owner's-home answer) even after _retry_omitted asked again, and the card read "No answer came
+    # back ... run the check again". A carrier left out whose open rows are all holds on a blank form field is held by
+    # code -- the verdict the model's answer would have come to (finish_model_record). Any other omission keeps its
+    # NOT_EVALUATED row.
+    for canon, outcomes in open_carriers.items():
+        if canon not in done and rules_evaluator.only_blank_holds(outcomes):
+            rec = rules_evaluator.code_record(canon, outcomes)[0]
+            rec.setdefault("diagnostics", {})["model_omitted"] = True
+            out.append(rec)
     return out
 
 

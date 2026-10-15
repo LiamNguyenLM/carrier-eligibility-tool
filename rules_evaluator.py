@@ -998,6 +998,13 @@ def _release_unasked_holds(rec, outcomes):
                           "never as a hold."]
 
 
+def only_blank_holds(outcomes):
+    """Round 39 step 5e: every row still open for the carrier is a hold on a blank form field -- the model cannot
+    decide any of them (it never sees the missing answer), so code's held record is the verdict."""
+    opens = [d for o, d in outcomes.values() if o == "OPEN"]
+    return bool(opens) and not any(_model_can_decide(d) for d in opens)
+
+
 def _model_can_decide(detail):
     """An OPEN row the pilot call can legitimately fail: its readings disagree
     on known facts, or a known fact breaks it and only the effect is unknown.

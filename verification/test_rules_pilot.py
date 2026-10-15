@@ -175,7 +175,10 @@ def test_sage_auros_fpc_upgrade_is_off_with_the_pilot_and_on_for_other_sage():
         assert (res[c]["status"], res[c].get("notes")) == (off[c]["status"], off[c].get("notes"))
 
 
-def test_a_pilot_answer_that_omits_a_carrier_gets_not_evaluated():
+def test_a_pilot_answer_that_omits_a_carrier_is_never_eligible():
+    """CHANGED DELIBERATELY (round 39 step 5e, 2026-10-15): Swyfft is open here only on the unticked pool boxes (a
+    blank-field hold the model cannot decide), so the omitted carrier is held by code -- the verdict the model's answer
+    would have reached -- instead of the "No answer came back" row. Was NOT_EVALUATED. Still never Eligible."""
     calls = {}
 
     def fake(system, user, max_tokens):
@@ -190,7 +193,9 @@ def test_a_pilot_answer_that_omits_a_carrier_gets_not_evaluated():
         res = {r["carrier"]: r for r in ec.check_eligibility(dict(STANDARD_PROFILE, dwelling_type="House"))}
     finally:
         ec._complete, ec.RULES_PILOT = real, flag
-    assert res["Swyfft_-_Benchmark_(Admitted)_HO3"]["status"] == ec.NOT_EVALUATED
+    swy = res["Swyfft_-_Benchmark_(Admitted)_HO3"]
+    assert swy["status"] == "INSUFFICIENT_INFORMATION" and any("[SWY-035]" in m for m in swy["missing_info"])
+    assert swy["diagnostics"]["model_omitted"]
 
 
 # -- the card -----------------------------------------------------------------
