@@ -727,6 +727,29 @@ def get_all_carriers():
     return set(store_cache.carriers(get_vectorstore()._collection))
 
 
+_UPLOAD_KEYS = ("display_name", "forms", "occupancies", "guide_date", "guide_date_source")
+
+
+def upload_settings():
+    """Round 39 steps 2c / 2d (Liam): what the Manage Carriers tab stored with an upload, per program --
+    {carrier: {display_name, forms, occupancies, guide_date, guide_date_source}} -- one cached read per store version.
+    A program with none (every guide in the seed) is routed and named as before."""
+    def compute(raw):
+        out = {}
+        for m in raw.get("metadatas") or []:
+            if m and m.get("carrier") and any(m.get(k) for k in _UPLOAD_KEYS):
+                out.setdefault(m["carrier"], {k: m.get(k) or "" for k in _UPLOAD_KEYS})
+        return out
+    try:
+        return store_cache.derived("upload_settings", get_vectorstore()._collection, compute)
+    except Exception:                              # a test's stand-in store, or none
+        return {}
+
+
+def _upload_setting(carrier, key):
+    """A stored upload setting as a list (forms, occupancies), [] when the program has none."""
+    return [x.strip() for x in (upload_settings().get(carrier or "", {}).get(key) or "").split(",") if x.strip()]
+
 
 # Carriers whose FILENAME carries no product token at all. Each is classified
 # from its own document text, quoted below, rather than guessed from the name
@@ -776,6 +799,9 @@ def carrier_programs(carrier):
     check_eligibility() -- which is exactly how the hyphen gap survived in
     two of them while the third handled it.
     """
+    forms = _upload_setting(carrier, "forms")                 # round 39 step 2d: the forms chosen at upload
+    if forms:
+        return any(f in ("HO3", "HO6") for f in forms), "DP3" in forms
     override = _PRODUCT_BY_DOCUMENT.get(carrier)
     if override == "HOMEOWNERS":
         return True, False
@@ -1109,6 +1135,9 @@ def _dog_breed_query(pd):
 def _is_condo_program(carrier):
     """HO6 is the condominium unit-owners form (Progressive HO6, Liberty
     Mutual HO6)."""
+    forms = _upload_setting(carrier, "forms")                 # round 39 step 2d
+    if forms:
+        return forms == ["HO6"]
     return "HO6" in _strip_to_alnum(carrier or "")
 
 
@@ -1494,6 +1523,9 @@ def _fits_occupancy(carrier, occupancy, combined):
     """The one occupancy routing rule, shared by get_carriers_for_occupancy
     and the data-defect rows (which must route a program the store does not
     hold -- Centauri HO3 -- exactly as it would route one it does)."""
+    offered = _upload_setting(carrier, "occupancies")      # round 39 step 2d: the occupancies chosen at upload
+    if offered:
+        return occupancy in offered
     if carrier in combined:
         return True
     is_ho, is_dp = carrier_programs(carrier)
@@ -3654,8 +3686,12 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
     # Plus)" on a tenant-occupied check); the cards read it (display_names.record_name)
     for r in results:
         name = display_names.occupancy_name(r.get("carrier"), property_details.get("occupancy_type"))
+        stored = upload_settings().get(r.get("carrier") or "", {})        # round 39 steps 2c / 2d
+        name = name or stored.get("display_name")
         if name:
             r["display_name"] = name
+        if stored.get("guide_date"):
+            r["guide_date"], r["guide_date_source"] = stored["guide_date"], stored.get("guide_date_source", "")
     LAST_CHECK_INFO.clear()
     LAST_CHECK_INFO.update(model=ELIGIBILITY_MODEL, effort=ELIGIBILITY_EFFORT if not _is_openai_model(
         ELIGIBILITY_MODEL) else ELIGIBILITY_REASONING_EFFORT, fallback=fallback,
@@ -4285,7 +4321,8 @@ def _check_eligibility(property_details, carrier_subset=None, checked_topics=Non
                 is_ho3, is_dp3 = carrier_programs(name)
             if (occupancy != "Owner Occupied" and is_ho3 and not _owners_other_home_fits(canon or name, occupancy)
                     and not _condo_unit_fits(canon or name, occupancy, property_details)
-                    and not _rental_ho3_fits(canon or name, occupancy, property_details)):
+                    and not _rental_ho3_fits(canon or name, occupancy, property_details)
+                    and occupancy not in _upload_setting(canon or name, "occupancies")):
                 continue
             if occupancy == "Owner Occupied" and is_dp3:
                 continue

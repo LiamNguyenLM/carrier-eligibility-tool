@@ -172,7 +172,8 @@ def details_items(rec, guide=False):
     # Round 37 step 1: "Also confirm" (row-ID dumps) is replaced by confirm_html's plain list
     if guide and rec.get("carrier"):
         import display_names
-        groups.append(("Guide", [display_names.guide_line(rec["carrier"])]))
+        groups.append(("Guide", [display_names.guide_line(rec["carrier"], rec.get("guide_date"),
+                                                         rec.get("guide_date_source"))]))
     return [(h, items) for h, items in groups if items]
 
 

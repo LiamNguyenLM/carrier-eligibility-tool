@@ -109,7 +109,10 @@ def guide_date(program):
     return d.replace(".", "/") if d else None
 
 
-def guide_line(program):
-    """The Details line: the guide's date. Round 37 step 2: never the file name."""
+def guide_line(program, date=None, source=None):
+    """The Details line: the guide's date. Round 37 step 2: never the file name. Round 39 step 2c: an upload's date
+    read at upload (date, source: "the guide's text (header: ...)" or "the file name") says where it came from."""
+    if date:
+        return f"Guide date: {date}" + (f" (from {source})" if source else "")
     d = guide_date(program)
     return f"Guide date: {d}" if d else "Guide date: not stated"

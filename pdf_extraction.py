@@ -515,3 +515,25 @@ def section_prefixed(chunks):
         if s and not c.page_content.startswith(f"[{s}]"):
             c.page_content = f"[{s}]\n" + c.page_content
     return chunks
+
+
+# Round 39 step 2c (Liam): a new upload's guide date comes from the guide's own text -- the header kept once as
+# "[Guide header]" (load_upload_documents), then the rest of page 1, then the last page's footer -- and only then from
+# the file name (Liam's Railway upload was named "The Hartford HO3 10.12.2026"; the guide says 07/09/2026).
+_DATE_PHRASE = re.compile(r"(?i)\b((?:new business )?effective(?: date)?|revised|revision date|edition date|edition)"
+                          r"\s*:?\s*(\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{2})\b")
+
+
+def guide_date_from_docs(docs):
+    """(MM/DD/YYYY, the phrase it was read from, where) from the guide's text, or (None, None, None)."""
+    pages = sorted({d.metadata.get("page", 0) for d in docs}) or [0]
+    places = [("header", [d for d in docs if d.metadata.get("section") == "Guide header"]),
+              ("page 1", [d for d in docs if d.metadata.get("page", 0) == pages[0]]),
+              ("the last page", [d for d in docs if d.metadata.get("page", 0) == pages[-1]])]
+    for where, group in places:
+        for d in group:
+            m = _DATE_PHRASE.search(d.page_content)
+            if m:
+                year = m.group(4) if len(m.group(4)) == 4 else "20" + m.group(4)
+                return f"{int(m.group(2)):02d}/{int(m.group(3)):02d}/{year}", " ".join(m.group(0).split()), where
+    return None, None, None

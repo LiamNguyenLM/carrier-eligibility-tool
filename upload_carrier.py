@@ -7,7 +7,34 @@ import gc
 from shared_resources import get_embeddings, get_vectorstore, DB_FOLDER
 import store_cache
 from pdf_extraction import (load_pdf_as_documents, chunk_documents, FLOW_ORDER_FILES, ocr_text_path,  # noqa: F401
-                            load_ocr_text_as_documents, load_upload_documents, section_prefixed)
+                            load_ocr_text_as_documents, load_upload_documents, section_prefixed,
+                            guide_date_from_docs)
+
+# Round 39 steps 2c / 2d (Liam): what the Manage Carriers tab asks at upload, stored on every chunk (Chroma metadata
+# holds no lists: forms and occupancies are joined by ", "). eligibility_check.upload_settings reads them back.
+FORMS = ("HO3", "DP3", "HO6")
+DEFAULT_OCCUPANCIES = {"HO3": ("Owner Occupied", "Seasonal", "Secondary Home"),
+                       "DP3": ("Tenant Occupied", "Vacant", "Seasonal", "Secondary Home"),
+                       "HO6": ("Owner Occupied",)}
+# The last upload's guide date and where it came from, for the tab's message.
+LAST_UPLOAD = {}
+
+
+def default_occupancies(forms):
+    """The occupancies the chosen forms usually write, in the form's order."""
+    order = ("Owner Occupied", "Tenant Occupied", "Seasonal", "Vacant", "Secondary Home")
+    picked = {o for f in forms for o in DEFAULT_OCCUPANCIES.get(f, ())}
+    return [o for o in order if o in picked]
+
+
+def guide_date_for_upload(pages, carrier_name):
+    """(date, source): the guide's text first (header, page 1, last page), then the file name, else ("", "")."""
+    date, phrase, where = guide_date_from_docs(pages)
+    if date:
+        return date, f"the guide's text ({where}: \"{phrase}\")"
+    import display_names
+    named = display_names.guide_date(carrier_name)
+    return (named, "the file name") if named else ("", "")
 
 
 def detect_lob_from_name(carrier_name):
@@ -25,7 +52,9 @@ def detect_lob_from_name(carrier_name):
     return "Unknown"
 
 
-def add_carrier_to_database(pdf_bytes, carrier_name):
+def add_carrier_to_database(pdf_bytes, carrier_name, settings=None):
+    """settings (round 39 step 2d): {"display_name", "forms", "occupancies"} from the Manage Carriers tab; None keeps
+    the file-name routing and name (as before)."""
     lob = detect_lob_from_name(carrier_name)
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
@@ -61,11 +90,20 @@ def add_carrier_to_database(pdf_bytes, carrier_name):
     if not chunks:
         return 0, "No readable text found in this PDF. It may be a scanned document. Please convert it using an OCR tool first (ilovepdf.com/ocr-pdf)."
 
+    guide_date, date_source = guide_date_for_upload(pages, carrier_name)
+    LAST_UPLOAD.clear()
+    LAST_UPLOAD.update(carrier=carrier_name, guide_date=guide_date, guide_date_source=date_source)
+    extra = {"guide_date": guide_date, "guide_date_source": date_source}
+    if settings:
+        extra.update(display_name=(settings.get("display_name") or "").strip(),
+                     forms=", ".join(settings.get("forms") or []),
+                     occupancies=", ".join(settings.get("occupancies") or []))
     for chunk in chunks:
         chunk.metadata["carrier"] = carrier_name
         chunk.metadata["source_file"] = carrier_name + ".pdf"
         chunk.metadata["lob"] = lob
         chunk.metadata["state"] = "TX"
+        chunk.metadata.update({k: v for k, v in extra.items() if v})
 
     vectorstore = get_vectorstore()
 

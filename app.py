@@ -792,15 +792,31 @@ with tab2:
 
         st.caption("Detected line of business: **" + detected_lob + "**")
 
+        # Round 39 step 2d (Liam): what the agents will see, and where the program is offered.
+        import upload_carrier as _uc
+        upload_display = st.text_input("Display name (what agents see)", value=display_names.display_name(carrier_name),
+                                       key="upload_display")
+        upload_forms = st.multiselect("Forms written", list(_uc.FORMS), key="upload_forms",
+                                      default=[f for f in _uc.FORMS if f == detected_lob] or None)
+        upload_occupancies = st.multiselect(
+            "Occupancies offered", ["Owner Occupied", "Tenant Occupied", "Seasonal", "Vacant", "Secondary Home"],
+            default=_uc.default_occupancies(upload_forms), key=f"upload_occ::{','.join(upload_forms)}",
+            help="The check sends this program only homes with these occupancies.")
+
         if st.button("Process and Add to Database", type="primary", key="upload_btn"):
             with st.spinner("Processing PDF and updating database..."):
                 pdf_bytes = uploaded_file.read()
-                chunks_added, error = add_carrier_to_database(pdf_bytes, carrier_name)
+                chunks_added, error = add_carrier_to_database(
+                    pdf_bytes, carrier_name, settings={"display_name": upload_display, "forms": upload_forms,
+                                                       "occupancies": upload_occupancies})
             if error:
                 st.error("Error processing PDF: " + error)
             else:
                 st.success(carrier_name + " added successfully. " +
                            str(chunks_added) + " searchable sections created.")
+                got = _uc.LAST_UPLOAD
+                st.info("Guide date: " + (f"{got['guide_date']}, from {got['guide_date_source']}."
+                                          if got.get("guide_date") else "not found in the guide or the file name."))
                 st.info("Switch to the Eligibility Check tab to use it.")
 
 
