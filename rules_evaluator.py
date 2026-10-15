@@ -1173,8 +1173,29 @@ def _coverage_note_applies(row, pd):
     if row["Topic"] == "SOLAR":
         return pd.get("solar_panels") == "Yes"
     if row["Topic"] == "ROOF_SETTLEMENT":
-        return any(w in text for w in _ROOF_WORDS.get(pd.get("roof_type"), ()))
+        roof = pd.get("roof_type")
+        named = re.sub(r"\(except [^)]*\)", " ", text)       # "(except metal, slate, tile)" names no covering
+        if any(w in named for w in _ROOF_WORDS.get(roof, ())):
+            return True
+        # Round 39 step 0c (a 23-year roof, every roof type): an architectural shingle IS an asphalt shingle (Vave
+        # VAV-031..033 / VDP-077, Swyfft SLL-025 never showed for it) -- unless the row is the 3-tab one (Centauri
+        # CHO-028 next to its own architectural row)
+        if roof == "Architectural Shingle" and "asphalt" in text and not _NOT_ARCHITECTURAL.search(text):
+            return True
+        # ... and "all other roofs / roof types" (Mercury MER-019, NatGen NCD-101 showed for no covering): every
+        # covering that neither this row's "except (...)" nor the carrier's other settlement rows name
+        if _ALL_OTHER.search(text) and roof:
+            words = _ROOF_WORDS.get(roof, ())
+            excepted = " ".join(re.findall(r"except ([^)]*)", text))
+            siblings = " ".join(r["Plain rule"].lower() for r in _rules().values()
+                                if r["Carrier"] == row["Carrier"] and r["Topic"] == "ROOF_SETTLEMENT"
+                                and r["Effect"] == "COVERAGE_ONLY" and r["Rule ID"] != row["Rule ID"])
+            return not any(w in excepted or w in siblings for w in words)
     return False
+
+
+_NOT_ARCHITECTURAL = re.compile(r"3-tab|other than architectural|except architectural|not architectural")
+_ALL_OTHER = re.compile(r"\ball other roof")
 
 
 # Round 30 step 3 (Liam, 2026-10-08, decision 3): INFO_ONLY rows the card still states when they apply.
