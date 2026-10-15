@@ -6,7 +6,7 @@ ARA-007,roof_type,"roof_type not in {Wood shake / wood shingle, Asbestos shingle
 ARA-008,roof_shape;roof_type;county,county == El Paso,"(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",DECLINES,,'in or around El Paso': around is not decided
 ARA-009,roof_type,roof_type != Tile or FACT(High Value Home),always,DECLINES,High Value Home,
 ARA-010,roof_type,roof_type != Slate,always,DECLINES,,
-ARA-011,dwelling_type,FACT(meets the Single Building definition),dwelling_type == Townhome,DECLINES,Single Building definition,duplexes are not a form option
+ARA-011,dwelling_type;units_in_building,FACT(meets the Single Building definition),dwelling_type == Townhome or (dwelling_type == House and units_in_building in {2}),DECLINES,Single Building definition,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 ARA-012,NONE,,,REFERS_TO_UW,,acreage is not asked
 ARA-013,ppc,FACT(visible from another dwelling or on an all-weather road),ppc_num == 10,DECLINES,visibility / all-weather road,unprotected = class 10
 ARA-014,ppc;fire_station_miles,station_miles_iso <= 5,always,DECLINES,station distance if not given,a stated distance decides; else ISO classes 1-9 are within 5 road miles (PPC 10 with a stated distance over 5 also fails the PPC row)
@@ -68,7 +68,7 @@ ARB-005,county;harris_east_146,"county not in {Aransas, Brazoria, Calhoun, Camer
 ARB-006,roof_type,"roof_type not in {Wood shake / wood shingle, Asbestos shingle, Built-up (tar and gravel), Metal: corrugated / exposed-fastener / tin / aluminum panels, Slate} and (roof_type not in {Metal: standing seam, Metal: shingle / tile / shake (incl. stone-coated)} or FACT(not an expensive metal roof))",always,DECLINES,metal kind,tile and flat roofs: their own rows; slate included
 ARB-007,roof_shape;roof_type;county,county == El Paso,"(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",DECLINES,,'in or around El Paso': around is not decided
 ARB-008,roof_type,roof_type != Tile or FACT(High Value Home),always,DECLINES,High Value Home,
-ARB-009,dwelling_type,FACT(meets the Single Building definition),dwelling_type == Townhome,DECLINES,Single Building definition,duplexes are not a form option
+ARB-009,dwelling_type;units_in_building,FACT(meets the Single Building definition),dwelling_type == Townhome or (dwelling_type == House and units_in_building in {2}),DECLINES,Single Building definition,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 ARB-010,NONE,,,REFERS_TO_UW,,acreage is not asked
 ARB-011,ppc,FACT(visible from another dwelling or on an all-weather road),ppc_num == 10,DECLINES,visibility / all-weather road,unprotected = class 10
 ARB-012,ppc;fire_station_miles,station_miles_iso <= 5,always,DECLINES,station distance if not given,a stated distance decides; else ISO classes 1-9 are within 5 road miles (PPC 10 with a stated distance over 5 also fails the PPC row)
@@ -253,7 +253,7 @@ HOA-009,ppc;year_built,ppc_num <= 7,ppc_num >= 8 and home_age <= 3,REFERS_TO_UW,
 LIB-004,occupancy_type,always,always,DECLINES,,decided by LIB-043 (the same rule); never a second flaw
 LIB-006,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,seasonal homes are referred (LIB-066); Vacant is LIB-043's
 LIB-007,NONE,,,DECLINES,,not asked by the form
-LIB-008,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
+LIB-008,dwelling_type;units_in_building,units_in_building not in {5 or more},dwelling_type == House,DECLINES,,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 LIB-009,NONE,,,CONDITION,,the number of individual owners is not asked
 LIB-010,NONE,,,DECLINES,,not asked by the form
 LIB-011,NONE,,,DECLINES,,not asked by the form
@@ -422,7 +422,7 @@ SLL-036,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not a
 SLL-037,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SLL-038,NONE,,,DECLINES,,not asked by the form
 SLL-039,NONE,,,DECLINES,,not asked by the form
-SLL-040,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
+SLL-040,dwelling_type;units_in_building,"units_in_building in {1, 2}",dwelling_type == House,DECLINES,,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 SLL-041,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SLL-042,occupancy_type,always,"occupancy_type in {Seasonal, Secondary Home}",DECLINES,,the form's Seasonal / Secondary Home is owner-occupied
 SLL-043,occupancy_type,FACT(the owner's primary residence is in the United States),"occupancy_type in {Seasonal, Secondary Home}",DECLINES,primary residence country,

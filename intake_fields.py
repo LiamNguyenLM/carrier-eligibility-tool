@@ -14,6 +14,11 @@ TEXAS_COUNTIES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                    "texas_counties.csv")
 
 DWELLING_TYPES = ("", "House", "Townhome", "Condo")
+# Round 39 step 4 (Liam): who this form is for, under Dwelling type; and, for a House, the units in the building
+# (rules_data/units_lines.py: the rows it decides). Blank / Unknown is a confirm.
+DWELLING_TYPE_HELP = ("Renting an apartment? That's a renters (HO4) policy, not covered here. An owned apartment unit: "
+                      "choose Condo. A building with 5+ units is commercial.")
+UNITS_CHOICES = ("", "1", "2", "3-4", "5 or more", "Unknown")
 
 # Round 29 step 1 (Liam, 2026-10-08): every field the intake form collects
 # (app.py's property_details keys), with the words a missing_info item uses
@@ -53,7 +58,10 @@ FORM_FIELDS = {
                              r"primary\b.{0,40}\b(insur|written|writes)", r"primary (home|residence|dwelling) carrier"),
     "primary_home_miles": (r"(distance|miles)\b.{0,30}\bprimary", r"primary\b.{0,30}\b(distance|miles)"),
     # Round 39 step 1: asked for a tenant-occupied home
-    "rental_units_total": (r"rental units", r"units? (the owner|owned)", r"\bduplex\b"),
+    "rental_units_total": (r"rental units", r"units? (the owner|owned)"),
+    # Round 39 step 4: asked for a House
+    "units_in_building": (r"\bunits? in the building", r"\b(one|two|1|2)[- ]to[- ](four|4)[- ]famil",
+                          r"\bmulti[- ]famil", r"\b(single|one|two|1|2)[- ]famil", r"\bduplex\b", r"more than \w+ units"),
     "rental_term": (r"short[- ]term", r"long[- ]term tenant", r"\b(nightly|weekly) rental", r"\blease\b"),
 }
 

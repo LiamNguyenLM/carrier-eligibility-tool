@@ -18,7 +18,7 @@ ALL-016,ownership_type,ownership_type != Trust,always,REFERS_TO_UW,,trust: submi
 ALL-017,ownership_type;trust_type,"ownership_type not in {LLC, Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Land trust, Corporate or business trust})",always,DECLINES,,
 ALL-018,NONE,,,DECLINES,,the form has no field for this
 ALL-019,dwelling_type,"dwelling_type in {House, Townhome}",always,CONDITION,,
-ALL-020,dwelling_type,"dwelling_type in {House, Townhome}",always,DECLINES,,multi-family is not asked
+ALL-020,dwelling_type;units_in_building,"dwelling_type in {House, Townhome} and (dwelling_type == Townhome or units_in_building in {1})",always,DECLINES,,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 ALL-021,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,modular/kit not on the form
 ALL-022,NONE,,,DECLINES,,the form has no field for this
 ALL-023,NONE,,,DECLINES,,the form has no field for this
@@ -148,7 +148,7 @@ ALL-213,NONE,,,REFERS_TO_UW,,not asked by the form
 ALL-214,NONE,,,CONDITION,,not asked by the form
 SAG-001,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,"owner occupied = primary, seasonal or secondary residence; Vacant is decided by SAG-005"
 SAG-002,occupancy_type,always,always,DECLINES,,decided by SAG-005 (the same rule); never a second flaw
-SAG-003,occupancy_type;dwelling_type,"dwelling_type in {House, Townhome}","occupancy_type in {Seasonal, Secondary Home}",DECLINES,,single family = House or Townhome
+SAG-003,occupancy_type;dwelling_type;units_in_building,"dwelling_type in {House, Townhome} and (dwelling_type == Townhome or units_in_building in {1})","occupancy_type in {Seasonal, Secondary Home}",DECLINES,,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 SAG-004,occupancy_type,FACT(checked monthly while away),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,monthly checks,
 SAG-005,occupancy_type,occupancy_type != Vacant,always,DECLINES,,for sale is not asked
 SAG-006,NONE,,,REFERS_TO_UW,,the form has no field for this
@@ -164,7 +164,7 @@ SAG-015,NONE,,,CONDITION,,the form has no field for this
 SAG-017,ownership_type;trust_type,"ownership_type not in {LLC, Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Corporate or business trust})",always,DECLINES,,
 SAG-018,NONE,,,DECLINES,,the form has no field for this
 SAG-019,ownership_type;occupancy_type,"occupancy_type in {Owner Occupied, Seasonal, Secondary Home} and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there,as the Sage sister guides' trust-occupancy rows
-SAG-020,NONE,,,DECLINES,,the form has no field for this
+SAG-020,dwelling_type;units_in_building,units_in_building not in {5 or more},dwelling_type == House,DECLINES,,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 SAG-021,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,
 SAG-022,NONE,,,CONDITION,,the form has no field for this
 SAG-023,NONE,,,DECLINES,,the form has no field for this
@@ -330,7 +330,7 @@ MER-003,occupancy_type;primary_home_carrier,primary_home_carrier == Mercury,"occ
 MER-004,NONE,,,DECLINES,,the form has no field for this
 MER-005,ownership_type;trust_type,ownership_type not in {LLC} and (ownership_type != Trust or trust_type not in {Corporate or business trust}) and (ownership_type != Corporation / partnership or FACT(the owner is a partnership not a corporation)),always,DECLINES,,an unknown trust type holds
 MER-006,NONE,,,DECLINES,,the form has no field for this
-MER-008,NONE,,,DECLINES,,the form has no field for this
+MER-008,dwelling_type;units_in_building,"units_in_building in {1, 2}",dwelling_type == House,DECLINES,,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 MER-009,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,
 MER-010,year_built,FACT(Functional Replacement Cost coverage),year_built < 1940,CONDITION,loss settlement,
 MER-011,NONE,,,REFERS_TO_UW,,the form has no field for this

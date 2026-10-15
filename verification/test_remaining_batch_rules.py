@@ -85,8 +85,9 @@ def test_coverage():
     # gained a confirm FACT for the combined Federal Pacific / Zinsco answer. Was: 132 / 109.
     # CHANGED 2026-10-13 (round 38d, Liam's decision 2: the bundled panel answer is a confirm naming "corrugated"): CDP-021
     # gained a confirm FACT. Was: 130 / 111.
-    assert kinds == {"decided by a form field": 129, "gated-but-open": 112,
-                     "same rule as another row": 33, "NONE": 711}
+    # CHANGED DELIBERATELY (round 39 step 4, 2026-10-15; Liam: the form's 'Units in the building', rules_data/units_lines.py): CHO-014 (1-2 family), LDP-023 and STD-036 (more than 4 units) are decided by it. Was 129 / NONE 711.
+    assert kinds == {"decided by a form field": 132, "gated-but-open": 112,
+                     "same rule as another row": 33, "NONE": 708}
 
 
 # -- the map's readings ----------------------------------------------------------------------

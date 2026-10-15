@@ -80,8 +80,10 @@ def test_coverage():
     # estate- or trust-owned home. Was: 123 / 119.
     # CHANGED 2026-10-13 (round 38d, Liam's decision 2: the bundled panel answer is a confirm naming "corrugated"): ORI-059, TWI-037
     # gained a confirm FACT. Was: 122 / 120.
-    assert kinds == {"decided by a form field": 120, "gated-but-open": 122,
-                     "same rule as another row": 18, "NONE": 355}
+    # CHANGED DELIBERATELY (round 39 step 4, 2026-10-15; Liam: the form's 'Units in the building', rules_data/units_lines.py): LIB-008 (more than 4 units) and SLL-040 (more than 2 families) are decided by it; ARA-011 / ARB-009 read a
+    # 2-unit house as a duplex (their confirm). Was 120 / NONE 355.
+    assert kinds == {"decided by a form field": 122, "gated-but-open": 122,
+                     "same rule as another row": 18, "NONE": 353}
 
 
 # -- the registry: Foremost's homeowners rows never apply to a dwelling-fire check ------------

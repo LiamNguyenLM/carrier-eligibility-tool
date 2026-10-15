@@ -40,10 +40,14 @@ SINGLE_FAMILY = ["SAG-003", "SUR-016", "SFP-016", "WIL-016", "TRI-004"]
 
 
 @pytest.mark.parametrize("rid", SINGLE_FAMILY)
-@pytest.mark.parametrize("dwelling,want", [("House", "PASS"), ("Townhome", "PASS"), ("Condo", "FAIL")])
+@pytest.mark.parametrize("dwelling,units,want", [("House", "1", "PASS"), ("Townhome", None, "PASS"),
+                                                 ("Condo", None, "FAIL"), ("House", "2", "FAIL"),
+                                                 ("House", None, "NOTE")])
 @pytest.mark.parametrize("occupancy", ["Seasonal", "Secondary Home"])
-def test_decision_3_single_family_includes_a_townhome(rid, dwelling, want, occupancy):
-    assert row(rid, occupancy_type=occupancy, dwelling_type=dwelling) == want
+def test_decision_3_single_family_includes_a_townhome(rid, dwelling, units, want, occupancy):
+    # CHANGED DELIBERATELY (round 39 step 4, 2026-10-15; Liam: the form's 'Units in the building', rules_data/units_lines.py): a House is single-family when it has 1 unit; 2+ fails; blank is a confirm. Was: a House always PASS.
+    pd = dict(occupancy_type=occupancy, dwelling_type=dwelling, **({"units_in_building": units} if units else {}))
+    assert row(rid, **pd) == want
 
 
 @pytest.mark.parametrize("rid,pd", [("ALL-019", {}), ("ALL-020", {}),

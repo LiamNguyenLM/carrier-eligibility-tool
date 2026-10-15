@@ -283,6 +283,13 @@ for _rid, _line in LOSS_ELECTRICAL_LINES.items():
     if _rid in _OWN_ROWS:
         MAP.setdefault(_rid, _line)
 
+# Round 39 step 4 (Liam): the form's "Units in the building" decides these rows (units_lines.py); its line replaces
+# this builder's own.
+from units_lines import LINES as UNITS_LINES  # noqa: E402
+for _rid, _line in UNITS_LINES.items():
+    if _rid in _OWN_ROWS:
+        MAP[_rid] = _line
+
 
 def main():
     rows = list(csv.DictReader(l for l in open(RULES, encoding="utf-8-sig") if not l.startswith("#")))

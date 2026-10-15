@@ -397,7 +397,8 @@ def test_coverage():
     # asks -- the 21 NONE rows got one (HAR-011 reads HAR-010's: the same fact). Was 18 / 19 / same rule 2 / NONE 21.
     # CHANGED (step 5d, second reader, 2026-10-14): HAR-062 gained a confirm FACT (pit-bull-type breeds). Was 18 / 39.
     # CHANGED (step 5d, second reader, 2026-10-14): HAR-058 (Condition of Property) is new. Was 17 / 40.
-    assert kinds == {"decided by a form field": 17, "gated-but-open": 41, "same rule as another row": 3}
+    # CHANGED DELIBERATELY (round 39 step 4, 2026-10-15; Liam: the form's 'Units in the building', rules_data/units_lines.py): HAR-033 / HAR-071 (1-2 family) are decided by it, no longer a confirm. Was 17 / 41.
+    assert kinds == {"decided by a form field": 19, "gated-but-open": 39, "same rule as another row": 3}
 
 
 def test_no_deciding_row_is_left_to_the_model_or_the_also_confirm_list():

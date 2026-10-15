@@ -168,6 +168,7 @@ FIELD_TOPIC = {   # map field -> round 21 topic (always-on fields -> None)
     "fire_station_miles": "ppc", "hydrant_1000ft": "ppc",     # round 26, decision B
     "primary_home_carrier": None, "primary_home_miles": None,  # round 30 step 1 (with occupancy)
     "rental_units_total": None, "rental_term": None,           # round 39: asked for a tenant-occupied home
+    "units_in_building": None,                                 # round 39 step 4: asked for a House
 }
 # Round 30 step 2, class (c): rows Liam decided by name stay HOLDS even when they are open only on
 # a fact the form never asks.
@@ -194,10 +195,11 @@ BLANK_IS_NOTE = {"dwelling_amount", "county", "zip", "sage_territory", "south_of
 # never a hold -- alone, and also when the row is open on a FACT besides.
 CONFIRM_FIELDS = {"losses_5yr", "losses_3yr", "loss_types", "electrical"}
 # Round 39 step 1 (Liam, 2026-10-12): the rental questions for a tenant-occupied home; blank or Unknown is a confirm.
-CONFIRM_FIELDS |= {"rental_units_total", "rental_term"}
+CONFIRM_FIELDS |= {"rental_units_total", "rental_term", "units_in_building"}
 BLANK_IS_NOTE = BLANK_IS_NOTE | CONFIRM_FIELDS
 BLANK_LABEL = {"dwelling_amount": "Coverage A", "losses_5yr": "losses", "losses_3yr": "losses", "loss_types": "losses",
-               "electrical": "electrical", "rental_units_total": "rental units owned", "rental_term": "rental term"}
+               "electrical": "electrical", "rental_units_total": "rental units owned", "rental_term": "rental term",
+               "units_in_building": "units in the building"}
 
 
 # --------------------------------------------------------------------------- data
@@ -384,6 +386,9 @@ def facts(pd, today=None):
     # Round 39 step 1: asked only for a tenant-occupied home; blank / Unknown is unknown (a confirm: CONFIRM_FIELDS)
     f["rental_units_total"] = intake_fields.answer(pd.get("rental_units_total"))
     f["rental_term"] = intake_fields.answer(pd.get("rental_term"))
+    # Round 39 step 4: asked only for a House; blank / Unknown is unknown (a confirm)
+    house = intake_fields.normalize_dwelling_type(pd.get("dwelling_type")) == "House"
+    f["units_in_building"] = intake_fields.answer(pd.get("units_in_building")) if house else None
     for box in ("pool_fence_4ft", "pool_gate_locking"):      # unticked = unknown, never "no"
         f[box] = True if intake_fields.pool_box(pd, box) else None
     return f
@@ -603,6 +608,7 @@ FIELD_LABELS = {
     "losses_5yr": "Losses in the last 5 years", "losses_3yr": "Losses in the last 3 years",
     "loss_types": "Loss types", "loss_year": "Most recent loss year", "electrical": "Electrical",
     "rental_units_total": "Rental units the owner has in total", "rental_term": "Rented to",
+    "units_in_building": "Units in the building",
 }
 
 
@@ -804,7 +810,7 @@ _ANSWER_LABEL = {
     "coastal_tier": "Coastal tier", "ppc": "PPC", "hydrant_1000ft": "Hydrant within 1,000 ft",
     "dwelling_type": "Dwelling", "swimming_pool": "Pool", "pool_accessories": "Pool extras", "solar_type": "Solar",
     "primary_home_carrier": "Primary home with", "harris_east_146": "East of Hwy 146",
-    "rental_units_total": "Rental units owned", "rental_term": "Rental term",
+    "rental_units_total": "Rental units owned", "rental_term": "Rental term", "units_in_building": "Units",
 }
 
 

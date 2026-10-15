@@ -106,6 +106,12 @@ CASES = [
     ("HAR-030", OWN, dict(LOSS, loss_types=["Liability"]), "FAIL"),
     ("HAR-030", OWN, dict(LOSS, loss_types=["Other"]), "NOTE"),
     ("HAR-030", OWN, dict(LOSS, loss_types=["Water"]), "PASS"),
+    # round 39 step 4: "Units in the building" decides the 1-2 family rows (an owner's home, a rental)
+    ("HAR-033", OWN, {"units_in_building": "2"}, "PASS"),
+    ("HAR-033", OWN, {"units_in_building": "3-4"}, "FAIL"),
+    ("HAR-033", OWN, {}, "NOTE"),
+    ("HAR-071", RENT, {"units_in_building": "1"}, "PASS"),
+    ("HAR-071", RENT, {"units_in_building": "5 or more"}, "FAIL"),
     ("HAR-036", OWN, {"roof_type": I.ROOF_ASBESTOS}, "FAIL"),
     ("HAR-036", OWN, {}, "NOTE"),
     ("HAR-045", OWN, {"occupancy_type": "Vacant"}, "FAIL"),

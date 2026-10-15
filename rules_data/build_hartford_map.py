@@ -219,6 +219,9 @@ MAP.update({
     "HAR-067": _confirm("the risk was not declined for reinstatement in the past 12 months", "reinstatement"),
     "HAR-068": _confirm("the customer owes The Hartford no earned premium", "earned premium"),
 })
+# Round 39 step 4 (Liam): "Units in the building" decides HAR-033 / HAR-071 (units_lines.py).
+from units_lines import LINES as UNITS_LINES  # noqa: E402
+MAP.update({rid: line for rid, line in UNITS_LINES.items() if rid.startswith("HAR-")})
 # Rows an RPP+ row replaces on a rental (the general row's gate leaves out a tenant-occupied home); None: the row
 # cannot apply to a rental.
 RPP_REPLACES = {"HAR-026": "HAR-078", "HAR-029": "HAR-074", "HAR-033": "HAR-071", "HAR-034": "HAR-071",

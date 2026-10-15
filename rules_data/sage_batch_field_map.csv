@@ -4,7 +4,7 @@ SUR-001,county,always,always,DECLINES,,decided by SUR-003 and SUR-002 (the same 
 SUR-002,county,county != Nueces,always,DECLINES,,
 SUR-003,county,"county in {Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, Polk}",south_of_31 == False,DECLINES,,a county not entirely south of 31 N (v2)
 SUR-004,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
-SUR-005,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
+SUR-005,dwelling_type;units_in_building,units_in_building not in {5 or more},dwelling_type == House,DECLINES,,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 SUR-006,NONE,,,DECLINES,,the number of individual owners is not asked
 SUR-007,ownership_type;trust_type,"ownership_type not in {LLC, Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Corporate or business trust})",always,DECLINES,,"'Corporate / Business, LLC, association, partnership or other non-individual owned' (round 35)"
 SUR-008,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
@@ -14,7 +14,7 @@ SUR-011,NONE,,,DECLINES,,product / binding status is not a property fact
 SUR-013,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,"owner occupied = primary, seasonal or secondary residence; Vacant is decided by SUR-024"
 SUR-014,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SUR-015,occupancy_type,always,always,DECLINES,,decided by SUR-024 (the same rule); never a second flaw
-SUR-016,occupancy_type;dwelling_type,"dwelling_type in {House, Townhome}","occupancy_type in {Seasonal, Secondary Home}",DECLINES,,single family = House or Townhome
+SUR-016,occupancy_type;dwelling_type;units_in_building,"dwelling_type in {House, Townhome} and (dwelling_type == Townhome or units_in_building in {1})","occupancy_type in {Seasonal, Secondary Home}",DECLINES,,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 SUR-017,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SUR-018,occupancy_type,FACT(property checked while the owner is away),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,checks while away,
 SUR-019,ownership_type;occupancy_type,"occupancy_type != Tenant Occupied and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there,round 35 step 2: the occupant is not asked -- a confirm note
@@ -117,7 +117,7 @@ SFP-001,county,always,always,DECLINES,,decided by SFP-003 and SFP-002 (the same 
 SFP-002,county,county != Nueces,always,DECLINES,,
 SFP-003,county,"county in {Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, Polk}",south_of_31 == False,DECLINES,,a county not entirely south of 31 N (v2)
 SFP-004,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
-SFP-005,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
+SFP-005,dwelling_type;units_in_building,units_in_building not in {5 or more},dwelling_type == House,DECLINES,,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 SFP-006,NONE,,,DECLINES,,the number of individual owners is not asked
 SFP-007,ownership_type;trust_type,"ownership_type not in {LLC, Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Corporate or business trust})",always,DECLINES,,"'Corporate / Business, LLC, association, partnership or other non-individual owned' (round 35)"
 SFP-008,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
@@ -127,7 +127,7 @@ SFP-011,NONE,,,DECLINES,,product / binding status is not a property fact
 SFP-013,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,"owner occupied = primary, seasonal or secondary residence; Vacant is decided by SFP-024"
 SFP-014,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SFP-015,occupancy_type,always,always,DECLINES,,decided by SFP-024 (the same rule); never a second flaw
-SFP-016,occupancy_type;dwelling_type,"dwelling_type in {House, Townhome}","occupancy_type in {Seasonal, Secondary Home}",DECLINES,,single family = House or Townhome
+SFP-016,occupancy_type;dwelling_type;units_in_building,"dwelling_type in {House, Townhome} and (dwelling_type == Townhome or units_in_building in {1})","occupancy_type in {Seasonal, Secondary Home}",DECLINES,,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 SFP-017,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 SFP-018,occupancy_type,FACT(property checked while the owner is away),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,checks while away,
 SFP-019,ownership_type;occupancy_type,"occupancy_type != Tenant Occupied and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there,round 35 step 2: the occupant is not asked -- a confirm note
@@ -234,7 +234,7 @@ WIL-001,county,always,always,DECLINES,,decided by WIL-003 and WIL-002 (the same 
 WIL-002,county,county != Nueces,always,DECLINES,,
 WIL-003,county,"county in {Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, Polk}",south_of_31 == False,DECLINES,,a county not entirely south of 31 N (v2)
 WIL-004,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
-WIL-005,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
+WIL-005,dwelling_type;units_in_building,units_in_building not in {5 or more},dwelling_type == House,DECLINES,,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 WIL-006,NONE,,,DECLINES,,the number of individual owners is not asked
 WIL-007,ownership_type;trust_type,"ownership_type not in {LLC, Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Corporate or business trust})",always,DECLINES,,"'Corporate / Business, LLC, association, partnership or other non-individual owned' (round 35)"
 WIL-008,NONE,,,DECLINES,,"location detail beyond county / tier is not asked, or the guide does not say"
@@ -244,7 +244,7 @@ WIL-011,NONE,,,DECLINES,,product / binding status is not a property fact
 WIL-013,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,"owner occupied = primary, seasonal or secondary residence; Vacant is decided by WIL-024"
 WIL-014,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 WIL-015,occupancy_type,always,always,DECLINES,,decided by WIL-024 (the same rule); never a second flaw
-WIL-016,occupancy_type;dwelling_type,"dwelling_type in {House, Townhome}","occupancy_type in {Seasonal, Secondary Home}",DECLINES,,single family = House or Townhome
+WIL-016,occupancy_type;dwelling_type;units_in_building,"dwelling_type in {House, Townhome} and (dwelling_type == Townhome or units_in_building in {1})","occupancy_type in {Seasonal, Secondary Home}",DECLINES,,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 WIL-017,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 WIL-018,occupancy_type,FACT(property checked while the owner is away),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,checks while away,
 WIL-019,ownership_type;occupancy_type,"occupancy_type != Tenant Occupied and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there,round 35 step 2: the occupant is not asked -- a confirm note
@@ -325,7 +325,7 @@ WIL-188,NONE,,,CONDITION,,flood zone is not asked
 TRI-001,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 TRI-002,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,"owner occupied = primary, seasonal or secondary residence; Vacant is decided by TRI-008"
 TRI-003,occupancy_type,always,always,DECLINES,,decided by TRI-008 (the same rule); never a second flaw
-TRI-004,occupancy_type;dwelling_type,"dwelling_type in {House, Townhome}","occupancy_type in {Seasonal, Secondary Home}",DECLINES,,single family = House or Townhome
+TRI-004,occupancy_type;dwelling_type;units_in_building,"dwelling_type in {House, Townhome} and (dwelling_type == Townhome or units_in_building in {1})","occupancy_type in {Seasonal, Secondary Home}",DECLINES,,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 TRI-005,occupancy_type,FACT(property checked while the owner is away),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,checks while away,
 TRI-006,NONE,,,REFERS_TO_UW,,"rentals, mailing address and occupancy dates are not asked"
 TRI-007,NONE,,,REFERS_TO_UW,,"rentals, mailing address and occupancy dates are not asked"
@@ -346,7 +346,7 @@ TRI-022,NONE,,,DECLINES,,the number of individual owners is not asked
 TRI-023,ownership_type;occupancy_type,"occupancy_type != Tenant Occupied and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there,round 35 step 2: the occupant is not asked -- a confirm note
 TRI-024,ownership_type;trust_type,"trust_type not in {Land trust, Corporate or business trust} and (trust_type in {Family trust} or FACT(family held trust))",ownership_type == Trust,CONDITION,family held trust,
 TRI-025,ownership_type,FACT(only one trust on the property),ownership_type == Trust,DECLINES,number of trusts,
-TRI-026,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
+TRI-026,dwelling_type;units_in_building,units_in_building not in {5 or more},dwelling_type == House,DECLINES,,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 TRI-027,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,modular / motor homes are not form options
 TRI-028,construction_type,always,always,DECLINES,,decided by TRI-027 (the same rule); never a second flaw
 TRI-029,NONE,,,CONDITION,,"unit count, foundation and original use are not asked"

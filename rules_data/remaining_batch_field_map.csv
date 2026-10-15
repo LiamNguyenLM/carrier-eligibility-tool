@@ -89,7 +89,7 @@ CHO-009,dwelling_amount,dwelling_amount <= 1250000,always,REFERS_TO_UW,,
 CHO-011,NONE,,,DECLINES,,not asked by the form
 CHO-012,NONE,,,DECLINES,,not asked by the form
 CHO-013,occupancy_type,"occupancy_type != Tenant Occupied and (occupancy_type not in {Seasonal, Secondary Home} or FACT(the owner lives there when the home is used))",always,DECLINES,the owner's own use,Vacant is decided by CHO-049
-CHO-014,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
+CHO-014,dwelling_type;units_in_building,"units_in_building in {1, 2}",dwelling_type == House,DECLINES,,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 CHO-015,NONE,,,REFERS_TO_UW,,liability hazards are not asked
 CHO-017,swimming_pool;pool_accessories,pool_accessories == None,swimming_pool != No Pool,REFERS_TO_UW,,
 CHO-019,NONE,,,CONDITION,,flood zone is not asked
@@ -145,7 +145,7 @@ LDP-018,ownership_type,"ownership_type != Corporation / partnership or FACT(a pa
 LDP-019,ownership_type,FACT(owns it for the benefit of an individual owner who is the named insured),"ownership_type in {Trust, LLC, Estate}",CONDITION,who the trust / LLC benefits,
 LDP-020,NONE,,,CONDITION,,the number of individual owners is not asked
 LDP-022,NONE,,,DECLINES,,not asked by the form
-LDP-023,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
+LDP-023,dwelling_type;units_in_building,units_in_building not in {5 or more},dwelling_type == House,DECLINES,,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 LDP-024,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,
 LDP-025,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
 LDP-026,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
@@ -870,7 +870,7 @@ STD-031,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not a
 STD-032,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 STD-033,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
 STD-034,NONE,,,DECLINES,,"rentals, mailing address and occupancy dates are not asked"
-STD-036,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
+STD-036,dwelling_type;units_in_building,units_in_building not in {5 or more},dwelling_type == House,DECLINES,,round 39 step 4: the form's 'Units in the building' (a House); blank or Unknown is a confirm
 STD-038,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
 STD-039,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"
 STD-040,NONE,,,DECLINES,,"unit count, foundation and original use are not asked"

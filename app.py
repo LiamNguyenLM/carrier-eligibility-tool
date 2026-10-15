@@ -422,6 +422,13 @@ with tab1:
         dwelling_type = st.selectbox(
             "Dwelling type (required)", list(intake_fields.DWELLING_TYPES), key="dwelling_type",
             format_func=lambda v: v or "— pick one —")
+        st.caption(intake_fields.DWELLING_TYPE_HELP)                    # round 39 step 4 (Liam)
+        units_in_building = None
+        if dwelling_type == "House":
+            units_in_building = st.selectbox(
+                "Units in the building", list(intake_fields.UNITS_CHOICES), key="units_in_building",
+                format_func=lambda v: v or "— optional —",
+                help="A duplex is 2. Several guides decide on the number of units or families; blank is a confirm.")
 
     # Round 37 step 4 (Liam, 2026-10-10): two optional questions many guides ask. Blank means unknown: a
     # "confirm" on the cards, never a hold.
@@ -520,6 +527,9 @@ with tab1:
                     property_details["losses_3yr"] = losses_3yr
             if electrical:
                 property_details["electrical"] = list(electrical)
+            # Round 39 step 4: present only when answered (a House)
+            if units_in_building:
+                property_details["units_in_building"] = units_in_building
 
             # Round 36 step 6: each check's feedback controls get their own keys
             st.session_state["check_seq"] = st.session_state.get("check_seq", 0) + 1
