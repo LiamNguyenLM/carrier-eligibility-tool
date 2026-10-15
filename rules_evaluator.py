@@ -582,6 +582,35 @@ def _open_fact_now(open_fact, unknown):
     return "; ".join(keep)
 
 
+# Round 39 step 0a (Liam): a held row names what it still needs by the form's own label, never by a field key
+# ("Held: this guide needs to know plumbing_type" before). Every name facts() makes is here
+# (verification/test_field_labels.py); a FACT(...) text is already words.
+FIELD_LABELS = {
+    "year_built": "Year Built", "home_age": "Year Built", "roof_age": "Roof Age", "roof_type": "Roof Type",
+    "roof_shape": "Roof Shape", "construction_type": "Construction Type", "plumbing_type": "Plumbing Type",
+    "pex_2011": "Plumbing Type (the PEX install year)", "occupancy_type": "Occupancy Type",
+    "ownership_type": "Ownership Structure", "trust_type": "Trust type", "coastal_tier": "Coastal Tier",
+    "swimming_pool": "Swimming Pool", "pool_accessories": "Pool Accessories",
+    "pool_fence_4ft": "Fence confirmed 4 ft or higher", "pool_gate_locking": "Gate confirmed self-latching and lockable",
+    "has_dogs": "Dogs on Premises", "aggressive_breed": "Breed(s) on the property",
+    "dog_breeds": "Breed(s) on the property", "solar_panels": "Solar Panels", "solar_type": "Solar type",
+    "solar_tesla": "Tesla equipment", "ppc": "PPC Number", "ppc_num": "PPC Number",
+    "fire_station_miles": "Distance to fire station", "station_miles_iso": "Distance to fire station",
+    "hydrant_1000ft": "Hydrant within 1,000 ft", "zip": "ZIP", "county": "County",
+    "sage_territory": "County", "south_of_31": "County", "harris_east_146": "East of Highway 146",
+    "dwelling_amount": "Coverage A", "dwelling_type": "Dwelling type",
+    "primary_home_carrier": "Primary home insured with", "primary_home_miles": "Distance to the primary home",
+    "losses_5yr": "Losses in the last 5 years", "losses_3yr": "Losses in the last 3 years",
+    "loss_types": "Loss types", "loss_year": "Most recent loss year", "electrical": "Electrical",
+    "rental_units_total": "Rental units the owner has in total", "rental_term": "Rented to",
+}
+
+
+def _named(unknown):
+    """The unknowns as an agent reads them: a field by its form label (once), a FACT(...) as written."""
+    return "; ".join(dict.fromkeys(FIELD_LABELS.get(u, u) for u in unknown))
+
+
 def evaluate_row(m, f, checked=None):
     """(outcome, detail) for one map line."""
     if checked is not None and m["field"] != "NONE" and not row_topics(m) <= set(checked):
@@ -602,7 +631,7 @@ def evaluate_row(m, f, checked=None):
         result = "OPEN"
     ambiguous = result == "OPEN" and len(vals) > 1 and None not in vals
     detail = ("ambiguous: " + (m["map_note"] or "the readings disagree")) if ambiguous else \
-        _open_fact_now(m["open_fact"], unknown) or "; ".join(dict.fromkeys(unknown))
+        _open_fact_now(m["open_fact"], unknown) or _named(unknown)
     if m["outcome_if_fail"] == "NOTE" and result in ("FAIL", "OPEN"):
         return "NOTE", "cure is an inspection (not checked)"
     # Decision 1: the row hinges on a blank Coverage A or County -- either the
@@ -622,7 +651,7 @@ def evaluate_row(m, f, checked=None):
     if (result == "OPEN" and not ambiguous and unknown and False not in vals
             and all(u not in f or u in CONFIRM_FIELDS for u in unknown) and m["outcome_if_fail"] != "UNKNOWN"
             and m.get("row_id") not in HOLD_BY_DECISION):
-        return "NOTE", "confirm: " + (_open_fact_now(m["open_fact"], unknown) or "; ".join(dict.fromkeys(unknown)))
+        return "NOTE", "confirm: " + (_open_fact_now(m["open_fact"], unknown) or _named(unknown))
     return result, detail
 
 

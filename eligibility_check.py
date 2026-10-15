@@ -2862,7 +2862,8 @@ def _strip_contradicted_property_claims(results, property_details, checked=None)
                 "property whose intake says \"{field}: {value}\". PROPERTY DETAILS is the "
                 "only source of facts about the customer, and it positively states this "
                 "feature is absent. Removed: {preview}".format(
-                    n=total, label=check["label"], field=check["field"],
+                    n=total, label=check["label"],
+                    field=rules_evaluator.FIELD_LABELS.get(check["field"], check["field"]),  # round 39: the form's label
                     value=value, preview=removed_preview or "(notes)",
                 ),
             )
