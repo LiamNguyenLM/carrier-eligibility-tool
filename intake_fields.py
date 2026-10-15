@@ -433,6 +433,17 @@ OWNERSHIP_TYPES = ("Individual Owner", "Trust", "LLC", "Corporation / partnershi
 TRUST_TYPES = ("Unknown", "Family trust", "Revocable living trust", "Land trust", "Corporate or business trust")
 SOLAR_TYPES = ("", "Roof-mounted panels", "Solar roof (shingles or tiles)", "Ground-mounted")
 TESLA_CHOICES = ("Unknown", "Yes", "No")
+# Round 39 step 0b (Liam): with Solar Panels = Yes, how many carriers hold until the solar type and the Tesla answer
+# are given, by occupancy (fewer where another rule already rules one out). An owner's home: Allied Trust, Foremost and
+# the four Swyfft programs; a seasonal / secondary home: Allied, Foremost, Steadily and two Swyfft programs; a rental:
+# Foremost and Steadily; a vacant home: Foremost. verification/test_solar_hint.py keeps these in step with the rules.
+SOLAR_HOLD_COUNTS = {"Owner Occupied": "Six", "Seasonal": "Five", "Secondary Home": "Five", "Tenant Occupied": "Two",
+                     "Vacant": "One"}
+
+
+def solar_hold_hint(occupancy):
+    n = SOLAR_HOLD_COUNTS.get(occupancy, "Some")
+    return f"{n} carrier{'' if n == 'One' else 's'} hold{'s' if n == 'One' else ''} until these are answered."
 HARRIS_146_CHOICES = ("Unknown", "Yes", "No")
 
 

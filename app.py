@@ -365,6 +365,7 @@ with tab1:
             solar_tesla = st.selectbox(
                 "Tesla equipment (Solar Roof, Powerwall or other Tesla parts)?", list(intake_fields.TESLA_CHOICES),
                 key="solar_tesla", on_change=_autotick, args=("solar", "solar_tesla", "Unknown"))
+            st.caption(intake_fields.solar_hold_hint(occupancy_type))     # round 39 step 0b (Liam)
         _check_box("solar")
 
     st.divider()
