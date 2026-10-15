@@ -3343,9 +3343,11 @@ class TestOccupancyFilterProductDetection:
         assert "HOAIC_-_DP_Guide_DP3" not in get_combined_program_carriers()
 
     def test_no_homeowners_document_is_offered_for_a_tenant_risk(self):
+        # CHANGED DELIBERATELY (round 39 step 1, 2026-10-14; Liam's decision 1, 2026-10-12): The Hartford's rental HO3 (Rental Property Protection Plus) is offered for a tenant risk.
+        from eligibility_check import RENTAL_HO3_OCCUPANCIES
         leaked = [
             c for c in get_carriers_for_occupancy("Tenant Occupied")
-            if carrier_programs(c)[0] and not carrier_programs(c)[1]
+            if carrier_programs(c)[0] and not carrier_programs(c)[1] and c not in RENTAL_HO3_OCCUPANCIES
         ]
         assert not leaked, f"homeowners programs selected for a tenant-occupied run: {leaked}"
 
@@ -3360,7 +3362,9 @@ class TestOccupancyFilterProductDetection:
         owner = set(get_carriers_for_occupancy("Owner Occupied"))
         tenant = set(get_carriers_for_occupancy("Tenant Occupied"))
         both = owner & tenant
-        assert both == get_combined_program_carriers(), (
+        # CHANGED DELIBERATELY (round 39 step 1, 2026-10-14; Liam's decision 1, 2026-10-12): + the rental HO3 (an owner's home and a rental, on one guide).
+        from eligibility_check import RENTAL_HO3_OCCUPANCIES
+        assert both == get_combined_program_carriers() | set(RENTAL_HO3_OCCUPANCIES), (
             f"carriers in both occupancy lists that are not combined-program: "
             f"{sorted(both - get_combined_program_carriers())}"
         )
@@ -3476,7 +3480,8 @@ def test_no_bucket_carries_a_status_suffix_since_each_holds_one_status():
     for name in ("Eligible", "Refer to Underwriting", "Insufficient Information", "Not Eligible"):
         body = bucket_body(name)
         # CHANGED 2026-10-10 (round 36 step 5, Liam: agents see display names; prompts, citations and logs keep program names): the bare name is the display name. Was: st.expander(carrier["carrier"]).
-        assert 'st.expander(display_names.display_name(carrier["carrier"]))' in body, (
+        # CHANGED DELIBERATELY (round 39 step 1, 2026-10-14; Liam's decision 1, 2026-10-12): the name for the check's occupancy ("The Hartford (HO3 rental: ...)" on a rental).
+        assert 'st.expander(display_names.record_name(carrier))' in body, (
             f"{name!r} bucket no longer renders the bare carrier name"
         )
         assert '+ "  |  " +' not in body, (

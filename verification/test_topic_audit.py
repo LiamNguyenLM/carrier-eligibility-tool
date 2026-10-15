@@ -42,7 +42,11 @@ def test_the_topic_table():
     # CHANGED 2026-10-11 (round 37 follow-up): + "fire_protection" (the protection-class rows). Was: 33 topics.
     assert len(ct.TOPICS) == 34
     other = sum(1 for r in RULES.values() if ct.topic_of(r["Plain rule"], r["Topic"]) == "other")
-    assert other == 256          # was 312 with the first-in-table rule (round 37)
+    # CHANGED DELIBERATELY (round 39 step 1, 2026-10-14; Liam's decision 1, 2026-10-12): + HAR-044 (golf carts, NOT_ELIGIBILITY), HAR-069 (inspections, IGNORE_INSPECTION) and HAR-080 (SILENT):
+    # never on a card. Was 256 (312 with the first-in-table rule, round 37).
+    assert other == 259
+    deciding = [r for r in RULES.values() if r["Carrier"] == "The Hartford HO3" and r["Tool handling"] in ev.DECIDING]
+    assert deciding and not [r["Rule ID"] for r in deciding if ct.topic_of(r["Plain rule"], r["Topic"]) == "other"]
 
 
 def _row(rid, rule, effect="DECLINES"):

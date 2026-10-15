@@ -24,8 +24,9 @@ def test_the_form_labels_are_the_app_s_options():
         assert f'"{label}"' in src
 
 
-def test_the_27_coastal_lines():
-    assert len(COASTAL) == 27
+def test_the_28_coastal_lines():
+    # CHANGED DELIBERATELY (round 39 step 1, 2026-10-14; Liam's decision 1, 2026-10-12): + HAR-052, The Hartford's 2,000-ft / barrier-island confirm. Was 27.
+    assert len(COASTAL) == 28 and "HAR-052" in COASTAL
     assert {"ARA-024", "TWI-044", "TRV-080", "TRV-083", "CDP-051", "PDP-014", "PH6-044", "SAG-088", "SAG-089",
             "MER-061", "PRO-073", "PRO-087", "SUR-161", "SUR-165", "SFP-169", "SFP-175", "TRI-100"} <= set(COASTAL)
 
@@ -35,9 +36,11 @@ def test_the_27_coastal_lines():
 def test_every_form_value_hits_the_lines_that_name_its_tier(label, prefix_only):
     tier = LABELS[label]
     value = tier if (prefix_only and tier) else label
-    f = ev.facts(dict(BASE, coastal_tier=value))
     for rid in COASTAL:
         m = ev._map()[rid]
+        # round 39: a line that also reads the county (HAR-052: the form's Tier 1 OR the guide's Tier I counties) is
+        # checked on an inland county, so only its tier decides
+        f = ev.facts(dict(BASE, coastal_tier=value, **({"county": "Travis"} if "county in" in m["gate"] else {})))
         named = set(re.findall(r"Tier \d", m["gate"]))
         out = ev.evaluate_row(m, f)[0]
         assert (out != "N/A") == (tier in named), (rid, value, m["gate"], out)

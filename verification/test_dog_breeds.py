@@ -20,6 +20,8 @@ DOGS = {"has_dogs": "Yes", "occupancy_type": "Owner Occupied"}
 
 def kind(rid):
     t = M[rid]["test"]
+    if "FACT(the American Bully" in t:          # round 39 (HAR-062): a closed list + a confirm on two lookalikes
+        return "closed_lookalike"
     if "FACT(Animal Liability" in t:
         return "open_ack"
     if "or FACT(signed acknowledgement" in t:
@@ -37,14 +39,22 @@ def row(rid, **pd):
     return ev.evaluate_row(M[rid], ev.facts(dict(DOGS, **pd)))[0]
 
 
-WHEN_LISTED = {"closed": "FAIL", "open": "FAIL", "ack": "NOTE", "open_ack": "NOTE"}
-WHEN_NOT = {"closed": "PASS", "open": "NOTE", "ack": "PASS", "open_ack": "NOTE"}
+WHEN_LISTED = {"closed": "FAIL", "open": "FAIL", "ack": "NOTE", "open_ack": "NOTE", "closed_lookalike": "FAIL"}
+WHEN_NOT = {"closed": "PASS", "open": "NOTE", "ack": "PASS", "open_ack": "NOTE", "closed_lookalike": "PASS"}
+
+
+def lookalikes(rid):
+    """HAR-062's second list: pit-bull-type breeds the guide does not name -- a confirm, not a decline."""
+    sets = re.findall(r"none_of \{([^}]*)\}", M[rid]["test"])
+    return {x.strip() for x in sets[1].split(",")} if kind(rid) == "closed_lookalike" else set()
 
 
 def test_the_breed_lines():
+    # CHANGED DELIBERATELY (round 39 step 1, 2026-10-14; Liam's decision 1, 2026-10-12): + HAR-062 (The Hartford).
     assert LINES == sorted(["ALL-106", "SAG-067", "MER-054", "PRO-061", "SWY-040", "SUR-069", "SFP-070", "TRI-081",
-                            "ARA-033", "ARB-028", "FOR-062", "STO-018", "TRV-016", "CDP-057", "PDP-109", "PH6-086"])
-    assert {kind(r) for r in LINES} == {"closed", "open", "ack", "open_ack"}
+                            "ARA-033", "ARB-028", "FOR-062", "STO-018", "TRV-016", "CDP-057", "PDP-109", "PH6-086",
+                            "HAR-062"])
+    assert {kind(r) for r in LINES} == {"closed", "open", "ack", "open_ack", "closed_lookalike"}
     assert all(listed(r) <= set(intake_fields.DOG_BREEDS) for r in LINES)
 
 
@@ -56,6 +66,8 @@ def test_no_dog_line_is_ambiguous_any_more():
 @pytest.mark.parametrize("breed", intake_fields.DOG_BREEDS)
 def test_every_breed_against_every_line(rid, breed):
     want = (WHEN_LISTED if breed in listed(rid) else WHEN_NOT)[kind(rid)]
+    if breed in lookalikes(rid):
+        want = "NOTE"
     assert row(rid, dog_breeds=[breed]) == want
 
 

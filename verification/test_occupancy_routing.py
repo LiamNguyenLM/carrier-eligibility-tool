@@ -30,7 +30,10 @@ def test_an_owners_other_home_reaches_ho3_and_dp_programs(occupancy):
 def test_tenant_and_vacant_stay_dp_only(occupancy):
     got = _route(occupancy)
     combined = set(ec.get_combined_program_carriers())
-    assert not any(ec.carrier_programs(c)[0] and c not in combined for c in got)
+    # CHANGED DELIBERATELY (round 39 step 1, 2026-10-14; Liam's decision 1, 2026-10-12): a tenant-occupied home also sees The Hartford's rental HO3 (Rental Property Protection Plus).
+    rental = {c for c in ec.RENTAL_HO3_OCCUPANCIES if occupancy in ec.RENTAL_HO3_OCCUPANCIES[c]}
+    assert not any(ec.carrier_programs(c)[0] and c not in combined | rental for c in got)
+    assert rental <= set(got) if occupancy == "Tenant Occupied" else not rental
 
 
 def test_owner_occupied_is_unchanged():
