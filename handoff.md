@@ -2817,6 +2817,95 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
      `pilot_structured_rules/hartford/`, with a column for Jonathan.
   8. Placement has no Hartford history until the next monthly refresh.
 
+- **2026-10-16 — Liam's decisions (Round 40): the right NatGen Custom360 HO3 and Occidental HO3 guides.**
+  - Replace the two wrong files (NatGen Custom360 HO3 held the DP3 guide; Occidental HO3 held the Occidental DP3
+    guide) with the real ones, through the upload path, and wire in both rules tables as for the Hartford. Display
+    names "NatGen Custom360 (HO3)" and "SageSure Occidental (HO3)". Every deciding row gets a map line; none is left
+    to the model.
+  - NatGen: the p.5 Coverage A tables are binding authority -- below $150,000 declines; above the "Underwriting
+    approval is required" amounts refers (Non-Premier PC 1-8 over $1,500,000; PC 9-10 over $750,000;
+    secondary/seasonal over $750,000); Premier Client is not asked, so Non-Premier with a confirm. NC3-115 is
+    non-remediated damage only (a condition note). The 3-year loss rules: package at most two paid losses and one
+    theft / vandalism / water loss; monoline one loss; decide only what both readings agree on; NC3-111's Insurance
+    Score is a confirm; two remediated, certified appliance water losses are accepted. Wood roofs refer (NC3-100)
+    unless a p.7 requirement clearly fails (older than 25 years). Coastal: Harris ZIPs 77571 / 77586 east of Hwy 146
+    are Zone 1 (a wind/hail exclusion note), all of Harris is Zone 2 Houston (3% note); "acceptable CAT score" is a
+    note, never a decline. NatGen's other programs unchanged.
+  - Occidental: the address rule (OCC-001) from county boundaries; a blank county holds; the Sage FPC hold decisions
+    apply; "tier 1 / tier 2 county" as SAG-089 / SUR-163 / SFP-172; HO 04 70 + TWIA a confirm; tenant-occupied only
+    as other units of the owner's 2-4 family home; steel 29 gauge or heavier passes, aluminum or tin declines.
+- **2026-10-16 — Round 40: what changed (r40-dev, 9a0dc9d..d6f6925).**
+  - **Step 1 (9a0dc9d):** the two PDFs swapped (old ones kept in the scratchpad), the data_defects WRONG entries and
+    the "Could Not Be Checked" cards removed (only Liberty Mutual HO6 is still defective), both re-indexed through the
+    upload path: NatGen 187 chunks, Occidental 98; the other 40 carriers byte-identical. The guide date is read from
+    the text: an "effective" date beats a revision date, which beats a bare cover date, which beats an edition date
+    (NatGen's "Edition Date: 08/01/2024" was being picked). The hidden-text filter drops colour-only text only when a
+    page has 200 or more such characters (it dropped NatGen's blue cover title).
+  - **Step 2 (b3b7f40, b15933a, 8fab818):**
+    - NatGen Custom360 HO3: `rules_data/carrier_rules_natgen_c360_ho3_v1.csv` (193 rows), map from
+      `build_natgen_c360_map.py`: 158 deciding rows, all mapped -- 14 decided by a form field, 93 confirms,
+      51 "decided by" (the stove, brush, farming and Course of Construction lists are one confirm each).
+    - Occidental HO3: `rules_data/carrier_rules_occidental_ho3_v1.csv` (137 rows), map from
+      `build_occidental_map.py` (the shared Sage lines): 89 deciding rows -- 15 form, 67 confirms, 7 "decided by".
+      `rules_data/occidental_counties.csv` (from texas_counties.csv, Census 2023 cb_2023_us_county_500k northernmost
+      latitude): 89 of 254 counties in.
+    - Batches "natgen_c360" (RULES_HO3_BATCH) and "occidental" (RULES_SAGE_BATCH); no new Railway variable. The
+      panel line ends "+ NatGen Custom360 ON (1 more) + Occidental ON (1 more)".
+    - Notes: NatGen Coastal Zone 1 / Harris 77571-77586 east of 146 / Zone 2 2% / Zone 2 Houston 3% / Inland Zone 1
+      2% / CAT score; Occidental 5% (Galveston, Brazoria, Chambers), 3% (Harris, Fort Bend), 1.5% elsewhere, pre-1940
+      HO 05 30.
+    - `feedback.ROW_ID` missed row IDs with a digit in the prefix (NC3-, and PH6- since round 38) in the downloaded
+      "deciding_rows" column: fixed.
+    - confirm_topics: the applicant's age, a high-profile resident, structures away, farm public activities, and
+      NatGen's Coverage A tables get their topics (also moves NatGen DP3's NCD-019 / 038 / 039: card grouping only).
+    - b15933a: a blank Coverage A held NatGen on Liam's profile (found live): the 1X-8X split-class confirm moved
+      out of NC3-022's test onto NC3-017, gated on the amount. A new deep-check invariant (blank_is_note) catches it.
+- **2026-10-16 — Round 40 results.**
+  - **Fast tier** (fresh shards, `fast8g.sh`):
+    - 9a0dc9d: 5 failed, 5624 passed, 9 xfailed, 1 xpassed -- the swap's own expectations, all fixed in b3b7f40.
+    - b3b7f40: 3 of 8 shards ran (1 failed, 2171 passed); 5 rejected their node lists (a file path in a parametrized
+      test's id) -- fixed in b15933a; the one failure (FPC holds 35 -> 39) updated in 8fab818.
+    - 8fab818: all 8 shards, 5806 passed, 2 failed (the panel line and the requirement-row count, updated in d6f6925), 10 xfailed, 1 xpassed.
+  - **Second reader** (fresh subagents with the rendered pages, every deciding row): NatGen 139 / 158 agreed,
+    Occidental 70 / 89. Applied: NC3-036 "or an affiliate company" (Allstate, Encompass: "Other carrier" is a
+    confirm); 1X-8X split classes count as PC 9-10 (a confirm between $750,000 and $1,500,000); NC3-151 / NC3-180
+    PC 9-10 confirms that say "not eligible"; NC3-007 / NC3-158 decline when unmet; OCC-095 / 096 fail on a fire
+    loss the form shows (they held); wording of 15 confirms.
+  - **Deep check** (`verification/new_guides_deep.py`, 3,000 weighted random profiles per carrier, zero API):
+    0 invariant failures. NatGen 1,961 Eligible / 226 Refer / 683 Not eligible / 130 Held; Occidental 1,308 / 14 /
+    1,382 / 296.
+  - **Live** (Haiku 5.5 low, pilot + all batches, placement ON):
+    - Liam's Harris HO3 profile (8fab818): NatGen Custom360 (HO3) Eligible (Zone 2 Houston 3% note);
+      SageSure Occidental (HO3) held on the station distance (the FPC table); 15.9 s, $0.0022, 18 Eligible / 3 Not eligible / 7 Held.
+    - LANDLORD: neither new HO3 program is checked (a tenant-occupied home goes to the DP3 programs); 10.3 s, $0.0015.
+    - 160 weighted profiles (live_150.py, 4 processes x 40): $0.036, 0 errors, 0 fallbacks; wall time median 3.8 s, p90 10.8 s, max 20.6 s. The live verdict matched the code's in every check: NatGen 155/155, Occidental 155/155 (6 of them a blank county, held by the Sage county hold); 5 tenant/vacant homes routed to the DP3 programs.
+  - **Seed Fingerprint:** 42 carriers, 2,701 chunks, documents bce8266067f11abf, metadata 81c66d2cf27179eb (was
+    42 / 2,585). Railway still holds the old programs: deploy once with FORCE_RESEED=1 after downloading feedback (it
+    wipes uploads), then unset it. No new Railway variable.
+  - Expected sheets for Jonathan: `pilot_structured_rules/new_guides/NATGEN_C360_EXPECTED.csv`,
+    `OCCIDENTAL_EXPECTED.csv` (30 scenarios each), with `NATGEN_C360_REVIEW.md` / `OCCIDENTAL_REVIEW.md`.
+- **For Liam (Round 40).**
+  1. Travis is IN by Occidental's rule: its northern edge is 30.628 N, entirely south of 31 N. You expected it out
+     (a named strict xfail: test_travis_is_outside_occidental_territory). Same rule as every Sage HO3 today.
+  2. NatGen unfenced pool (NC3-084) refers; only rural homes have an underwriting path (p.8). Decline in town? The
+     form does not ask "rural".
+  3. NatGen: 3 or more losses with a water loss among them is a confirm, not a decline -- p.12 "accepts" appliance
+     water losses but does not say they stop counting toward the two-loss limit.
+  4. NatGen affiliates (Allstate, Encompass) are not "Primary home insured with" choices: "Other carrier" is a
+     confirm on NC3-036. Add them?
+  5. Split protection classes (1X-8X): the PPC field has none. NatGen counts them as PC 9-10 (and its DP3 too).
+     Add X classes to the field?
+  6. "No prior fire losses" in the Sage FPC table now fails on a fire loss for Occidental (OCC-095 / 096). The same
+     rows of Auros, SURE, SafePort, Wilshire, Trium and Occidental DP3 still hold on it. Apply to them (their
+     verdicts change)?
+  7. Occidental's rental-unit confirms (OCC-035..039) show only for a 2-4 family house; a rented other structure
+     (garage apartment) is not asked.
+  8. Occidental's table has no row for the 7th Extreme Hazard bullet, "Designated as insufficient rate" (p.14);
+     OCC-006's general confirm covers it. And OCC-067 (a foreclosure / trustee-sale purchase needs the appraisal
+     report) is IGNORE_INSPECTION, but it is a document the insured supplies: a confirm in the next table version?
+  9. OCC-093 / 094 read CONDITION (Refer) though the page says "eligible only if all of the following" -- moot (a
+     FACT-only row never fails), as SUR-111 / 112.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
