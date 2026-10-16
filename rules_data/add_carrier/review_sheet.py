@@ -91,7 +91,7 @@ def main(canon, out):
             continue
         out_ = rv.evaluate_carrier(canon, pd, wb=rv.rules_table_wb(canon, set(rv.BATCHES), pd))
         rec = rv.code_record(canon, out_, pd)[0]
-        ids = re.findall(r"\[([A-Z]{3}-\d{3})\]", " ".join(rec["reasons"][:1]))
+        ids = re.findall(r"\[([A-Z][A-Z0-9]{2}-\d{3})\]", " ".join(rec["reasons"][:1]))
         opens = [rid for rid, (o, _) in out_.items() if o == "OPEN"]
         lines.append(f"| {name} | {cards.STATUS_LABEL.get(rec['status'], rec['status'])} | "
                      f"{', '.join(ids) or ', '.join(opens) or '-'} | |")

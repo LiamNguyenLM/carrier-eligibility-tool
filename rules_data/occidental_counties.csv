@@ -1,0 +1,256 @@
+# SageSure Occidental HO3 (Sage_-_Occidental_HO3_-_12.02.2025, revised 12/2/2025), OCC-001 / OCC-002, p.3. Built 2026-10-16 by rules_data/build_occidental_counties.py from texas_counties.csv (U.S. Census Bureau 2023 Cartographic Boundary File cb_2023_us_county_500k, northernmost vertex latitude, NAD83, built 2026-09-30).
+county,max_latitude,occidental,why
+Anderson,32.08447,OUT,reaches 31 N or north of it
+Andrews,32.52337,OUT,reaches 31 N or north of it
+Angelina,31.52692,OUT,reaches 31 N or north of it
+Aransas,28.31923,IN,entirely south of 31 N
+Archer,33.83605,OUT,reaches 31 N or north of it
+Armstrong,35.18324,OUT,reaches 31 N or north of it
+Atascosa,29.25069,IN,entirely south of 31 N
+Austin,30.09683,IN,entirely south of 31 N
+Bailey,34.31293,OUT,reaches 31 N or north of it
+Bandera,29.90768,IN,entirely south of 31 N
+Bastrop,30.41964,IN,entirely south of 31 N
+Baylor,33.83419,OUT,reaches 31 N or north of it
+Bee,28.71965,IN,entirely south of 31 N
+Bell,31.32020,IN,one of the eight named East Texas counties
+Bexar,29.76071,IN,entirely south of 31 N
+Blanco,30.50210,IN,entirely south of 31 N
+Borden,32.96360,OUT,reaches 31 N or north of it
+Bosque,32.20740,OUT,reaches 31 N or north of it
+Bowie,33.71599,OUT,reaches 31 N or north of it
+Brazoria,29.59911,IN,entirely south of 31 N
+Brazos,30.97374,IN,entirely south of 31 N
+Brewster,30.66594,IN,entirely south of 31 N
+Briscoe,34.74838,OUT,reaches 31 N or north of it
+Brooks,27.26520,IN,entirely south of 31 N
+Brown,32.07960,OUT,reaches 31 N or north of it
+Burleson,30.73076,IN,entirely south of 31 N
+Burnet,31.03501,OUT,reaches 31 N or north of it
+Caldwell,30.07156,IN,entirely south of 31 N
+Calhoun,28.73023,IN,entirely south of 31 N
+Callahan,32.51511,OUT,reaches 31 N or north of it
+Cameron,26.41120,IN,entirely south of 31 N
+Camp,33.07735,OUT,reaches 31 N or north of it
+Carson,35.62527,OUT,reaches 31 N or north of it
+Cass,33.31201,OUT,reaches 31 N or north of it
+Castro,34.74819,OUT,reaches 31 N or north of it
+Chambers,29.88994,IN,entirely south of 31 N
+Cherokee,32.13799,OUT,reaches 31 N or north of it
+Childress,34.74753,OUT,reaches 31 N or north of it
+Clay,34.15711,OUT,reaches 31 N or north of it
+Cochran,33.82512,OUT,reaches 31 N or north of it
+Coke,32.08661,OUT,reaches 31 N or north of it
+Coleman,32.08209,OUT,reaches 31 N or north of it
+Collin,33.40550,OUT,reaches 31 N or north of it
+Collingsworth,35.18314,OUT,reaches 31 N or north of it
+Colorado,29.96152,IN,entirely south of 31 N
+Comal,30.03799,IN,entirely south of 31 N
+Comanche,32.26144,OUT,reaches 31 N or north of it
+Concho,31.58027,OUT,reaches 31 N or north of it
+Cooke,33.95638,OUT,reaches 31 N or north of it
+Coryell,31.71102,OUT,reaches 31 N or north of it
+Cottle,34.31410,OUT,reaches 31 N or north of it
+Crane,31.65171,OUT,reaches 31 N or north of it
+Crockett,31.08716,OUT,reaches 31 N or north of it
+Crosby,33.83362,OUT,reaches 31 N or north of it
+Culberson,32.00053,OUT,reaches 31 N or north of it
+Dallam,36.50070,OUT,reaches 31 N or north of it
+Dallas,32.98969,OUT,reaches 31 N or north of it
+Dawson,32.96195,OUT,reaches 31 N or north of it
+DeWitt,29.38449,IN,entirely south of 31 N
+Deaf Smith,35.18725,OUT,reaches 31 N or north of it
+Delta,33.49545,OUT,reaches 31 N or north of it
+Denton,33.43045,OUT,reaches 31 N or north of it
+Dickens,33.83565,OUT,reaches 31 N or north of it
+Dimmit,28.64812,IN,entirely south of 31 N
+Donley,35.18326,OUT,reaches 31 N or north of it
+Duval,28.05797,IN,entirely south of 31 N
+Eastland,32.51562,OUT,reaches 31 N or north of it
+Ector,32.08699,OUT,reaches 31 N or north of it
+Edwards,30.29070,IN,entirely south of 31 N
+El Paso,32.00253,OUT,reaches 31 N or north of it
+Ellis,32.54930,OUT,reaches 31 N or north of it
+Erath,32.51304,OUT,reaches 31 N or north of it
+Falls,31.52227,IN,one of the eight named East Texas counties
+Fannin,33.88500,OUT,reaches 31 N or north of it
+Fayette,30.16435,IN,entirely south of 31 N
+Fisher,32.96347,OUT,reaches 31 N or north of it
+Floyd,34.31254,OUT,reaches 31 N or north of it
+Foard,34.24196,OUT,reaches 31 N or north of it
+Fort Bend,29.78862,IN,entirely south of 31 N
+Franklin,33.38945,OUT,reaches 31 N or north of it
+Freestone,32.01253,OUT,reaches 31 N or north of it
+Frio,29.09153,IN,entirely south of 31 N
+Gaines,32.95951,OUT,reaches 31 N or north of it
+Galveston,29.59826,IN,entirely south of 31 N
+Garza,33.39721,OUT,reaches 31 N or north of it
+Gillespie,30.49987,IN,entirely south of 31 N
+Glasscock,32.08753,OUT,reaches 31 N or north of it
+Goliad,28.92527,IN,entirely south of 31 N
+Gonzales,29.78466,IN,entirely south of 31 N
+Gray,35.62049,OUT,reaches 31 N or north of it
+Grayson,33.95958,OUT,reaches 31 N or north of it
+Gregg,32.66751,OUT,reaches 31 N or north of it
+Grimes,30.86413,IN,entirely south of 31 N
+Guadalupe,29.85821,IN,entirely south of 31 N
+Hale,34.31313,OUT,reaches 31 N or north of it
+Hall,34.74835,OUT,reaches 31 N or north of it
+Hamilton,32.01790,OUT,reaches 31 N or north of it
+Hansford,36.49953,OUT,reaches 31 N or north of it
+Hardeman,34.57927,OUT,reaches 31 N or north of it
+Hardin,30.52706,IN,entirely south of 31 N
+Harris,30.17061,IN,entirely south of 31 N
+Harrison,32.79309,OUT,reaches 31 N or north of it
+Hartley,36.05550,OUT,reaches 31 N or north of it
+Haskell,33.39902,OUT,reaches 31 N or north of it
+Hays,30.35631,IN,entirely south of 31 N
+Hemphill,36.05649,OUT,reaches 31 N or north of it
+Henderson,32.35885,OUT,reaches 31 N or north of it
+Hidalgo,26.78308,IN,entirely south of 31 N
+Hill,32.26682,OUT,reaches 31 N or north of it
+Hockley,33.82512,OUT,reaches 31 N or north of it
+Hood,32.55882,OUT,reaches 31 N or north of it
+Hopkins,33.37719,OUT,reaches 31 N or north of it
+Houston,31.59289,IN,one of the eight named East Texas counties
+Howard,32.52522,OUT,reaches 31 N or north of it
+Hudspeth,32.00235,OUT,reaches 31 N or north of it
+Hunt,33.40953,OUT,reaches 31 N or north of it
+Hutchinson,36.05541,OUT,reaches 31 N or north of it
+Irion,31.52869,OUT,reaches 31 N or north of it
+Jack,33.46713,OUT,reaches 31 N or north of it
+Jackson,29.26388,IN,entirely south of 31 N
+Jasper,31.15807,OUT,reaches 31 N or north of it
+Jeff Davis,31.10520,OUT,reaches 31 N or north of it
+Jefferson,30.18911,IN,entirely south of 31 N
+Jim Hogg,27.35910,IN,entirely south of 31 N
+Jim Wells,28.05797,IN,entirely south of 31 N
+Johnson,32.55548,OUT,reaches 31 N or north of it
+Jones,32.96025,OUT,reaches 31 N or north of it
+Karnes,29.22175,IN,entirely south of 31 N
+Kaufman,32.84172,OUT,reaches 31 N or north of it
+Kendall,30.13895,IN,entirely south of 31 N
+Kenedy,27.28381,IN,entirely south of 31 N
+Kent,33.39850,OUT,reaches 31 N or north of it
+Kerr,30.29070,IN,entirely south of 31 N
+Kimble,30.71102,IN,entirely south of 31 N
+King,33.83612,OUT,reaches 31 N or north of it
+Kinney,29.62390,IN,entirely south of 31 N
+Kleberg,27.63593,IN,entirely south of 31 N
+Knox,33.83597,OUT,reaches 31 N or north of it
+La Salle,28.64749,IN,entirely south of 31 N
+Lamar,33.94303,OUT,reaches 31 N or north of it
+Lamb,34.31321,OUT,reaches 31 N or north of it
+Lampasas,31.46372,OUT,reaches 31 N or north of it
+Lavaca,29.63271,IN,entirely south of 31 N
+Lee,30.55720,IN,entirely south of 31 N
+Leon,31.65396,IN,one of the eight named East Texas counties
+Liberty,30.49355,IN,entirely south of 31 N
+Limestone,31.81489,OUT,reaches 31 N or north of it
+Lipscomb,36.49970,OUT,reaches 31 N or north of it
+Live Oak,28.78695,IN,entirely south of 31 N
+Llano,30.92212,IN,entirely south of 31 N
+Loving,32.00055,OUT,reaches 31 N or north of it
+Lubbock,33.83045,OUT,reaches 31 N or north of it
+Lynn,33.39476,OUT,reaches 31 N or north of it
+Madison,31.09421,IN,one of the eight named East Texas counties
+Marion,32.88109,OUT,reaches 31 N or north of it
+Martin,32.52532,OUT,reaches 31 N or north of it
+Mason,30.94119,IN,entirely south of 31 N
+Matagorda,29.22970,IN,entirely south of 31 N
+Maverick,29.08632,IN,entirely south of 31 N
+McCulloch,31.49365,OUT,reaches 31 N or north of it
+McLennan,31.86308,OUT,reaches 31 N or north of it
+McMullen,28.64835,IN,entirely south of 31 N
+Medina,29.69071,IN,entirely south of 31 N
+Menard,31.08799,OUT,reaches 31 N or north of it
+Midland,32.08699,OUT,reaches 31 N or north of it
+Milam,31.11041,OUT,reaches 31 N or north of it
+Mills,31.72361,OUT,reaches 31 N or north of it
+Mitchell,32.52793,OUT,reaches 31 N or north of it
+Montague,33.99137,OUT,reaches 31 N or north of it
+Montgomery,30.63028,IN,entirely south of 31 N
+Moore,36.05563,OUT,reaches 31 N or north of it
+Morris,33.36597,OUT,reaches 31 N or north of it
+Motley,34.31419,OUT,reaches 31 N or north of it
+Nacogdoches,31.84556,OUT,reaches 31 N or north of it
+Navarro,32.32893,OUT,reaches 31 N or north of it
+Newton,31.18660,OUT,reaches 31 N or north of it
+Nolan,32.52531,OUT,reaches 31 N or north of it
+Nueces,27.99566,OUT,"south of 31 N, but the guide excepts Nueces"
+Ochiltree,36.49970,OUT,reaches 31 N or north of it
+Oldham,35.62752,OUT,reaches 31 N or north of it
+Orange,30.24432,IN,entirely south of 31 N
+Palo Pinto,33.00791,OUT,reaches 31 N or north of it
+Panola,32.39414,OUT,reaches 31 N or north of it
+Parker,33.00333,OUT,reaches 31 N or north of it
+Parmer,34.74758,OUT,reaches 31 N or north of it
+Pecos,31.37131,OUT,reaches 31 N or north of it
+Polk,31.14658,IN,one of the eight named East Texas counties
+Potter,35.62020,OUT,reaches 31 N or north of it
+Presidio,30.62923,IN,entirely south of 31 N
+Rains,32.98023,OUT,reaches 31 N or north of it
+Randall,35.18336,OUT,reaches 31 N or north of it
+Reagan,31.65145,OUT,reaches 31 N or north of it
+Real,30.08236,IN,entirely south of 31 N
+Red River,33.96265,OUT,reaches 31 N or north of it
+Reeves,32.00012,OUT,reaches 31 N or north of it
+Refugio,28.55482,IN,entirely south of 31 N
+Roberts,36.05771,OUT,reaches 31 N or north of it
+Robertson,31.35713,IN,one of the eight named East Texas counties
+Rockwall,32.98299,OUT,reaches 31 N or north of it
+Runnels,32.08264,OUT,reaches 31 N or north of it
+Rusk,32.40763,OUT,reaches 31 N or north of it
+Sabine,31.61184,OUT,reaches 31 N or north of it
+San Augustine,31.65360,OUT,reaches 31 N or north of it
+San Jacinto,30.90672,IN,entirely south of 31 N
+San Patricio,28.17930,IN,entirely south of 31 N
+San Saba,31.49030,OUT,reaches 31 N or north of it
+Schleicher,31.08873,OUT,reaches 31 N or north of it
+Scurry,32.97022,OUT,reaches 31 N or north of it
+Shackelford,32.95710,OUT,reaches 31 N or north of it
+Shelby,31.98016,OUT,reaches 31 N or north of it
+Sherman,36.50068,OUT,reaches 31 N or north of it
+Smith,32.68703,OUT,reaches 31 N or north of it
+Somervell,32.31862,OUT,reaches 31 N or north of it
+Starr,26.78569,IN,entirely south of 31 N
+Stephens,32.95723,OUT,reaches 31 N or north of it
+Sterling,32.08721,OUT,reaches 31 N or north of it
+Stonewall,33.39804,OUT,reaches 31 N or north of it
+Sutton,30.71037,IN,entirely south of 31 N
+Swisher,34.74819,OUT,reaches 31 N or north of it
+Tarrant,32.99419,OUT,reaches 31 N or north of it
+Taylor,32.52300,OUT,reaches 31 N or north of it
+Terrell,30.65832,IN,entirely south of 31 N
+Terry,33.38959,OUT,reaches 31 N or north of it
+Throckmorton,33.39902,OUT,reaches 31 N or north of it
+Titus,33.39848,OUT,reaches 31 N or north of it
+Tom Green,31.70542,OUT,reaches 31 N or north of it
+Travis,30.62825,IN,entirely south of 31 N
+Trinity,31.38693,IN,one of the eight named East Texas counties
+Tyler,31.05913,OUT,reaches 31 N or north of it
+Upshur,32.90450,OUT,reaches 31 N or north of it
+Upton,31.65159,OUT,reaches 31 N or north of it
+Uvalde,29.62769,IN,entirely south of 31 N
+Val Verde,30.28853,IN,entirely south of 31 N
+Van Zandt,32.83849,OUT,reaches 31 N or north of it
+Victoria,29.10405,IN,entirely south of 31 N
+Walker,31.05810,OUT,reaches 31 N or north of it
+Waller,30.24564,IN,entirely south of 31 N
+Ward,31.65180,OUT,reaches 31 N or north of it
+Washington,30.39989,IN,entirely south of 31 N
+Webb,28.20463,IN,entirely south of 31 N
+Wharton,29.63381,IN,entirely south of 31 N
+Wheeler,35.61965,OUT,reaches 31 N or north of it
+Wichita,34.21258,OUT,reaches 31 N or north of it
+Wilbarger,34.45884,OUT,reaches 31 N or north of it
+Willacy,26.61177,IN,entirely south of 31 N
+Williamson,30.90441,IN,entirely south of 31 N
+Wilson,29.44175,IN,entirely south of 31 N
+Winkler,32.08715,OUT,reaches 31 N or north of it
+Wise,33.43401,OUT,reaches 31 N or north of it
+Wood,33.01345,OUT,reaches 31 N or north of it
+Yoakum,33.38849,OUT,reaches 31 N or north of it
+Young,33.39753,OUT,reaches 31 N or north of it
+Zapata,27.31917,IN,entirely south of 31 N
+Zavala,29.09134,IN,entirely south of 31 N

@@ -49,7 +49,9 @@ TOPICS = {
     "flood": ("In a flood zone, or near the water?", (r"\bflood", r"\bwave wash"), False),
     "applicant": ("Applicant: any fraud, arson or felony history, foreclosure or bankruptcy?",
                   (r"\bfraud", r"\barson", r"\bfelon", r"\bconvict", r"\bforeclos", r"\bbankrupt",
-                   r"\bmisrepresent", r"\bmoral hazard", r"\bpublic eye", r"\blegal capacity"), False),
+                   r"\bmisrepresent", r"\bmoral hazard", r"\bpublic eye", r"\blegal capacity",
+                   # round 40 (NatGen Custom360 HO3 NC3-015, NC3-119): the applicant's age and a high-profile resident
+                   r"\b18 years old\b", r"\bhigh-profile\b", r"\blibel\b"), False),
     "mortgages": ("Mortgages: how many (HELOCs count), and none past due?",
                   (r"\bmortgage", r"\bheloc", r"\blienholder"), False),
     "electrical": ("Electrical: breakers (no fuses), no Federal Pacific / Zinsco panel, no knob-and-tube or aluminum "
@@ -91,7 +93,8 @@ TOPICS = {
                  # ("new business" is the guides' word for a new policy, not a business on the premises)
                  (r"(?<!new )(?<!name of a )\bbusiness", r"\bdaycare", r"\bday care", r"\bcommercial",
                   r"\bfarm(?! animals)", r"\bnon-habitational",
-                  r"\bprivate residential", r"\bresidential purpose", r"\billegal", r"\bspeculation"), False),
+                  r"\bprivate residential", r"\bresidential purpose", r"\billegal", r"\bspeculation",
+                  r"\bpublic activities\b"), False),           # round 40: NC3-178, hayrides, hunting, camping
     "dwelling_type": ("Building details: number of units, townhome firewalls, single building?",
                       (r"\bunits?\b", r"\bfire ?walls?\b", r"\bfire division", r"\btownho", r"\bduplex",
                        r"\bsingle building", r"\bfamil(y|ies) dwelling", r"\bstories\b", r"\bsquare f",
@@ -147,6 +150,9 @@ _FIRST = (
                 re.I), "site"),
     # "X roofs are / on / with ..." -- the roof is the subject even when its material words come first
     (re.compile(r"\broofs?\s+(are|is|must|of|on|with|over|older|under|that|in)\b", re.I), "roof"),
+    # round 40 (NatGen Custom360 HO3 NC3-047, NC3-048): structures away from the residence premises are another
+    # coverage, even where "replacement cost" comes first
+    (re.compile(r"\bstructures? away from\b", re.I), "other_coverages"),
 )
 _HAS_NUMBER = re.compile(r"\d")
 _DOLLARS = re.compile(r"\$\s?\d")

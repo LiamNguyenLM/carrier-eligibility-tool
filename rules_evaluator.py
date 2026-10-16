@@ -65,6 +65,12 @@ DP_BATCH_MAP_CSV = os.path.join(HERE, "rules_data", "remaining_batch_field_map.c
 # (eligibility_check.RULES_BATCH_SWITCHES: no new Railway variable).
 HARTFORD_RULES_CSV = os.path.join(HERE, "rules_data", "carrier_rules_hartford_v1.csv")
 HARTFORD_MAP_CSV = os.path.join(HERE, "rules_data", "hartford_field_map.csv")
+# Round 40 step 2 (Liam, 2026-10-16): the right NatGen Custom360 HO3 and SageSure Occidental HO3 guides, each its own
+# batch -- NatGen on the HO3 batch's switch, Occidental on the Sage batch's (no new Railway variable).
+NATGEN_C360_RULES_CSV = os.path.join(HERE, "rules_data", "carrier_rules_natgen_c360_ho3_v1.csv")
+NATGEN_C360_MAP_CSV = os.path.join(HERE, "rules_data", "natgen_c360_field_map.csv")
+OCCIDENTAL_RULES_CSV = os.path.join(HERE, "rules_data", "carrier_rules_occidental_ho3_v1.csv")
+OCCIDENTAL_MAP_CSV = os.path.join(HERE, "rules_data", "occidental_field_map.csv")
 # Round 39 (Liam's decision 2, 2026-10-12): CFIG's own experience -- rules a carrier's guide does not state. One file,
 # each row both a rule and its map line, read with the rows of the carrier it names (rules_data/cfig_knowledge.csv).
 CFIG_KNOWLEDGE_CSV = os.path.join(HERE, "rules_data", "cfig_knowledge.csv")
@@ -100,6 +106,8 @@ HO3_BATCH_CARRIERS = {
     "Travelers Quantum Home 2.0": "Travelers_HO3_-_06.12.2026",
 }
 HARTFORD_CARRIERS = {"The Hartford HO3": "The_Hartford_HO3_-_07.09.2026"}
+NATGEN_C360_CARRIERS = {"NatGen Custom360 HO3": "NatGen_Custom360_HO3_-_09.02.2026"}
+OCCIDENTAL_CARRIERS = {"Sage Occidental HO3": "Sage_-_Occidental_HO3_-_12.02.2025"}
 # An owner's own home (round 29 decision 2): the occupancies a homeowners program sees.
 OWNERS_HOMES = ("Owner Occupied", "Seasonal", "Secondary Home")
 # The remaining batch (round 29 step 8). NatGen Premier Dwelling Fire (NPD) is not here: it is
@@ -150,6 +158,9 @@ BATCHES = {
     # Round 39: the HO3 and its tenant-occupied HO3 (Rental Property Protection Plus) in one table; the RPP+ rows are
     # gated on a tenant-occupied home (rules_data/build_hartford_map.py)
     "hartford": {"rules": HARTFORD_RULES_CSV, "map": HARTFORD_MAP_CSV, "carriers": HARTFORD_CARRIERS},
+    # Round 40 step 2: rules_data/build_natgen_c360_map.py, rules_data/build_occidental_map.py
+    "natgen_c360": {"rules": NATGEN_C360_RULES_CSV, "map": NATGEN_C360_MAP_CSV, "carriers": NATGEN_C360_CARRIERS},
+    "occidental": {"rules": OCCIDENTAL_RULES_CSV, "map": OCCIDENTAL_MAP_CSV, "carriers": OCCIDENTAL_CARRIERS},
 }
 WB_TO_CANON = {wb: canon for b in BATCHES.values() for wb, canon in b["carriers"].items()}
 CANON_TO_WB = {}
@@ -182,6 +193,7 @@ FPC_TABLE_HOLDS = (
     "SFP-119", "SFP-120", "SFP-121", "SFP-122", "SFP-125",
     "WIL-116", "WIL-117", "WIL-118", "WIL-119", "WIL-122", "WIL-123",
     "TRI-020", "TRI-088", "TRI-089", "TRI-090", "TRI-091",
+    "OCC-093", "OCC-094", "OCC-095", "OCC-096",                                  # round 40: Occidental HO3
     "ODP-110", "ODP-111", "ODP-112", "ODP-113", "ODP-115",                       # remaining (DP) batch
     "SDP-078", "SDP-079", "SDP-082", "FDP-105", "FDP-111")
 CHUBB_TERRITORY_HOLDS = ("CHU-043", "CHU-044", "CHU-047")
@@ -252,6 +264,18 @@ REQUIREMENT_OUTCOMES = {
     "SUR-019": ("DECLINES", _TRUST_OCCUPIED), "SFP-019": ("DECLINES", _TRUST_OCCUPIED),
     "WIL-019": ("DECLINES", _TRUST_OCCUPIED), "TRI-023": ("DECLINES", _TRUST_OCCUPIED),
     "VAV-014": ("DECLINES", _TRUST_OCCUPIED), "VDP-062": ("DECLINES", _TRUST_OCCUPIED),
+    "OCC-042": ("DECLINES", _TRUST_OCCUPIED),                                   # round 40, as SUR-019
+    # round 40: "Secondary/seasonal homes are eligible when the primary residence is insured by National General or
+    # an affiliate company" (p.6) -- no path named
+    "NC3-036": ("DECLINES", "Secondary/seasonal homes are eligible when the primary residence is insured by "
+                            "National General (no path named)"),
+    # round 40 step 3b (the second reader): "Trusts are not to be listed as named insured but can be added as an
+    # additional insured if ..." (p.3) and "Properties in flood zones A and V without an active flood policy" (p.16,
+    # Ineligible Exposures): no path named
+    "NC3-007": ("DECLINES", "Trusts ... can be added as an additional insured if the guarantor, the trustee, and the "
+                            "occupant of the home are the same individual (no path named)"),
+    "NC3-158": ("DECLINES", "Ineligible Exposures: Properties in flood zones A and V without an active flood policy "
+                            "(no path named)"),
     "CDP-072": ("DECLINES", "The home is tenant occupied (one of four conditions, all required; underwriting "
                             "approval is needed in addition, not instead)"),
     "PRO-051": ("REFERS_TO_UW", "... or approved alternate enclosure"),
@@ -274,7 +298,8 @@ REQUIREMENT_OUTCOMES = {
     **{rid: ("DECLINES", _FPC_ALL_CRITERIA) for rid in (
         "SAG-075", "SAG-076", "SAG-078", "SUR-113", "SUR-114", "SUR-116", "SUR-117", "SFP-121", "SFP-122",
         "SFP-124", "SFP-125", "WIL-118", "WIL-119", "WIL-121", "WIL-122", "TRI-019", "TRI-020", "TRI-035",
-        "TRI-090", "TRI-091", "ODP-114", "ODP-115", "SDP-080")},
+        "TRI-090", "TRI-091", "ODP-114", "ODP-115", "SDP-080",
+        "OCC-095", "OCC-096")},                       # round 40: Occidental HO3 p.10, as SUR-113 / SUR-114
 }
 # Looked at and left as they are (a row's map outcome is unchanged), with the reason:
 REQUIREMENT_UNCHANGED = {
@@ -1215,6 +1240,37 @@ def _county_in(names):
 HARTFORD_TIER_I = _county_names("""Aransas, Brazoria, Calhoun, Cameron, Chambers, Galveston, Jefferson, Kenedy,
     Kleberg, Matagorda, Nueces, Refugio, San Patricio, Willacy""")
 HARTFORD_TIER_II = _county_names("Harris, Fort Bend, Hardin, Jackson, Liberty, Orange, Wharton")
+# Round 40 step 2 (Liam, 2026-10-16): NatGen Custom360 HO3's coastal zones (p.9) are notes. Harris ZIPs 77571 / 77586
+# east of Highway 146 are Coastal Zone 1 (the form's "East of Highway 146" answer with the ZIP); all of Harris is also
+# Zone 2 Houston. "An acceptable CAT score" (NC3-092 / NC3-094) has no threshold: a note, never a decline.
+NATGEN_ZONE_1 = HARTFORD_TIER_I
+NATGEN_ZONE_2 = _county_names("""Bee, Brooks, Goliad, Hardin, Hidalgo, Jackson, Jim Wells, Liberty, Live Oak, Orange,
+    Victoria, Wharton""")
+NATGEN_ZONE_2_HOUSTON = _county_names("Fort Bend, Harris")
+NATGEN_INLAND_ZONE_1 = _county_names("Collin, Dallas, Denton, Johnson, Kaufman, Parker, Rockwall, Tarrant")
+NATGEN_HARRIS_ZONE_1_ZIPS = ("77571", "77586")
+_NATGEN_EXCLUSION = "NatGen requires a Windstorm/Hail exclusion, with the signed exclusion form before binding"
+_CAT_SCORE = "the home must have an acceptable CAT score (NatGen states no threshold; it does not rule the home out here)"
+# Round 40 step 2: SageSure Occidental HO3's wind/hail deductibles (p.4, Coastal - Proximity to Water) and the
+# pre-1940 replacement cost (p.9) are notes.
+OCCIDENTAL_VERY_HIGH = _county_names("Galveston, Brazoria, Chambers")
+OCCIDENTAL_MODERATE = _county_names("Harris, Fort Bend")
+
+
+def _natgen_harris_zone_1(pd):
+    return (intake_fields.normalize_county(pd.get("county")) == "Harris"
+            and str(pd.get("zip") or "").strip()[:5] in NATGEN_HARRIS_ZONE_1_ZIPS
+            and intake_fields.answer(pd.get("harris_east_146")) != "No")
+
+
+def _natgen_harris_zone_1_note(pd):
+    if intake_fields.answer(pd.get("harris_east_146")) == "Yes":
+        return (f"Coverage (not eligibility): Coastal Zone 1 (Harris ZIP 77571 / 77586 east of Highway 146) -- "
+                f"{_NATGEN_EXCLUSION} (NC3-091).")
+    return (f"Coverage (not eligibility): Harris ZIP 77571 / 77586 -- if the home is east of Highway 146 it is "
+            f"Coastal Zone 1 and {_NATGEN_EXCLUSION} (NC3-091).")
+
+
 PROGRAM_NOTES = {
     "FOD-005": (lambda pd: pd.get("occupancy_type") == "Vacant",
                 "Foremost writes vacant dwellings on TDP-1, not TDP-3; quote TDP-1 (FOD-005)."),
@@ -1224,13 +1280,37 @@ PROGRAM_NOTES = {
     "HAR-054": (_county_in(HARTFORD_TIER_II),
                 "Coverage (not eligibility): Tier II county -- a minimum 2% windstorm or hail deductible is required "
                 "(HAR-054)."),
+    "NC3-090": (_county_in(NATGEN_ZONE_1),
+                f"Coverage (not eligibility): Coastal Zone 1 county -- {_NATGEN_EXCLUSION} (NC3-090)."),
+    "NC3-091": (_natgen_harris_zone_1, _natgen_harris_zone_1_note),
+    "NC3-093": (_county_in(NATGEN_ZONE_2),
+                f"Coverage (not eligibility): Coastal Zone 2 county -- a 2% Windstorm/Hail deductible is mandatory, "
+                f"and {_CAT_SCORE} (NC3-092, NC3-093)."),
+    "NC3-095": (_county_in(NATGEN_ZONE_2_HOUSTON),
+                f"Coverage (not eligibility): Coastal Zone 2 - Houston -- a 3% Windstorm/Hail deductible is mandatory, "
+                f"and {_CAT_SCORE} (NC3-094, NC3-095)."),
+    "NC3-096": (_county_in(NATGEN_INLAND_ZONE_1),
+                "Coverage (not eligibility): Inland Windstorm/Hail Deductible Zone 1 -- a Windstorm/Hail deductible of "
+                "at least 2% is mandatory (NC3-096)."),
+    "OCC-013": (_county_in(OCCIDENTAL_VERY_HIGH),
+                "Coverage (not eligibility): Very High Hazard county -- a 5% Wind and Hail deductible, or a 5% "
+                "Hurricane deductible with a 1.5% AOP deductible, is required (OCC-013)."),
+    "OCC-015": (_county_in(OCCIDENTAL_MODERATE),
+                "Coverage (not eligibility): Harris / Fort Bend -- a 3% or higher Wind and Hail deductible, or a 3% "
+                "or higher Hurricane deductible with a 1.5% AOP deductible, is required (OCC-014, OCC-015)."),
+    "OCC-016": (lambda pd: bool(intake_fields.normalize_county(pd.get("county")))
+                and intake_fields.normalize_county(pd.get("county")) not in OCCIDENTAL_VERY_HIGH | OCCIDENTAL_MODERATE,
+                "Coverage (not eligibility): a 1.5% or higher Wind and Hail deductible is required (OCC-016)."),
+    "OCC-049": (lambda pd: str(pd.get("year_built") or "").strip().isdigit() and int(pd["year_built"]) < 1940,
+                "Coverage (not eligibility): a home built before 1940 gets replacement cost through the Functional "
+                "Replacement Cost endorsement HO 05 30, unless the customer accepts the full factor (OCC-049)."),
 }
 
 
 def program_notes(canon, outcomes, pd):
     """The PROGRAM_NOTES lines for this carrier's workbook program that apply to the property."""
     wb, rules = _wb_of(canon, outcomes), _rules()
-    return [note for rid, (applies, note) in PROGRAM_NOTES.items()
+    return [note(pd) if callable(note) else note for rid, (applies, note) in PROGRAM_NOTES.items()
             if rid in rules and rules[rid]["Carrier"] == wb and applies(pd)]
 
 

@@ -123,10 +123,14 @@ def test_the_panel_line_names_each_batch(monkeypatch):
     monkeypatch.setattr(ec, "RULES_HO3_BATCH", True)
     # CHANGED DELIBERATELY (round 39 step 1, 2026-10-14; Liam's decision 1, 2026-10-12): The Hartford's table rides the
     # HO3 batch's switch, and the panel names it. Was "... + HO3 batch ON (11 more)".
+    # CHANGED DELIBERATELY (round 40 step 2, 2026-10-16; Liam: the right NatGen Custom360 HO3 and Occidental HO3 guides, each with its table): NatGen Custom360 rides the HO3 batch's switch, Occidental the Sage batch's.
+    # Was "... + Hartford ON (1 more)".
     assert ec.rules_pilot_status_line() == ("Rules pilot: ON (6 carriers) + Sage batch ON (6 more) + HO3 batch ON "
-                                            "(11 more) + Hartford ON (1 more)")
+                                            "(11 more) + Hartford ON (1 more) + NatGen Custom360 ON (1 more) + "
+                                            "Occidental ON (1 more)")
     monkeypatch.setattr(ec, "RULES_SAGE_BATCH", False)
-    assert ec.rules_pilot_status_line() == "Rules pilot: ON (6 carriers) + HO3 batch ON (11 more) + Hartford ON (1 more)"
+    assert ec.rules_pilot_status_line() == ("Rules pilot: ON (6 carriers) + HO3 batch ON (11 more) + Hartford ON (1 more)"
+                                            " + NatGen Custom360 ON (1 more)")
 
 
 # -- in the pipeline -------------------------------------------------------------------------

@@ -20,7 +20,9 @@ import usage_log
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_PATH = os.path.join(HERE, "carrier_docs_db", "feedback_log.jsonl")
 CHOICES = ("Should be Eligible", "Should be Ineligible", "Should be Refer", "Not sure")
-ROW_ID = re.compile(r"\b[A-Z]{3}-\d{3}\b")
+# Round 40 step 2: NatGen Custom360 HO3's rows are NC3-NNN and Progressive HO6's PH6-NNN (a digit in the prefix);
+# they were missing from deciding_rows
+ROW_ID = re.compile(r"\b[A-Z][A-Z0-9]{2}-\d{3}\b")
 CSV_COLUMNS = ("ts", "app_version", "name", "carrier", "display_name", "verdict", "choice", "comment",
                "reasons", "deciding_rows", "model", "rules_table", "checked_topics", "property_details")
 

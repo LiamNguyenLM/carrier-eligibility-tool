@@ -1,0 +1,160 @@
+# source: rules_data/build_natgen_c360_map.py over rules_data/carrier_rules_natgen_c360_ho3_v1.csv (NatGen Custom360 HO3 version 1, reviewed); built 2026-10-16 (round 40 step 2). Grammar: rules_data/RULE_FIELD_MAP.md.
+row_id,field,test,gate,outcome_if_fail,open_fact,map_note
+NC3-002,ownership_type,always,always,DECLINES,,"decided by NC3-004 (LLC, corporation), NC3-007 (trust) and NC3-008 (estate) (the same rule); never a second flaw"
+NC3-003,ownership_type,"FACT(owned by the named insured, alone or with another resident of the household)",ownership_type == Individual Owner,DECLINES,owners,
+NC3-004,ownership_type,"ownership_type not in {LLC, Corporation / partnership} or FACT(an LLC or LLP is only an additional insured, with no commercial activities, owned by the insured and relatives -- a corporation only as an additional interest, chartered as a family trust whose trustee lives there)",always,DECLINES,LLC / corporation terms,"'except as listed': an LLC or a family-trust corporation can be added (NC3-005, NC3-006) -- a confirm"
+NC3-005,ownership_type,always,always,CONDITION,,decided by NC3-004 (the same rule); never a second flaw
+NC3-006,ownership_type,always,always,CONDITION,,decided by NC3-004 (the same rule); never a second flaw
+NC3-007,ownership_type,"FACT(the trust is an additional insured, with the grantor, trustee and occupant the same person)",ownership_type == Trust,CONDITION,trust terms,
+NC3-008,ownership_type,ownership_type != Estate,always,DECLINES,,'Estate of' is not a named insured at new business
+NC3-009,ownership_type,"FACT(any life estate, life tenancy or joint tenancy is written in the individual's name)",ownership_type == Individual Owner,CONDITION,life estate,
+NC3-010,ownership_type,always,always,CONDITION,,decided by NC3-004 (the same rule); never a second flaw
+NC3-011,ownership_type,always,always,CONDITION,,decided by NC3-004 (the same rule); never a second flaw
+NC3-012,ownership_type,always,always,CONDITION,,decided by NC3-004 (the same rule); never a second flaw
+NC3-013,ownership_type,FACT(only one LLC on the property),ownership_type == LLC,DECLINES,number of LLCs,
+NC3-014,ownership_type,FACT(not owned by a trust and an LLC together),"ownership_type in {Trust, LLC}",DECLINES,trust and LLC,
+NC3-015,occupancy_type,FACT(the applicant is 18 or older),always,DECLINES,applicant's age,
+NC3-016,occupancy_type,"FACT(no lapse in coverage in the past 12 months, unless prior insurance was not required -- prior renters business excluded)",always,DECLINES,prior insurance,
+NC3-017,dwelling_amount,always,always,REFERS_TO_UW,,decided by NC3-022 (the same rule); never a second flaw
+NC3-018,dwelling_amount,always,always,REFERS_TO_UW,,decided by NC3-023 (the same rule); never a second flaw
+NC3-019,dwelling_amount,always,always,REFERS_TO_UW,,decided by NC3-023 (the same rule); never a second flaw
+NC3-020,dwelling_amount,always,always,REFERS_TO_UW,,decided by NC3-026 (the same rule); never a second flaw
+NC3-021,dwelling_amount,always,always,REFERS_TO_UW,,decided by NC3-026 (the same rule); never a second flaw
+NC3-022,dwelling_amount;occupancy_type;ppc,"dwelling_amount <= 750000 or (dwelling_amount <= 1500000 and FACT(not a 1X-8X split class -- NatGen counts those as PC 9-10, where over $750,000 refers and needs a central station alarm))",occupancy_type == Owner Occupied and ppc_num <= 8,REFERS_TO_UW,split protection class,"read as a Non-Premier client (the form does not say Premier Client): a confirm; 1X-8X is PC 9-10 (p.5 footnotes), and the form has no X classes"
+NC3-023,dwelling_amount;occupancy_type;ppc,dwelling_amount <= 750000,occupancy_type == Owner Occupied and ppc_num >= 9,REFERS_TO_UW,,read as a Non-Premier client (the form does not say Premier Client): a confirm
+NC3-024,dwelling_amount;occupancy_type;ppc,FACT(not a Premier Client),occupancy_type == Owner Occupied and ppc_num <= 8 and dwelling_amount > 2000000,REFERS_TO_UW,Premier Client,read as a Non-Premier client (the form does not say Premier Client): a confirm
+NC3-025,occupancy_type;ppc,FACT(not a Premier Client),occupancy_type == Owner Occupied and ppc_num >= 9,REFERS_TO_UW,Premier Client,read as a Non-Premier client (the form does not say Premier Client): a confirm
+NC3-026,dwelling_amount;occupancy_type,dwelling_amount <= 750000,"occupancy_type in {Seasonal, Secondary Home}",REFERS_TO_UW,,read as a Non-Premier client (the form does not say Premier Client): a confirm
+NC3-027,occupancy_type,FACT(not a Premier Client),"occupancy_type in {Seasonal, Secondary Home}",REFERS_TO_UW,Premier Client,read as a Non-Premier client (the form does not say Premier Client): a confirm
+NC3-028,dwelling_amount,FACT(written at 100% of the estimated replacement cost),always,CONDITION,insurance to value,
+NC3-032,dwelling_amount,FACT(Coverage A is no more than 150% of the estimated replacement cost),always,DECLINES,insurance to value,
+NC3-033,dwelling_type;units_in_building,units_in_building not in {5 or more},dwelling_type == House,DECLINES,,Non-Premier 1-4 family; a blank unit count is a confirm
+NC3-034,dwelling_type;units_in_building,"units_in_building in {1, 2} or FACT(not a Premier Client)",dwelling_type == House,DECLINES,Premier Client,Premier: 1-2 family
+NC3-035,occupancy_type,FACT(no more than 6 locations or 16 units insured in all),always,DECLINES,locations,
+NC3-036,occupancy_type;primary_home_carrier,primary_home_carrier in {National General} or (primary_home_carrier in {Other carrier} and FACT(the primary home is with a National General affiliate -- Allstate or Encompass)),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,primary home with National General,the form's 'Primary home insured with'
+NC3-037,occupancy_type,"FACT(not a Premier Client, or the primary home is written as Premier)","occupancy_type in {Seasonal, Secondary Home}",CONDITION,Premier Client,
+NC3-038,ppc;fire_station_miles,fire_station_miles <= 10,ppc_num >= 9,DECLINES,station distance,PC 9-10 within 10 road miles of the first responding fire department
+NC3-039,ppc,FACT(a fire truck can reach the structure),ppc_num >= 9,CONDITION,fire truck access,
+NC3-041,occupancy_type,"occupancy_type != Vacant and FACT(not abandoned, for sale, condemned or foreclosed)",always,DECLINES,for sale / condemned,
+NC3-042,occupancy_type,always,always,CONDITION,,decided by NC3-179 (the same rule); never a second flaw
+NC3-043,occupancy_type,FACT(working smoke detectors on each floor and a fire extinguisher),always,CONDITION,smoke detectors,
+NC3-044,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,a rental goes to the landlord program (NatGen Custom360 DP3)
+NC3-045,dwelling_amount,FACT(no outbuilding worth more than 50% of Coverage A),always,DECLINES,outbuildings,
+NC3-046,occupancy_type,FACT(no open claim at application),always,DECLINES,open claims,
+NC3-047,occupancy_type,"FACT(no structure away from the premises over $100,000)",always,REFERS_TO_UW,structures away,
+NC3-048,occupancy_type,FACT(no more than 2 structures away from the premises),always,DECLINES,structures away,
+NC3-050,construction_type,FACT(not a split or whole log home),always,REFERS_TO_UW,log home,
+NC3-051,dwelling_amount;occupancy_type;ppc,FACT(a central station burglar and fire alarm),occupancy_type == Owner Occupied and ppc_num <= 8 and dwelling_amount > 1500000,CONDITION,central alarm,
+NC3-052,dwelling_amount;occupancy_type;ppc,FACT(a central station burglar and fire alarm),occupancy_type == Owner Occupied and ppc_num >= 9 and dwelling_amount > 750000,CONDITION,central alarm,
+NC3-053,dwelling_amount;occupancy_type,FACT(a central station burglar and fire alarm),"occupancy_type in {Seasonal, Secondary Home} and dwelling_amount > 750000",CONDITION,central alarm,
+NC3-054,roof_type,"roof_type not in {T-lock shingle, Rolled roofing} and (roof_type not in {Tile} or FACT(not Ludowici tile)) and (roof_type not in {Other} or FACT(not tar paper or stapled))",always,DECLINES,Ludowici tile; tar paper / stapled,'not all-inclusive'
+NC3-055,roof_type,FACT(one layer of shingles),"roof_type in {Composition Shingle, Architectural Shingle}",DECLINES,roof layers,
+NC3-058,roof_type,FACT(a Betterview Aerial roof index score of 70 or higher),roof_type in {Wood shake / wood shingle},DECLINES,Betterview score,
+NC3-059,roof_type,FACT(a Cotality Wildfire Score of 10 or less),roof_type in {Wood shake / wood shingle},DECLINES,wildfire score,
+NC3-062,roof_type;roof_age,roof_age <= 25,roof_type in {Wood shake / wood shingle},DECLINES,,a p.7 requirement that clearly fails (Liam)
+NC3-065,occupancy_type,always,always,DECLINES,,decided by NC3-066 (the same rule); never a second flaw
+NC3-066,occupancy_type,"FACT(no solid fuel burning stove, or one UL-certified stove in an owner-occupied home, the only stove on its chimney, professionally installed and cleaned yearly, its legs not on wood blocks, used only as supplemental heat, on a 4-inch mat 18 inches out, with a lined chimney 3 feet above the roof, heat shields, a clear area and an approved stovepipe -- none in a PC 10 home)",always,CONDITION,solid fuel stove,the Solid Fuel Burning Stove Requirements as one confirm
+NC3-068,occupancy_type,always,always,CONDITION,,decided by NC3-066 (the same rule); never a second flaw
+NC3-069,occupancy_type,always,always,CONDITION,,decided by NC3-066 (the same rule); never a second flaw
+NC3-070,occupancy_type,always,always,CONDITION,,decided by NC3-066 (the same rule); never a second flaw
+NC3-071,occupancy_type,always,always,CONDITION,,decided by NC3-066 (the same rule); never a second flaw
+NC3-073,occupancy_type,always,always,CONDITION,,decided by NC3-066 (the same rule); never a second flaw
+NC3-074,occupancy_type,always,always,CONDITION,,decided by NC3-066 (the same rule); never a second flaw
+NC3-075,occupancy_type,always,always,CONDITION,,decided by NC3-066 (the same rule); never a second flaw
+NC3-076,occupancy_type,always,always,CONDITION,,decided by NC3-066 (the same rule); never a second flaw
+NC3-078,occupancy_type,always,always,CONDITION,,decided by NC3-066 (the same rule); never a second flaw
+NC3-079,occupancy_type,always,always,CONDITION,,decided by NC3-066 (the same rule); never a second flaw
+NC3-080,occupancy_type,always,always,CONDITION,,decided by NC3-066 (the same rule); never a second flaw
+NC3-081,occupancy_type,always,always,CONDITION,,decided by NC3-066 (the same rule); never a second flaw
+NC3-082,occupancy_type,always,always,CONDITION,,decided by NC3-066 (the same rule); never a second flaw
+NC3-083,occupancy_type,always,always,CONDITION,,decided by NC3-066 (the same rule); never a second flaw
+NC3-084,swimming_pool;pool_gate_locking,"swimming_pool not in {In Ground - Unfenced, Above Ground - Unfenced} and pool_gate_locking == True",swimming_pool != No Pool,CONDITION,gate,a rural home without a fence may be approved by underwriting (NC3-087): a referral
+NC3-085,swimming_pool;pool_accessories,FACT(the diving board is under 18 inches above the water),"pool_accessories in {Diving board only, Both slide and diving board}",CONDITION,diving board height,
+NC3-086,swimming_pool,FACT(a pull-up ladder on the above-ground pool),"swimming_pool in {Above Ground - Fenced, Above Ground - Unfenced}",CONDITION,pool ladder,
+NC3-087,swimming_pool,always,always,REFERS_TO_UW,,decided by NC3-084 (the same rule); never a second flaw
+NC3-089,occupancy_type,"FACT(no trampoline, or one with safety netting on flat ground)",always,CONDITION,trampoline,
+NC3-097,occupancy_type,"FACT(a Cotality Wildfire Risk Score under 61, or under 41 in PC 10)",always,DECLINES,wildfire score,
+NC3-098,occupancy_type,always,always,DECLINES,,decided by NC3-097 (the same rule); never a second flaw
+NC3-099,occupancy_type,"FACT(a Cotality Wildfire Risk Score of 50 or less, or a passed Brush Inspection: no wood siding or exposed areas, a 16-foot street, woodpiles and LPG tanks 30 feet from structures)",always,NOTE,brush inspection,the Brush Inspection items as one confirm
+NC3-100,roof_type,roof_type not in {Wood shake / wood shingle},always,REFERS_TO_UW,,Liam 2026-10-16: the p.11 wildfire list conflicts with p.7's Wood Roofs -- refer
+NC3-101,occupancy_type,always,always,DECLINES,,decided by NC3-099 (the same rule); never a second flaw
+NC3-102,occupancy_type,always,always,DECLINES,,decided by NC3-099 (the same rule); never a second flaw
+NC3-103,occupancy_type,always,always,DECLINES,,decided by NC3-099 (the same rule); never a second flaw
+NC3-105,occupancy_type,always,always,DECLINES,,decided by NC3-099 (the same rule); never a second flaw
+NC3-106,losses_5yr;losses_3yr;loss_types,losses_5yr in {0} or FACT(the loss history needs no underwriting review),always,REFERS_TO_UW,,decided only where the package and monoline readings agree; blank or Unknown is a confirm
+NC3-107,losses_5yr;losses_3yr;loss_types,losses_5yr in {0} or FACT(no disputed loss),always,REFERS_TO_UW,,decided only where the package and monoline readings agree; blank or Unknown is a confirm
+NC3-109,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2} or (not (loss_types none_of {Water, Other}) and FACT(the losses beyond two are remediated, certified appliance water losses))",always,DECLINES,,"package: at most 2 paid losses in 3 years; monoline allows fewer, so 3+ fails both readings"
+NC3-110,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1} or (not (loss_types none_of {Water, Fire, Liability, Wind or hail, Other}) and FACT(no more than one theft, one vandalism or one non-appliance water loss in the 3 years))",always,DECLINES,,2+ losses in 3 years that are all theft fail both readings
+NC3-111,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0} or FACT(a package policy, or an Insurance Score of 1 to 30)",always,DECLINES,,the Insurance Score is not asked (UNCLEAR in the guide)
+NC3-112,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1} or FACT(a package policy, or the second loss is a remediated, certified appliance water loss)",always,DECLINES,,monoline: one loss; package allows two -- a confirm
+NC3-113,losses_5yr;losses_3yr;loss_types,"FACT(no non-remediated mold loss, at any time)",always,DECLINES,mold loss,no time limit in the guide: a confirm even with no losses in 5 years
+NC3-114,losses_5yr,always,always,CONDITION,,decided by NC3-113 (the same rule); never a second flaw
+NC3-116,losses_5yr;losses_3yr;loss_types,losses_5yr in {0} or FACT(no loss caused by negligence or an intentional act),always,DECLINES,,decided only where the package and monoline readings agree; blank or Unknown is a confirm
+NC3-117,losses_5yr,always,always,CONDITION,,decided by NC3-110 (the same rule); never a second flaw
+NC3-118,losses_5yr;losses_3yr;loss_types,"losses_3yr in {0, 1, 2} or loss_types none_of {Water, Other} or FACT(fewer than 3 paid appliance claims in the 3 years)",always,DECLINES,,decided only where the package and monoline readings agree; blank or Unknown is a confirm
+NC3-119,occupancy_type,FACT(no resident in a high-profile profession exposed to libel or slander claims),always,DECLINES,profession,
+NC3-120,occupancy_type,"FACT(no vicious or dangerous dog -- a bite claim or medical report, an agency finding, unlawful to keep -- and no wild or exotic animal)",always,DECLINES,dangerous animals,
+NC3-121,has_dogs,always,always,DECLINES,,decided by NC3-120 (the same rule); never a second flaw
+NC3-122,has_dogs,always,always,DECLINES,,decided by NC3-120 (the same rule); never a second flaw
+NC3-123,has_dogs,always,always,DECLINES,,decided by NC3-120 (the same rule); never a second flaw
+NC3-124,has_dogs,always,always,DECLINES,,decided by NC3-120 (the same rule); never a second flaw
+NC3-125,occupancy_type,"FACT(no property or casualty policy cancelled, declined or non-renewed for underwriting reasons in the past 5 years)",always,DECLINES,prior cancellation,
+NC3-126,construction_type,construction_type != Manufactured/Mobile,always,DECLINES,,
+NC3-127,dwelling_type,FACT(no more than 8 units in the fire division),dwelling_type == Townhome,DECLINES,units per fire division,
+NC3-128,dwelling_type;construction_type;year_built,FACT(4 or fewer units),dwelling_type == Townhome and construction_type == Frame and year_built < 1980,DECLINES,units,as NCD-059
+NC3-129,dwelling_type,FACT(the firewall goes through the roof),dwelling_type == Townhome,DECLINES,firewall,
+NC3-130,construction_type,"FACT(not a yurt, earth or basement home)",always,DECLINES,unusual home,
+NC3-131,occupancy_type,FACT(not a boat house),always,DECLINES,boat house,
+NC3-132,occupancy_type,"FACT(no skateboard or bicycle ramp, unless excluded)",always,DECLINES,ramps,
+NC3-133,occupancy_type,"FACT(no treehouse over 12 feet, unless excluded)",always,DECLINES,treehouse,
+NC3-134,occupancy_type,FACT(not on a historic registry),always,DECLINES,historic registry,
+NC3-135,occupancy_type,FACT(not on an open foundation),always,DECLINES,foundation,
+NC3-136,occupancy_type,FACT(not an island exposure),always,DECLINES,island,
+NC3-137,occupancy_type,"FACT(not on piers, stilts, wharves, jetties or pilings)",always,DECLINES,foundation,
+NC3-138,electrical,"electrical none_of {Knob-and-tube wiring, Aluminum branch wiring}",always,DECLINES,,round 37 step 4: blank or Unknown is a confirm
+NC3-139,electrical,electrical none_of {Federal Pacific or Zinsco panel},always,DECLINES,,Stab-Lok is the Federal Pacific panel
+NC3-140,occupancy_type,FACT(on a permanent slab or foundation),always,DECLINES,foundation,
+NC3-142,construction_type,"FACT(not of obsolete, uncommon, unconventional or irreplaceable construction)",always,DECLINES,construction,
+NC3-143,occupancy_type,"FACT(built, renovated and remodeled by licensed contractors)",always,DECLINES,contractor,
+NC3-144,construction_type,FACT(not a home converted from shipping containers),always,DECLINES,container home,
+NC3-145,occupancy_type,FACT(not converted to a dwelling from another use; a barndominium is allowed),always,DECLINES,converted use,
+NC3-146,occupancy_type,FACT(4 stories or fewer),always,DECLINES,stories,
+NC3-147,occupancy_type,FACT(not a relocated dwelling),always,DECLINES,relocated,
+NC3-148,occupancy_type,FACT(primary heat is not from a portable source),always,DECLINES,portable heat,
+NC3-149,occupancy_type,FACT(no coal or kerosene secondary heater),always,DECLINES,secondary heater,
+NC3-150,occupancy_type,"FACT(central heating, unless in a warm climate or a winterized seasonal home)",always,DECLINES,central heat,
+NC3-151,ppc,FACT(no solid fuel burning stove -- a PC 10 home with one is not eligible),ppc_num >= 10,DECLINES,solid fuel stove,
+NC3-152,occupancy_type,always,always,DECLINES,,decided by NC3-066 (the same rule); never a second flaw
+NC3-153,occupancy_type,FACT(no underground oil tank),always,DECLINES,oil tank,
+NC3-156,occupancy_type,FACT(on a paved road passable in all seasons),always,DECLINES,road,
+NC3-157,occupancy_type,"FACT(not in a known wave wash, sinkhole, pollution, landslide or cave-in area)",always,DECLINES,hazard area,
+NC3-158,occupancy_type,FACT(not in flood zone A or V without an active flood policy -- not eligible otherwise),always,CONDITION,flood zone,
+NC3-159,dwelling_amount,FACT(market value at least 70% of the current replacement cost),always,DECLINES,market value,
+NC3-160,dwelling_amount;year_built,"FACT(the Functional Replacement Cost endorsement, or Premier Client coverage)",dwelling_amount > 1500000 and year_built < 1930,CONDITION,endorsement,
+NC3-161,dwelling_amount,FACT(the Extended Replacement Cost endorsement),dwelling_amount > 1500000,CONDITION,endorsement,"also over 5,000 square feet (not asked)"
+NC3-162,occupancy_type,FACT(inside a legal fire protection jurisdiction),always,DECLINES,fire district,
+NC3-163,occupancy_type,FACT(no commercial exposure or non-incidental business on the premises),always,DECLINES,business,
+NC3-164,occupancy_type,FACT(not within 100 feet of a commercial or industrial property),always,DECLINES,neighbours,
+NC3-165,occupancy_type,"FACT(the primary residence is not rented, or a short-term rental of up to 3 months approved by underwriting)",occupancy_type == Owner Occupied,DECLINES,rented primary,
+NC3-166,occupancy_type,always,always,REFERS_TO_UW,,decided by NC3-165 (the same rule); never a second flaw
+NC3-167,occupancy_type,FACT(rented no more than 12 weeks a year),"occupancy_type in {Seasonal, Secondary Home}",DECLINES,rented seasonal home,
+NC3-168,occupancy_type,FACT(Home Sharing coverage if rented to tenants),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,Home Sharing coverage,
+NC3-169,occupancy_type,FACT(only one primary residence on the policy),always,DECLINES,primary residences,
+NC3-170,occupancy_type,FACT(no more than 2 mortgages),always,DECLINES,mortgages,
+NC3-171,occupancy_type,"FACT(no true farming exposure: farm income of $5,000 a year or less -- $10,000 with the Incidental Farming Endorsement -- 5 head of livestock or horses or fewer -- 10 with it -- no racing, show or boarded animals, one tractor at most, no farm employees, processing or public activities)",always,DECLINES,farming,the True Farming Exposures as one confirm
+NC3-172,occupancy_type,always,always,DECLINES,,decided by NC3-171 (the same rule); never a second flaw
+NC3-173,occupancy_type,always,always,DECLINES,,decided by NC3-171 (the same rule); never a second flaw
+NC3-174,occupancy_type,always,always,DECLINES,,decided by NC3-171 (the same rule); never a second flaw
+NC3-175,occupancy_type,always,always,DECLINES,,decided by NC3-171 (the same rule); never a second flaw
+NC3-176,occupancy_type,always,always,DECLINES,,decided by NC3-171 (the same rule); never a second flaw
+NC3-177,occupancy_type,always,always,DECLINES,,decided by NC3-171 (the same rule); never a second flaw
+NC3-178,occupancy_type,always,always,DECLINES,,decided by NC3-171 (the same rule); never a second flaw
+NC3-179,occupancy_type,"FACT(not under construction or significant renovation, or approved by underwriting -- and not eligible unless in PC 1-8, with a completed value of $1,000,000 or less and a licensed general contractor, completed in 180 days if $500,000 or less, otherwise 1 year)",always,REFERS_TO_UW,under construction,the Course of Construction Endorsement as one confirm
+NC3-180,ppc,FACT(not under construction or significant renovation -- in PC 9-10 such a home is not eligible),ppc_num >= 9,DECLINES,under construction,
+NC3-181,occupancy_type,always,always,DECLINES,,decided by NC3-179 (the same rule); never a second flaw
+NC3-182,occupancy_type,always,always,DECLINES,,decided by NC3-179 (the same rule); never a second flaw
+NC3-183,occupancy_type,always,always,CONDITION,,decided by NC3-179 (the same rule); never a second flaw
+NC3-184,occupancy_type,always,always,CONDITION,,decided by NC3-179 (the same rule); never a second flaw
+NC3-187,occupancy_type,"FACT(the secondary home is furnished, with heat and utilities all year)",occupancy_type == Secondary Home,CONDITION,heat and utilities,
+NC3-188,occupancy_type,"FACT(heat and utilities on, or drained and winterized if unused in winter)",occupancy_type == Seasonal,CONDITION,winterized,
+NC3-192,dwelling_amount,dwelling_amount >= 150000,always,DECLINES,,the minimum of every binding table

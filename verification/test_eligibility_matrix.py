@@ -5384,8 +5384,15 @@ class TestFixedRows:
         results = _replayed_run(_without_dwelling_type(OWNERSHIP_BASE_PROFILE), answer)
         for carrier in _DEFECTIVE_HO:
             assert [r["status"] for r in results if r["carrier"] == carrier] == [GUIDE_UNAVAILABLE]
-        assert not [r for r in results if r["carrier"] in (
-            "NatGen Custom360 (Landlord)", "Sage - Occidental HO3", "Liberty Mutual HO6")]
+        # CHANGED 2026-10-16 (round 40, Liam: the right NatGen Custom360 HO3 and Occidental HO3 guides replace the
+        # wrong files): only Liberty Mutual HO6 is still defective. The old spellings of the other two now name sound
+        # carriers, and a record whose name is no program stays beside them by design (_add_fixed_rows: "a badly
+        # misnamed record yields a row alongside it rather than risk hiding a real omission"); neither sound
+        # carrier is a Could Not Be Checked row. Was: none of the three names in the results.
+        assert not [r for r in results if r["carrier"] == "Liberty Mutual HO6"]
+        assert not [r for r in results if r["status"] == GUIDE_UNAVAILABLE and r["carrier"] in (
+            "NatGen_Custom360_HO3_-_09.02.2026", "Sage_-_Occidental_HO3_-_12.02.2025", "NatGen Custom360 (Landlord)",
+            "Sage - Occidental HO3")]
 
     def test_a_tenant_property_gets_no_warning_rows(self):
         """All four defects are homeowners records; their dwelling-fire
@@ -5840,6 +5847,9 @@ def _by_carrier(results):
     return {r["carrier"]: r for r in results}
 
 
+_TABLE_LABEL_IN_SENTENCE = {"Sage_-_Occidental_HO3_-_12.02.2025": "except\nAddress Nueces"}
+
+
 @pytest.mark.retrieval
 class TestSageCountyHold:
 
@@ -5848,8 +5858,17 @@ class TestSageCountyHold:
         Texas; everyone in the table carries the county sentence verbatim."""
         for carrier, (_, sentence) in _SAGE_LOCATION_RULE.items():
             text = _guides.guide_text(carrier)
+            if carrier in _TABLE_LABEL_IN_SENTENCE:
+                # CHANGED 2026-10-16 (round 40, the right Occidental HO3 guide): its p.2 prints the rule in a two-
+                # column table whose left cell, "Address", the text extraction puts inside the sentence ("except\n
+                # Address Nueces county"); the page itself reads the sentence verbatim. Exactly that label, once.
+                label = _TABLE_LABEL_IN_SENTENCE[carrier]
+                assert text.count(label) == 1, carrier
+                text = text.replace(label, "except\nNueces")
             assert _chat._compare_key(sentence) in _chat._compare_key(text), carrier
-            assert _chat._appears_in(sentence, text), carrier
+            # (its bullets and line breaks are not the sentence's: the app's own check, on compare keys)
+            assert _chat._appears_in(sentence, text) or (carrier in _TABLE_LABEL_IN_SENTENCE and _chat._appears_in(
+                _chat._compare_key(sentence), _chat._compare_key(_guides.guide_text(carrier)))), carrier
         for carrier in _SAGE_UNRESTRICTED:
             text = _guides.guide_text(carrier).lower()
             assert "31 degrees" not in text and "state of texas" in text

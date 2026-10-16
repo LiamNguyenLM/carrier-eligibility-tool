@@ -297,7 +297,9 @@ def test_the_main_call_enum_is_exactly_the_carriers_in_its_prompt(monkeypatch):
     monkeypatch.setattr(ec, "_complete", fake)
     ec.check_eligibility(dict(LIVE_PROFILE), checked_topics=list(LIVE_CHECKED))
     assert seen["prompt"] and seen["prompt"] <= set(seen["enum"])
-    assert not any("Occidental_HO3" in c for c in seen["enum"])                            # wrong guide
+    # CHANGED 2026-10-16 (round 40, Liam: the right Occidental HO3 guide replaces the wrong file). Was: no
+    # Occidental HO3 in the enum (wrong guide); the right guide is a real candidate.
+    assert "Sage_-_Occidental_HO3_-_12.02.2025" in seen["enum"]
     # Round 29 step 5 (2026-10-08, deliberate): Centauri HO3 now has its OCR text, so it is a
     # real candidate (it was excluded only while its guide had no text).
     assert "Centauri_-_HO3_-_05.01.2026" in seen["enum"]

@@ -284,7 +284,8 @@ def test_every_numeric_map_line_has_a_boundary_case():
     # round 29 step 8: the remaining batch's cases live in test_remaining_batch_boundaries.py
     from test_remaining_batch_boundaries import CASES as REMAINING
     from test_hartford_boundaries import CASES as HARTFORD        # round 39: The Hartford's
-    covered = {c[0] for c in CASES + REMAINING + HARTFORD}
+    from test_natgen_c360_occidental import NUMERIC_COVERED as NEW_GUIDES    # round 40: NatGen C360 HO3, Occidental HO3
+    covered = {c[0] for c in CASES + REMAINING + HARTFORD} | NEW_GUIDES
     numeric = {rid for rid, m in ev._map().items()
                if m["field"] != "NONE" and NUMERIC.search(m["test"] + " " + m["gate"])}
     assert sorted(numeric - covered) == []

@@ -44,8 +44,12 @@ def test_the_topic_table():
     other = sum(1 for r in RULES.values() if ct.topic_of(r["Plain rule"], r["Topic"]) == "other")
     # CHANGED DELIBERATELY (round 39 step 1, 2026-10-14; Liam's decision 1, 2026-10-12): + HAR-044 (golf carts, NOT_ELIGIBILITY), HAR-069 (inspections, IGNORE_INSPECTION) and HAR-080 (SILENT):
     # never on a card. Was 256 (312 with the first-in-table rule, round 37).
-    assert other == 259
-    deciding = [r for r in RULES.values() if r["Carrier"] == "The Hartford HO3" and r["Tool handling"] in ev.DECIDING]
+    # CHANGED DELIBERATELY (round 40 step 2, 2026-10-16; Liam: the right NatGen Custom360 HO3 and Occidental HO3 guides, each with its table): + 6 rows of the two new tables that never decide (NC3-154 / 155 and
+    # OCC-132 inspections, OCC-134 / 135 / 136 product notes); the applicant's age, a high-profile resident, structures
+    # away and farm public activities got their topics (NCD-019 moves from other to applicant with NC3-015). Was 259.
+    assert other == 264
+    deciding = [r for r in RULES.values() if r["Carrier"] in ("The Hartford HO3", "NatGen Custom360 HO3",
+                                                             "Sage Occidental HO3") and r["Tool handling"] in ev.DECIDING]
     assert deciding and not [r["Rule ID"] for r in deciding if ct.topic_of(r["Plain rule"], r["Topic"]) == "other"]
 
 

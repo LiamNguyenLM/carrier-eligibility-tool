@@ -54,6 +54,14 @@ def test_a_report_holds_everything_needed_to_replay_it(log):
     assert line["name"] == "Liam" and line["model"] == "claude-haiku-5-5" and line["app_version"]
 
 
+# Round 40 step 2: a row ID with a digit in its prefix (NatGen Custom360 HO3 NC3-NNN, Progressive HO6 PH6-NNN) is a
+# deciding row too; the pattern was three letters only.
+@pytest.mark.parametrize("reason,rid", [("[NC3-192] declines: Coverage A below $150,000.", "NC3-192"),
+                                        ("[PH6-014] refers to underwriting: x", "PH6-014")])
+def test_a_row_id_with_a_digit_in_its_prefix_is_a_deciding_row(reason, rid):
+    assert feedback.deciding_rows(dict(REC, reasons=[reason], also_confirm=[], notes="")) == [rid]
+
+
 @pytest.mark.parametrize("choice", ["Should be Eligible", "Should be Ineligible", "Should be Refer", "Not sure"])
 def test_every_choice_is_kept(log, choice):
     feedback.append(feedback.record(REC, PD, choice))

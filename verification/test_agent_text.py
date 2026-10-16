@@ -80,7 +80,8 @@ def test_the_placement_panel_names_a_program_once(market, programs, line):
 
 # ---------------------------------------------------------------- the page
 
-_ROW = re.compile(r"\b[A-Z]{3}-\d{3}\b")
+# round 40 (2026-10-16): a digit in the prefix too (NC3-NNN, PH6-NNN); was [A-Z]{3}, which missed them
+_ROW = re.compile(r"\b[A-Z][A-Z0-9]{2}-\d{3}\b")
 _WORDS = re.compile(r"\b(map line|OPEN|N/A|FACT|SKIP|NONE|AMBIGUOUS|readings?|rules table|rule\(s\)|not in the file name)\b"
                     r"|\(file: |\.pdf\b")
 

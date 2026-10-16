@@ -161,6 +161,9 @@ RULES_BATCH_SWITCHES = {
     "dp": ("RULES_DP_BATCH", "DP batch"),
     # Round 39 step 1: The Hartford HO3 rides the HO3 batch's switch (no new Railway variable)
     "hartford": ("RULES_HO3_BATCH", "Hartford"),
+    # Round 40 step 2: the right NatGen Custom360 HO3 and Occidental HO3 guides (no new Railway variable)
+    "natgen_c360": ("RULES_HO3_BATCH", "NatGen Custom360"),
+    "occidental": ("RULES_SAGE_BATCH", "Occidental"),
 }
 
 

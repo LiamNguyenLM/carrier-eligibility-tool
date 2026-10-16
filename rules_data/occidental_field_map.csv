@@ -1,0 +1,91 @@
+# source: rules_data/build_occidental_map.py over rules_data/carrier_rules_occidental_ho3_v1.csv (SageSure Occidental HO3 version 1, reviewed); built 2026-10-16 (round 40 step 2). Grammar: rules_data/RULE_FIELD_MAP.md.
+row_id,field,test,gate,outcome_if_fail,open_fact,map_note
+OCC-001,county,"(south_of_31 == True and county != Nueces) or county in {Bell, Falls, Robertson, Leon, Madison, Houston, Trinity, Polk}",always,DECLINES,,"rules_data/occidental_counties.csv: a county entirely south of 31 N except Nueces, or East Texas"
+OCC-003,occupancy_type,FACT(no part of the main residence is built over water or reached only by water),always,DECLINES,over water,
+OCC-004,occupancy_type,FACT(not in a condemned area or one scheduled to be condemned),always,DECLINES,condemned area,
+OCC-005,occupancy_type,FACT(not a wildfire score over 80 within 250 feet of wildland),always,DECLINES,wildfire score,
+OCC-006,coastal_tier,"FACT(not an extreme hazard location, or wind/hail excluded on the HO 04 70 and placed with TWIA)",coastal_tier == Tier 1,DECLINES,distance to shoreline,the form's tiers are not the guide's tiers (as SUR-161)
+OCC-007,coastal_tier,"FACT(not on a barrier island, or wind/hail excluded on the HO 04 70 and placed with TWIA)",coastal_tier == Tier 1,DECLINES,barrier island,as SFP-170
+OCC-008,coastal_tier,"FACT(not on Bolivar, Matagorda or a similar peninsula, or wind/hail excluded on the HO 04 70 and placed with TWIA)",coastal_tier == Tier 1,DECLINES,peninsula,as SFP-171
+OCC-009,coastal_tier,"FACT(not within 3 miles of the primary shoreline in a tier 1 county, or wind/hail excluded on the HO 04 70 and placed with TWIA)","coastal_tier in {Tier 1, Tier 2, Tier 3}",DECLINES,distance to shoreline,as SAG-089 / SUR-163 / SFP-172 (round 35)
+OCC-010,coastal_tier,"FACT(not within 0.1 miles of the primary shoreline in a tier 2 county, or wind/hail excluded on the HO 04 70 and placed with TWIA)",coastal_tier == Tier 1,DECLINES,distance to shoreline,as SFP-173
+OCC-011,coastal_tier,"FACT(not within 0.04 miles of an inner shoreline, or wind/hail excluded on the HO 04 70 and placed with TWIA)",coastal_tier == Tier 1,DECLINES,distance to inner shoreline,as SFP-174
+OCC-012,coastal_tier,"FACT(not in the front or first row of dwellings, or wind/hail excluded on the HO 04 70 and placed with TWIA)",coastal_tier == Tier 1,DECLINES,first row,as SFP-175
+OCC-017,occupancy_type,always,always,CONDITION,,decided by OCC-006 (the same rule); never a second flaw
+OCC-018,occupancy_type,always,always,CONDITION,,decided by OCC-006 (the same rule); never a second flaw
+OCC-019,coastal_tier,"FACT(if subject to wave wash, a flood policy at Coverage A up to the NFIP maximum)",coastal_tier == Tier 1,CONDITION,flood policy,
+OCC-020,occupancy_type,occupancy_type != Tenant Occupied,always,DECLINES,,"owner occupied = primary, seasonal or secondary residence; Vacant is decided by OCC-028"
+OCC-021,occupancy_type,FACT(the primary residence is not rented for more than 2 weeks),occupancy_type == Owner Occupied,DECLINES,rented 2+ weeks,
+OCC-022,occupancy_type,FACT(not unoccupied 3 or more consecutive months),"occupancy_type in {Seasonal, Secondary Home}",DECLINES,unoccupied 3 months,
+OCC-023,occupancy_type;dwelling_type;units_in_building,"dwelling_type in {House, Townhome} and (dwelling_type == Townhome or units_in_building in {1})","occupancy_type in {Seasonal, Secondary Home}",DECLINES,,single family = a Townhome or a 1-unit House; a blank unit count is a confirm
+OCC-024,occupancy_type,FACT(no rental occupancies),"occupancy_type in {Seasonal, Secondary Home}",DECLINES,rentals,
+OCC-025,occupancy_type,FACT(property checked at least once a month while the owner is away),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,checks while away,
+OCC-026,occupancy_type,FACT(the mailing address is the residence premises),occupancy_type == Owner Occupied,REFERS_TO_UW,mailing address,
+OCC-027,occupancy_type,FACT(a newly bought home is occupied within 30 days of purchase),always,REFERS_TO_UW,occupied within 30 days,
+OCC-028,occupancy_type,occupancy_type != Vacant,always,DECLINES,,for sale is not asked
+OCC-031,dwelling_type;units_in_building,FACT(no more than 3 full-time rentals in all),"dwelling_type == House and units_in_building in {2, 3-4}",DECLINES,rentals,
+OCC-034,occupancy_type,"FACT(no short-term tenants, roomers or boarders)",always,DECLINES,short-term rentals,
+OCC-035,dwelling_type;units_in_building,FACT(not rented to full-time students),"dwelling_type == House and units_in_building in {2, 3-4}",DECLINES,student tenants,
+OCC-036,dwelling_type;units_in_building,FACT(no more than 2 unrelated tenants per unit),"dwelling_type == House and units_in_building in {2, 3-4}",DECLINES,tenants per unit,
+OCC-037,swimming_pool;dwelling_type;units_in_building,FACT(no lease under 6 months on a rented unit with a pool),"swimming_pool != No Pool and dwelling_type == House and units_in_building in {2, 3-4}",DECLINES,short-term rental with a pool,
+OCC-038,dwelling_type;units_in_building,FACT(every rental unit has a full-time renter),dwelling_type == House and units_in_building in {3-4},DECLINES,full-time renters,
+OCC-039,dwelling_type;units_in_building,FACT(each rented unit is rented for 6 months or more),"dwelling_type == House and units_in_building in {2, 3-4}",CONDITION,long-term renters,
+OCC-040,ownership_type,"FACT(owned by one individual, or by two with one living there)",ownership_type == Individual Owner,DECLINES,owners,
+OCC-041,ownership_type;trust_type,"ownership_type not in {LLC, Corporation / partnership, Estate} and (ownership_type != Trust or trust_type not in {Corporate or business trust})",always,DECLINES,,"'Corporate / Business, LLC, association, partnership or other non-individual owned' (round 35)"
+OCC-042,ownership_type;trust_type;occupancy_type,"occupancy_type != Tenant Occupied and trust_type not in {Land trust, Corporate or business trust} and (trust_type in {Family trust} or FACT(family held trust)) and FACT(occupied by the trustee, grantor or beneficiary)",ownership_type == Trust,CONDITION,who lives there; family held trust,"SUR-019 + SUR-020 in one row; a land or corporate trust fails, an unknown type holds"
+OCC-043,ownership_type,FACT(only one trust on the property),ownership_type == Trust,DECLINES,number of trusts,
+OCC-044,dwelling_type;units_in_building,units_in_building not in {5 or more},dwelling_type == House,DECLINES,,one to four family; a blank unit count is a confirm
+OCC-045,occupancy_type,FACT(originally built as a private residence),always,DECLINES,original use,
+OCC-046,construction_type,"construction_type != Manufactured/Mobile and FACT(no mobile, manufactured or motor home used as a residence elsewhere on the premises)",always,DECLINES,mobile home on the premises,modular / motor homes are not form options; the guide covers other structures too
+OCC-047,construction_type,always,always,CONDITION,,decided by OCC-046 (the same rule); never a second flaw
+OCC-054,roof_shape;roof_type,"FACT(no prior roof wind/water loss, or fully renovated)","(roof_shape == Flat or roof_type in {Built-up (tar and gravel), Membrane (rubber/EPDM / TPO / modified bitumen)})",REFERS_TO_UW,prior roof loss; renovation,
+OCC-055,roof_type,"FACT(steel of 29 gauge or heavier, not aluminum or tin)","roof_type in {Metal: standing seam, Metal: corrugated / exposed-fastener / tin / aluminum panels, Metal: shingle / tile / shake (incl. stone-coated)}",DECLINES,metal and gauge,29 gauge or heavier (gauge number 29 or lower) passes; aluminum or tin fails -- the form names neither
+OCC-057,roof_type,FACT(no more than 2 layers of roofing),always,DECLINES,roof layers,
+OCC-058,roof_type,roof_type not in {T-lock shingle},always,DECLINES,,'T-Lock or inter-locking shingles'
+OCC-060,construction_type,FACT(the primary dwelling is not a metal building),always,DECLINES,metal building,
+OCC-061,construction_type,FACT(no metal other structure over 750 square feet),always,REFERS_TO_UW,large metal structures,
+OCC-062,construction_type,"FACT(no EIFS, DEFS or Dryvit beyond trim or a minimal part of the siding)",always,DECLINES,EIFS,
+OCC-064,construction_type,"FACT(the main dwelling and its additions are not log, earth, underground, do-it-yourself, dome, A-frame or other unconventional construction -- such an other structure is referred or excluded)",always,DECLINES,unconventional construction,
+OCC-065,construction_type,always,always,REFERS_TO_UW,,decided by OCC-064 (the same rule); never a second flaw
+OCC-066,occupancy_type,FACT(not under construction),always,DECLINES,under construction,
+OCC-069,occupancy_type,FACT(on a permanent foundation),always,DECLINES,foundation,
+OCC-070,occupancy_type,"FACT(no prior slab or sinkhole damage, settling cracks or nearby sinkhole activity)",always,DECLINES,sinkhole,
+OCC-072,plumbing_type,plumbing_type != Polybutylene,always,DECLINES,,
+OCC-073,electrical,FACT(the electrical service is at least 100 amps),always,DECLINES,service amps,
+OCC-074,electrical,electrical none_of {Federal Pacific or Zinsco panel} and FACT(no Magnetrip or Challenger or Sylvania panel),always,DECLINES,panel maker,as SUR-137
+OCC-075,electrical,"electrical none_of {Aluminum branch wiring, Knob-and-tube wiring, Fuses}",always,DECLINES,,as SUR-138; multi-strand aluminum service cable and appliance wiring are allowed
+OCC-076,occupancy_type,FACT(a thermostatically controlled central heating system),always,DECLINES,central heat,
+OCC-077,occupancy_type,"FACT(the furnace or burner was replaced within 30 years, or an HVAC contractor attests to it)",always,NOTE,furnace age,
+OCC-078,occupancy_type,"FACT(no wood, wood pellet or coal stove)",always,DECLINES,wood stove,
+OCC-080,swimming_pool;pool_gate_locking,swimming_pool != In Ground - Unfenced and pool_gate_locking == True,"swimming_pool in {In Ground - Fenced, In Ground - Unfenced}",DECLINES,gate,
+OCC-081,swimming_pool;pool_fence_4ft,pool_fence_4ft == True,swimming_pool == In Ground - Fenced,DECLINES,fence 4 ft,"an unfenced in-ground pool fails the gate row once, not this row too"
+OCC-082,swimming_pool;pool_fence_4ft;pool_gate_locking,(swimming_pool == Above Ground - Fenced and pool_fence_4ft == True and pool_gate_locking == True) or FACT(above-ground pool wall 4 ft or higher),"swimming_pool in {Above Ground - Fenced, Above Ground - Unfenced}",DECLINES,fence 4 ft; gate; pool wall height,"round 35 step 2: the rule is for above-ground pools under 4 ft; an unfenced one is a confirm note on the wall height, never a hold on the fence boxes"
+OCC-083,swimming_pool;pool_accessories,pool_accessories == None,swimming_pool != No Pool,DECLINES,,'Pools with slides or diving boards' are ineligible (no acknowledgement path)
+OCC-084,swimming_pool,FACT(no immovable ladder on an above-ground pool 4 feet or higher),"swimming_pool in {Above Ground - Fenced, Above Ground - Unfenced}",DECLINES,pool ladder,
+OCC-085,swimming_pool,FACT(a pool attached to decking has a locked gate),swimming_pool != No Pool,DECLINES,decking gate,
+OCC-086,swimming_pool,"FACT(the pool is filled, or completely and securely covered)",swimming_pool != No Pool,DECLINES,unfilled pool,
+OCC-088,occupancy_type,"FACT(no skateboard ramp, bicycle jump, treehouse, batting cage, zip line or other attractive nuisance)",always,DECLINES,attractive nuisance,
+OCC-093,ppc;fire_station_miles;hydrant_1000ft,"FACT(visible from road, central station alarm, 10-ft year-round access)",ppc_num between 1 and 3 and fire_station_miles <= 5 and hydrant_1000ft == No,CONDITION,"station / hydrant distance if not given; visibility, alarm, access",the FPC table row is chosen by station distance and hydrant
+OCC-094,ppc;fire_station_miles,"FACT(visible from road, central station alarm, 10-ft year-round access)",ppc_num between 1 and 3 and fire_station_miles > 5,CONDITION,"station distance if not given; visibility, alarm, access",
+OCC-095,ppc;year_built;occupancy_type;fire_station_miles;hydrant_1000ft;loss_types,"home_age < 25 and occupancy_type == Owner Occupied and loss_types none_of {Fire} and FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",ppc_num between 4 and 10 and fire_station_miles <= 5 and hydrant_1000ft == No,CONDITION,"station / hydrant distance if not given; visibility, alarm, access, fire losses",a fire loss on the form fails it
+OCC-096,ppc;year_built;occupancy_type;fire_station_miles;loss_types,"home_age < 25 and occupancy_type == Owner Occupied and loss_types none_of {Fire} and FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",ppc_num between 4 and 8 and fire_station_miles > 5,CONDITION,"station distance if not given; visibility, alarm, access, fire losses",a fire loss on the form fails it
+OCC-097,ppc;fire_station_miles,fire_station_miles <= 5,ppc_num >= 9,DECLINES,station distance,
+OCC-098,occupancy_type,"FACT(5 acres or less -- over 5 acres needs a pre-bind underwriting referral, and no one may pay to use the property)",always,REFERS_TO_UW,acreage,
+OCC-099,occupancy_type,FACT(no farming or ranching beyond a family garden),always,DECLINES,farming,
+OCC-100,occupancy_type,"FACT(no business with employees, client traffic or products on the premises)",always,DECLINES,business,
+OCC-101,occupancy_type,FACT(no child care or day care on the premises),always,DECLINES,day care,
+OCC-102,occupancy_type,"FACT(no applicant convicted in the past 6 years of a felony of insurance fraud, arson, bribery, theft, embezzlement or harm to others)",always,DECLINES,felony,
+OCC-103,occupancy_type,FACT(no diseased or dead tree that could fall on a structure),always,DECLINES,dead trees,
+OCC-114,occupancy_type,FACT(no major renovation under way or planned -- underwriting considers a referral if the insured lives there during it or it is done within 30 days),always,DECLINES,renovation,
+OCC-115,occupancy_type,always,always,REFERS_TO_UW,,decided by OCC-114 (the same rule); never a second flaw
+OCC-116,occupancy_type,"FACT(prior insurance with no lapse, or a lapse of 30 days or less with no losses during it -- 31 to 120 days refers with a No Loss Letter; over 120 days is not eligible)",always,CONDITION,prior insurance,
+OCC-117,occupancy_type,always,always,REFERS_TO_UW,,decided by OCC-116 (the same rule); never a second flaw
+OCC-118,occupancy_type,always,always,DECLINES,,decided by OCC-116 (the same rule); never a second flaw
+OCC-119,losses_5yr;losses_3yr;loss_types,"(losses_3yr in {0, 1, 2} or FACT(no more than 2 non-zero paid losses of any type in the prior 3 years, not counting appliance water claims certified on TDI form WDR-1 or mold claims certified on TDI form MDR-1)) and (FACT(no more than 3 non-zero paid losses of any type in the last 6 years, not counting appliance water claims certified on TDI form WDR-1 or mold claims certified on TDI form MDR-1))",always,DECLINES,,"SUR-083 and SUR-084 in one row (2 in 3 years, 3 in 6 years)"
+OCC-120,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0} or loss_types none_of {Water, Other} or FACT(appliance water claims are certified on TDI form WDR-1)",always,NOTE,,"a cure by inspection: a note, never a hold"
+OCC-121,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0} or loss_types none_of {Water, Other} or FACT(no mold claim, or the home is certified mold free on TDI form MDR-1)",always,NOTE,,a cure by inspection: a note
+OCC-123,losses_5yr;losses_3yr;loss_types,"losses_5yr in {0, 1} or FACT(the losses are from different perils, or repaired and unrelated)",always,REFERS_TO_UW,,2 or more losses from the same peril refer
+OCC-125,occupancy_type,FACT(no homeowners policy ever cancelled or non-renewed for material misrepresentation),always,DECLINES,misrepresentation,
+OCC-126,dwelling_amount,dwelling_amount <= 2000000,always,DECLINES,,
+OCC-128,dwelling_amount,dwelling_amount >= 85000,always,REFERS_TO_UW,,
+OCC-129,dwelling_amount,FACT(insured to 100% of replacement cost),always,CONDITION,insurance to value,

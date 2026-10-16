@@ -57,7 +57,9 @@ def test_how_many_rows_each_table_decides():
         l for l in open(b["map"], encoding="utf-8-sig") if not l.startswith("#"))}) for name, b in rv.BATCHES.items()}
     assert sum(per.values()) == len(le.LINES) == 179
     # CHANGED DELIBERATELY (round 39 step 1, 2026-10-14; Liam's decision 1, 2026-10-12): the "hartford" batch; its loss and electrical lines are written in build_hartford_map.py, not here.
-    assert per == {"pilot": 34, "sage": 27, "ho3": 60, "dp": 58, "hartford": 0}
+    # CHANGED DELIBERATELY (round 40 step 2, 2026-10-16; Liam: the right NatGen Custom360 HO3 and Occidental HO3 guides, each with its table): two more batches; their loss and electrical lines are written in their own
+    # builders (build_natgen_c360_map.py, build_occidental_map.py), not here. Was the five above.
+    assert per == {"pilot": 34, "sage": 27, "ho3": 60, "dp": 58, "hartford": 0, "natgen_c360": 0, "occidental": 0}
 
 
 # ---------------------------------------------------------------- every option against every line
