@@ -153,6 +153,9 @@ _FIRST = (
     # round 40 (NatGen Custom360 HO3 NC3-047, NC3-048): structures away from the residence premises are another
     # coverage, even where "replacement cost" comes first
     (re.compile(r"\bstructures? away from\b", re.I), "other_coverages"),
+    # round 40 step 3e (live): NatGen Custom360 HO3's Coverage A tables (NC3-017..021, "Non-Premier up to $1,750,000
+    # binding ... (the table is binding authority ...)") are Coverage A, not a binding restriction for a storm
+    (re.compile(r"\bNon-Premier up to \$"), "coverage_a"),
 )
 _HAS_NUMBER = re.compile(r"\d")
 _DOLLARS = re.compile(r"\$\s?\d")

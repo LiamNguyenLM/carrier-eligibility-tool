@@ -53,6 +53,18 @@ def test_the_topic_table():
     assert deciding and not [r["Rule ID"] for r in deciding if ct.topic_of(r["Plain rule"], r["Topic"]) == "other"]
 
 
+# Round 40 step 3e (live, Liam's Harris HO3 profile): NC3-017's blank-Coverage-A confirm showed under "Any storm,
+# evacuation or other binding restriction ...?" because its table row says "binding". Two phrasings of the tables.
+@pytest.mark.parametrize("rid", ["NC3-017", "NC3-018", "NC3-019", "NC3-020", "NC3-021"])
+def test_natgens_coverage_a_tables_are_coverage_a_not_a_binding_restriction(rid):
+    assert topic(rid) == "coverage_a"
+
+
+@pytest.mark.parametrize("rid", ["MER-101", "PRO-109", "FOR-001", "PH6-006"])
+def test_a_storm_binding_restriction_is_still_binding(rid):
+    assert topic(rid) == "binding"
+
+
 def _row(rid, rule, effect="DECLINES"):
     return {"row": rid, "category": "LOSS_HISTORY", "effect": effect, "rule": rule, "kind": "not_asked"}
 

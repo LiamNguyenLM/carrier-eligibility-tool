@@ -85,7 +85,9 @@ def test_the_fpc_rows_hold_with_the_distance_blank_or_known():
 
 def test_every_named_hold_is_an_fpc_or_chubb_territory_line():
     m = ev._map()
-    assert len(ev.FPC_TABLE_HOLDS) == 35
+    # CHANGED DELIBERATELY (round 40 step 2, 2026-10-16; Liam: Occidental HO3's FPC table holds as the other Sage HO3
+    # guides'): + OCC-093..096. Was 35.
+    assert len(ev.FPC_TABLE_HOLDS) == 39
     for rid in ev.FPC_TABLE_HOLDS:
         assert "fire_station_miles" in m[rid]["gate"] or "hydrant_1000ft" in m[rid]["gate"], rid
     for rid in ev.CHUBB_TERRITORY_HOLDS:
