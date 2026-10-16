@@ -10,6 +10,8 @@ Round 38 invariants as they apply to one carrier's rules table:
   deciding_row   a decline / referral names its row and cites its quote
   model_free     a hold (OPEN row) rests only on a form field left blank, or on a row Liam decided holds by name
                  (rules_evaluator.HOLD_BY_DECISION: the Sage FPC table) -- never on a FACT the form cannot ask
+  blank_is_note  a hold never rests only on fields whose blank is a confirm (rules_evaluator.BLANK_IS_NOTE: Coverage
+                 A, County, ...) with a FACT besides (round 40 step 3e: NC3-022 held Liam's profile so)
 and Liam's decisions (2026-10-16):
   natgen_cov_a   Coverage A over an approval threshold never declines on NC3-022 / 023 / 026; below $150,000 always
                  declines (NC3-192)
@@ -159,6 +161,8 @@ def check(canon, pd, rng):
                 rv.evaluate_expr(m["gate"] or "always", f)[1]
             if not any(u in f for u in unknown):
                 fails.append(("model_free", f"{rid} open only on {unknown}"))
+            elif all(u in rv.BLANK_IS_NOTE for u in unknown if u in f):
+                fails.append(("blank_is_note", f"{rid} held on {[u for u in unknown if u in f]} with a FACT"))
     declines = {rid for rid, (o, _) in out.items() if o == "FAIL" and rv._map()[rid]["outcome_if_fail"] == "DECLINES"}
     amount = pd.get("dwelling_amount")
     if canon == NG:

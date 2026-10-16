@@ -60,7 +60,8 @@ def lines(path):
 
 # ==================================================================== every deciding row has a line
 @pytest.mark.parametrize("rules_csv,map_csv,n", [
-    (rv.NATGEN_C360_RULES_CSV, rv.NATGEN_C360_MAP_CSV, 158), (rv.OCCIDENTAL_RULES_CSV, rv.OCCIDENTAL_MAP_CSV, 89)])
+    (rv.NATGEN_C360_RULES_CSV, rv.NATGEN_C360_MAP_CSV, 158), (rv.OCCIDENTAL_RULES_CSV, rv.OCCIDENTAL_MAP_CSV, 89)],
+    ids=["natgen", "occidental"])
 def test_every_deciding_row_has_a_map_line_and_none_is_left_to_the_model(rules_csv, map_csv, n):
     deciding = [r["Rule ID"] for r in lines(rules_csv) if r["Tool handling"] in rv.DECIDING]
     fmap = {m["row_id"]: m for m in lines(map_csv)}
@@ -75,7 +76,7 @@ def test_every_deciding_row_has_a_map_line_and_none_is_left_to_the_model(rules_c
 
 
 @pytest.mark.parametrize("builder,map_csv", [(build_natgen_c360_map, rv.NATGEN_C360_MAP_CSV),
-                                             (build_occidental_map, rv.OCCIDENTAL_MAP_CSV)])
+                                             (build_occidental_map, rv.OCCIDENTAL_MAP_CSV)], ids=["natgen", "occidental"])
 def test_the_map_file_is_what_its_builder_writes(builder, map_csv, tmp_path, monkeypatch):
     monkeypatch.setattr(builder, "OUT", str(tmp_path / "m.csv"))
     builder.main()
@@ -104,7 +105,7 @@ def test_both_carriers_are_registered_on_existing_switches():
 # (carrier, row, passing answers, failing answers, the outcome a fail gives)
 BOUNDARY = [
     (NG, "NC3-008", dict(ownership_type="Individual Owner"), dict(ownership_type="Estate"), "DECLINES"),
-    (NG, "NC3-022", dict(dwelling_amount=750000), dict(dwelling_amount=1500001), "REFERS_TO_UW"),
+    (NG, "NC3-022", dict(dwelling_amount=1500000), dict(dwelling_amount=1500001), "REFERS_TO_UW"),
     (NG, "NC3-023", dict(ppc="9", dwelling_amount=750000), dict(ppc="9", dwelling_amount=750001), "REFERS_TO_UW"),
     (NG, "NC3-026", dict(occupancy_type="Seasonal", dwelling_amount=750000),
      dict(occupancy_type="Secondary Home", dwelling_amount=750001), "REFERS_TO_UW"),
@@ -194,7 +195,8 @@ LIBRARY = [
 ]
 
 
-@pytest.mark.parametrize("canon,map_csv", [(NG, rv.NATGEN_C360_MAP_CSV), (OC, rv.OCCIDENTAL_MAP_CSV)])
+@pytest.mark.parametrize("canon,map_csv", [(NG, rv.NATGEN_C360_MAP_CSV), (OC, rv.OCCIDENTAL_MAP_CSV)],
+                         ids=["natgen", "occidental"])
 def test_every_confirm_row_is_reached_on_some_profile(canon, map_csv):
     fmap = {m["row_id"]: m for m in lines(map_csv)}
     reached = {}
@@ -437,12 +439,36 @@ def test_occidental_trust_terms_decline_when_the_form_shows_them_unmet():
 
 
 # ==================================================================== round 40 step 3b: the second reader's fixes
-@pytest.mark.parametrize("amount,want", [(750000, "PASS"), (750001, "NOTE"), (1500000, "NOTE"), (1500001, "FAIL")])
+@pytest.mark.parametrize("amount,want", [(750000, "N/A"), (750001, "NOTE"), (1500000, "NOTE"), (1500001, "N/A")])
 def test_natgen_split_classes_count_as_pc_9_10_a_confirm_where_the_readings_differ(amount, want):
     """p.5 footnotes: "*Includes all PC 9 or 1X - 8X variations"; the form has no X classes."""
-    o = row(NG, "NC3-022", dwelling_amount=amount)
-    assert o[0] == want and (want != "NOTE" or "1X-8X" in rv._map()["NC3-022"]["test"])
-    assert status(NG, dwelling_amount=amount)["status"] == ("REFER" if want == "FAIL" else "ELIGIBLE")
+    o = row(NG, "NC3-017", dwelling_amount=amount)
+    assert o[0] == want and "1X-8X" in rv._map()["NC3-017"]["test"]
+    assert status(NG, dwelling_amount=amount)["status"] == ("REFER" if amount > 1500000 else "ELIGIBLE")
+
+
+@pytest.mark.parametrize("canon", [NG, OC])
+@pytest.mark.parametrize("pd", [dict(dwelling_amount=None), dict(dwelling_amount="")], ids=["None", "blank"])
+def test_a_blank_coverage_a_is_a_confirm_never_a_hold(canon, pd):
+    """Decision 1 (round 26): a blank Coverage A is a "Confirm:" note. Round 40 step 3e (live): Liam's Harris HO3
+    profile, Coverage A blank, held NatGen on NC3-022 once the split-class confirm sat in its test."""
+    o = out(canon, hydrant_1000ft="Yes", fire_station_miles=2.0, **pd)
+    assert not [rid for rid, (x, _) in o.items() if x == "OPEN"], [(r, d) for r, (x, d) in o.items() if x == "OPEN"]
+    assert status(canon, hydrant_1000ft="Yes", fire_station_miles=2.0, **pd)["status"] == "ELIGIBLE"
+
+
+def test_liams_harris_profile_as_entered_holds_natgen_on_nothing():
+    """The live check's profile (r36/s8_liam): Coverage A and the station distance blank, hydrant Yes."""
+    liam = {"year_built": 1994, "roof_age": 10, "roof_type": "Composition Shingle", "roof_shape": "Gable",
+            "construction_type": "Frame", "plumbing_type": "Copper", "occupancy_type": "Owner Occupied",
+            "ownership_type": "Individual Owner", "coastal_tier": "Not Coastal", "swimming_pool": "No Pool",
+            "pool_accessories": "None", "pool_fence_4ft": False, "pool_gate_locking": False, "has_dogs": "No",
+            "dog_breeds": [], "solar_panels": "No", "ppc": "5", "fire_station_miles": None, "hydrant_1000ft": "Yes",
+            "zip": "77248", "county": "Harris", "dwelling_amount": None, "dwelling_type": "House",
+            "harris_east_146": "Unknown"}
+    o = rv.evaluate_carrier(NG, liam)
+    assert not [rid for rid, (x, _) in o.items() if x == "OPEN"]
+    assert rv.code_record(NG, o, liam)[0]["status"] == "ELIGIBLE"
 
 
 @pytest.mark.parametrize("carrier,want", [("National General", "PASS"), ("Other carrier", "NOTE"),
@@ -496,6 +522,7 @@ def test_occidental_mobile_home_on_the_premises_is_a_confirm(construction, want)
 # ==================================================================== numeric gates: in the gate vs out of it
 # (carrier, row, other answers, field, a value just inside -> outcome, a value just outside -> outcome)
 GATE_BOUNDARY = [
+    (NG, "NC3-017", {}, "dwelling_amount", 750001, "NOTE", 750000, "N/A"),
     (NG, "NC3-024", {}, "dwelling_amount", 2000001, "NOTE", 2000000, "N/A"),
     (NG, "NC3-025", dict(fire_station_miles=4.0), "ppc", "9", "NOTE", "8", "N/A"),
     (NG, "NC3-039", dict(fire_station_miles=4.0), "ppc", "9", "NOTE", "8", "N/A"),
