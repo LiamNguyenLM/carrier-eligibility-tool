@@ -131,7 +131,9 @@ def test_the_fingerprint_panel_shows_the_sage_batch_state(monkeypatch):
     at.run()
     assert not at.exception
     shown = [m.value for m in at.markdown if m.value.startswith("**Rules pilot:")]
-    assert shown == ["**Rules pilot: ON (6 carriers) + Sage batch ON (6 more)**"]
+    # CHANGED DELIBERATELY (round 40 step 2, 2026-10-16; Liam: Occidental HO3's table rides the Sage batch's switch).
+    # Was "... + Sage batch ON (6 more)**".
+    assert shown == ["**Rules pilot: ON (6 carriers) + Sage batch ON (6 more) + Occidental ON (1 more)**"]
 
 
 @pytest.mark.parametrize("pilot,batch,on", [("1", "1", True), ("1", "true", False), ("1", " 1", False),

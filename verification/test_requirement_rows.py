@@ -37,7 +37,9 @@ def test_every_listed_row_is_a_mapped_line_and_the_list_is_complete():
     # CHANGED 2026-10-09 (round 32 step 1, Claude review): ALL-061 is a coverage row now, not a requirement
     # row (55 -> 54). Was: == 55.
     # CHANGED 2026-10-09 (round 35 step 2, Claude's map audit): ALL-094 refers (an underwriting-approved alternate enclosure, ALL-093). 54 -> 55.
-    assert len(ev.REQUIREMENT_OUTCOMES) + len(ev.REQUIREMENT_UNCHANGED) == 55
+    # CHANGED DELIBERATELY (round 40 step 2, 2026-10-16; Liam: the two new tables, the second reader on their pages):
+    # + OCC-042 (as SUR-019), OCC-095 / OCC-096 (as SUR-113 / 114), NC3-036, NC3-007, NC3-158 (no path named). 55 -> 61.
+    assert len(ev.REQUIREMENT_OUTCOMES) + len(ev.REQUIREMENT_UNCHANGED) == 61
     assert "ALL-061" not in ev.REQUIREMENT_OUTCOMES and "ALL-061" not in ev.REQUIREMENT_UNCHANGED
     assert all(m[rid]["outcome_if_fail"] == out for rid, (out, _) in ev.REQUIREMENT_OUTCOMES.items())
     assert {out for out, _ in ev.REQUIREMENT_OUTCOMES.values()} == {"DECLINES", "REFERS_TO_UW"}
