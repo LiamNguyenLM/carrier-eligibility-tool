@@ -32,10 +32,10 @@ def rec(c, status, reason="x"):
 
 def test_the_carriers_that_could_not_be_checked_are_named_at_the_top(monkeypatch):
     at = _page(monkeypatch, [rec("Allied_Trust_HO3", "ELIGIBLE"),
-                             rec("NatGen_Custom360_HO3_-_06.25.2026", ec.GUIDE_UNAVAILABLE, "The guide on file is wrong."),
-                             rec("Sage_-_Occidental_HO3", ec.GUIDE_UNAVAILABLE, "The guide on file is wrong.")])
+                             rec("Liberty_Mutual_HO6_-_02.21.2026", ec.GUIDE_UNAVAILABLE, "The guide on file is wrong."),
+                             rec("Centauri_-_DP3_-_11.16.2022", ec.GUIDE_UNAVAILABLE, "The guide on file is wrong.")])
     top = [w.value for w in at.warning if w.value.startswith("Could not check")]
-    assert top == ['Could not check 2 carriers: NatGen Custom360 (HO3), SageSure Occidental (HO3) — see "Could Not Be '
+    assert top == ['Could not check 2 carriers: Liberty Mutual (HO6), Centauri (DP3) — see "Could Not Be '
                    'Checked" at the bottom of the results.']
     assert "### Could Not Be Checked" in [m.value for m in at.markdown]
 

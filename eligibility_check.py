@@ -1761,7 +1761,7 @@ def guaranteed_carrier_lookup(collection, carrier, predicate, keep, priority_key
 
 _SAGE_FPC_CARRIERS = {
     "Sage_-_Auros_HO3",
-    "Sage_-_Occidental_HO3",
+    "Sage_-_Occidental_HO3_-_12.02.2025",
     "Sage_-_Wilshire_HO3_-_12.02.2025",
     "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026",
     "Sage_-_SURE_HO-3_-_01.31.2026",
@@ -1789,7 +1789,8 @@ _SAGE_LOCATION_RULE = {
     "Sage_-_SURE_DP-3_-_01.31.2026": (True, _SAGE_ADDRESS_DP),
     "Sage_-_SafePort_DP-3_-_01.31.2026": (True, _SAGE_ADDRESS_DP),
     "Sage_-_Occidental_DP3": (True, _SAGE_ADDRESS_DP),
-    "Sage_-_Occidental_HO3": (True, _SAGE_ADDRESS_DP),
+    # Round 40: the right (HO3) guide, "... except Nueces county" (the wrong file was the DP3 guide)
+    "Sage_-_Occidental_HO3_-_12.02.2025": (True, _SAGE_ADDRESS_HO),
 }
 _MERCURY_CARRIERS = {"Mercury_HO3_-_01.01.2026"}
 _SAGE_MARKEL_CARRIERS = {"Sage_-_Markel_HO3"}
@@ -1814,7 +1815,7 @@ ROOFER_STATEMENT_NOT_CHECKED = ("If it applies, the guide asks for a roofer's st
 
 _SAGE_ROOFER_STATEMENT_CARRIERS = {
     "Sage_-_Auros_HO3",
-    "Sage_-_Occidental_HO3",
+    "Sage_-_Occidental_HO3_-_12.02.2025",
     "Sage_-_Occidental_DP3",
     "Sage_-_SURE_HO-3_-_01.31.2026",
     "Sage_-_SURE_DP-3_-_01.31.2026",

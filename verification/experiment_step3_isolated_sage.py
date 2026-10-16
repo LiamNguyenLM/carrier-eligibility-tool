@@ -33,7 +33,7 @@ OUT_PATH = os.path.join(os.path.dirname(__file__), "step3_isolated_sage_results.
 
 SAGE_ISOLATED_CARRIERS = [
     "Sage_-_Auros_HO3",
-    "Sage_-_Occidental_HO3",
+    "Sage_-_Occidental_HO3_-_12.02.2025",
     "Sage_-_Wilshire_HO3_-_12.02.2025",
     "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026",
     "Sage_-_SURE_HO-3_-_01.31.2026",

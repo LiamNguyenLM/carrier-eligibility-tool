@@ -346,7 +346,9 @@ if __name__ == "__main__":
 #     its own document, and every chunk of it starts with "[<heading>]", so the prompt shows the section.
 # Both run for every NEW upload (upload_carrier.add_carrier_to_database) and, on a full rebuild, for the files below;
 # every other guide on file is read exactly as before (its stored text is byte-identical).
-UPLOAD_PATH_FILES = {"The_Hartford_HO3_-_07.09.2026.pdf"}
+UPLOAD_PATH_FILES = {"The_Hartford_HO3_-_07.09.2026.pdf",
+                     # Round 40 (Liam, 2026-10-16): the right guides for the two that held the wrong document
+                     "NatGen_Custom360_HO3_-_09.02.2026.pdf", "Sage_-_Occidental_HO3_-_12.02.2025.pdf"}
 _RENDER_DPI = 144
 _VISIBLE_TOLERANCE = 90
 _STACKED = 1.3
@@ -407,7 +409,16 @@ def hidden_chars(page):
             box = (int(c["x0"] * sx), int(c["top"] * sy), int(c["x1"] * sx) + 1, int(c["bottom"] * sy) + 1)
             if rgb is None or not _drawn(px, img.size, box, rgb):
                 hidden.add(id(c))
+    # Round 40 (NatGen Custom360 HO3): a short coloured run that is not stacked is a title drawn over a picture
+    # ("Texas Homeowners--Custom360" on its blue cover), not a hidden payload -- the Hartford's was ~1,300 stacked
+    # characters. Coloured-only characters count as hidden only when there are many on the page.
+    colour_only = [c for c in chars if id(c) in hidden and id(c) in {id(s) for s in suspects} and id(c) not in stacked]
+    if 0 < len(colour_only) < _COLOUR_ONLY_MIN:
+        hidden -= {id(c) for c in colour_only}
     return [c for c in chars if id(c) in hidden]
+
+
+_COLOUR_ONLY_MIN = 200
 
 
 def visible_page(page):
@@ -522,18 +533,37 @@ def section_prefixed(chunks):
 # the file name (Liam's Railway upload was named "The Hartford HO3 10.12.2026"; the guide says 07/09/2026).
 _DATE_PHRASE = re.compile(r"(?i)\b((?:new business )?effective(?: date)?|revised|revision date|edition date|edition)"
                           r"\s*:?\s*(\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{2})\b")
+# Round 40 (NatGen Custom360 HO3): a date alone on a line of page 1 is the cover's date ("09/02/2026"); an "Edition
+# Date" next to a "Form Number" is the form's edition (08/01/2024), not the guide's. Rank: effective, then revised,
+# then the cover's own date, then an edition date.
+_BARE_DATE = re.compile(r"(?m)^\s*(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})\s*$")
+
+
+def _rank(label):
+    label = label.lower()
+    return 0 if "effective" in label else 1 if "revis" in label else 3
 
 
 def guide_date_from_docs(docs):
-    """(MM/DD/YYYY, the phrase it was read from, where) from the guide's text, or (None, None, None)."""
+    """(MM/DD/YYYY, the phrase it was read from, where) from the guide's text, or (None, None, None). The best-ranked
+    date wins (effective, revised, the cover's own date, edition); among equals, the earliest place (the header kept
+    once, page 1, the last page)."""
     pages = sorted({d.metadata.get("page", 0) for d in docs}) or [0]
     places = [("header", [d for d in docs if d.metadata.get("section") == "Guide header"]),
               ("page 1", [d for d in docs if d.metadata.get("page", 0) == pages[0]]),
               ("the last page", [d for d in docs if d.metadata.get("page", 0) == pages[-1]])]
-    for where, group in places:
+    found = []
+    for order, (where, group) in enumerate(places):
         for d in group:
-            m = _DATE_PHRASE.search(d.page_content)
-            if m:
+            for m in _DATE_PHRASE.finditer(d.page_content):
                 year = m.group(4) if len(m.group(4)) == 4 else "20" + m.group(4)
-                return f"{int(m.group(2)):02d}/{int(m.group(3)):02d}/{year}", " ".join(m.group(0).split()), where
-    return None, None, None
+                found.append((_rank(m.group(1)), order, f"{int(m.group(2)):02d}/{int(m.group(3)):02d}/{year}",
+                              " ".join(m.group(0).split()), where))
+            if where == "page 1":
+                for m in _BARE_DATE.finditer(d.page_content):
+                    found.append((2, order, f"{int(m.group(1)):02d}/{int(m.group(2)):02d}/{m.group(3)}",
+                                  m.group(0).strip() + " (the cover's date)", where))
+    if not found:
+        return None, None, None
+    best = min(found, key=lambda x: (x[0], x[1]))
+    return best[2], best[3], best[4]

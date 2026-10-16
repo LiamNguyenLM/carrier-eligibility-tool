@@ -138,3 +138,25 @@ def test_upload_settings_reads_the_store(monkeypatch):
 def test_the_seed_has_no_upload_settings():
     """Every guide in the seed was indexed without settings: routing and names are unchanged for all of them."""
     assert ec.upload_settings() == {}
+
+
+# ---- round 40: which date wins (NatGen Custom360 HO3's cover: the guide's date alone on a line, and the FORM's
+# "Edition Date: 08/01/2024 Form Number: 15604")
+@pytest.mark.parametrize("text,want", [
+    ("Texas\n09/02/2026\nImperial Fire and Casualty\nEdition Date: 08/01/2024 Form Number: 15604", "09/02/2026"),
+    ("Homeowners Program\n03/15/2026\nEdition Date: 01/01/2020", "03/15/2026"),
+    ("Edition Date: 08/01/2024 Form Number: 15606", "08/01/2024"),               # nothing better: the edition
+    ("Effective 07/01/2026\n05/05/2025", "07/01/2026"),                           # an effective date beats the cover
+])
+def test_the_best_ranked_date_wins(text, want):
+    from langchain_core.documents import Document
+    assert pe.guide_date_from_docs([Document(page_content=text, metadata={"page": 0})])[0] == want
+
+
+@pytest.mark.parametrize("fixture,want,where", [("NatGen_Custom360_HO3_-_09.02.2026.pdf", "09/02/2026", "page 1"),
+                                                ("Sage_-_Occidental_HO3_-_12.02.2025.pdf", "12/02/2025",
+                                                 "the last page"),
+                                                ("The_Hartford_HO3_-_07.09.2026.pdf", "07/09/2026", "header")])
+def test_the_three_upload_path_guides_are_dated_from_their_text(fixture, want, where):
+    date, _, got_where = pe.guide_date_from_docs(pe.load_upload_documents(os.path.join(HERE, "fixtures", fixture))[0])
+    assert (date, got_where) == (want, where)

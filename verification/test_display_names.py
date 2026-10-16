@@ -23,7 +23,7 @@ APP = os.path.join(ROOT, "app.py")
 
 @pytest.mark.parametrize("program,name", [("Sage_-_Auros_HO3", "SageSure Auros (HO3)"),
                                           ("Swyfft_-_Benchmark_(Admitted)_HO3", "Swyfft Benchmark Admitted (HO3)"),
-                                          ("NatGen_Custom360_HO3_-_06.25.2026", "NatGen Custom360 (HO3)")])
+                                          ("NatGen_Custom360_HO3_-_09.02.2026", "NatGen Custom360 (HO3)")])
 def test_liams_three_examples(program, name):
     assert display_names.display_name(program) == name
 

@@ -1529,15 +1529,17 @@ def test_sage_occidental_pool_fence_consistency(record_property):
     rows = []
     for _ in range(n_runs):
         result = check_eligibility(STANDARD_PROFILE)
-        mine = [r for r in result if r["carrier"] == "Sage_-_Occidental_HO3"]
-        assert len(mine) == 1, f"Sage_-_Occidental_HO3: expected one row, got {len(mine)}"
+        mine = [r for r in result if r["carrier"] == "Sage_-_Occidental_HO3_-_12.02.2025"]
+        assert len(mine) == 1, f"Sage_-_Occidental_HO3_-_12.02.2025: expected one row, got {len(mine)}"
         rows.append(mine[0])
     statuses = [r["status"] for r in rows]
     record_property("sage_occidental_ho3_statuses", statuses)
-    print(f"\nSage Occidental HO3 over {n_runs} runs: {statuses}  [DD-4: wrong guide, fixed row]")
+    print(f"\nSage Occidental HO3 over {n_runs} runs: {statuses}  [round 40: the right guide]")
+    # CHANGED DELIBERATELY (round 40 step 1, 2026-10-16; Liam: the right guides replaced the two wrong files): the right HO3
+    # guide is on file, so this is an ordinary verdict now, never the wrong-document row.
     for r in rows:
-        assert r["status"] == GUIDE_UNAVAILABLE, statuses
-        assert r["reasons"] == [_GUIDE_WRONG_DOCUMENT_TEXT], r["reasons"]
+        assert r["status"] != GUIDE_UNAVAILABLE, statuses
+        assert r["reasons"] != [_GUIDE_WRONG_DOCUMENT_TEXT], r["reasons"]
         assert not r.get("citations"), r.get("citations")
 
 
@@ -4837,9 +4839,9 @@ def test_trust_and_llc_verdicts_follow_each_carriers_own_rule(record_property):
     print("\nKnown-defective records in the Individual Owner results (not asserted):")
     for rep_i, rep in enumerate(reps, 1):
         found, _ = _resolve_results(rep["Individual Owner"], [
-            "NatGen_Custom360_HO3_-_06.25.2026", "Sage_-_Occidental_HO3",
+            "NatGen_Custom360_HO3_-_09.02.2026", "Sage_-_Occidental_HO3_-_12.02.2025",
             "Liberty_Mutual_HO6_-_02.21.2026", "Centauri_-_HO3_-_05.01.2026"], universe)
-        for c in ("NatGen_Custom360_HO3_-_06.25.2026", "Sage_-_Occidental_HO3",
+        for c in ("NatGen_Custom360_HO3_-_09.02.2026", "Sage_-_Occidental_HO3_-_12.02.2025",
                   "Liberty_Mutual_HO6_-_02.21.2026", "Centauri_-_HO3_-_05.01.2026"):
             r = found.get(c)
             print(f"   rep {rep_i} {c[:34]:34s} " + ("NOT IN OUTPUT" if r is None else r.get("status")))
@@ -4944,11 +4946,11 @@ _NAMES_MISSING_THEIR_MIDDLE = [
     ("Orion HO3", "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3"),
     ("HOAIC HO3", "HOAIC_-_TX-HOMEOWNERS-0326_HO3"),
     ("HOAIC TX Homeowners HO3", "HOAIC_-_TX-HOMEOWNERS-0326_HO3"),
-    ("NatGen Custom360 (Landlord)", "NatGen_Custom360_HO3_-_06.25.2026"),
+    ("NatGen Custom360 (Landlord)", "NatGen_Custom360_HO3_-_09.02.2026"),
 ]
 _RESOLVER_UNIVERSE = [
     "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3", "HOAIC_-_TX-HOMEOWNERS-0326_HO3",
-    "NatGen_Custom360_HO3_-_06.25.2026", "NatGen_Premier_OneChoice_HO3_-_02.26.2025",
+    "NatGen_Custom360_HO3_-_09.02.2026", "NatGen_Premier_OneChoice_HO3_-_02.26.2025",
     "Sage_-_Auros_HO3", "Sage_-_Markel_HO3", "Sage_-_Vave_HO3_-_07.01.2026",
     "Sage_-_SURE_HO-3_-_01.31.2026", "Swyfft_-_Benchmark_(Admitted)_HO3",
     "Swyfft_-_Benchmark_(Surplus)_HO3",
@@ -4982,7 +4984,7 @@ def test_verdict_resolver_accepts_a_name_missing_its_middle(written, canonical):
 @pytest.mark.parametrize("written, asked", [
     ("Sage HO3", "Sage_-_Markel_HO3"),                                # four Sage programs fit
     ("Swyfft Benchmark HO3", "Swyfft_-_Benchmark_(Surplus)_HO3"),     # Admitted and Surplus fit
-    ("NatGen HO3", "NatGen_Custom360_HO3_-_06.25.2026"),              # Custom360 and Premier fit
+    ("NatGen HO3", "NatGen_Custom360_HO3_-_09.02.2026"),              # Custom360 and Premier fit
 ])
 def test_verdict_resolver_never_picks_among_several_carriers(written, asked):
     """Even when the caller asks for ONE of them -- uniqueness is judged
@@ -5282,18 +5284,14 @@ class TestProductCheckCalibration:
         """Anything flagged that is not a documented defect is either a new
         mis-ingest (investigate the PDF) or a false positive (fix the rule) --
         never something to add here without reading the document."""
-        known = {"NatGen_Custom360_HO3_-_06.25.2026", "Sage_-_Occidental_HO3"}
+        # CHANGED DELIBERATELY (round 40 step 1, 2026-10-16; Liam: the right guides replaced the two wrong files): no known product mismatch remains.
+        known = set()
         assert set(_product_mismatches()) <= known, set(_product_mismatches()) - known
 
-    def test_occidental_ho3_is_flagged_while_it_holds_the_dp3_guide(self):
-        """Premise-guarded, so it clears itself: once the real HO3 PDF is
-        uploaded the record stops calling itself a dwelling-fire program and
-        this has nothing to assert."""
-        text = " ".join(c.page_content for c in _all_chunks("Sage_-_Occidental_HO3")).upper()
-        if "DWELLING FIRE PROGRAM" not in text:
-            pytest.skip("Sage_-_Occidental_HO3 no longer self-describes as DP3 -- DD-4 fixed?")
-        assert "Sage_-_Occidental_HO3" in _product_mismatches()
-        assert "reference rule" in _product_mismatches()["Sage_-_Occidental_HO3"]
+    def test_the_right_occidental_ho3_guide_is_not_a_mismatch(self):
+        """CHANGED DELIBERATELY (round 40 step 1, 2026-10-16; Liam: the right guides replaced the two wrong files): DD-4 fixed."""
+        text = " ".join(c.page_content for c in _all_chunks("Sage_-_Occidental_HO3_-_12.02.2025")).upper()
+        assert "DWELLING FIRE PROGRAM" not in text and "Sage_-_Occidental_HO3_-_12.02.2025" not in _product_mismatches()
 
     def test_the_runtime_detector_agrees_with_this_check(self):
         """data_defects.py runs the same product rule for the live app. Two
@@ -5318,11 +5316,11 @@ class TestProductCheckCalibration:
 # ---------------------------------------------------------------------------
 
 _DEFECTIVE_HO = {
-    "NatGen_Custom360_HO3_-_06.25.2026": "wrong document",   # DD-1, holds the DP3 guide
     "Liberty_Mutual_HO6_-_02.21.2026": "wrong document",     # DD-2, holds the HO3 guide
     # DD-3 (Centauri HO3, no readable text) fixed in round 29 step 5, 2026-10-08: its OCR text is in
     # the store, so it is an ordinary carrier now.
-    "Sage_-_Occidental_HO3": "wrong document",               # DD-4, holds the DP3 guide
+    # CHANGED DELIBERATELY (round 40 step 1, 2026-10-16; Liam: the right guides replaced the two wrong files): DD-1 (NatGen Custom360 HO3) and
+    # DD-4 (Occidental HO3) fixed.
 }
 
 
@@ -7483,7 +7481,7 @@ class TestSageTerritoryGuard:
         assert u.index(f"County: {county}\n") < u.index(lines[0])
         for c in (_AUROS, _TRIUM, "Sage_-_Wilshire_HO3_-_12.02.2025"):
             assert c in lines[0]
-        for c in ("Sage_-_Markel_HO3", "Sage_-_Vave_HO3_-_07.01.2026", "Sage_-_Occidental_HO3"):
+        for c in ("Sage_-_Markel_HO3", "Sage_-_Vave_HO3_-_07.01.2026"):
             assert c not in lines[0]                                   # no rule / not in the prompt
 
     @pytest.mark.parametrize("county", ["Dallas", "Tarrant", ""])

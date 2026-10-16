@@ -98,15 +98,12 @@ WRONG_FILE_EVIDENCE = {
         "byte-identical to Liberty_Mutual_HO3_-_02.21.2026.pdf (same size and sha256); 12 pages, page 1 "
         "'Texas What's New ... Home and Updates ... Eligibility Guidelines' -- the homeowners guide, no "
         "condo / HO6 text. Reached only by an Owner Occupied condo check."),
-    "NatGen_Custom360_HO3_-_06.25.2026": (
-        DUPLICATE_DOCUMENT, 434289, "bc0f9c6dc28f939a3a8227af601e3d115af626236d74158cdab33ee74ef92fc6",
-        "byte-identical to NatGen_Custom360_DP3_-_06.25.2026.pdf; 24 pages, page 1 'Texas Landlord -- "
-        "Custom360 ... Form Number: 15606' -- the landlord (DP3) guide."),
-    "Sage_-_Occidental_HO3": (
-        WRONG_PRODUCT, 308623, "2a34fcb2a72ad7556818daac51511850774b8c2fbbc8a503eaca8d86609bd025",
-        "15 pages, page 1 'TEXAS OCCIDENTAL DWELLING FIRE PROGRAM (DP3)' -- a dwelling fire guide, and "
-        "a different copy from Sage_-_Occidental_DP3.pdf (324,527 bytes, sha256 a03f9aba92f0...)."),
 }
+# Round 40 (Liam, 2026-10-16): the right guides replaced the other two wrong files on record --
+# NatGen_Custom360_HO3_-_06.25.2026 (byte-identical to the Custom360 landlord DP3 guide) is now
+# NatGen_Custom360_HO3_-_09.02.2026 ("Texas Homeowners -- Custom360", Imperial Fire and Casualty, 38 pages), and
+# Sage_-_Occidental_HO3 (it held the Occidental DWELLING FIRE guide) is now Sage_-_Occidental_HO3_-_12.02.2025
+# ("TEXAS OCCIDENTAL HOMEOWNERS PROGRAM (HO3)", 17 pages, "REVISED 12/2/2025").
 
 # Same margins as test_each_document_reads_like_the_product_its_filename_claims,
 # and for the same reason its comment gives: a heuristic that fires on a

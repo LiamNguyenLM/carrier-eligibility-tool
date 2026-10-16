@@ -19,10 +19,13 @@ import data_defects
 class TestDataDefects:
     """The defect list must be derived, so it clears when the PDFs are fixed."""
 
-    def test_the_two_mis_filed_programs_are_flagged(self):
+    def test_the_mis_filed_program_is_flagged_and_the_replaced_ones_are_not(self):
+        # CHANGED DELIBERATELY (round 40 step 1, 2026-10-16; Liam: the right guides replaced the two wrong files): DD-1 (NatGen
+        # Custom360 HO3) and DD-4 (Occidental HO3) are fixed; DD-2 (Liberty Mutual HO6) remains.
         defects = data_defects.defective_programs()
         assert "Liberty_Mutual_HO6_-_02.21.2026" in defects
-        assert "NatGen_Custom360_HO3_-_06.25.2026" in defects
+        assert "NatGen_Custom360_HO3_-_09.02.2026" not in defects and "Sage_-_Occidental_HO3_-_12.02.2025" not in defects
+        assert "NatGen_Custom360_HO3_-_06.25.2026" not in defects and "Sage_-_Occidental_HO3" not in defects     # no longer in the store
 
     def test_the_correct_sibling_of_each_pair_is_NOT_flagged(self):
         """Flagging both halves of a duplicate pair would throw away a good
@@ -54,18 +57,14 @@ class TestDataDefects:
         assert "Allied_Trust_HO3" not in defects
         assert "Progressive_HO3_-_04.01.2026" not in defects
 
-    def test_occidental_ho3_is_flagged_while_it_holds_the_dp3_guide(self):
-        """DD-4: Sage_-_Occidental_HO3 holds Occidental's DWELLING FIRE PROGRAM
-        (DP3) guide. Caught by the reference rule -- it names DP 00 03 / DP3
-        five times and no HO product at all. Premise-guarded, so it clears
-        itself once the real HO3 PDF is uploaded."""
+    def test_the_right_occidental_ho3_guide_reads_as_homeowners(self):
+        """CHANGED DELIBERATELY (round 40 step 1, 2026-10-16; Liam: the right guides replaced the two wrong files): DD-4 fixed --
+        the record now self-describes as the HOMEOWNERS program and is not flagged."""
         from shared_resources import get_vectorstore
-        raw = get_vectorstore()._collection.get(
-            where={"carrier": "Sage_-_Occidental_HO3"}, include=["documents"])
-        if "DWELLING FIRE PROGRAM" not in " ".join(raw["documents"]).upper():
-            pytest.skip("Sage_-_Occidental_HO3 no longer self-describes as DP3 -- DD-4 fixed?")
-        defect = data_defects.defective_programs().get("Sage_-_Occidental_HO3")
-        assert defect is not None and defect["kind"] == data_defects.WRONG_PRODUCT
+        raw = get_vectorstore()._collection.get(where={"carrier": "Sage_-_Occidental_HO3_-_12.02.2025"}, include=["documents"])
+        text = " ".join(raw["documents"]).upper()
+        assert "OCCIDENTAL HOMEOWNERS PROGRAM (HO3)" in text and "DWELLING FIRE PROGRAM" not in text
+        assert "Sage_-_Occidental_HO3_-_12.02.2025" not in data_defects.defective_programs()
 
     @pytest.mark.parametrize("program", [
         "Sage_-_Occidental_DP3",             # the CORRECT record of the DD-4 pair
@@ -83,10 +82,9 @@ class TestDataDefects:
         """DD-1, DD-2 and DD-4 and nothing else (DD-3, Centauri HO3, fixed in round 29 step 5,
         2026-10-08). Anything new flagged is either a new mis-ingest (read the PDF) or a false
         positive (fix the rule)."""
+        # CHANGED DELIBERATELY (round 40 step 1, 2026-10-16; Liam: the right guides replaced the two wrong files): DD-1 and DD-4 fixed.
         assert set(data_defects.defective_programs()) == {
-            "NatGen_Custom360_HO3_-_06.25.2026",    # DD-1
             "Liberty_Mutual_HO6_-_02.21.2026",      # DD-2
-            "Sage_-_Occidental_HO3",                # DD-4
         }
 
     def test_expected_programs_list_matches_the_pdf_folder(self):

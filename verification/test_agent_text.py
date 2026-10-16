@@ -67,7 +67,7 @@ def test_the_card_keeps_its_row_ids_on_one_collapsed_line():
     ("Swyfft Benchmark", ["Swyfft_-_Benchmark_(Admitted)_HO3", "Swyfft_-_Benchmark_(Surplus)_HO3"],
      "1. **Swyfft Benchmark Admitted (HO3), Swyfft Benchmark Surplus (HO3)**"),
     ("Progressive / ASI", ["Progressive_HO3_-_04.01.2026"], "1. **Progressive (HO3)**"),
-    ("National General", ["NatGen_Custom360_HO3_-_06.25.2026"], "1. **National General** — NatGen Custom360 (HO3)"),
+    ("National General", ["NatGen_Custom360_HO3_-_09.02.2026"], "1. **National General** — NatGen Custom360 (HO3)"),
 ])
 def test_the_placement_panel_names_a_program_once(market, programs, line):
     p = {"title": "Where we usually place homes like this", "usual": "",
@@ -122,6 +122,9 @@ def test_liams_results_page_carries_no_internal_labels(monkeypatch, tmp_path, co
             if text in manage or text.startswith("**Rules pilot"):
                 continue
             visible = re.sub(r"<details><summary>Rule IDs</summary>.*?</details>", "", text, flags=re.S)
+            # round 40 (2026-10-16): Liam's own sentence on a guide-only card (round 39 step 2e) is agent text,
+            # not an internal label; "rules table" anywhere else still is
+            visible = visible.replace(display_names.GUIDE_ONLY_LINE, "")
             for rx in (_ROW, programs, _WORDS):
                 leaks += [(kind, m.group(0), visible[max(0, m.start() - 60):m.end() + 30]) for m in rx.finditer(visible)]
     leaks += [("title", e.label, "") for e in at.expander if programs.search(e.label)]

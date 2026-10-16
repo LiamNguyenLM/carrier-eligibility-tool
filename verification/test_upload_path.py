@@ -119,10 +119,22 @@ def test_a_guide_not_listed_reads_exactly_as_before(tmp_path):
     assert source == "pdf" and [d.page_content for d in docs] == [d.page_content for d in old]
 
 
-def test_only_the_hartford_is_listed():
-    assert pe.UPLOAD_PATH_FILES == {"The_Hartford_HO3_-_07.09.2026.pdf"}
+def test_only_the_hartford_and_the_round_40_guides_are_listed():
+    # CHANGED DELIBERATELY (round 40 step 1, 2026-10-16): + the two right guides. Was the Hartford alone.
+    assert pe.UPLOAD_PATH_FILES == {"The_Hartford_HO3_-_07.09.2026.pdf", "NatGen_Custom360_HO3_-_09.02.2026.pdf",
+                                    "Sage_-_Occidental_HO3_-_12.02.2025.pdf"}
 
 
 def test_the_listed_hartford_takes_the_upload_path():
     docs, source = pe.load_guide_documents(PDF)
     assert source.startswith("pdf (upload path") and _section(docs, "Rental Property Protection Plus")
+
+
+# ---- round 40: a short coloured title over a picture is visible text, not a hidden payload
+def test_natgens_blue_cover_title_is_kept():
+    docs, dropped = pe.load_upload_documents(os.path.join(HERE, "fixtures", "NatGen_Custom360_HO3_-_09.02.2026.pdf"))
+    assert dropped == 0 and "Texas Homeowners — Custom360" in "\n".join(d.page_content for d in docs)
+
+
+def test_occidental_drops_nothing():
+    assert pe.load_upload_documents(os.path.join(HERE, "fixtures", "Sage_-_Occidental_HO3_-_12.02.2025.pdf"))[1] == 0

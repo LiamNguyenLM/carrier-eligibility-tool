@@ -75,7 +75,7 @@ def build_rules():
     ch_north_text = ch.split("Dallas/Fort Worth, Collin County and rest of Northern counties: Defined by the following counties:", 1)[1]
     ch_north = names_in(ch_north_text[:6000])
 
-    ng = re.sub(r"\s+", " ", guides.guide_text("NatGen_Custom360_HO3_-_06.25.2026"))
+    ng = re.sub(r"\s+", " ", guides.guide_text("NatGen_Custom360_HO3_-_09.02.2026"))
     i = ng.index("ZIP codes 77571 and 77586")
     z1_start = ng.rindex("Counties", 0, i)
     z2_start = ng.index("Counties", i)
