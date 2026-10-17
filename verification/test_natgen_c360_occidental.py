@@ -115,8 +115,9 @@ BOUNDARY = [
     (NG, "NC3-038", dict(ppc="10", fire_station_miles=10), dict(ppc="10", fire_station_miles=10.5), "DECLINES"),
     (NG, "NC3-044", dict(occupancy_type="Owner Occupied"), dict(occupancy_type="Tenant Occupied"), "DECLINES"),
     (NG, "NC3-062", dict(roof_type=WOOD, roof_age=25), dict(roof_type=WOOD, roof_age=26), "DECLINES"),
+    # CHANGED 2026-10-17 (round 41 A2, Liam: Not eligible unless the home is rural). Was "CONDITION" (Refer).
     (NG, "NC3-084", dict(swimming_pool="In Ground - Fenced", pool_gate_locking=True),
-     dict(swimming_pool="In Ground - Unfenced", pool_gate_locking=True), "CONDITION"),
+     dict(swimming_pool="In Ground - Unfenced", pool_gate_locking=True), "DECLINES"),
     (NG, "NC3-100", dict(roof_type="Composition Shingle"), dict(roof_type=WOOD), "REFERS_TO_UW"),
     (NG, "NC3-126", dict(construction_type="Frame"), dict(construction_type="Manufactured/Mobile"), "DECLINES"),
     (NG, "NC3-138", dict(electrical=["Circuit breakers"]), dict(electrical=["Knob-and-tube wiring"]), "DECLINES"),
@@ -550,3 +551,18 @@ NUMERIC_COVERED = {b[1] for b in BOUNDARY} | {g[1] for g in GATE_BOUNDARY}
 def test_a_numeric_gate_applies_exactly_at_its_number(canon, rid, base, field, inside, want_in, outside, want_out):
     assert row(canon, rid, **dict(base, **{field: inside}))[0] == want_in
     assert row(canon, rid, **dict(base, **{field: outside}))[0] == want_out
+
+
+# ==================================================================== round 41 A2 (Liam, 2026-10-17)
+@pytest.mark.parametrize("pool", [dict(swimming_pool="In Ground - Unfenced", pool_gate_locking=True),
+                                  dict(swimming_pool="Above Ground - Unfenced", pool_gate_locking=True),
+                                  dict(swimming_pool="In Ground - Fenced", pool_fence_4ft=True, pool_gate_locking=False)],
+                         ids=["in-ground unfenced", "above-ground unfenced", "fenced, no locking gate"])
+def test_natgens_unfenced_pool_is_not_eligible_unless_rural(pool):
+    rec = status(NG, **pool)
+    if pool.get("pool_gate_locking") is False:          # an unticked box is unknown, never "no": a hold
+        assert rec["status"] == "INSUFFICIENT_INFORMATION"
+        return
+    assert rec["status"] == "INELIGIBLE"
+    reason = [r for r in rec["reasons"] if "[NC3-084]" in r][0]
+    assert reason.endswith("unless the home is rural (underwriting may then approve).")

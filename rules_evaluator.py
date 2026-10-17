@@ -276,6 +276,10 @@ REQUIREMENT_OUTCOMES = {
                             "occupant of the home are the same individual (no path named)"),
     "NC3-158": ("DECLINES", "Ineligible Exposures: Properties in flood zones A and V without an active flood policy "
                             "(no path named)"),
+    # round 41 A2 (Liam, 2026-10-17): "Pools are fenced in with self-locking gate"; the only approval path is "Rural homes
+    # may be acceptable without a fence ... with prior underwriting approval", and the form does not ask rural (no
+    # question added): Not eligible, the reason naming the rural path (REASON_SUFFIX). Was: CONDITION (Refer).
+    "NC3-084": ("DECLINES", "Pools are fenced in with self-locking gate; rural homes only may be approved (p.8)"),
     "CDP-072": ("DECLINES", "The home is tenant occupied (one of four conditions, all required; underwriting "
                             "approval is needed in addition, not instead)"),
     "PRO-051": ("REFERS_TO_UW", "... or approved alternate enclosure"),
@@ -775,6 +779,11 @@ def evaluate_carrier(canon, pd, checked=None, wb=None):
     return out
 
 
+# Round 41 A2 (Liam, 2026-10-17): a decline's reason that names the one way out the form does not ask about, in Liam's
+# words (row id -> the clause added to the guide's rule).
+REASON_SUFFIX = {"NC3-084": "unless the home is rural (underwriting may then approve)"}
+
+
 # Round 41 A5 (Liam, 2026-10-17): the guides that name split classes, and how each rates 1X-8X (workbook carrier ->
 # the protection class it reads). Read from every guide's text (round 41): NatGen Custom360 HO3 p.5 and Custom360
 # Landlord (DP3) p.5 -- "*Includes all PC 9 or 1X - 8X variations". The Hartford, Mercury and HOAIC name only "10W"
@@ -936,7 +945,10 @@ def code_record(canon, outcomes, property_details=None):
     label = {"DECLINES": "declines", "REFERS_TO_UW": "refers to underwriting", "CONDITION": "condition not met"}
     def said(rid):
         answer = answer_phrase(fmap[rid]["field"], property_details) if property_details else ""
-        return (answer + " — " if answer else "") + rules[rid]["Plain rule"]
+        rule = rules[rid]["Plain rule"]
+        if rid in REASON_SUFFIX:                   # round 41 A2: a path Liam named, in his words
+            rule = rule.rstrip(". ") + ", " + REASON_SUFFIX[rid] + "."
+        return (answer + " — " if answer else "") + rule
     reasons = [f"[{rid}] {label[fmap[rid]['outcome_if_fail']]}: {said(rid)}" for rid in cited]
     npass = sum(1 for o, _ in outcomes.values() if o == "PASS")
     if not reasons:

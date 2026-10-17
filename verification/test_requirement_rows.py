@@ -41,7 +41,9 @@ def test_every_listed_row_is_a_mapped_line_and_the_list_is_complete():
     # + OCC-042 (as SUR-019), OCC-095 / OCC-096 (as SUR-113 / 114), NC3-036, NC3-007, NC3-158 (no path named). 55 -> 61.
     # CHANGED DELIBERATELY (round 41 A6, 2026-10-17; Liam: a fire loss on the form declines the SageSure FPC table's
     # "No prior fire losses" cell): + WIL-123. 61 -> 62.
-    assert len(ev.REQUIREMENT_OUTCOMES) + len(ev.REQUIREMENT_UNCHANGED) == 62
+    # CHANGED DELIBERATELY (round 41 A2, 2026-10-17; Liam: NatGen's unfenced pool is Not eligible, rural homes only
+    # may be approved): + NC3-084. 62 -> 63.
+    assert len(ev.REQUIREMENT_OUTCOMES) + len(ev.REQUIREMENT_UNCHANGED) == 63
     assert "ALL-061" not in ev.REQUIREMENT_OUTCOMES and "ALL-061" not in ev.REQUIREMENT_UNCHANGED
     assert all(m[rid]["outcome_if_fail"] == out for rid, (out, _) in ev.REQUIREMENT_OUTCOMES.items())
     assert {out for out, _ in ev.REQUIREMENT_OUTCOMES.values()} == {"DECLINES", "REFERS_TO_UW"}

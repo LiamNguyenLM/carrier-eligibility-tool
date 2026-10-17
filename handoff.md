@@ -2925,6 +2925,9 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     3-year one-loss rows (ARA-066, ARB-069, CDP-100) have been hand-worded confirms since round 37, and the rows that
     fail on such profiles (HAR-027, SLL-071, VAV-090, VDP-052) fail only when every type shown is one they count.
     0 rows changed, 0 verdicts; `verification/test_loss_window_certainty.py` keeps it so for every table.
+  - **A2.** NatGen Custom360 HO3, an unfenced pool (NC3-084, p.8): Not eligible, reason "... unless the home is rural
+    (underwriting may then approve)." The form does not ask rural; no question added. Was Refer. Fuzz set: 139
+    NatGen verdicts Refer -> Not eligible, all NC3-084.
   <!-- end of round 41 decisions -->
 
 ## Open work, in priority order (updated 2026-10-02)
