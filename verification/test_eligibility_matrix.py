@@ -3636,19 +3636,11 @@ def _product_mismatches():
     return found
 
 
+# xfail REMOVED 2026-10-16 (round 40, Liam: the right NatGen Custom360 HO3 and Occidental HO3 guides replace DD-1 and
+# DD-4): it XPASSed in every fast tier since 9a0dc9d. Now a hard assert, as the marker asked, so a future mis-ingest
+# fails the build. Was: xfail(strict=False), "KNOWN DATA DEFECTS ... DD-1 ... DD-4 ... REMOVE THIS XFAIL MARKER once
+# both PDFs are corrected".
 @pytest.mark.retrieval
-@pytest.mark.xfail(
-    reason="KNOWN DATA DEFECTS, both needing a corrected PDF, not a code change. "
-    "DD-1 (round 16): NatGen_Custom360_HO3 holds the DP3 document -- caught by the WORD rule, "
-    "landlord/dwelling-fire 34 times against 2 homeowners hits. "
-    "DD-4 (round 17): Sage_-_Occidental_HO3 holds the 08/06/2025 revision of Occidental's "
-    "DWELLING FIRE PROGRAM (DP3) guide -- caught by the REFERENCE rule, 5 references to DP3 / "
-    "DP 00 03 against 0 to any HO product. Neither the duplicate-hash check (the two Occidental "
-    "revisions differ byte-for-byte) nor the word rule (as tuned) saw DD-4. REMOVE THIS XFAIL "
-    "MARKER once both PDFs are corrected: after that it should be a hard assert, so a future "
-    "mis-ingest fails the build.",
-    strict=False,
-)
 def test_each_document_reads_like_the_product_its_filename_claims():
     """Catches a carrier slot holding the wrong PRODUCT's document.
 
