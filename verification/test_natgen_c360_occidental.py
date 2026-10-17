@@ -476,14 +476,17 @@ def test_liams_harris_profile_as_entered_holds_natgen_on_nothing():
     assert rv.code_record(NG, o, liam)[0]["status"] == "ELIGIBLE"
 
 
-@pytest.mark.parametrize("carrier,want", [("National General", "PASS"), ("Other carrier", "NOTE"),
-                                          ("Chubb", "FAIL"), ("Sage: Occidental", "FAIL")])
+# CHANGED 2026-10-17 (round 41 A4, Liam: Allstate and Encompass are "Primary home insured with" choices). Was: "Other
+# carrier" a confirm (the affiliates were not form choices).
+@pytest.mark.parametrize("carrier,want", [("National General", "PASS"), ("Allstate", "PASS"), ("Encompass", "PASS"),
+                                          ("Other carrier", "FAIL"), ("Chubb", "FAIL"), ("Sage: Occidental", "FAIL"),
+                                          ("Unknown", "OPEN"), ("", "OPEN")])
 def test_natgen_seasonal_home_with_an_affiliate_primary(carrier, want):
-    """p.6 "or an affiliate company"; p.32: National General, Encompass, or Allstate -- not form choices."""
+    """p.6 "or an affiliate company"; p.32: National General, Encompass, or Allstate."""
     o = row(NG, "NC3-036", occupancy_type="Seasonal", primary_home_carrier=carrier)
     assert o[0] == want
-    if want == "NOTE":
-        assert "Allstate or Encompass" in rv._map()["NC3-036"]["test"]
+    if want == "FAIL":
+        assert status(NG, occupancy_type="Seasonal", primary_home_carrier=carrier)["status"] == "INELIGIBLE"
 
 
 @pytest.mark.parametrize("ppc,rid", [("10", "NC3-151"), ("10W", "NC3-151"), ("9", "NC3-180"), ("10", "NC3-180")])

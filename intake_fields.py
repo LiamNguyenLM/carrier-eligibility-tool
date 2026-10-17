@@ -81,7 +81,10 @@ PRIMARY_HOME_CARRIERS = {
     "TWICO": ("TWICO_",), "The Hartford": ("The_Hartford",), "Travelers": ("Travelers_",),
 }
 OTHER_CARRIER, UNKNOWN_CARRIER = "Other carrier", "Unknown"
-PRIMARY_HOME_CHOICES = ("",) + tuple(PRIMARY_HOME_CARRIERS) + (OTHER_CARRIER, UNKNOWN_CARRIER)
+# Round 41 A4 (Liam, 2026-10-17): insurers a guide names as an affiliate but with no program on file here -- NatGen
+# Custom360 HO3 p.32: "National General, Encompass, or Allstate" (NC3-036, "or an affiliate company").
+NO_PROGRAM_CARRIERS = ("Allstate", "Encompass")
+PRIMARY_HOME_CHOICES = ("",) + tuple(PRIMARY_HOME_CARRIERS) + NO_PROGRAM_CARRIERS + (OTHER_CARRIER, UNKNOWN_CARRIER)
 OWNERS_OTHER_HOMES = ("Seasonal", "Secondary Home")
 # Round 39 step 1 (Liam, 2026-10-12): a tenant-occupied home asks where the owner's own home is insured (the same
 # primary_home_carrier answer, under its own label) and two optional rental questions. Blank / Unknown is unknown:
@@ -102,7 +105,7 @@ def primary_home_label(program):
 def primary_home_carrier(value):
     """A stated choice ("Chubb", "Other carrier"), or None for blank / Unknown / anything else."""
     v = str(value or "").strip()
-    return v if v in PRIMARY_HOME_CARRIERS or v == OTHER_CARRIER else None
+    return v if v in PRIMARY_HOME_CARRIERS or v in NO_PROGRAM_CARRIERS or v == OTHER_CARRIER else None
 
 
 def parse_primary_home_miles(value):

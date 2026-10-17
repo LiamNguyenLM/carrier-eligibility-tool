@@ -20,6 +20,9 @@ import topics  # noqa: E402
 
 YEAR = 2026
 PPC = ("N/A", "1", "2", "3", "4", "5", "6", "7", "8", "8A", "8B", "9", "10")
+# Round 41 A4 / A5: the form gained choices (Allstate, Encompass; 1X-8X). The generator keeps the Round 38 lists, so a
+# seed draws the same profile as before and verdict changes can be diffed over the same set.
+PRIMARY_HOME_CHOICES = tuple(c for c in intake_fields.PRIMARY_HOME_CHOICES if c not in intake_fields.NO_PROGRAM_CARRIERS)
 COASTAL = ("Not Coastal", "Tier 1", "Tier 2", "Tier 3")
 OCCUPANCY = ("Owner Occupied", "Tenant Occupied", "Seasonal", "Vacant", "Secondary Home")
 CONSTRUCTION = ("Frame", "Masonry", "Masonry Veneer", "Superior", "Manufactured/Mobile")
@@ -102,7 +105,7 @@ def profile(seed):
     pd["dwelling_type"] = _pick(rng, intake_fields.DWELLING_TYPES[1:], None if edge else [10, 2, 1])
     # the questions shown only for some answers (absent otherwise, as in app.py)
     if pd["occupancy_type"] in intake_fields.OWNERS_OTHER_HOMES:
-        pd["primary_home_carrier"] = _pick(rng, intake_fields.PRIMARY_HOME_CHOICES)
+        pd["primary_home_carrier"] = _pick(rng, PRIMARY_HOME_CHOICES)
         pd["primary_home_miles"] = rng.choice([None, 2, 15, 40, 120])
     if pd["ownership_type"] == "Trust":
         pd["trust_type"] = _pick(rng, intake_fields.TRUST_TYPES)
@@ -134,8 +137,8 @@ def profile(seed):
         checked = keys
     # Round 39: a rental's questions (as app.py). Drawn last, so every earlier answer of a seed is unchanged.
     if pd["occupancy_type"] == intake_fields.RENTAL_OCCUPANCY:
-        pd["primary_home_carrier"] = _pick(rng, intake_fields.PRIMARY_HOME_CHOICES,
-                                           None if edge else [4] + [1] * (len(intake_fields.PRIMARY_HOME_CHOICES) - 1))
+        pd["primary_home_carrier"] = _pick(rng, PRIMARY_HOME_CHOICES,
+                                           None if edge else [4] + [1] * (len(PRIMARY_HOME_CHOICES) - 1))
         for key, choices in (("rental_units_total", intake_fields.RENTAL_UNITS_CHOICES),
                              ("rental_term", intake_fields.RENTAL_TERM_CHOICES)):
             v = _pick(rng, choices)

@@ -120,9 +120,11 @@ MAP = {
     "NC3-034": ("dwelling_type;units_in_building", "units_in_building in {1, 2} or FACT(not a Premier Client)",
                 "dwelling_type == House", "Premier Client", "Premier: 1-2 family"),
     "NC3-035": confirm("no more than 6 locations or 16 units insured in all", "locations"),
-    "NC3-036": ("occupancy_type;primary_home_carrier", "primary_home_carrier in {National General} or (primary_home_carrier in {Other carrier} and "
-                "FACT(the primary home is with a National General affiliate -- Allstate or Encompass))", SEASONAL,
-                "primary home with National General", "the form's 'Primary home insured with'"),
+    # Round 41 A4 (Liam, 2026-10-17): Allstate and Encompass are "Primary home insured with" choices, so the affiliates
+    # (p.32) decide from the form; "Other carrier" is none of them. (Round 40: "Other carrier" was a confirm.)
+    "NC3-036": ("occupancy_type;primary_home_carrier", "primary_home_carrier in {National General, Allstate, Encompass}",
+                SEASONAL, "primary home with National General", "the form's 'Primary home insured with'; p.32 "
+                "affiliates National General, Encompass, Allstate"),
     "NC3-037": confirm("not a Premier Client, or the primary home is written as Premier", "Premier Client", SEASONAL),
     "NC3-038": ("ppc;fire_station_miles", "fire_station_miles <= 10", "ppc_num >= 9", "station distance",
                 "PC 9-10 within 10 road miles of the first responding fire department"),

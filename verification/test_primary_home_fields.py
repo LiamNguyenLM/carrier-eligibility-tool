@@ -43,6 +43,9 @@ def test_every_program_maps_to_exactly_one_choice_and_the_choices_follow_the_car
     assert None not in labels
     assert set(labels) == set(F.PRIMARY_HOME_CARRIERS)       # no choice without a program on file
     assert F.PRIMARY_HOME_CHOICES[0] == "" and F.PRIMARY_HOME_CHOICES[-2:] == ("Other carrier", "Unknown")
+    # round 41 A4 (Liam, 2026-10-17): the only choices with no program on file are a guide's named affiliates
+    assert [c for c in F.PRIMARY_HOME_CHOICES[1:-2] if c not in F.PRIMARY_HOME_CARRIERS] == ["Allstate", "Encompass"]
+    assert F.primary_home_carrier("Allstate") == "Allstate" and F.primary_home_carrier("Encompass") == "Encompass"
     # in the carrier list's (sorted program name) order
     first_seen = list(dict.fromkeys(F.primary_home_label(p) for p in sorted(_expected_programs())))
     assert list(F.PRIMARY_HOME_CARRIERS) == first_seen

@@ -31,7 +31,7 @@ NC3-032,dwelling_amount,FACT(Coverage A is no more than 150% of the estimated re
 NC3-033,dwelling_type;units_in_building,units_in_building not in {5 or more},dwelling_type == House,DECLINES,,Non-Premier 1-4 family; a blank unit count is a confirm
 NC3-034,dwelling_type;units_in_building,"units_in_building in {1, 2} or FACT(not a Premier Client)",dwelling_type == House,DECLINES,Premier Client,Premier: 1-2 family
 NC3-035,occupancy_type,FACT(no more than 6 locations or 16 units insured in all),always,DECLINES,locations,
-NC3-036,occupancy_type;primary_home_carrier,primary_home_carrier in {National General} or (primary_home_carrier in {Other carrier} and FACT(the primary home is with a National General affiliate -- Allstate or Encompass)),"occupancy_type in {Seasonal, Secondary Home}",CONDITION,primary home with National General,the form's 'Primary home insured with'
+NC3-036,occupancy_type;primary_home_carrier,"primary_home_carrier in {National General, Allstate, Encompass}","occupancy_type in {Seasonal, Secondary Home}",CONDITION,primary home with National General,"the form's 'Primary home insured with'; p.32 affiliates National General, Encompass, Allstate"
 NC3-037,occupancy_type,"FACT(not a Premier Client, or the primary home is written as Premier)","occupancy_type in {Seasonal, Secondary Home}",CONDITION,Premier Client,
 NC3-038,ppc;fire_station_miles,fire_station_miles <= 10,ppc_num >= 9,DECLINES,station distance,PC 9-10 within 10 road miles of the first responding fire department
 NC3-039,ppc,FACT(a fire truck can reach the structure),ppc_num >= 9,CONDITION,fire truck access,

@@ -2928,6 +2928,11 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
   - **A2.** NatGen Custom360 HO3, an unfenced pool (NC3-084, p.8): Not eligible, reason "... unless the home is rural
     (underwriting may then approve)." The form does not ask rural; no question added. Was Refer. Fuzz set: 139
     NatGen verdicts Refer -> Not eligible, all NC3-084.
+  - **A4.** "Primary home insured with" (and the owner's-home question on a rental) offers Allstate and Encompass
+    (`intake_fields.NO_PROGRAM_CARRIERS`: choices with no program on file). NatGen NC3-036 ("or an affiliate company",
+    p.32: National General, Encompass, Allstate) decides from them; "Other carrier" is none of them and declines (was
+    a confirm). The fuzz generator keeps its Round 38 choices. Fuzz set: 9 NatGen verdicts -> Not eligible on NC3-036
+    (7 from Eligible, 2 from Held).
   <!-- end of round 41 decisions -->
 
 ## Open work, in priority order (updated 2026-10-02)
