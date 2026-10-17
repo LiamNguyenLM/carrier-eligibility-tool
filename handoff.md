@@ -2920,6 +2920,11 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     their rules read the number, and the card adds "Split class (6X): check how this carrier rates it." NatGen's
     round-40 split-class confirm (NC3-017) is gone: the form asks. Fuzz set: 0 verdicts change (its PPC choices have
     no split class).
+  - **B3.** Typed loss rows when the form cannot tell which loss is in a 3-year window (more losses in 5 years than in
+    3, mixed types): every table already gives a confirm naming the condition, not a decline -- the shared template's
+    3-year one-loss rows (ARA-066, ARB-069, CDP-100) have been hand-worded confirms since round 37, and the rows that
+    fail on such profiles (HAR-027, SLL-071, VAV-090, VDP-052) fail only when every type shown is one they count.
+    0 rows changed, 0 verdicts; `verification/test_loss_window_certainty.py` keeps it so for every table.
   <!-- end of round 41 decisions -->
 
 ## Open work, in priority order (updated 2026-10-02)
