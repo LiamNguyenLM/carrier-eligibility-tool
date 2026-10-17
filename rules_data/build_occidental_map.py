@@ -187,18 +187,8 @@ MAP.update({
 
 
 # Round 40 step 3b (the second reader, 2026-10-16): where Occidental's own words say more than the shared Sage line.
-# - OCC-095 / OCC-096 (p.10): "No prior fire losses" -- the form's loss types name Fire, so a fire loss fails the
-#   row (it held before); blank or Unknown still holds, as the FPC table does.
-def _fire_loss_fails(line):
-    field, test, gate, open_fact, note = line
-    owner = "occupancy_type == Owner Occupied and "
-    assert owner in test
-    return (field + ";loss_types", test.replace(owner, owner + "loss_types none_of {Fire} and "), gate, open_fact,
-            note + ("; " if note else "") + "a fire loss on the form fails it")
-
-
-for _rid in ("OCC-095", "OCC-096"):
-    MAP[_rid] = _fire_loss_fails(MAP[_rid])
+# (OCC-095 / OCC-096's "No prior fire losses" -- a fire loss on the form fails it -- is in the shared line since round
+# 41 A6, for every Sage guide.)
 SEASONAL_OR_SECOND = "occupancy_type in {Seasonal, Secondary Home}"
 MAP.update({
     # p.2: "Residence not continuously unoccupied 3 or more consecutive months" -- under the seasonal / secondary

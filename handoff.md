@@ -2906,6 +2906,15 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
   9. OCC-093 / 094 read CONDITION (Refer) though the page says "eligible only if all of the following" -- moot (a
      FACT-only row never fails), as SUR-111 / 112.
 
+- **2026-10-17 — Liam's decisions (Round 41), as applied.**
+  - **A6.** "No prior fire losses" in the SageSure fire-protection table declines on a fire loss the form shows, for
+    Auros (SAG-075 / 076), SURE (SUR-113 / 114), SafePort (SFP-121 / 122), Wilshire (WIL-118 / 119 / 123), Trium
+    (TRI-090 / 091), Occidental DP3 (ODP-115) and the same cell of the SURE and SafePort DP3 guides (SDP-082, FDP-111);
+    Occidental HO3 (OCC-095 / 096) has since round 40. A blank or Unknown losses answer still holds. WIL-123 joins the
+    "all of the following criteria" declines. Fuzz set (3,409 profiles, code verdicts): 6 of 83,862 change, all Held
+    -> Not eligible (seed 9113: SAG-076, SUR-114, SFP-122, WIL-119, TRI-091; seed 5105: ODP-115).
+  <!-- end of round 41 decisions -->
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"

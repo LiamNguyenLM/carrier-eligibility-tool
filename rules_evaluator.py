@@ -299,7 +299,9 @@ REQUIREMENT_OUTCOMES = {
         "SAG-075", "SAG-076", "SAG-078", "SUR-113", "SUR-114", "SUR-116", "SUR-117", "SFP-121", "SFP-122",
         "SFP-124", "SFP-125", "WIL-118", "WIL-119", "WIL-121", "WIL-122", "TRI-019", "TRI-020", "TRI-035",
         "TRI-090", "TRI-091", "ODP-114", "ODP-115", "SDP-080",
-        "OCC-095", "OCC-096")},                       # round 40: Occidental HO3 p.10, as SUR-113 / SUR-114
+        "OCC-095", "OCC-096",
+        # round 41 A6 (Liam, 2026-10-17): Wilshire's "no prior fire losses" cell, in the same table as WIL-121 / 122
+        "WIL-123")},                       # round 40: Occidental HO3 p.10, as SUR-113 / SUR-114
 }
 # Looked at and left as they are (a row's map outcome is unchanged), with the reason:
 REQUIREMENT_UNCHANGED = {

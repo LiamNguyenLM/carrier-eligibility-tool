@@ -57,7 +57,10 @@ FPC_7ROWS = ("(ppc_num between 4 and 8 and (hydrant_1000ft == No or fire_station
              "um between 9 and 10 and hydrant_1000ft == No and fire_station_miles <= 5)")
 FPC_BC = "(fire_station_miles <= 5 and hydrant_1000ft == No) or fire_station_miles > 5"
 ROW_FACT_3 = "FACT(visible from road, central station alarm, 10-ft year-round access)"
-ROW_FACT_7 = ("home_age < 25 and occupancy_type == Owner Occupied and "
+# Round 41 A6 (Liam, 2026-10-17): "No prior fire losses" in the SageSure fire-protection table declines on a fire
+# loss the form shows (as Occidental HO3 since round 40); a blank or Unknown losses answer still holds (the row is
+# a named hold, rules_evaluator.FPC_TABLE_HOLDS).
+ROW_FACT_7 = ("home_age < 25 and occupancy_type == Owner Occupied and loss_types none_of {Fire} and "
               "FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)")
 OPEN_B = "station / hydrant distance if not given"
 OPEN_C = "station distance if not given"
@@ -124,9 +127,9 @@ def sister(p, ids):
     put("fpc_b13", ("ppc;fire_station_miles;hydrant_1000ft", ROW_FACT_3, FPC_B13,
                     OPEN_B + "; visibility, alarm, access", "the FPC table row is chosen by station distance and hydrant"))
     put("fpc_c13", ("ppc;fire_station_miles", ROW_FACT_3, FPC_C13, OPEN_C + "; visibility, alarm, access", ""))
-    put("fpc_b410", ("ppc;year_built;occupancy_type;fire_station_miles;hydrant_1000ft", ROW_FACT_7, FPC_B410,
+    put("fpc_b410", ("ppc;year_built;occupancy_type;fire_station_miles;hydrant_1000ft;loss_types", ROW_FACT_7, FPC_B410,
                      OPEN_B + "; visibility, alarm, access, fire losses", ""))
-    put("fpc_c48", ("ppc;year_built;occupancy_type;fire_station_miles", ROW_FACT_7, FPC_C48,
+    put("fpc_c48", ("ppc;year_built;occupancy_type;fire_station_miles;loss_types", ROW_FACT_7, FPC_C48,
                     OPEN_C + "; visibility, alarm, access, fire losses", ""))
     put("fpc_9", ("ppc;fire_station_miles", "fire_station_miles <= 5", "ppc_num >= 9", "station distance", ""))
     put("fpc_age", ("year_built;ppc;fire_station_miles;hydrant_1000ft", "home_age < 25", FPC_7ROWS, OPEN_B, ""))
@@ -138,7 +141,8 @@ def sister(p, ids):
     put("fpc_no_rentals", ("occupancy_type;ppc;fire_station_miles;hydrant_1000ft",
                            "occupancy_type != Tenant Occupied and FACT(no rental exposures)", FPC_7ROWS,
                            OPEN_B + "; rental exposures", ""))
-    put("fpc_fire_loss", ("ppc;fire_station_miles;hydrant_1000ft", "FACT(no prior fire loss)", FPC_7ROWS,
+    put("fpc_fire_loss", ("ppc;fire_station_miles;hydrant_1000ft;loss_types", "loss_types none_of {Fire} and FACT(no prior fire loss)",
+                          FPC_7ROWS,
                           OPEN_B + "; fire losses", ""))
     put("poly", ("plumbing_type", "plumbing_type != Polybutylene", "always", "", ""))
     put("roof_flat", ("roof_shape;roof_type", "FACT(no prior roof wind/water loss, or fully renovated)", FLAT,

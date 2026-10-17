@@ -167,13 +167,14 @@ MAP = {
     "SAG-074": ("ppc;fire_station_miles", "FACT(visible from road, central station alarm, 10-ft year-round access)",
                 "ppc_num between 1 and 3 and fire_station_miles > 5",
                 "station distance if not given; visibility, alarm, access", ""),
-    "SAG-075": ("ppc;year_built;occupancy_type;fire_station_miles;hydrant_1000ft",
-                "home_age < 25 and occupancy_type == Owner Occupied and "
+    # round 41 A6: a fire loss on the form fails SAG-075 / SAG-076 (a blank losses answer still holds)
+    "SAG-075": ("ppc;year_built;occupancy_type;fire_station_miles;hydrant_1000ft;loss_types",
+                "home_age < 25 and occupancy_type == Owner Occupied and loss_types none_of {Fire} and "
                 "FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",
                 "ppc_num between 4 and 10 and fire_station_miles <= 5 and hydrant_1000ft == No",
                 "station / hydrant distance if not given; visibility, alarm, access, fire losses", ""),
-    "SAG-076": ("ppc;year_built;occupancy_type;fire_station_miles",
-                "home_age < 25 and occupancy_type == Owner Occupied and "
+    "SAG-076": ("ppc;year_built;occupancy_type;fire_station_miles;loss_types",
+                "home_age < 25 and occupancy_type == Owner Occupied and loss_types none_of {Fire} and "
                 "FACT(visible from road, central alarm, 10-ft access, no rentals, no prior fire loss)",
                 "ppc_num between 4 and 8 and fire_station_miles > 5",
                 "station distance if not given; visibility, alarm, access, fire losses", ""),
