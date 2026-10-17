@@ -152,7 +152,9 @@ def test_the_top_box_keeps_at_most_eight():
 
 def test_the_topic_table():
     # CHANGED 2026-10-11 (round 37 follow-up: a rule's topic is its subject): + fire_protection. Was: 33.
-    assert len(ct.TOPICS) == 34 and all(q.endswith("?") or "?" in q for q, _, _ in ct.TOPICS.values())
+    # CHANGED DELIBERATELY (round 41 A5, 2026-10-17; Liam: the split classes 1X-8X, a confirm where a guide does not
+    # rate them): + "split_class". Was 34.
+    assert len(ct.TOPICS) == 35 and all(q.endswith("?") or "?" in q for q, _, _ in ct.TOPICS.values())
     assert set(ct.CATEGORY_TOPIC.values()) <= set(ct.TOPICS)
 
 

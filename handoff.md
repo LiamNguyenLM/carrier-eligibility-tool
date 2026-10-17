@@ -2913,6 +2913,13 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     Occidental HO3 (OCC-095 / 096) has since round 40. A blank or Unknown losses answer still holds. WIL-123 joins the
     "all of the following criteria" declines. Fuzz set (3,409 profiles, code verdicts): 6 of 83,862 change, all Held
     -> Not eligible (seed 9113: SAG-076, SUR-114, SFP-122, WIL-119, TRI-091; seed 5105: ODP-115).
+  - **A5.** The PPC field offers the split classes 1X-8X (`intake_fields.PPC_CHOICES`). Guides that name split
+    classes, read 2026-10-17 from every guide's text: NatGen Custom360 HO3 and NatGen Custom360 Landlord (DP3), p.5,
+    "*Includes all PC 9 or 1X - 8X variations" -- both read 1X-8X as PC 9 (`rules_evaluator.SPLIT_CLASS_AS`). The
+    Hartford, Mercury and HOAIC name only "10W" (as PC 10), not a form choice. No other guide mentions split classes:
+    their rules read the number, and the card adds "Split class (6X): check how this carrier rates it." NatGen's
+    round-40 split-class confirm (NC3-017) is gone: the form asks. Fuzz set: 0 verdicts change (its PPC choices have
+    no split class).
   <!-- end of round 41 decisions -->
 
 ## Open work, in priority order (updated 2026-10-02)

@@ -15,12 +15,12 @@ NC3-013,ownership_type,FACT(only one LLC on the property),ownership_type == LLC,
 NC3-014,ownership_type,FACT(not owned by a trust and an LLC together),"ownership_type in {Trust, LLC}",DECLINES,trust and LLC,
 NC3-015,occupancy_type,FACT(the applicant is 18 or older),always,DECLINES,applicant's age,
 NC3-016,occupancy_type,"FACT(no lapse in coverage in the past 12 months, unless prior insurance was not required -- prior renters business excluded)",always,DECLINES,prior insurance,
-NC3-017,dwelling_amount;occupancy_type;ppc,"FACT(not a 1X-8X split class -- NatGen counts those as PC 9-10, where over $750,000 refers and needs a central station alarm)",occupancy_type == Owner Occupied and ppc_num <= 8 and dwelling_amount > 750000 and dwelling_amount <= 1500000,REFERS_TO_UW,split protection class,1X-8X is PC 9-10 (p.5 footnotes); the form has no X classes
+NC3-017,dwelling_amount,always,always,REFERS_TO_UW,,decided by NC3-022 (the same rule); never a second flaw
 NC3-018,dwelling_amount,always,always,REFERS_TO_UW,,decided by NC3-023 (the same rule); never a second flaw
 NC3-019,dwelling_amount,always,always,REFERS_TO_UW,,decided by NC3-023 (the same rule); never a second flaw
 NC3-020,dwelling_amount,always,always,REFERS_TO_UW,,decided by NC3-026 (the same rule); never a second flaw
 NC3-021,dwelling_amount,always,always,REFERS_TO_UW,,decided by NC3-026 (the same rule); never a second flaw
-NC3-022,dwelling_amount;occupancy_type;ppc,dwelling_amount <= 1500000,occupancy_type == Owner Occupied and ppc_num <= 8,REFERS_TO_UW,,read as a Non-Premier client (the form does not say Premier Client): a confirm; a 1X-8X split class: NC3-017
+NC3-022,dwelling_amount;occupancy_type;ppc,dwelling_amount <= 1500000,occupancy_type == Owner Occupied and ppc_num <= 8,REFERS_TO_UW,,read as a Non-Premier client (the form does not say Premier Client): a confirm; a 1X-8X split class reads PC 9 (rules_evaluator.SPLIT_CLASS_AS)
 NC3-023,dwelling_amount;occupancy_type;ppc,dwelling_amount <= 750000,occupancy_type == Owner Occupied and ppc_num >= 9,REFERS_TO_UW,,read as a Non-Premier client (the form does not say Premier Client): a confirm
 NC3-024,dwelling_amount;occupancy_type;ppc,FACT(not a Premier Client),occupancy_type == Owner Occupied and ppc_num <= 8 and dwelling_amount > 2000000,REFERS_TO_UW,Premier Client,read as a Non-Premier client (the form does not say Premier Client): a confirm
 NC3-025,occupancy_type;ppc,FACT(not a Premier Client),occupancy_type == Owner Occupied and ppc_num >= 9,REFERS_TO_UW,Premier Client,read as a Non-Premier client (the form does not say Premier Client): a confirm

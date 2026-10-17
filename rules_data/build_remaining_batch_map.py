@@ -192,7 +192,7 @@ MAP = {
     "NCD-030": ("ppc;dwelling_amount", "dwelling_amount <= 1000000 or dwelling_amount > 1500000", "ppc_num <= 8", "",
                 "over $1,500,000 is NCD-027"),
     "NCD-028": ("ppc;dwelling_amount", "dwelling_amount <= 750000", "ppc_num == 9", "",
-                "1X-8X split classes are not form options"),
+                "1X-8X split classes read PC 9 (round 41 A5: rules_evaluator.SPLIT_CLASS_AS)"),
     "NCD-029": ("ppc;dwelling_amount", "dwelling_amount <= 500000", "ppc_num == 10", "", ""),
     "NCD-042": ("ppc;dwelling_amount", "FACT(central station fire alarm)", "ppc_num <= 8 and dwelling_amount > 1000000",
                 "alarm", ""),

@@ -439,12 +439,16 @@ def test_occidental_trust_terms_decline_when_the_form_shows_them_unmet():
 
 
 # ==================================================================== round 40 step 3b: the second reader's fixes
-@pytest.mark.parametrize("amount,want", [(750000, "N/A"), (750001, "NOTE"), (1500000, "NOTE"), (1500001, "N/A")])
-def test_natgen_split_classes_count_as_pc_9_10_a_confirm_where_the_readings_differ(amount, want):
-    """p.5 footnotes: "*Includes all PC 9 or 1X - 8X variations"; the form has no X classes."""
-    o = row(NG, "NC3-017", dwelling_amount=amount)
-    assert o[0] == want and "1X-8X" in rv._map()["NC3-017"]["test"]
-    assert status(NG, dwelling_amount=amount)["status"] == ("REFER" if amount > 1500000 else "ELIGIBLE")
+# CHANGED 2026-10-16 -> 2026-10-17 (round 41 A5, Liam: the PPC field asks the split classes 1X-8X, and NatGen counts
+# them as PC 9). Was: a confirm (NC3-017) between $750,000 and $1,500,000 in PC 1-8, the form having no X classes.
+@pytest.mark.parametrize("ppc,amount,want,rid", [("6X", 750000, "ELIGIBLE", None), ("6X", 750001, "REFER", "NC3-023"),
+                                                 ("1X", 900000, "REFER", "NC3-023"), ("6", 900000, "ELIGIBLE", None),
+                                                 ("6", 1500001, "REFER", "NC3-022")])
+def test_natgen_split_classes_count_as_pc_9_10(ppc, amount, want, rid):
+    """p.5 footnotes: "*Includes all PC 9 or 1X - 8X variations"."""
+    rec = status(NG, ppc=ppc, dwelling_amount=amount, fire_station_miles=4.0)
+    assert rec["status"] == want and (rid is None or any(f"[{rid}]" in r for r in rec["reasons"])), rec["reasons"]
+    assert rv._map()["NC3-017"]["map_note"].startswith("decided by NC3-022")
 
 
 @pytest.mark.parametrize("canon", [NG, OC])
@@ -522,7 +526,6 @@ def test_occidental_mobile_home_on_the_premises_is_a_confirm(construction, want)
 # ==================================================================== numeric gates: in the gate vs out of it
 # (carrier, row, other answers, field, a value just inside -> outcome, a value just outside -> outcome)
 GATE_BOUNDARY = [
-    (NG, "NC3-017", {}, "dwelling_amount", 750001, "NOTE", 750000, "N/A"),
     (NG, "NC3-024", {}, "dwelling_amount", 2000001, "NOTE", 2000000, "N/A"),
     (NG, "NC3-025", dict(fire_station_miles=4.0), "ppc", "9", "NOTE", "8", "N/A"),
     (NG, "NC3-039", dict(fire_station_miles=4.0), "ppc", "9", "NOTE", "8", "N/A"),

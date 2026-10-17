@@ -122,6 +122,8 @@ TOPICS = {
     "alarms": ("Alarms or sprinklers where the guide requires them?", (r"\balarm", r"\bsprinkler"), False),
     "solar": ("Solar panels: how and where installed?", (r"\bsolar",), False),
     "historic": ("A historic or registered home?", (r"\bhistoric",), False),
+    # round 41 A5: a split class (1X-8X) on a guide that does not mention them (rules_evaluator.split_class_item)
+    "split_class": ("Split class: check how this carrier rates it?", (r"^Split class \(",), False),
     "upkeep": ("Home and yard kept up: no existing damage, debris, trip hazards or dead trees?",
                # ("water damage claims / losses" are losses, not upkeep)
                (r"\bdamage(?!\s+(claims?|losses?|remediation))", r"\bgood condition", r"\bdisrepair", r"\bdeteriorat", r"\bpoor condition",
@@ -142,6 +144,7 @@ OTHER_LABEL = "Other rules in this guide"
 _RX = {k: re.compile("|".join(p), re.I) for k, (_, p, _) in TOPICS.items()}
 # Phrases that decide the topic before any word count does (checked in order).
 _FIRST = (
+    (re.compile(r"^Split class \("), "split_class"),         # round 41 A5
     (re.compile(r"\bpride of ownership\b", re.I), "upkeep"),
     (re.compile(r"\bin the name of\b|\btitled in\b", re.I), "ownership"),
     # round 37 follow-up 2: "Homes within 300 ft of a commercial exposure" is the site's surroundings, not a

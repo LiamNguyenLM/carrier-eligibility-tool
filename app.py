@@ -190,10 +190,9 @@ with tab1:
     col1, col2 = st.columns(2)
 
     with col1:
-        ppc = st.selectbox("PPC Number", [
-            "N/A", "1", "2", "3", "4", "5",
-            "6", "7", "8", "8A", "8B", "9", "10"
-        ], key="ppc", on_change=_autotick, args=("ppc", "ppc", "N/A"))
+        # Round 41 A5 (Liam, 2026-10-17): + the split classes 1X-8X (intake_fields.PPC_CHOICES)
+        ppc = st.selectbox("PPC Number", list(intake_fields.PPC_CHOICES), key="ppc", on_change=_autotick,
+                           args=("ppc", "ppc", "N/A"))
         # Round 26 (Liam, 2026-10-05, decision B): optional, part of the PPC
         # topic. Blank / Unknown means unknown -- never "no".
         station_text = st.text_input(

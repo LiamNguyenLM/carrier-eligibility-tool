@@ -72,8 +72,10 @@ def sage_family_fpc_eligibility(ppc, distance_miles=None, hydrant_feet=None, car
     human-readable strings (empty when the verdict is unconditional).
     """
     try:
-        fpc = int(ppc)
-    except (TypeError, ValueError):
+        # round 41 A5: a split class ("6X") reads its number; SageSure's guides do not name split classes
+        fpc = int(re.match(r"\s*(\d+)", str(ppc)).group(1)) if re.match(r"\s*\d+\s*X?\s*$", str(ppc or ""), re.I) \
+            else int(ppc)
+    except (TypeError, ValueError, AttributeError):
         return "INSUFFICIENT_INFORMATION", [f"FPC/PPC value {ppc!r} is not a recognized number 1-10."]
 
     is_occidental = bool(carrier) and "occidental" in carrier.lower()

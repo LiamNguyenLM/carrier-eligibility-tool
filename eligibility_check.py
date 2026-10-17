@@ -3686,6 +3686,16 @@ def check_eligibility(property_details, carrier_subset=None, checked_topics=None
     if fallback:
         for r in results:
             r["model_fallback"] = True
+    # Round 41 A5 (Liam, 2026-10-17): a split class (1X-8X) on a rules table whose guide does not mention split classes
+    # is evaluated with its number, plus a confirm (rules_evaluator.split_class_item)
+    if RULES_PILOT and intake_fields.ppc_split_class(property_details.get("ppc")) is not None:
+        on = _batches_on()
+        for r in results:
+            if r.get("rules_table"):
+                item = rules_evaluator.split_class_item(
+                    rules_evaluator.rules_table_wb(r.get("carrier"), on, property_details), property_details)
+                if item and item not in (r.get("confirm_items") or []):
+                    r.setdefault("confirm_items", []).append(item)
     # Round 39 step 1: a program's name for this occupancy ("The Hartford (HO3 rental: Rental Property Protection
     # Plus)" on a tenant-occupied check); the cards read it (display_names.record_name)
     for r in results:

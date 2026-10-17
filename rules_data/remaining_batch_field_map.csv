@@ -209,7 +209,7 @@ NCD-024,NONE,,,DECLINES,,not asked by the form
 NCD-025,NONE,,,DECLINES,,not asked by the form
 NCD-026,NONE,,,DECLINES,,loss / claims history is not asked
 NCD-027,ppc;dwelling_amount,dwelling_amount <= 1500000,ppc_num <= 8,REFERS_TO_UW,,
-NCD-028,ppc;dwelling_amount,dwelling_amount <= 750000,ppc_num == 9,REFERS_TO_UW,,1X-8X split classes are not form options
+NCD-028,ppc;dwelling_amount,dwelling_amount <= 750000,ppc_num == 9,REFERS_TO_UW,,1X-8X split classes read PC 9 (round 41 A5: rules_evaluator.SPLIT_CLASS_AS)
 NCD-029,ppc;dwelling_amount,dwelling_amount <= 500000,ppc_num == 10,REFERS_TO_UW,,
 NCD-030,ppc;dwelling_amount,dwelling_amount <= 1000000 or dwelling_amount > 1500000,ppc_num <= 8,REFERS_TO_UW,,"over $1,500,000 is NCD-027"
 NCD-032,NONE,,,CONDITION,,"TIV, Coverage B and the HO5 form are not asked"

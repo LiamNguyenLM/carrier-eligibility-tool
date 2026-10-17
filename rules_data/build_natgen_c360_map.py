@@ -91,19 +91,16 @@ MAP = {
                        "prior renters business excluded",
                        "prior insurance"),
     # ---- Coverage A (p.5): the binding authority tables refer; the minimum declines
-    # The PC 1-8 table (p.5) counts 1X-8X split classes as PC 9-10 (footnote); the form has no X classes, so between
-    # $750,000 and $1,500,000 the readings differ: a confirm. Gated on the amount, so a blank Coverage A is a
-    # "blank Coverage A" note, never a hold (round 40 step 3e: in NC3-022's own test it held Liam's profile).
-    "NC3-017": ("dwelling_amount;occupancy_type;ppc", "FACT(not a 1X-8X split class -- NatGen counts those as PC "
-                "9-10, where over $750,000 refers and needs a central station alarm)",
-                PRIMARY + " and ppc_num <= 8 and dwelling_amount > 750000 and dwelling_amount <= 1500000",
-                "split protection class", "1X-8X is PC 9-10 (p.5 footnotes); the form has no X classes"),
+    # Round 41 A5 (Liam, 2026-10-17): the form asks the split class (1X-8X), and NatGen counts it as PC 9 (p.5
+    # footnote; rules_evaluator.SPLIT_CLASS_AS), so NC3-017 is NC3-022's rule again. (Round 40: a confirm between
+    # $750,000 and $1,500,000 while the form had no X classes.)
+    "NC3-017": same("NC3-022", "dwelling_amount"),
     "NC3-018": same("NC3-023", "dwelling_amount"),
     "NC3-019": same("NC3-023", "dwelling_amount"),
     "NC3-020": same("NC3-026", "dwelling_amount"),
     "NC3-021": same("NC3-026", "dwelling_amount"),
     "NC3-022": ("dwelling_amount;occupancy_type;ppc", "dwelling_amount <= 1500000", PRIMARY + " and ppc_num <= 8", "",
-                NON_PREMIER + "; a 1X-8X split class: NC3-017"),
+                NON_PREMIER + "; a 1X-8X split class reads PC 9 (rules_evaluator.SPLIT_CLASS_AS)"),
     "NC3-023": ("dwelling_amount;occupancy_type;ppc", "dwelling_amount <= 750000", PRIMARY + " and ppc_num >= 9", "",
                 NON_PREMIER),
     "NC3-024": ("dwelling_amount;occupancy_type;ppc", "FACT(not a Premier Client)", PRIMARY + " and ppc_num <= 8 and "

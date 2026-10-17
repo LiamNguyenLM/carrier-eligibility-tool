@@ -40,7 +40,9 @@ def test_a_rules_topic_is_its_subject(rid, want):
 
 def test_the_topic_table():
     # CHANGED 2026-10-11 (round 37 follow-up): + "fire_protection" (the protection-class rows). Was: 33 topics.
-    assert len(ct.TOPICS) == 34
+    # CHANGED DELIBERATELY (round 41 A5, 2026-10-17; Liam: the split classes 1X-8X, a confirm where a guide does not
+    # rate them): + "split_class". Was 34.
+    assert len(ct.TOPICS) == 35
     other = sum(1 for r in RULES.values() if ct.topic_of(r["Plain rule"], r["Topic"]) == "other")
     # CHANGED DELIBERATELY (round 39 step 1, 2026-10-14; Liam's decision 1, 2026-10-12): + HAR-044 (golf carts, NOT_ELIGIBILITY), HAR-069 (inspections, IGNORE_INSPECTION) and HAR-080 (SILENT):
     # never on a card. Was 256 (312 with the first-in-table rule, round 37).

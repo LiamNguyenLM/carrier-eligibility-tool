@@ -385,6 +385,7 @@ def facts(pd, today=None):
     f["home_age"] = year - int(yb) if yb not in (None, "") else None
     m = re.match(r"(\d+)", str(pd.get("ppc", "")).strip())
     f["ppc_num"] = int(m.group(1)) if m else None
+    f["ppc_split"] = intake_fields.ppc_split_class(pd.get("ppc")) is not None     # round 41 A5: 1X-8X
     county = intake_fields.normalize_county(pd.get("county")) or None
     f["county"] = county
     t = sage_county_in_territory(county or "", intake_fields.COUNTY_MAX_LATITUDE, True)
@@ -757,6 +758,10 @@ def evaluate_carrier(canon, pd, checked=None, wb=None):
     rules, fmap = _rules(), _map()
     wb = wb or CANON_TO_WB[canon]
     f = facts(pd)
+    if f.get("ppc_split") and wb in SPLIT_CLASS_AS:          # round 41 A5: the guide says how a split class rates
+        f["ppc_num"] = SPLIT_CLASS_AS[wb]
+        f["station_miles_iso"] = (f["fire_station_miles"] if f["fire_station_miles"] is not None
+                                  else 5.0 if f["ppc_num"] <= 9 else None)
     out = {rid: evaluate_row(m, f, checked) for rid, m in fmap.items()
            if rules[rid]["Carrier"] == wb and rules[rid]["Tool handling"] in DECIDING}
     # round 29 step 8: rows another workbook carrier states for both programs (after the
@@ -768,6 +773,25 @@ def evaluate_carrier(canon, pd, checked=None, wb=None):
                         if rules[rid]["Carrier"] == other and rules[rid]["Tool handling"] in DECIDING
                         and pick(rules[rid])})
     return out
+
+
+# Round 41 A5 (Liam, 2026-10-17): the guides that name split classes, and how each rates 1X-8X (workbook carrier ->
+# the protection class it reads). Read from every guide's text (round 41): NatGen Custom360 HO3 p.5 and Custom360
+# Landlord (DP3) p.5 -- "*Includes all PC 9 or 1X - 8X variations". The Hartford, Mercury and HOAIC name only "10W"
+# (with PC 10), which is not a form choice; no other guide mentions split classes.
+SPLIT_CLASS_AS = {"NatGen Custom360 HO3": 9, "NatGen Custom360 Landlord": 9}
+
+
+def split_class_item(wb, pd):
+    """The confirm item for a split class (1X-8X) on a rules table whose guide does not mention split classes, or
+    None (no split class, or a guide that rates them: SPLIT_CLASS_AS)."""
+    n = intake_fields.ppc_split_class((pd or {}).get("ppc"))
+    if n is None or wb is None or wb in SPLIT_CLASS_AS:
+        return None
+    x = str(pd.get("ppc")).strip().upper()
+    return {"row": "", "category": "PROTECTION_CLASS", "effect": "", "kind": "not_asked",
+            "rule": f"Split class ({x}): this guide does not mention split classes; its rules read PC {n}.",
+            "say": f"Split class ({x}): check how this carrier rates it."}
 
 
 def also_confirm(canon, outcomes):

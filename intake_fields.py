@@ -455,6 +455,20 @@ def solar_hold_hint(occupancy):
 HARRIS_146_CHOICES = ("Unknown", "Yes", "No")
 
 
+# Round 41 A5 (Liam, 2026-10-17): the PPC field offers the split classes 1X-8X. A guide that names them decides how
+# they rate (rules_evaluator.SPLIT_CLASS_AS: NatGen Custom360 counts 1X-8X as PC 9); every other rules table reads the
+# number and adds a confirm (rules_evaluator.split_class_item).
+PPC_CHOICES = ("N/A", "1", "1X", "2", "2X", "3", "3X", "4", "4X", "5", "5X", "6", "6X", "7", "7X", "8", "8X", "8A",
+               "8B", "9", "10")
+_SPLIT = re.compile(r"\s*([1-8])\s*X\s*", re.I)
+
+
+def ppc_split_class(value):
+    """The split class's number (6 for "6X"), or None for any other PPC answer."""
+    m = _SPLIT.fullmatch(str(value or ""))
+    return int(m.group(1)) if m else None
+
+
 def answer(value):
     """A follow-up answer as the rules read it: None for blank / Unknown."""
     return None if value in (None, "", "Unknown") else value
