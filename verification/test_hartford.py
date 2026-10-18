@@ -354,7 +354,19 @@ def test_the_model_never_reads_the_hartfords_guide_and_judges_only_open_rows(che
     check(dict(OWN, **POOL_A))
     assert not any(f"--- {H} (page" in p for p in check.prompts)
     assert not any(f"--- {H} (rule check) ---" in p for p in check.prompts)     # nothing open: no model at all
-    check(dict(RENT, primary_home_carrier=""))
+    # CHANGED 2026-10-17 (round 41 B4, Liam): held only on the blank owner's-home answer, the Hartford gets no model call
+    # (code holds it); the rule check, when one is made, still judges only HAR-070.
+    n = len(check.prompts)
+    r = check(dict(RENT, primary_home_carrier=""))
+    assert r["status"] == "INSUFFICIENT_INFORMATION" and (r.get("diagnostics") or {}).get("held_by_code")
+    assert not any(f"--- {H} (rule check) ---" in p for p in check.prompts[n:])
+    import rules_evaluator as _rv
+    saved = _rv.only_blank_holds
+    _rv.only_blank_holds = lambda outcomes: False
+    try:
+        check(dict(RENT, primary_home_carrier=""))
+    finally:
+        _rv.only_blank_holds = saved
     rule_check = [p for p in check.prompts if f"--- {H} (rule check) ---" in p]
     assert rule_check and "[HAR-070]" in rule_check[-1]
     section = rule_check[-1].split(f"--- {H} (rule check) ---")[1].split("\n--- ")[0]

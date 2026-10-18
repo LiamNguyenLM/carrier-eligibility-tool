@@ -2933,6 +2933,11 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     p.32: National General, Encompass, Allstate) decides from them; "Other carrier" is none of them and declines (was
     a confirm). The fuzz generator keeps its Round 38 choices. Fuzz set: 9 NatGen verdicts -> Not eligible on NC3-036
     (7 from Eligible, 2 from Held).
+  - **B4.** A rules-table carrier held only on blank answers gets no model call; code holds it (`held_by_code`). No
+    map line leaves a row the model can decide (no "||" readings; UNKNOWN effects only on NONE rows), so in the live
+    configuration no rules-check call is made. Live, 3 runs each (Haiku 5.5 low): Liam's Harris HO3 11.7-18.1 s and
+    $0.0020-0.0036 -> 1.2-2.5 s and $0 (7 carriers held by code); LANDLORD 9.9-12.2 s and $0.0015-0.0018 -> 0.8-1.0 s
+    and $0 (3 held by code). Every verdict identical before and after.
   <!-- end of round 41 decisions -->
 
 ## Open work, in priority order (updated 2026-10-02)

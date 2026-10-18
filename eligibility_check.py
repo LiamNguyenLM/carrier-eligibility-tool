@@ -3530,6 +3530,12 @@ def _rules_pilot_prepare(carriers, property_details, checked):
         rec, decided = rules_evaluator.code_record(c, outcomes, property_details)    # round 38b: names the answers
         if decided:
             out["records"].append(rec)
+        elif rules_evaluator.only_blank_holds(outcomes):
+            # Round 41 B4 (Liam, 2026-10-17): held only on blank answers -- the model cannot decide any of those rows
+            # (it never sees the missing answer), so code holds the carrier and no model call is made for it (round 39
+            # step 5e did the same when the model left such a carrier out)
+            rec.setdefault("diagnostics", {})["held_by_code"] = True
+            out["records"].append(rec)
         else:
             out["open"][c] = outcomes
     return out

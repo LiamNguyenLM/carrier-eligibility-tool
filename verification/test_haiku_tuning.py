@@ -71,9 +71,11 @@ def _run(pd, split=1, extra_main=None, batches=True):
 
 
 def test_in_the_live_configuration_no_empty_main_call_is_made():
+    # CHANGED 2026-10-17 (round 41 B4, Liam: a rules-table carrier held only on blank answers gets no model call). Every
+    # carrier open on this profile is held on blanks, so no call is made at all. Was: only the rules check was called.
     res, calls = _run(LIVE_PD)
-    assert calls and all(c["rule"] for c in calls)              # only the rules check
-    assert ec.LAST_CALL_USAGE.get("main") is None and res
+    assert calls == []
+    assert ec.LAST_CALL_USAGE.get("main") is None and ec.LAST_CALL_USAGE.get("pilot") is None and res
 
 
 def test_a_main_call_record_for_a_program_it_was_not_asked_about_is_dropped():
@@ -179,7 +181,10 @@ def test_split_groups(n, sizes):
 
 
 @pytest.mark.parametrize("pd", [LIVE_PD, dict(LIVE_PD, occupancy_type="Seasonal")])
-def test_a_split_rules_check_covers_every_carrier_once_and_answers_the_same(pd):
+def test_a_split_rules_check_covers_every_carrier_once_and_answers_the_same(pd, monkeypatch):
+    # CHANGED 2026-10-17 (round 41 B4): holds on blank answers no longer reach the model, and no map line leaves a row
+    # the model can decide, so the split is exercised with every hold sent to the rule check as before B4.
+    monkeypatch.setattr(ev, "only_blank_holds", lambda outcomes: False)
     one, calls1 = _run(pd, split=1)
     three, calls3 = _run(pd, split=3)
     rule1 = [c["names"] for c in calls1 if c["rule"]]
