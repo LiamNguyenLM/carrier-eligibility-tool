@@ -356,7 +356,8 @@ def test_the_step_2_fpc_logic_does_not_also_fire_on_a_batch_carrier():
         assert r["status"] == "INSUFFICIENT_INFORMATION"
         assert not any(x.startswith("Sage FPC table:") for x in r["reasons"])
         assert sum(1 for x in r["missing_info"] if f"[{row}]" in x) == 1
-        assert f"[{row}]" in pilot
+        # CHANGED 2026-10-17 (round 41 B4, Liam: a rules-table carrier held only on blank answers gets no model call): held by code, never sent. Was: the row in the rule check's prompt.
+        assert r["diagnostics"]["held_by_code"] and f"[{row}]" not in (pilot or "")
 
 
 def test_the_step_2_fpc_logic_still_fires_with_the_batch_off():

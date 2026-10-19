@@ -23,9 +23,11 @@ USAGE = {"input_tokens": 1, "output_tokens": 1, "cache_read_input_tokens": 0, "c
 RENT = dict(LANDLORD, ownership_type="Individual Owner", losses_5yr="0", primary_home_carrier="")
 
 
-def _check(monkeypatch, tmp_path, pd, omit, reply=None):
+def _check(monkeypatch, tmp_path, pd, omit, reply=None, b4=False):
     for flag in ("RULES_PILOT", "RULES_SAGE_BATCH", "RULES_HO3_BATCH", "RULES_DP_BATCH"):
         monkeypatch.setattr(ec, flag, True)
+    # CHANGED 2026-10-17 (round 41 B4, Liam: a rules-table carrier held only on blank answers gets no model call): these carriers no longer reach the model, so the omission fallback is tested with B4 off.
+    monkeypatch.setattr(ec, "HOLD_BLANKS_IN_CODE", b4)
     monkeypatch.setenv("ELIGIBILITY_USAGE_LOG", str(tmp_path / "u.jsonl"))
 
     def fake(system, user, max_tokens):
@@ -69,3 +71,11 @@ def test_when_the_model_answers_nothing_changes(monkeypatch, tmp_path):
 ])
 def test_only_blank_holds(outcomes, want):
     assert rv.only_blank_holds(outcomes) == want
+
+
+@pytest.mark.parametrize("pd,row", [(RENT, "HAR-070"),
+                                    (dict(HOME, occupancy_type="Seasonal", primary_home_carrier=""), "HAR-059")])
+def test_with_b4_the_same_carrier_is_held_by_code_without_a_model_call(monkeypatch, tmp_path, pd, row):
+    r = _check(monkeypatch, tmp_path, pd, omit={H}, b4=True)[H]
+    assert r["status"] == "INSUFFICIENT_INFORMATION" and any(f"[{row}]" in m for m in r["missing_info"])
+    assert r["diagnostics"].get("held_by_code") and not r["diagnostics"].get("model_omitted")

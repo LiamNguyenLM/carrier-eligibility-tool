@@ -3513,6 +3513,11 @@ def parse_carrier_json(json_str):
         raise original
 
 
+# Round 41 B4 (Liam, 2026-10-17): a rules-table carrier held only on blank answers is held by code, with no model call.
+# A module switch (not a Railway variable) so tests can still exercise the rule check's omission fallback.
+HOLD_BLANKS_IN_CODE = True
+
+
 def _rules_pilot_prepare(carriers, property_details, checked):
     """With RULES_PILOT on: evaluate each pilot carrier in `carriers` from the
     form. Carriers code decides alone become records now; the rest go to the
@@ -3530,7 +3535,7 @@ def _rules_pilot_prepare(carriers, property_details, checked):
         rec, decided = rules_evaluator.code_record(c, outcomes, property_details)    # round 38b: names the answers
         if decided:
             out["records"].append(rec)
-        elif rules_evaluator.only_blank_holds(outcomes):
+        elif HOLD_BLANKS_IN_CODE and rules_evaluator.only_blank_holds(outcomes):
             # Round 41 B4 (Liam, 2026-10-17): held only on blank answers -- the model cannot decide any of those rows
             # (it never sees the missing answer), so code holds the carrier and no model call is made for it (round 39
             # step 5e did the same when the model left such a carrier out)

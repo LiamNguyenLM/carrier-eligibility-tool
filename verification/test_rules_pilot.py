@@ -70,7 +70,8 @@ def test_on_routes_exactly_the_six():
     others = [c for c in res if c not in SIX and res[c]["status"] not in (ec.GUIDE_UNAVAILABLE,)
               and not res[c].get("fixed_row")]
     assert others and all(f"--- {c} (page" in main for c in others)
-    assert set(re.findall(r"--- (.+?) \(rule check\) ---", pilot)) <= set(SIX)
+    # CHANGED 2026-10-17 (round 41 B4, Liam: a rules-table carrier held only on blank answers gets no model call): there may be no rule check at all. Was: findall over the pilot prompt.
+    assert set(re.findall(r"--- (.+?) \(rule check\) ---", pilot or "")) <= set(SIX)
     assert all(res[c].get("rules_table") for c in SIX)
     assert not any(res[c].get("rules_table") for c in others)
 
@@ -168,7 +169,10 @@ def test_a_tenant_or_vacant_home_never_reaches_an_ho3_card(occupancy):
 def test_sage_auros_fpc_upgrade_is_off_with_the_pilot_and_on_for_other_sage():
     res, _, pilot = _run(dict(LIAM, county="Travis", dwelling_amount=450000))
     assert "Structured FPC check" not in (res["Sage_-_Auros_HO3"].get("notes") or "")
-    assert "[SAG-073]" in pilot or "[SAG-074]" in pilot
+    # CHANGED 2026-10-17 (round 41 B4, Liam: a rules-table carrier held only on blank answers gets no model call): Auros is held by code on SAG-073 / 074. Was: those rows in the rule check's prompt.
+    auros = res["Sage_-_Auros_HO3"]
+    assert auros["diagnostics"]["held_by_code"]
+    assert any("[SAG-073]" in m or "[SAG-074]" in m for m in auros["missing_info"])
     off, _, _ = _run(dict(LIAM, county="Travis", dwelling_amount=450000), pilot_on=False)
     # the other Sage carriers are unaffected: same treatment ON and OFF
     for c in ("Sage_-_SURE_HO-3_-_01.31.2026", "Sage_-_SafePort_HO-3_-_01.31.2026"):
@@ -195,7 +199,8 @@ def test_a_pilot_answer_that_omits_a_carrier_is_never_eligible():
         ec._complete, ec.RULES_PILOT = real, flag
     swy = res["Swyfft_-_Benchmark_(Admitted)_HO3"]
     assert swy["status"] == "INSUFFICIENT_INFORMATION" and any("[SWY-035]" in m for m in swy["missing_info"])
-    assert swy["diagnostics"]["model_omitted"]
+    # CHANGED 2026-10-17 (round 41 B4, Liam: a rules-table carrier held only on blank answers gets no model call): held by code before any call. Was: diagnostics.model_omitted (the model's omission fallback).
+    assert swy["diagnostics"]["held_by_code"]
 
 
 # -- the card -----------------------------------------------------------------
@@ -245,8 +250,9 @@ def test_other_cards_are_unchanged(monkeypatch):
                                          ("Swyfft_-_Benchmark_(Admitted)_HO3", "SWY-035")])
 def test_a_fenced_pool_with_no_boxes_stays_insufficient_for_a_pilot_carrier(carrier, row):
     res, _, pilot = _run(dict(STANDARD_PROFILE, dwelling_type="House"), pilot_status="ELIGIBLE")
-    assert carrier in pilot
+    # CHANGED 2026-10-17 (round 41 B4, Liam: a rules-table carrier held only on blank answers gets no model call): held by code on the unticked boxes, never sent. Was: the carrier in the rule check's prompt.
     r = res[carrier]
+    assert r["diagnostics"]["held_by_code"] and carrier not in (pilot or "")
     assert r["status"] == "INSUFFICIENT_INFORMATION"
     assert any(row in m and "fence" in m for m in r["missing_info"])
     assert "[Pool spec check]" not in (r.get("notes") or "")
