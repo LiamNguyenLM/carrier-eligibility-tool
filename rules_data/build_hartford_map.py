@@ -43,8 +43,10 @@ DFW_HAIL = ("{Collin, Dallas, Denton, Ellis, Grayson, Hood, Hunt, Johnson, Kaufm
 # p.3 losses (Liam, 2026-10-14): exactly 2 losses in 3 years, both water -- the card says this, word for word
 # (rules_evaluator.CARD_WORDING)
 TWO_WATER = "losses_3yr in {2} and loss_types none_of {Fire, Liability, Wind or hail, Theft, Other}"
-TWO_WATER_SAY = ("2 water losses: only acceptable if both were appliance-related and remediated, with Hartford form "
-                 "PC-327; otherwise Not eligible")
+# Round 41 B1 (Liam, 2026-10-17): mold claims too (PC-326). The FACT text has no parentheses (the grammar's FACT(...)
+# ends at the first ")"); the card shows Liam's words (rules_evaluator.CARD_WORDING).
+TWO_WATER_SAY = ("2 water losses: only acceptable if both were appliance-related or mold claims and remediated, with "
+                 "Hartford form PC-327 for appliance or PC-326 for mold; otherwise Not eligible")
 # Round 39 (Liam, 2026-10-14): every deciding row has a line -- a fact the form never asks is a FACT(...) confirm,
 # never left to the model. Facts with no form field read an always-on field (occupancy_type) so no topic skips them.
 OWNERS_HOME = ("occupancy_type", NOT_TENANT)            # the RPP+ row decides the same fact on a rental

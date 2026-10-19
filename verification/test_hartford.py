@@ -298,16 +298,19 @@ def test_k_2_losses_in_3_years_are_declined(check, types):
     _decides(check(dict(OWN, loss_types=types, **L2)), "INELIGIBLE", "HAR-027")
 
 
-def test_k_2_water_losses_are_a_confirm_on_the_appliance_and_mold_exception(check):
+@pytest.mark.parametrize("year", [2025, 2024])
+def test_k_2_water_losses_are_a_confirm_on_the_appliance_and_mold_exception(check, year):
     """Remediated appliance-related and mold claims are acceptable (p.3, forms PC-327 / PC-326): water losses the form
     cannot tell apart -- a confirm, not a decline (for Liam: his case k said "2 losses -> Not eligible")."""
-    r = check(dict(OWN, loss_types=["Water"], **L2))
+    pd = dict(OWN, loss_types=["Water"], **dict(L2, loss_year=year))
+    r = check(pd)
     assert r["status"] == "ELIGIBLE" and _confirms(r, "HAR-027"), r["reasons"]
-    # Liam's wording (2026-10-14), on the card word for word
+    # Liam's wording, on the card word for word. CHANGED 2026-10-17 (round 41 B1, Liam: mold claims too, PC-326). Was
+    # (2026-10-14): "... appliance-related and remediated, with Hartford form PC-327; otherwise Not eligible."
     import confirm_topics
-    say = ("2 water losses: only acceptable if both were appliance-related and remediated, with Hartford form PC-327; "
-           "otherwise Not eligible.")
-    assert any(it["text"] == say for it in confirm_topics.card_items(r, dict(OWN, loss_types=["Water"], **L2)))
+    say = ("2 water losses: only acceptable if both were appliance-related or mold claims and remediated, with "
+           "Hartford form PC-327 (appliance) or PC-326 (mold); otherwise Not eligible.")
+    assert any(it["text"] == say for it in confirm_topics.card_items(r, pd))
 
 
 @pytest.mark.parametrize("types", [["Water", "Other"], ["Other"]])

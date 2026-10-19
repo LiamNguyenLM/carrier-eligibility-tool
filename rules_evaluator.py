@@ -828,8 +828,10 @@ def also_confirm(canon, outcomes):
 # Round 39 (Liam, 2026-10-14): confirms whose wording Liam set. row -> the FACT(...) text of its map line; when the
 # row is a confirm on exactly that fact, the card shows the text as written instead of its topic's question.
 CARD_WORDING = {
-    "HAR-027": "2 water losses: only acceptable if both were appliance-related and remediated, with Hartford form "
-               "PC-327; otherwise Not eligible",
+    # round 41 B1 (Liam, 2026-10-17): mold claims too. (the confirm's FACT text, the words the card shows)
+    "HAR-027": ("2 water losses: only acceptable if both were appliance-related or mold claims and remediated, with "
+                "Hartford form PC-327 for appliance or PC-326 for mold; otherwise Not eligible",
+                "2 water losses: only acceptable if both were appliance-related or mold claims and remediated, with Hartford form PC-327 (appliance) or PC-326 (mold); otherwise Not eligible"),
 }
 
 
@@ -851,8 +853,9 @@ def confirm_items(canon, outcomes):
         r = rules[rid]
         item = {"row": rid, "category": r["Topic"], "effect": r["Effect"], "rule": r["Plain rule"], "kind": kind}
         say = CARD_WORDING.get(rid)
-        if say and d == "confirm: " + say:
-            item["say"] = say + "."              # the card shows it word for word (confirm_topics.card_items)
+        when, shown = say if isinstance(say, tuple) else (say, say)      # round 41 B1: (the FACT's text, the card's)
+        if say and d == "confirm: " + when:
+            item["say"] = shown + "."            # the card shows it word for word (confirm_topics.card_items)
         out.append(item)
     for r in rules.values():
         if r["Carrier"] == wb and r["Tool handling"] == "CONDITION_STANDARD":

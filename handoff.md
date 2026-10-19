@@ -2944,6 +2944,10 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     threshold), and says "(only if Coverage A is $1,500,000+)" when it applies above a Coverage A left blank. Fuzz set
     (all 3,409 profiles): 1,411,084 quoted rules, 0 ruled out, 8,353 with the threshold note; before, on the test's
     149-profile sample, 847 of 62,196 quotes (1.4%) had a condition the form ruled out. No verdict changes.
+  - **B1.** The Hartford's two-water-losses confirm reads "2 water losses: only acceptable if both were
+    appliance-related or mold claims and remediated, with Hartford form PC-327 (appliance) or PC-326 (mold);
+    otherwise Not eligible." (`rules_evaluator.CARD_WORDING` may now map a FACT's text to the card's words). No
+    verdict changes.
   <!-- end of round 41 decisions -->
 
 ## Open work, in priority order (updated 2026-10-02)
