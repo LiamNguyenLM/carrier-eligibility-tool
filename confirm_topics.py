@@ -197,6 +197,65 @@ def topic_of(text, category=""):
     return hits[0][2] if hits else CATEGORY_TOPIC.get(category or "", "other")
 
 
+# Round 41 B6 (Liam, 2026-10-17): an item never quotes a rule whose condition the form already rules out (The Hartford's
+# "stove in a home in Protection Class 10" on a PC 2 home), prefers the rule that most directly answers it (a row left
+# open by the blank field itself; one with no threshold), and says when a quoted rule applies only above a Coverage A
+# the form left blank ("only if Coverage A is $1,500,000+"). The conditions read from a rule's words:
+_PC = re.compile(r"\b(?:protection class(?:es)?|pc|ppc|fpc)\s*(\d{1,2})(?![\dxw])(?:\s*(?:-|–|to|or|and)\s*(\d{1,2})(?![\dxw]))?",
+                 re.I)
+_COV_A_OVER = re.compile(r"(?:coverage a|\binsured)\b[^.;$]{0,30}?\b(?:over|greater than|above|more than|exceeding)\s+"
+                         r"\$\s?([\d,]+)", re.I)
+_ROOF_SUBJECT = re.compile(r"^(?:an? |all )?(wood|metal|tile|slate)\b[^.;]{0,20}?\broofs?\b", re.I)
+_ROOF_IS = {"wood": ("Wood",), "metal": ("Metal",), "tile": ("Tile",), "slate": ("Slate",)}
+
+
+def _ppc(pd):
+    m = re.match(r"\s*(\d+)", str((pd or {}).get("ppc") or ""))
+    return int(m.group(1)) if m else None
+
+
+def _amount(pd):
+    v = (pd or {}).get("dwelling_amount")
+    try:
+        return int(str(v).replace(",", "").replace("$", "").strip()) if v not in (None, "") else None
+    except ValueError:
+        return None
+
+
+def ruled_out(rule, pd):
+    """Does the form already rule out this rule's own condition? (its protection classes, a Coverage A it applies
+    above, the roof material it is about). Unknown answers never rule a rule out."""
+    if not pd:
+        return False
+    # a split class (6X) rates as each carrier says (NatGen: PC 9), so it never rules a protection class out
+    ppc = None if intake_fields.ppc_split_class(pd.get("ppc")) is not None else _ppc(pd)
+    spans = [(int(a), int(b or a)) for a, b in _PC.findall(rule)]
+    if ppc is not None and spans and not any(lo <= ppc <= hi for lo, hi in spans):
+        return True
+    amount = _amount(pd)
+    over = [int(x.replace(",", "")) for x in _COV_A_OVER.findall(rule)]
+    if amount is not None and over and all(amount <= x for x in over):
+        return True
+    m = _ROOF_SUBJECT.search(rule.strip())
+    roof = str(pd.get("roof_type") or "")
+    if m and roof and roof not in ("Other",) and not roof.startswith(_ROOF_IS[m.group(1).lower()]):
+        return True
+    return False
+
+
+def threshold_note(rule, pd):
+    """" (only if Coverage A is $1,500,000+)" when the rule applies only above a Coverage A the form left blank."""
+    over = [int(x.replace(",", "")) for x in _COV_A_OVER.findall(rule)]
+    if over and _amount(pd) is None:
+        return f" (only if Coverage A is ${min(over):,}+)"
+    return ""
+
+
+def _direct(r):
+    """Sort key, before _decides_often: a row left open by the blank answer itself first, then one with no threshold."""
+    return (r.get("kind") != "blank", bool(_COV_A_OVER.search(r["rule"])))
+
+
 def _decides_often(r):
     """Sort key for the rule an item quotes: one that decides most often first -- no dollar amount (the form never
     asks one), a rule wholly about this topic, a count ("2 or more", "any") -- then the strongest effect."""
@@ -429,10 +488,11 @@ def card_items(rec, pd=None, checked=None):
         text = reworded or label(key)
         # a number (or, for a blank-field note, the named places) decides it: keep the guide's own rule
         # (round 37 follow-up: of those, the one that decides most often)
-        candidates = [r for r in ranked if _HAS_NUMBER.search(r["rule"]) or r.get("kind") == "blank"]
+        candidates = [r for r in ranked if (_HAS_NUMBER.search(r["rule"]) or r.get("kind") == "blank")
+                      and not ruled_out(r["rule"], pd)]                   # round 41 B6
         if reworded and key in _STILL_OPEN_RX:
             candidates = [r for r in candidates if _STILL_OPEN_RX[key].search(r["rule"])]
-        decisive = min(candidates, key=_decides_often) if candidates else None
+        decisive = min(candidates, key=lambda r: (_direct(r), _decides_often(r))) if candidates else None
         if key == "other":
             text = f"{OTHER_LABEL}: " + "; ".join(_short(r["rule"], 80) for r in ranked[:2]) + (
                 f" (+{len(ranked) - 2} more)" if len(ranked) > 2 else "")
@@ -441,7 +501,7 @@ def card_items(rec, pd=None, checked=None):
             quoted = decisive["rule"]
             if reworded and key in _STILL_OPEN_RX:     # the clause about what is still open, not the answered one
                 quoted = next((c for c in re.split(r";\s", quoted) if _STILL_OPEN_RX[key].search(c)), quoted)
-            text = f"{text} — guide: {_short(quoted)}"
+            text = f"{text} — guide: {_short(quoted)}{threshold_note(quoted, pd)}"
         says = [r["say"] for r in ranked if r.get("say")]      # round 39: wording Liam set (CARD_WORDING)
         if says:
             text = ask = " ".join(dict.fromkeys(says))

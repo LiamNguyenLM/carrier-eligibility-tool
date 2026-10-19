@@ -2938,6 +2938,12 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     configuration no rules-check call is made. Live, 3 runs each (Haiku 5.5 low): Liam's Harris HO3 11.7-18.1 s and
     $0.0020-0.0036 -> 1.2-2.5 s and $0 (7 carriers held by code); LANDLORD 9.9-12.2 s and $0.0015-0.0018 -> 0.8-1.0 s
     and $0 (3 held by code). Every verdict identical before and after.
+  - **B6.** A confirm item's quoted rule never has a condition the form rules out (`confirm_topics.ruled_out`: the
+    rule's protection classes, a Coverage A it applies above, the roof material it is about; a split class never rules
+    out a class), prefers the most direct rule (a row left open by the blank answer itself, then one with no
+    threshold), and says "(only if Coverage A is $1,500,000+)" when it applies above a Coverage A left blank. Fuzz set
+    (all 3,409 profiles): 1,411,084 quoted rules, 0 ruled out, 8,353 with the threshold note; before, on the test's
+    149-profile sample, 847 of 62,196 quotes (1.4%) had a condition the form ruled out. No verdict changes.
   <!-- end of round 41 decisions -->
 
 ## Open work, in priority order (updated 2026-10-02)
