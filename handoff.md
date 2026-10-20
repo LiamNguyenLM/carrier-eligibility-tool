@@ -2958,6 +2958,8 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     the row, with what the form excludes (MKL-092 / 093); inspection-only rows never; Foremost FOR-034 after a paid
     hail loss. This also fixes Markel's rows, which showed by roof word alone ("other than slate, tile or metal" on a
     tile or new metal roof, never on an old composition roof). No verdict changes.
+  - **A1.** Travis County stays IN for Occidental (northern edge 30.628 N, by the guide's rule): the named test is
+    `test_travis_is_inside_occidental_territory_confirmed_by_liam` (was a strict xfail "for Liam"). No verdict changes.
   <!-- end of round 41 decisions -->
 
 ## Open work, in priority order (updated 2026-10-02)

@@ -356,10 +356,12 @@ def test_liams_named_counties(county, want):
     assert COUNTIES[county]["occidental"] == want
 
 
-@pytest.mark.xfail(strict=True, reason="for Liam (2026-10-16): he expected Travis out, but its northern edge is "
-                                       "30.628 N -- entirely south of 31 N, so the guide's rule puts it in")
-def test_travis_is_outside_occidental_territory():
-    assert COUNTIES["Travis"]["occidental"] == "OUT"
+# CHANGED 2026-10-17 (round 41 A1): CONFIRMED BY LIAM -- Travis stays IN for Occidental, by the guide's rule (its
+# northern edge is 30.628 N, entirely south of 31 N). Was: a strict xfail "for Liam" asserting OUT (round 40).
+def test_travis_is_inside_occidental_territory_confirmed_by_liam():
+    assert COUNTIES["Travis"]["occidental"] == "IN"
+    assert row(OC, "OCC-001", county="Travis")[0] == "PASS"
+    assert abs(intake_fields.COUNTY_MAX_LATITUDE["Travis"] - 30.628) < 0.001
 
 
 @pytest.fixture
