@@ -638,6 +638,7 @@ FIELD_LABELS = {
     "fire_station_miles": "Distance to fire station", "station_miles_iso": "Distance to fire station",
     "hydrant_1000ft": "Hydrant within 1,000 ft", "zip": "ZIP", "county": "County",
     "sage_territory": "County", "south_of_31": "County", "harris_east_146": "East of Highway 146",
+    "harris_not_west_146": "East of Highway 146",               # round 41 B2
     "dwelling_amount": "Coverage A", "dwelling_type": "Dwelling type",
     "primary_home_carrier": "Primary home insured with", "primary_home_miles": "Distance to the primary home",
     "losses_5yr": "Losses in the last 5 years", "losses_3yr": "Losses in the last 3 years",
