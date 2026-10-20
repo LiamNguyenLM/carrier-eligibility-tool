@@ -191,6 +191,12 @@ MAP.update({
 # 41 A6, for every Sage guide.)
 SEASONAL_OR_SECOND = "occupancy_type in {Seasonal, Secondary Home}"
 MAP.update({
+    # Round 41 A8 (Liam, 2026-10-17): the seventh Extreme Hazard bullet (p.14), as its siblings OCC-007..012; and OCC-067
+    # refiled from an inspection item to a confirm (the insured supplies the appraisal report)
+    "OCC-138": ("coastal_tier", "FACT(not designated as insufficient rate" + TWIA + ")", TIER1, "insufficient rate",
+                "the seventh Extreme Hazard bullet (p.14)"),
+    "OCC-067": confirm("not bought at or through a foreclosure, bank or trustee sale -- or the insured supplies the "
+                       "Uniform Residential Appraisal Report with the application", "foreclosure purchase"),
     # p.2: "Residence not continuously unoccupied 3 or more consecutive months" -- under the seasonal / secondary
     # home too, where the form's Vacant (OCC-028) does not reach it
     "OCC-022": confirm("not unoccupied 3 or more consecutive months", "unoccupied 3 months", SEASONAL_OR_SECOND),

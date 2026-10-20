@@ -48,6 +48,7 @@ OCC-062,construction_type,"FACT(no EIFS, DEFS or Dryvit beyond trim or a minimal
 OCC-064,construction_type,"FACT(the main dwelling and its additions are not log, earth, underground, do-it-yourself, dome, A-frame or other unconventional construction -- such an other structure is referred or excluded)",always,DECLINES,unconventional construction,
 OCC-065,construction_type,always,always,REFERS_TO_UW,,decided by OCC-064 (the same rule); never a second flaw
 OCC-066,occupancy_type,FACT(not under construction),always,DECLINES,under construction,
+OCC-067,occupancy_type,"FACT(not bought at or through a foreclosure, bank or trustee sale -- or the insured supplies the Uniform Residential Appraisal Report with the application)",always,CONDITION,foreclosure purchase,
 OCC-069,occupancy_type,FACT(on a permanent foundation),always,DECLINES,foundation,
 OCC-070,occupancy_type,"FACT(no prior slab or sinkhole damage, settling cracks or nearby sinkhole activity)",always,DECLINES,sinkhole,
 OCC-072,plumbing_type,plumbing_type != Polybutylene,always,DECLINES,,
@@ -89,3 +90,4 @@ OCC-125,occupancy_type,FACT(no homeowners policy ever cancelled or non-renewed f
 OCC-126,dwelling_amount,dwelling_amount <= 2000000,always,DECLINES,,
 OCC-128,dwelling_amount,dwelling_amount >= 85000,always,REFERS_TO_UW,,
 OCC-129,dwelling_amount,FACT(insured to 100% of replacement cost),always,CONDITION,insurance to value,
+OCC-138,coastal_tier,"FACT(not designated as insufficient rate, or wind/hail excluded on the HO 04 70 and placed with TWIA)",coastal_tier == Tier 1,DECLINES,insufficient rate,the seventh Extreme Hazard bullet (p.14)

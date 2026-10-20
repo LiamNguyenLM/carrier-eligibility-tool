@@ -2965,6 +2965,10 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     water loss, 3 or more still decline. No verdict changes.
   - **A7.** Occidental's rented other structures: left as is -- the rental-unit confirms (OCC-035..039) show on a 2-4
     family house only; a named test, confirmed by Liam. No verdict changes.
+  - **A8.** Occidental table: OCC-138 added for the seventh Extreme Hazard bullet, "Designated as insufficient rate"
+    (p.14) -- a Tier 1 confirm with the HO 04 70 + TWIA carve-out, as OCC-007..012; OCC-067 (a foreclosure, bank or
+    trustee-sale purchase needs the Uniform Residential Appraisal Report) refiled from IGNORE_INSPECTION to a confirm
+    the insured supplies. 91 deciding rows (was 89). No verdict changes.
   <!-- end of round 41 decisions -->
 
 ## Open work, in priority order (updated 2026-10-02)

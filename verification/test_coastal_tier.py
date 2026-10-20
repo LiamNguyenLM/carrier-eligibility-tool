@@ -28,7 +28,8 @@ def test_the_28_coastal_lines():
     # CHANGED DELIBERATELY (round 39 step 1, 2026-10-14; Liam's decision 1, 2026-10-12): + HAR-052, The Hartford's 2,000-ft / barrier-island confirm. Was 27.
     # CHANGED DELIBERATELY (round 40 step 2, 2026-10-16; Liam: the right NatGen Custom360 HO3 and Occidental HO3 guides, each with its table): + OCC-006..012 (the Extreme Hazard rows, the TWIA override in each) and OCC-019
     # (wave wash). Was 28.
-    assert len(COASTAL) == 36 and "HAR-052" in COASTAL
+    # CHANGED DELIBERATELY (round 41 A8, 2026-10-17; Liam: the seventh Extreme Hazard bullet, OCC-138). Was 36.
+    assert len(COASTAL) == 37 and "HAR-052" in COASTAL and "OCC-138" in COASTAL
     assert {"OCC-006", "OCC-007", "OCC-008", "OCC-009", "OCC-010", "OCC-011", "OCC-012", "OCC-019"} <= set(COASTAL)
     assert {"ARA-024", "TWI-044", "TRV-080", "TRV-083", "CDP-051", "PDP-014", "PH6-044", "SAG-088", "SAG-089",
             "MER-061", "PRO-073", "PRO-087", "SUR-161", "SUR-165", "SFP-169", "SFP-175", "TRI-100"} <= set(COASTAL)

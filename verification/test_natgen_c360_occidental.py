@@ -60,7 +60,8 @@ def lines(path):
 
 # ==================================================================== every deciding row has a line
 @pytest.mark.parametrize("rules_csv,map_csv,n", [
-    (rv.NATGEN_C360_RULES_CSV, rv.NATGEN_C360_MAP_CSV, 158), (rv.OCCIDENTAL_RULES_CSV, rv.OCCIDENTAL_MAP_CSV, 89)],
+    # CHANGED 2026-10-17 (round 41 A8, Liam: OCC-138 added, OCC-067 refiled as a confirm). Was 89 for Occidental.
+    (rv.NATGEN_C360_RULES_CSV, rv.NATGEN_C360_MAP_CSV, 158), (rv.OCCIDENTAL_RULES_CSV, rv.OCCIDENTAL_MAP_CSV, 91)],
     ids=["natgen", "occidental"])
 def test_every_deciding_row_has_a_map_line_and_none_is_left_to_the_model(rules_csv, map_csv, n):
     deciding = [r["Rule ID"] for r in lines(rules_csv) if r["Tool handling"] in rv.DECIDING]
@@ -595,3 +596,18 @@ def test_occidentals_rental_unit_confirms_stay_on_2_to_4_family_houses_confirmed
     pool = dict(swimming_pool="In Ground - Fenced", pool_fence_4ft=True, pool_gate_locking=True)
     assert out(OC, units_in_building="3-4", **pool)[rid][0] == "NOTE"
     assert out(OC, units_in_building="1", **pool)[rid][0] == "N/A"
+
+
+# ==================================================================== round 41 A8 (Liam, 2026-10-17)
+@pytest.mark.parametrize("tier,want", [("Tier 1", "NOTE"), ("Tier 2", "N/A"), ("Not Coastal", "N/A")])
+def test_occidentals_insufficient_rate_bullet_is_a_tier_1_confirm_with_the_twia_carve_out(tier, want):
+    assert out(OC, coastal_tier=tier, county="Galveston")["OCC-138"][0] == want
+    assert "TWIA" in rv._map()["OCC-138"]["test"] and rv._rules()["OCC-138"]["PDF page"] == "14"
+
+
+def test_occidentals_foreclosure_purchase_is_a_confirm_the_insured_supplies():
+    assert rv._rules()["OCC-067"]["Tool handling"] == "EVALUATE"
+    o, d = out(OC)["OCC-067"]
+    assert o == "NOTE" and d == "confirm: foreclosure purchase"
+    assert "Uniform Residential Appraisal Report" in rv._map()["OCC-067"]["test"]
+    assert status(OC, hydrant_1000ft="Yes", fire_station_miles=2.0)["status"] == "ELIGIBLE"
