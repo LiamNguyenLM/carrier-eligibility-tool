@@ -585,3 +585,13 @@ def test_natgen_3_or_more_losses_with_a_water_loss_stay_a_confirm_confirmed_by_l
 def test_without_a_water_loss_3_or_more_still_decline():
     o = out(NG, losses_5yr="3 or more", losses_3yr="3 or more", loss_types=["Fire", "Theft"], loss_year=2025)
     assert o["NC3-109"][0] == "FAIL"
+
+
+# ==================================================================== round 41 A7 (Liam, 2026-10-17): kept
+@pytest.mark.parametrize("rid", ["OCC-035", "OCC-036", "OCC-037", "OCC-038", "OCC-039"])
+def test_occidentals_rental_unit_confirms_stay_on_2_to_4_family_houses_confirmed_by_liam(rid):
+    """Liam (2026-10-17): leave the rented-other-structure case as is -- the rental-unit confirms show on a 2-4 family
+    house only (OCC-038 on 3-4); a one-family house never gets them, rented garage apartment or not (not asked)."""
+    pool = dict(swimming_pool="In Ground - Fenced", pool_fence_4ft=True, pool_gate_locking=True)
+    assert out(OC, units_in_building="3-4", **pool)[rid][0] == "NOTE"
+    assert out(OC, units_in_building="1", **pool)[rid][0] == "N/A"

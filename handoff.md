@@ -2963,6 +2963,8 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
   - **A3.** NatGen, 3 or more losses including a water loss: the confirm stays (NC3-109; p.12 accepts appliance water
     losses but does not say they stop counting toward the two-loss limit); a named test, confirmed by Liam. Without a
     water loss, 3 or more still decline. No verdict changes.
+  - **A7.** Occidental's rented other structures: left as is -- the rental-unit confirms (OCC-035..039) show on a 2-4
+    family house only; a named test, confirmed by Liam. No verdict changes.
   <!-- end of round 41 decisions -->
 
 ## Open work, in priority order (updated 2026-10-02)
