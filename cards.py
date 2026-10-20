@@ -166,6 +166,34 @@ def shown_items(items):
     return out
 
 
+# Round 41 B4 follow-up (the final live check): a carrier held by code lists its open rows as "<open facts> -- [ROW]
+# <rule>"; the card's Missing list says them in the form's words -- the blank questions first, then what the guide's
+# table needs where it applies -- as the model's held cards did ("Driving distance to fire station").
+_CODE_ITEM = re.compile(r"^(.*?) -- \[[A-Z][A-Z0-9]{2}-\d{3}\] ")
+_BLANK_PART = {"station distance if not given": ("Driving distance to fire station",),
+               "station distance": ("Driving distance to fire station",),
+               "hydrant within 1,000 ft if not given": ("Hydrant within 1,000 ft",),
+               "station / hydrant distance if not given": ("Driving distance to fire station", "Hydrant within 1,000 ft")}
+
+
+def missing_lines(items):
+    """The card's Missing list: shown_items, with a code-held carrier's open rows said in the form's words."""
+    asks, needs, out = [], [], []
+    for x in items or []:
+        m = _CODE_ITEM.match(x) if isinstance(x, str) else None
+        if not m:
+            out += shown_items([x])
+            continue
+        for part in (p.strip() for p in m.group(1).split(";") if p.strip()):
+            for label in _BLANK_PART.get(part, ()):
+                if label not in asks:
+                    asks.append(label)
+            if part not in _BLANK_PART and part not in needs:
+                needs.append(part)
+    lines = asks + ([("Where the guide's table applies: " if asks else "") + ", ".join(needs)] if needs else [])
+    return [l[0].upper() + l[1:] for l in lines if says_something(l)] + [x for x in out if x not in asks]
+
+
 def first_line_markdown(rec, property_details, checked=None, label=True):
     """label=False (round 38 step 5, Liam 2026-10-11): the card sits under its status's column header, so it
     does not say the status again -- an open card's bold "Insufficient information" read as the section header

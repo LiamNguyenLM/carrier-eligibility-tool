@@ -48,6 +48,16 @@ def test_natgens_coverage_a_item_quotes_the_coverage_a_range_not_the_outbuilding
     assert "outbuilding" not in text and "$150,000" in text
 
 
+@pytest.mark.parametrize("rule,note", [("Coverage A above $2 million is ineligible.", " (only if Coverage A is $2,000,000+)"),
+                                       ("Coverage A over $1.5 million must be referred to underwriting.",
+                                        " (only if Coverage A is $1,500,000+)"),
+                                       ("Coverage A over $1,250,000 needs approval.", " (only if Coverage A is $1,250,000+)")])
+def test_a_threshold_in_millions_is_read_in_full(rule, note):
+    """The final live check: TWICO's "$2 million" read "(only if Coverage A is $2+)", Liberty's "$1.5 million" "$1+"."""
+    assert ct.threshold_note(rule, {"dwelling_amount": None}) == note
+    assert ct.ruled_out(rule, {"dwelling_amount": 1600000}) is ("$2 million" in rule)
+
+
 @pytest.mark.parametrize("amount,shown", [(None, " (only if Coverage A is $1,500,000+)"), (2000000, "")])
 def test_a_threshold_left_blank_says_when_the_rule_applies(amount, shown):
     text = items(NG, dict(LIAM, dwelling_amount=amount)).get("alarms", "")

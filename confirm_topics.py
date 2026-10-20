@@ -204,7 +204,14 @@ def topic_of(text, category=""):
 _PC = re.compile(r"\b(?:protection class(?:es)?|pc|ppc|fpc)\s*(\d{1,2})(?![\dxw])(?:\s*(?:-|–|to|or|and)\s*(\d{1,2})(?![\dxw]))?",
                  re.I)
 _COV_A_OVER = re.compile(r"(?:coverage a|\binsured)\b[^.;$]{0,30}?\b(?:over|greater than|above|more than|exceeding)\s+"
-                         r"\$\s?([\d,]+)", re.I)
+                         r"\$\s?(\d[\d,]*(?:\.\d+)?(?:\s*million\b)?)", re.I)
+
+
+def _dollars(text):
+    """"1,500,000" -> 1500000; "2 million" -> 2000000; "1.5 million" -> 1500000 (the live check: "$2 million" read $2)."""
+    m = re.match(r"([\d,]+(?:\.\d+)?)\s*(million)?", text.strip(), re.I)
+    n = float(m.group(1).replace(",", ""))
+    return int(round(n * 1_000_000)) if m.group(2) else int(n)
 _ROOF_SUBJECT = re.compile(r"^(?:an? |all )?(wood|metal|tile|slate)\b[^.;]{0,20}?\broofs?\b", re.I)
 _ROOF_IS = {"wood": ("Wood",), "metal": ("Metal",), "tile": ("Tile",), "slate": ("Slate",)}
 
@@ -233,7 +240,7 @@ def ruled_out(rule, pd):
     if ppc is not None and spans and not any(lo <= ppc <= hi for lo, hi in spans):
         return True
     amount = _amount(pd)
-    over = [int(x.replace(",", "")) for x in _COV_A_OVER.findall(rule)]
+    over = [_dollars(x) for x in _COV_A_OVER.findall(rule)]
     if amount is not None and over and all(amount <= x for x in over):
         return True
     m = _ROOF_SUBJECT.search(rule.strip())
@@ -245,7 +252,7 @@ def ruled_out(rule, pd):
 
 def threshold_note(rule, pd):
     """" (only if Coverage A is $1,500,000+)" when the rule applies only above a Coverage A the form left blank."""
-    over = [int(x.replace(",", "")) for x in _COV_A_OVER.findall(rule)]
+    over = [_dollars(x) for x in _COV_A_OVER.findall(rule)]
     if over and _amount(pd) is None:
         return f" (only if Coverage A is ${min(over):,}+)"
     return ""

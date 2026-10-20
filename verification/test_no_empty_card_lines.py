@@ -46,4 +46,21 @@ def test_a_first_line_that_is_only_ids_reads_the_status(reason):
 
 def test_the_page_renders_missing_through_shown_items():
     src = open(os.path.join(os.path.dirname(__file__), "..", "app.py"), encoding="utf-8").read()
-    assert "cards.shown_items(carrier.get(\"missing_info\"))" in src
+    assert "cards.missing_lines(carrier.get(\"missing_info\"))" in src
+
+
+# Round 41, the final live check: a code-held card's Missing list in the form's words, not the engine's
+@pytest.mark.parametrize("items,want", [
+    (["station distance if not given; visibility, alarm, access, fire losses -- [SAG-076] Protection class 4-8 ...",
+      "station distance if not given -- [SAG-078] Homes in the higher-risk rows must be less than 25 years old."],
+     ["Driving distance to fire station", "Where the guide's table applies: visibility, alarm, access, fire losses"]),
+    (["hydrant within 1,000 ft if not given; visibility, alarm, access -- [ODP-112] With FPC 4-10 ...",
+      "visibility, alarm, access -- [ODP-113] With FPC 4-8 ...", "hydrant within 1,000 ft if not given; fire losses "
+      "-- [ODP-115] For the FPC 4-10 ..."],
+     ["Hydrant within 1,000 ft", "Where the guide's table applies: visibility, alarm, access, fire losses"]),
+    (["Chubb territory -- [CHU-043] Primary houses in Territories 8, 9 and 10 ...",
+      "Chubb territory -- [CHU-044] Primary houses in Harris County 1B ..."], ["Chubb territory"]),
+    (["Distance to fire station", "(rows CHU-043, CHU-044)"], ["Distance to fire station"]),
+])
+def test_a_code_held_cards_missing_list_is_in_the_forms_words(items, want):
+    assert cards.missing_lines(items) == want

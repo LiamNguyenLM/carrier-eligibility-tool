@@ -603,7 +603,7 @@ with tab1:
                 # (round 37 step 2: the "rules table" badge is gone; the Fingerprint panel says the pilot is on)
                 # round 38 step 5: the column header names the status; the card does not repeat it
                 st.markdown(cards.first_line_markdown(carrier, property_details, checked_topics, label=False))
-                missing = cards.shown_items(carrier.get("missing_info"))       # round 41 B7: never an empty bullet
+                missing = cards.missing_lines(carrier.get("missing_info"))     # round 41 B7: never an empty bullet
                 if missing:
                     st.markdown("**Missing:**\n" + "\n".join("- " + item for item in missing))
                 # Round 37 step 1: what to confirm before quoting, in plain words

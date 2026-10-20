@@ -2980,6 +2980,11 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     filter after it (Missing, every Details group, the first line). Invariant added to the deep checks
     (`verification/fuzz/checks.c8_page`, `new_guides_deep` "empty_line"). 200 fuzz profiles through the pipeline
     (5,043 cards): 0 empty lines (the fake model writes no ID-only lines; the unit tests reproduce the model's shape).
+  - **Found by the final live check (fixed).** (1) With B4 the held SageSure / Chubb cards are held by code, and their
+    Missing list read the engine's open-fact text ("station distance if not given; visibility, alarm, access ...");
+    `cards.missing_lines` now says it in the form's words ("Driving distance to fire station"; "Where the guide's
+    table applies: visibility, alarm, access, fire losses"). (2) B6's threshold note read "$2 million" as $2 ("only
+    if Coverage A is $2+"); millions are read in full.
   <!-- end of round 41 decisions -->
 
 ## Open work, in priority order (updated 2026-10-02)
