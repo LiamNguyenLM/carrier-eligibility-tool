@@ -318,6 +318,25 @@ def c7_no_reask(pd, checked, base):
 _RAW = re.compile(r"\b(None|nan|null|undefined)\b|\[\s*\]|\{\s*\}")
 
 
+def _empty_items(r, pd, checked, c):
+    """Round 41 B7: every line the card renders says something -- the first line, each Missing item, each Details item,
+    each confirm item."""
+    out = []
+    if not cards.says_something(cards.first_line_markdown(r, pd, checked, label=False)):
+        out.append(_fail("page", c, {"why": "empty first line"}))
+    for item in cards.shown_items(r.get("missing_info")):
+        if not cards.says_something(item):
+            out.append(_fail("page", c, {"why": "empty missing item", "item": item}))
+    for head, items in cards.details_items(r, guide=True):
+        for x in items:
+            if not cards.says_something(cards.agent_text(x)):
+                out.append(_fail("page", c, {"why": f"empty {head} item", "item": x[:120]}))
+    for li in re.findall(r"<li>(.*?)</li>", cards.confirm_html(r, pd, checked)):
+        if not cards.says_something(re.sub(r"<[^>]+>", "", li)):
+            out.append(_fail("page", c, {"why": "empty confirm item", "item": li[:120]}))
+    return out
+
+
 def c8_page(pd, checked, base):
     out = []
     names = [r.get("carrier") for r in base]
@@ -343,6 +362,8 @@ def c8_page(pd, checked, base):
         for m in r.get("missing_info") or []:
             if isinstance(m, str) and (not m.strip() or ROW_ID.search(cards.agent_text(m))):
                 out.append(_fail("page", c, {"why": "missing item", "item": m[:200]}))
+        # round 41 B7 (Liam, 2026-10-17): no card renders an empty reason or list item
+        out += _empty_items(r, pd, checked, c)
     return out
 
 

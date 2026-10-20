@@ -19,6 +19,7 @@ and Liam's decisions (2026-10-16):
   natgen_wood    a wood roof is never Eligible; it declines only when older than 25 years
   occ_county     OCC-001 decides exactly as rules_data/occidental_counties.csv; a blank county never declines on it
   occ_tenant     a tenant-occupied home is never Eligible
+  empty_line     (round 41 B7) the card renders no empty first line, reason or list item
 
 usage: python verification/new_guides_deep.py <n random per carrier> <out.json>"""
 import collections
@@ -163,6 +164,12 @@ def check(canon, pd, rng):
                 fails.append(("model_free", f"{rid} open only on {unknown}"))
             elif all(u in rv.BLANK_IS_NOTE for u in unknown if u in f):
                 fails.append(("blank_is_note", f"{rid} held on {[u for u in unknown if u in f]} with a FACT"))
+    import cards
+    if (not cards.says_something(cards.first_line_markdown(rec, pd, None, label=False))
+            or len(cards.shown_items(rec.get("missing_info"))) != len([m for m in rec.get("missing_info") or []
+                                                                     if cards.says_something(cards.agent_text(m))])
+            or any(not cards.says_something(cards.agent_text(x)) for _, xs in cards.details_items(rec) for x in xs)):
+        fails.append(("empty_line", rec["status"]))
     declines = {rid for rid, (o, _) in out.items() if o == "FAIL" and rv._map()[rid]["outcome_if_fail"] == "DECLINES"}
     amount = pd.get("dwelling_amount")
     if canon == NG:

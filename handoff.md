@@ -2974,6 +2974,12 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     none shows them outside. The round 40 report's pasted cards had dropped the "Details" line, so the Occidental
     card's "Citations:" read as its own section. No code change; `verification/test_citations_in_details.py` keeps
     every card the same.
+  - **B7.** The empty bullet: agent_text takes row IDs out of a line, and a model line that was only IDs ("(rows
+    CHU-043, CHU-044)") or a label with an ID ("Chubb territory -- [CHU-043]") read "" or "Chubb territory:"; the
+    Missing list and Details dropped blank lines only before agent_text. Now `cards.shown_items` / `says_something`
+    filter after it (Missing, every Details group, the first line). Invariant added to the deep checks
+    (`verification/fuzz/checks.c8_page`, `new_guides_deep` "empty_line"). 200 fuzz profiles through the pipeline
+    (5,043 cards): 0 empty lines (the fake model writes no ID-only lines; the unit tests reproduce the model's shape).
   <!-- end of round 41 decisions -->
 
 ## Open work, in priority order (updated 2026-10-02)
