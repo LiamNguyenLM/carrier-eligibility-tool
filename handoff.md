@@ -2969,6 +2969,11 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     (p.14) -- a Tier 1 confirm with the HO 04 70 + TWIA carve-out, as OCC-007..012; OCC-067 (a foreclosure, bank or
     trustee-sale purchase needs the Uniform Residential Appraisal Report) refiled from IGNORE_INSPECTION to a confirm
     the insured supplies. 91 deciding rows (was 89). No verdict changes.
+  - **A9.** Citations: checked on the rendered page (AppTest) and the card helpers -- every card, the Occidental HO3
+    held card included, shows its citations inside the collapsed Details block under the same "Citations" heading;
+    none shows them outside. The round 40 report's pasted cards had dropped the "Details" line, so the Occidental
+    card's "Citations:" read as its own section. No code change; `verification/test_citations_in_details.py` keeps
+    every card the same.
   <!-- end of round 41 decisions -->
 
 ## Open work, in priority order (updated 2026-10-02)
