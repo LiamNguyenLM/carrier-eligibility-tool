@@ -133,9 +133,13 @@ MAP = {
                 "the rental term is asked for a tenant-occupied home; blank or Unknown is a confirm"),
     "HAR-048": ("construction_type", "construction_type != Manufactured/Mobile", "always", "", ""),
     # -- Catastrophe Management (p.7)
-    "HAR-052": ("coastal_tier;county", "FACT(more than 2000 feet from the coastline and not on a barrier island)",
-                "coastal_tier == Tier 1 or county in " + TIER_I, "distance to the coastline",
-                "the guide's Tier I counties, or the form's Tier 1"),
+    # Round 41 B2 (Liam, 2026-10-17): also Harris when East of Highway 146 is Yes or Unknown, and Jackson and Orange
+    # when the coastal tier is not Not Coastal (they have bay shoreline); not on other Harris homes.
+    "HAR-052": ("coastal_tier;county;harris_east_146", "FACT(more than 2000 feet from the coastline and not on a barrier "
+                "island)", "coastal_tier == Tier 1 or county in " + TIER_I + " or harris_not_west_146 == True or "
+                "(county in {Jackson, Orange} and coastal_tier in {Tier 1, Tier 2, Tier 3})", "distance to the coastline",
+                "the guide's Tier I counties, or the form's Tier 1; Harris east of Hwy 146 (Yes or Unknown); Jackson and "
+                "Orange in a coastal tier"),
     "HAR-056": ("county", "FACT(no roof characteristics subject to excessive hail exposure)", "county in " + DFW_HAIL,
                 "roof hail exposure", "the guide does not say which roof characteristics: a confirm"),
     # -- Secondary / seasonal (p.8)

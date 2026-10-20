@@ -124,7 +124,15 @@ CASES = [
     ("HAR-048", OWN, {"construction_type": "Masonry"}, "PASS"),
     ("HAR-052", OWN, {"county": "Galveston"}, "NOTE"),
     ("HAR-052", OWN, {"coastal_tier": "Tier 1"}, "NOTE"),
-    ("HAR-052", OWN, {"county": "Harris", "coastal_tier": "Tier 2"}, "N/A"),
+    # CHANGED 2026-10-17 (round 41 B2, Liam: HAR-052 also for Harris east of Hwy 146 -- Yes or Unknown). Was: a Harris
+    # Tier 2 home "N/A" whatever its Hwy 146 answer.
+    ("HAR-052", OWN, {"county": "Harris", "coastal_tier": "Tier 2", "harris_east_146": "No"}, "N/A"),
+    ("HAR-052", OWN, {"county": "Harris", "coastal_tier": "Tier 2", "harris_east_146": "Yes"}, "NOTE"),
+    ("HAR-052", OWN, {"county": "Harris", "coastal_tier": "Not Coastal", "harris_east_146": "Unknown"}, "NOTE"),
+    ("HAR-052", OWN, {"county": "Jackson", "coastal_tier": "Tier 3"}, "NOTE"),
+    ("HAR-052", OWN, {"county": "Orange", "coastal_tier": "Tier 2"}, "NOTE"),
+    ("HAR-052", OWN, {"county": "Orange", "coastal_tier": "Not Coastal"}, "N/A"),
+    ("HAR-052", OWN, {"county": "Jackson", "coastal_tier": "Not Coastal"}, "N/A"),
     ("HAR-056", OWN, {"county": "Dallas"}, "NOTE"),
     ("HAR-056", OWN, {"county": "Somervell"}, "NOTE"),
     ("HAR-056", OWN, {"county": "Travis"}, "N/A"),

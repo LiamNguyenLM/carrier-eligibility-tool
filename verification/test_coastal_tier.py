@@ -44,7 +44,9 @@ def test_every_form_value_hits_the_lines_that_name_its_tier(label, prefix_only):
         # round 39: a line that also reads the county (HAR-052: the form's Tier 1 OR the guide's Tier I counties) is
         # checked on an inland county, so only its tier decides
         f = ev.facts(dict(BASE, coastal_tier=value, **({"county": "Travis"} if "county in" in m["gate"] else {})))
-        named = set(re.findall(r"Tier \d", m["gate"]))
+        # CHANGED 2026-10-17 (round 41 B2, Liam: HAR-052 also for Jackson and Orange in a coastal tier): a tier named
+        # only inside "(county in {...} and ...)" is that county's, not every home's. Was: every tier in the gate.
+        named = set(re.findall(r"Tier \d", re.sub(r"\(county in \{[^}]*\} and [^)]*\)", "", m["gate"])))
         out = ev.evaluate_row(m, f)[0]
         assert (out != "N/A") == (tier in named), (rid, value, m["gate"], out)
 

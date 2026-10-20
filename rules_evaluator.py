@@ -380,6 +380,9 @@ def facts(pd, today=None):
     # Round 37 step 4: the losses and electrical answers (None = blank or Unknown)
     f.update(intake_fields.loss_answers(pd, today))
     f["electrical"] = intake_fields.electrical_answer(pd)
+    # Round 41 B2: a Harris home not known to be west of Hwy 146 (the answer Yes, Unknown or blank); False elsewhere
+    f["harris_not_west_146"] = (intake_fields.normalize_county(pd.get("county")) == "Harris"
+                                and intake_fields.answer(pd.get("harris_east_146")) != "No")
     f["harris_east_146"] = (intake_fields.answer(pd.get("harris_east_146"))
                             if intake_fields.normalize_county(pd.get("county")) == "Harris" else None)
     # Round 35 step 3b: an old saved "Metal" / "Flat/Built-Up" is unknown; "Wood Shake" is the wood option

@@ -2948,6 +2948,9 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     appliance-related or mold claims and remediated, with Hartford form PC-327 (appliance) or PC-326 (mold);
     otherwise Not eligible." (`rules_evaluator.CARD_WORDING` may now map a FACT's text to the card's words). No
     verdict changes.
+  - **B2.** The Hartford's 2,000-ft / barrier-island confirm (HAR-052) also shows for Harris when "East of Highway
+    146" is Yes or Unknown (or blank), and for Jackson and Orange when the coastal tier is not Not Coastal; not on other
+    Harris homes. A confirm only: no verdict changes.
   <!-- end of round 41 decisions -->
 
 ## Open work, in priority order (updated 2026-10-02)
