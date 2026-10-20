@@ -1249,6 +1249,12 @@ def _coverage_note_applies(row, pd):
         return pd.get("solar_panels") == "Yes"
     if row["Topic"] == "ROOF_SETTLEMENT":
         roof = pd.get("roof_type")
+        # Round 41 B5 (Liam, 2026-10-17): rows for every roof, and rows whose condition is the roof's age and material
+        # (Markel's Roof Exclusion form), decide before the roof-word match (which read "other than slate, tile or
+        # metal" as naming tile and metal)
+        decided = _roof_note_by_condition(row, text, pd)
+        if decided is not None:
+            return decided
         named = re.sub(r"\(except [^)]*\)", " ", text)       # "(except metal, slate, tile)" names no covering
         if any(w in named for w in _ROOF_WORDS.get(roof, ())):
             return True
@@ -1270,6 +1276,46 @@ def _coverage_note_applies(row, pd):
 
 
 _NOT_ARCHITECTURAL = re.compile(r"3-tab|other than architectural|except architectural|not architectural")
+# Round 41 B5 (Liam, 2026-10-17): coverage rows for every roof -- SageSure's cosmetic hail marring exclusion ("on all roof
+# types", "to roofs"), HOAIC's cosmetic hail cap, and "underwriting may change roof settlement ... regardless of roof age
+# or material" (Vave, TWICO's inspection-based ACV / exclusion)
+_EVERY_ROOF = re.compile(r"\ball roof types\b|\bmarring to roofs\b|\bhail marring to roofs\b|regardless of roof age or "
+                         r"material|\bcosmetic hail loss payout\b|roof settlement or a roof exclusion based on the inspection")
+_STM = ("Tile", "Slate", *intake_fields.ROOF_METALS, "Metal")
+_OTHER_THAN_STM_AGE = re.compile(r"\broofs? \(?other than slate(?:, |/)tile(?:,? or |/)metal\)?.*?over (\d+) years")
+_STM_AGE = re.compile(r"^(?:a )?slate, tile or metal roofs? .*?over (\d+) years")
+_EXCLUSION_FORM_SAYS = re.compile(r"^the roof exclusion form (?:also )?excludes")
+_INSPECTION_ONLY = re.compile(r"premature or advanced deterioration|inspection reveals a (?:condition )?concern")
+
+
+def _roof_age(pd):
+    try:
+        return int(str(pd.get("roof_age")).strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def _roof_note_by_condition(row, text, pd):
+    """True / False when a row's own condition decides whether its note applies (round 41 B5), else None."""
+    roof, age = intake_fields.roof_type_answer(pd.get("roof_type")) or pd.get("roof_type"), _roof_age(pd)
+    if _EVERY_ROOF.search(text):
+        return True
+    if _INSPECTION_ONLY.search(text):
+        return False                     # only an inspection can show it: never a note from the form
+    m = _OTHER_THAN_STM_AGE.search(text)
+    if m:
+        return bool(roof) and roof not in _STM and age is not None and age > int(m.group(1))
+    m = _STM_AGE.search(text)
+    if m:
+        return roof in _STM and age is not None and age > int(m.group(1))
+    if _EXCLUSION_FORM_SAYS.search(text):  # what the form excludes: shown when one of its age rows applies
+        return any(_roof_note_by_condition(r, r["Plain rule"].lower(), pd) for r in _rules().values()
+                   if r["Carrier"] == row["Carrier"] and r["Rule ID"] != row["Rule ID"]
+                   and r["Topic"] == "ROOF_SETTLEMENT" and "roof exclusion form" in r["Plain rule"].lower()
+                   and not _EXCLUSION_FORM_SAYS.search(r["Plain rule"].lower()))
+    if "marring" in text and "paid hail loss" in text:      # Foremost FOR-034: after a paid hail loss
+        return "Wind or hail" in (pd.get("loss_types") or []) and str(pd.get("losses_5yr") or "0") != "0"
+    return None
 _ALL_OTHER = re.compile(r"\ball other roof")
 
 

@@ -2951,6 +2951,13 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
   - **B2.** The Hartford's 2,000-ft / barrier-island confirm (HAR-052) also shows for Harris when "East of Highway
     146" is Yes or Unknown (or blank), and for Jackson and Orange when the coastal tier is not Not Coastal; not on other
     Harris homes. A confirm only: no verdict changes.
+  - **B5.** "All roof types" coverage rows are notes on the cards they apply to: SageSure's cosmetic hail marring
+    exclusion (SAG-036, SUR-152, SFP-158, WIL-156, TRI-044, OCC-059, ODP-080, SDP-117, FDP-141), HOAIC TDP3's cosmetic
+    hail cap (HDP-011), Vave's and TWICO's "underwriting may change roof settlement" (VAV-040, VDP-088, TWI-058) on
+    every card; Markel's Roof Exclusion form (MKL-094 / 095, MDP-052 / 053) only when the roof's material and age meet
+    the row, with what the form excludes (MKL-092 / 093); inspection-only rows never; Foremost FOR-034 after a paid
+    hail loss. This also fixes Markel's rows, which showed by roof word alone ("other than slate, tile or metal" on a
+    tile or new metal roof, never on an old composition roof). No verdict changes.
   <!-- end of round 41 decisions -->
 
 ## Open work, in priority order (updated 2026-10-02)
