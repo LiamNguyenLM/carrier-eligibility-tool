@@ -58,8 +58,11 @@ def test_the_page_renders_missing_through_shown_items():
       "visibility, alarm, access -- [ODP-113] With FPC 4-8 ...", "hydrant within 1,000 ft if not given; fire losses "
       "-- [ODP-115] For the FPC 4-10 ..."],
      ["Hydrant within 1,000 ft", "Where the guide's table applies: visibility, alarm, access, fire losses"]),
-    (["Chubb territory -- [CHU-043] Primary houses in Territories 8, 9 and 10 ...",
-      "Chubb territory -- [CHU-044] Primary houses in Harris County 1B ..."], ["Chubb territory"]),
+    # a row open only on a fact the form never asks keeps its own words (the fast tier: Chubb's 1A / 1B-1E lines)
+    (["Chubb territory -- [CHU-043] Primary houses in Harris County 1A are unacceptable.",
+      "Chubb territory -- [CHU-044] Primary houses in Harris County 1B, 1C and 1E must be pre-approved."],
+     ["Chubb territory: Primary houses in Harris County 1A are unacceptable.",
+      "Chubb territory: Primary houses in Harris County 1B, 1C and 1E must be pre-approved."]),
     (["Distance to fire station", "(rows CHU-043, CHU-044)"], ["Distance to fire station"]),
 ])
 def test_a_code_held_cards_missing_list_is_in_the_forms_words(items, want):

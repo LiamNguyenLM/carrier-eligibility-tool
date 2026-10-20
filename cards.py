@@ -177,21 +177,30 @@ _BLANK_PART = {"station distance if not given": ("Driving distance to fire stati
 
 
 def missing_lines(items):
-    """The card's Missing list: shown_items, with a code-held carrier's open rows said in the form's words."""
-    asks, needs, out = [], [], []
+    """The card's Missing list: shown_items, with a code-held carrier's open rows that wait on a blank question said in
+    the form's words. A row open only on facts the form never asks keeps its own words ("Chubb territory: Primary
+    houses in ... Harris County 1A ... are unacceptable"), unless the table line already names all of them."""
+    asks, needs, rest = [], [], []
     for x in items or []:
         m = _CODE_ITEM.match(x) if isinstance(x, str) else None
-        if not m:
-            out += shown_items([x])
+        parts = [p.strip() for p in m.group(1).split(";") if p.strip()] if m else []
+        if not m or not any(p in _BLANK_PART for p in parts):
+            rest.append((x, parts))
             continue
-        for part in (p.strip() for p in m.group(1).split(";") if p.strip()):
+        for part in parts:
             for label in _BLANK_PART.get(part, ()):
                 if label not in asks:
                     asks.append(label)
             if part not in _BLANK_PART and part not in needs:
                 needs.append(part)
     lines = asks + ([("Where the guide's table applies: " if asks else "") + ", ".join(needs)] if needs else [])
-    return [l[0].upper() + l[1:] for l in lines if says_something(l)] + [x for x in out if x not in asks]
+    covered = {n.strip() for need in needs for n in need.split(",")}
+    out = [l[0].upper() + l[1:] for l in lines if says_something(l)]
+    for x, parts in rest:
+        if parts and {n.strip() for p in parts for n in p.split(",")} <= covered:
+            continue                                   # e.g. ODP-113 "visibility, alarm, access": the table line has it
+        out += [s for s in shown_items([x]) if s not in out]
+    return out
 
 
 def first_line_markdown(rec, property_details, checked=None, label=True):
