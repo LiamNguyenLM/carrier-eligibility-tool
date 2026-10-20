@@ -2960,6 +2960,9 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     tile or new metal roof, never on an old composition roof). No verdict changes.
   - **A1.** Travis County stays IN for Occidental (northern edge 30.628 N, by the guide's rule): the named test is
     `test_travis_is_inside_occidental_territory_confirmed_by_liam` (was a strict xfail "for Liam"). No verdict changes.
+  - **A3.** NatGen, 3 or more losses including a water loss: the confirm stays (NC3-109; p.12 accepts appliance water
+    losses but does not say they stop counting toward the two-loss limit); a named test, confirmed by Liam. Without a
+    water loss, 3 or more still decline. No verdict changes.
   <!-- end of round 41 decisions -->
 
 ## Open work, in priority order (updated 2026-10-02)

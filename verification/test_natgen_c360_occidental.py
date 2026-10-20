@@ -571,3 +571,17 @@ def test_natgens_unfenced_pool_is_not_eligible_unless_rural(pool):
     assert rec["status"] == "INELIGIBLE"
     reason = [r for r in rec["reasons"] if "[NC3-084]" in r][0]
     assert reason.endswith("unless the home is rural (underwriting may then approve).")
+
+
+# ==================================================================== round 41 A3 (Liam, 2026-10-17): kept
+@pytest.mark.parametrize("types", [["Water"], ["Water", "Fire"], ["Water", "Other"]])
+def test_natgen_3_or_more_losses_with_a_water_loss_stay_a_confirm_confirmed_by_liam(types):
+    """Liam (2026-10-17): keep the confirm -- p.12 accepts appliance water losses (WDR-1) but does not say they stop
+    counting toward the two-paid-losses limit."""
+    o = out(NG, losses_5yr="3 or more", losses_3yr="3 or more", loss_types=types, loss_year=2025)
+    assert o["NC3-109"][0] == "NOTE"
+
+
+def test_without_a_water_loss_3_or_more_still_decline():
+    o = out(NG, losses_5yr="3 or more", losses_3yr="3 or more", loss_types=["Fire", "Theft"], loss_year=2025)
+    assert o["NC3-109"][0] == "FAIL"
