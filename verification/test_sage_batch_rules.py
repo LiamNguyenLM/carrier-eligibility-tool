@@ -297,8 +297,10 @@ def _run(pd, batch_on=True, pilot_status="INSUFFICIENT_INFORMATION", main_status
 SP = dict(STANDARD_PROFILE, dwelling_type="House", county="Bexar", fire_station_miles="3", hydrant_1000ft="Yes")
 
 
-def test_the_switch_is_off_by_default():
-    assert os.environ.get("ELIGIBILITY_RULES_SAGE_BATCH") is None and ec.RULES_SAGE_BATCH is False
+def test_the_suite_runs_with_the_switch_off_unless_a_test_turns_it_on():
+    # CHANGED DELIBERATELY (round 43 step 0b, Liam 2026-10-24: the switches default ON in the app). Was
+    # test_the_switch_is_off_by_default. The app's default is tested in test_switch_defaults.py.
+    assert os.environ.get("ELIGIBILITY_RULES_SAGE_BATCH") == "0" and ec.RULES_SAGE_BATCH is False
 
 
 def test_off_leaves_the_batch_in_the_main_prompt():

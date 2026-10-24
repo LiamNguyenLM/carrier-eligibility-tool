@@ -2,8 +2,8 @@
 
 Ranks the carrier markets the eligibility check did NOT rule out, using the agency's own HawkSoft
 placement history (monthly counts by ZIP, county, home-age band and Coverage A band, per market:
-rules_data/placement/, refreshed monthly by Claude). It never changes a verdict. Off unless
-ELIGIBILITY_PLACEMENT is exactly "1".
+rules_data/placement/, refreshed monthly by Claude). It never changes a verdict. ON unless
+ELIGIBILITY_PLACEMENT is set to something other than exactly "1" (round 43, Liam 2026-10-24: no variable is ON).
 
 rank() is the reference scorer (pilot_structured_rules/placement/placement_score.py, Claude,
 2026-10-09; a verbatim copy is verification/placement_score_reference.py) and must rank identically:
@@ -39,7 +39,7 @@ CANDIDATE_STATUSES = frozenset({"ELIGIBLE", "INSUFFICIENT_INFORMATION"})
 
 
 def enabled():
-    return os.environ.get("ELIGIBILITY_PLACEMENT", "") == "1"
+    return os.environ.get("ELIGIBILITY_PLACEMENT", "1") == "1"
 
 
 def current_month(today=None):

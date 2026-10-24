@@ -12,6 +12,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # smoke-test Luna through the real suite) is not overridden.
 os.environ.setdefault("ELIGIBILITY_MODEL", "claude-sonnet-4-5")
 os.environ.setdefault("CHAT_MODEL", "claude-sonnet-4-5")
+# Round 43 step 0b (Liam, 2026-10-24): the app's rules-table switches and the placement panel default ON. The suite
+# keeps them OFF unless a test turns one on, as every test was written: a test of the live configuration sets the
+# flags itself (monkeypatch), and the defaults are tested in a subprocess without the variables.
+for _switch in ("ELIGIBILITY_RULES_PILOT", "ELIGIBILITY_RULES_SAGE_BATCH", "ELIGIBILITY_RULES_HO3_BATCH",
+                "ELIGIBILITY_RULES_DP_BATCH", "ELIGIBILITY_PLACEMENT"):
+    os.environ.setdefault(_switch, "0")
 # Round 31 step 2: checks made by the suite log to a throwaway file, never the real usage log.
 import tempfile  # noqa: E402
 os.environ.setdefault("ELIGIBILITY_USAGE_LOG", os.path.join(tempfile.gettempdir(), "eligibility_usage_test_log.jsonl"))

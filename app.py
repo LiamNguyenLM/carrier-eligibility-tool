@@ -575,7 +575,7 @@ with tab1:
 
             # Round 33 step 2 (Liam, 2026-10-09): where we usually place homes like this. It ranks the
             # markets the check did not rule out from our HawkSoft placements and never changes a verdict
-            # or the cards. Off unless ELIGIBILITY_PLACEMENT is exactly "1"; when off, nothing here runs.
+            # or the cards. ON unless ELIGIBILITY_PLACEMENT is set to other than "1"; when off, nothing here runs.
             if placement.enabled():
                 t_placement = time.perf_counter()
                 try:
@@ -724,7 +724,7 @@ with tab2:
     st.markdown("**" + placement.status_line() + "**", help=(
         "Where we usually place homes like this: ranks the carriers the check did not rule out from our "
         "HawkSoft placements (rules_data/placement/, refreshed monthly). Never changes a verdict. "
-        "ON only when ELIGIBILITY_PLACEMENT is exactly 1."))
+        "ON unless ELIGIBILITY_PLACEMENT is set to something other than 1 (e.g. 0)."))
 
     st.divider()
 

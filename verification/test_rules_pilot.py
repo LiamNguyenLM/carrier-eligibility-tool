@@ -52,8 +52,11 @@ def _run(pd, pilot_status="INSUFFICIENT_INFORMATION", pilot_on=True, **kw):
     return {r["carrier"]: r for r in results}, calls.get("main"), calls.get("pilot")
 
 
-def test_the_switch_is_off_by_default():
-    assert os.environ.get("ELIGIBILITY_RULES_PILOT") is None and ec.RULES_PILOT is False
+def test_the_suite_runs_with_the_switch_off_unless_a_test_turns_it_on():
+    # CHANGED DELIBERATELY (round 43 step 0b, Liam 2026-10-24: the switches default ON in the app). Was
+    # test_the_switch_is_off_by_default (no variable -> OFF). The app's default is tested in test_switch_defaults.py;
+    # verification/conftest.py keeps the suite at "0", as these tests were written.
+    assert os.environ.get("ELIGIBILITY_RULES_PILOT") == "0" and ec.RULES_PILOT is False
 
 
 def test_off_keeps_the_six_in_the_main_prompt_and_makes_no_pilot_call():

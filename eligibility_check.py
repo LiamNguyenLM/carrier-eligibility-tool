@@ -136,23 +136,24 @@ ELIGIBILITY_STRUCTURED = os.environ.get("ELIGIBILITY_STRUCTURED", "1") == "1"
 # byte-identical to before. ON: the six carriers in rules_evaluator.PILOT_CARRIERS
 # leave retrieval and the main model call; code decides them from the form
 # (rules_data/), and one separate call -- in parallel with the main one -- sees
-# only the rows code left open. Do not set this on Railway; Liam decides.
-RULES_PILOT = os.environ.get("ELIGIBILITY_RULES_PILOT", "0") == "1"
-RULES_PILOT_HELP = ('The rules pilot is ON only when the Railway variable ELIGIBILITY_RULES_PILOT is '
-                    'exactly "1" (not "true", "yes" or "on"); anything else, or no variable, is OFF. '
+# only the rows code left open.
+# CHANGED (round 43 step 0b, Liam 2026-10-24): the pilot and the three batches default ON -- no variable means "1",
+# as live; "0" (anything but exactly "1") turns one off. Liam's local run was model-only because they defaulted OFF.
+RULES_PILOT = os.environ.get("ELIGIBILITY_RULES_PILOT", "1") == "1"
+RULES_PILOT_HELP = ('The rules pilot is ON unless the Railway variable ELIGIBILITY_RULES_PILOT is set to something '
+                    'other than exactly "1" (e.g. "0"); no variable is ON. '
                     'The app reads it when it starts, so redeploy after changing it.')
 # Round 27 step 6 (Liam's decision 4, 2026-10-06): the Sage batch -- SURE HO-3,
 # SafePort HO-3, Wilshire HO3, Trium HO3/HO5, Markel HO3, Vave HO3 -- moves to
-# the rules table like the pilot six. Its own switch, exactly "1", default OFF,
-# and only with the pilot on. OFF is byte-identical to round 27 step 3. Its rows
-# are not yet reviewed: never set on Railway without Liam.
-RULES_SAGE_BATCH = RULES_PILOT and os.environ.get("ELIGIBILITY_RULES_SAGE_BATCH", "0") == "1"
+# the rules table like the pilot six. Its own switch, exactly "1", and only with the pilot on (default ON since
+# round 43; "0" turns it off). OFF is byte-identical to round 27 step 3.
+RULES_SAGE_BATCH = RULES_PILOT and os.environ.get("ELIGIBILITY_RULES_SAGE_BATCH", "1") == "1"
 # Round 29 step 7 (2026-10-08): the HO3 batch (11 guides), the same pattern: exactly "1",
-# only with the pilot on, default OFF. Never set on Railway without Liam.
-RULES_HO3_BATCH = RULES_PILOT and os.environ.get("ELIGIBILITY_RULES_HO3_BATCH", "0") == "1"
+# only with the pilot on, default ON since round 43.
+RULES_HO3_BATCH = RULES_PILOT and os.environ.get("ELIGIBILITY_RULES_HO3_BATCH", "1") == "1"
 # Round 29 step 8 (2026-10-08): the remaining (dwelling fire) batch, 14 guides, the same
-# pattern. Never set on Railway without Liam.
-RULES_DP_BATCH = RULES_PILOT and os.environ.get("ELIGIBILITY_RULES_DP_BATCH", "0") == "1"
+# pattern (default ON since round 43).
+RULES_DP_BATCH = RULES_PILOT and os.environ.get("ELIGIBILITY_RULES_DP_BATCH", "1") == "1"
 # The batch registry's switches (rules_evaluator.BATCHES): registry name -> this module's flag
 # name and the panel's label. A further batch is one line here and one entry there.
 RULES_BATCH_SWITCHES = {

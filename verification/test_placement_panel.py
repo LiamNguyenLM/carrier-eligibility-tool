@@ -179,8 +179,11 @@ def test_the_panel_never_changes_a_card():
 
 def test_the_status_line(monkeypatch):
     T = tables()
-    monkeypatch.delenv("ELIGIBILITY_PLACEMENT", raising=False)
+    # CHANGED DELIBERATELY (round 43 step 0b, Liam 2026-10-24: the panel defaults ON). Was: no variable -> OFF.
+    monkeypatch.setenv("ELIGIBILITY_PLACEMENT", "0")
     assert placement.status_line(T) == "Placement panel: OFF (data through 2026-10, 123 policies)"
+    monkeypatch.delenv("ELIGIBILITY_PLACEMENT", raising=False)
+    assert placement.status_line(T).startswith("Placement panel: ON")
     monkeypatch.setenv("ELIGIBILITY_PLACEMENT", "1")
     assert placement.status_line(T).startswith("Placement panel: ON")
 
