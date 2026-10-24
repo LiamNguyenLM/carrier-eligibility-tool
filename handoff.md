@@ -2987,6 +2987,24 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     if Coverage A is $2+"); millions are read in full.
   <!-- end of round 41 decisions -->
 
+- **2026-10-24 — Round 42: scoping a move to Cloudflare (planning only; no product code changed).** The plan is
+  `MIGRATION_PLAN.md` (repo root). What the round found and committed:
+  - **0a.** WIL-123 stays a decline: its guide cell ("eligible only if all of the following criteria are met: ... No
+    prior fire losses") names no underwriting path; the p.9 footer is general. `verification/test_wil123_quote.py`.
+  - **0b.** A normal check makes no network call and no paid API call (live config, Harris HO3 and LANDLORD: 0
+    connections, 0 DNS lookups, model not called). Its 2 local retrieval searches change no card (151 profiles with
+    retrieval off: 0 differ). Only the chat tab calls a paid API. `verification/test_no_network.py`,
+    `verification/outbound_check.py`.
+  - **Engine.** The rules engine is pure Python and runs unchanged under Pyodide with identical output (200
+    profiles); 125 ms median CPU a check natively. eligibility_check.py's post-processing changes 2.9% of core
+    statuses, so it moves with the engine (Round 43 in the plan).
+  - **Parity harness.** `verification/parity/export_golden.py` and `golden.json.xz`: today's full-path output on the
+    3,409 fuzz profiles and the named ones; `verification/test_parity_golden.py` holds it to the engine. A deliberate
+    rules or card change re-exports the golden in the same commit (the plan, section 4).
+  - **Recommended:** static page + Pyodide + a Worker for feedback/usage into D1 + Cloudflare Access, $0/month; the
+    Python Worker on Workers Paid ($5/month) if the rules tables should stay off browsers. Open questions for Liam are
+    the plan's section 6.
+
 ## Open work, in priority order (updated 2026-10-02)
 
 0. **RESOLVED 2026-09-30: the "omission with no NOT_EVALUATED row"
