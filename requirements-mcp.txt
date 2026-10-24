@@ -1,0 +1,3 @@
+# MCP server for Hermes / CFIG-GPT (carrier_mcp.py). Not installed on Railway.
+# Pinned below 2: mcp 2.x renamed FastMCP.
+mcp==1.30.0
