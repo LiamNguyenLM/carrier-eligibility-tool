@@ -273,14 +273,39 @@ def build_property_details(profile):
     return pd, checked, errors
 
 
-@mcp.tool()
-def check_eligibility(profile: dict) -> dict:
+# What an agent's own words must say for each dwelling type. "home" / "property" / "place" name none of them.
+_DWELLING_WORDS = {
+    "House": r"\b(house|single[- ]family|sfh|stand[- ]?alone|detached)\b",
+    "Townhome": r"\b(town ?homes?|town ?houses?|row ?homes?|row ?houses?|duplex)\b",
+    "Condo": r"\b(condos?|condominiums?|apartments?|unit owner|ho-?6)\b",
+}
+
+
+def dwelling_quote_problem(dwelling_type, quote):
+    """None when the agent's quoted words state this dwelling type; else the reason to ask. Live run 2026-10-24:
+    with the skill saying "ask", Haiku 5.5 still read "owner-occupied home" as a House -- so the server checks."""
+    import re
+    q = (quote or "").strip()
+    if not q:
+        return ("dwelling_type_quote is empty: quote the agent's own words from this chat that say House, Townhome "
+                "or Condo. If they have not said it, ASK them -- do not choose for them.")
+    pattern = _DWELLING_WORDS.get(dwelling_type)
+    if pattern and re.search(pattern, q, re.I):
+        return None
+    return (f"the agent's words {q!r} do not say the dwelling is a {dwelling_type} (\"home\" could be a house, "
+            "townhome or condo). ASK the agent which it is, then call again with their answer as dwelling_type_quote.")
+
+
+@mcp.tool(structured_output=False)
+def check_eligibility(profile: dict, dwelling_type_quote: str = "") -> str:
     """Run the full carrier eligibility check (the same pipeline as the agency's Streamlit tool) for one Texas
     property. Give only the facts you actually know -- a topic left out is NOT considered, exactly like an
     unticked box on the form, so ELIGIBLE means "no problem found on the topics that were checked".
 
     Required: occupancy_type, ownership_type, dwelling_type (House / Townhome / Condo) -- the app's form always
     sends these. Ask the agent for any that are missing; never assume "House".
+    dwelling_type_quote (required): the agent's own words from this chat that state the dwelling type, e.g. "it's a
+    house" or "Townhome". The server checks them: "home" alone does not say which, so ask first.
     Optional (each one turns its topic on): year_built, roof_age, roof_type, roof_shape, construction_type,
     plumbing_type, coastal_tier, swimming_pool, pool_accessories, pool_fence_4ft, pool_gate_locking, has_dogs,
     dog_breeds, solar_panels, solar_type, solar_tesla, ppc, fire_station_miles, hydrant_1000ft, zip, county,
@@ -292,13 +317,19 @@ def check_eligibility(profile: dict) -> dict:
     what to confirm before quoting, coverage notes (loss settlement, not eligibility) and citations; plus the
     questions most carriers want answered and where CFIG usually places homes like this (top 3).
 
-    SHOW summary_markdown TO THE AGENT AS-IS (it is the app's results page), then add at most two sentences of your
-    own. For one carrier's full card, call carrier_details (free). dwelling_type, occupancy_type and
+    Returns the app's results page as plain markdown. Your reply to the agent IS that page: copy it from the first
+    line to the last, every heading, numbered line and bullet, in order -- especially the numbered "Where we usually
+    place homes like this" ranking with its bullet lines and footer. Then add at most two sentences of your own. For one carrier's full card, call carrier_details (free). dwelling_type, occupancy_type and
     ownership_type must come from the agent in THIS conversation -- ask if they have not said them. Relay these in the tool's words -- do not re-derive or add rules. Takes 30-90 s and
     makes paid model calls: run it once per property, not per question."""
     pd, checked, errors = build_property_details(profile)
+    if not errors:
+        why = dwelling_quote_problem(pd.get("dwelling_type"), dwelling_type_quote)
+        if why:
+            errors.append(why)
     if errors:
-        return {"error": "Profile not accepted -- nothing was checked.", "problems": errors}
+        return ("PROFILE NOT ACCEPTED -- nothing was checked. Fix these and call again (ask the agent for anything "
+                "they have not said):\n" + "\n".join(f"- {e}" for e in errors))
     m = _load()
     ec, tp = m["ec"], m["topics"]
     with _quiet():
@@ -314,12 +345,11 @@ def check_eligibility(profile: dict) -> dict:
         if len(summary) > 7000:      # stay under Hermes's ~8,000-character spill limit; details stay on the cards
             summary = "\n".join(l for l in summary.split("\n") if not l.startswith("    - Missing: "))
     _LAST.update(cards={c["carrier"]: c for c in cards_out}, checked_as=summary.split("\n", 1)[0])
-    return {
-        "summary_markdown": summary,
-        "next": "Show summary_markdown to the agent exactly as written. For one carrier's full card (what to "
-                "confirm, coverage notes, citations) call carrier_details with its name. Do not add claims the "
-                "summary does not make (e.g. that underwriting approval is required for Eligible carriers).",
-    }
+    # Plain text, not a JSON field: models pass a page of text along far more faithfully than a value they unpack
+    # (2026-10-24: Haiku 5.5 kept condensing summary_markdown, dropping the ranking's lines and footer).
+    return (summary + "\n\n---\n(For the assistant, not the agent: the page above is the reply -- copy it whole, "
+            "then add at most two sentences. For one carrier's full card call carrier_details. Never add claims the "
+            "page does not make.)")
 
 
 def _clip(text, n):

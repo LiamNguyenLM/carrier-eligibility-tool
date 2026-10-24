@@ -29,11 +29,12 @@ def direct(profile):
 def via_mcp(profile):
     """The server's own path. Its reply is the compact summary; the per-carrier verdicts are the cards it keeps for
     carrier_details (keyed here by program name, the same key the direct call uses)."""
-    out = carrier_mcp.check_eligibility(dict(profile, dog_breeds=list(profile.get("dog_breeds") or ())))
-    if "error" in out:
-        raise SystemExit(f"MCP rejected the profile: {out['problems']}")
+    out = carrier_mcp.check_eligibility(dict(profile, dog_breeds=list(profile.get("dog_breeds") or ())),
+                                        dwelling_type_quote=str(profile.get("dwelling_type", "")))
+    if out.startswith("PROFILE NOT ACCEPTED"):
+        raise SystemExit(f"MCP rejected the profile:\n{out}")
     cards = carrier_mcp._LAST["cards"].values()
-    not_checked = next((l for l in out["summary_markdown"].splitlines() if l.startswith("**Not checked:**")), "")
+    not_checked = next((l for l in out.splitlines() if l.startswith("**Not checked:**")), "")
     return {c["program"]: c.get("status") for c in cards}, not_checked.replace("**Not checked:** ", "")
 
 

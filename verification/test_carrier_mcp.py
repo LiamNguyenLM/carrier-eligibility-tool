@@ -195,3 +195,23 @@ def test_card_guide_date_falls_back_to_the_file_name():
         {"occupancy_type": "Owner Occupied", "ownership_type": "Individual Owner", "dwelling_type": "House"})
     out = carrier_mcp.card({"carrier": mercury[0], "status": "ELIGIBLE", "reasons": []}, pd, checked)
     assert out["guide_date"] != "not stated" or "." not in mercury[0]
+
+
+@pytest.mark.parametrize("dwelling, quote, ok", [
+    ("House", "owner-occupied home", False),          # the 2026-10-24 live run: "home" is not a dwelling type
+    ("House", "", False),
+    ("House", "House", True),
+    ("House", "it's a single-family house", True),
+    ("Townhome", "it's a townhouse", True),
+    ("Condo", "a condo unit", True),
+    ("Condo", "it's a house", False),                  # words name a different type than the one passed
+])
+def test_dwelling_type_must_be_the_agents_words(dwelling, quote, ok):
+    assert (carrier_mcp.dwelling_quote_problem(dwelling, quote) is None) == ok
+
+
+def test_check_refuses_a_guessed_dwelling_type_before_any_paid_call():
+    out = carrier_mcp.check_eligibility(
+        {"occupancy_type": "Owner Occupied", "ownership_type": "Individual Owner", "dwelling_type": "House"},
+        dwelling_type_quote="owner-occupied home")
+    assert out.startswith("PROFILE NOT ACCEPTED") and "ASK" in out
