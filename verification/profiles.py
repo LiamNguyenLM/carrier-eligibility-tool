@@ -205,3 +205,17 @@ LIVE_PROFILE = {
     "dwelling_type": "House",
 }
 LIVE_CHECKED = ["ppc", "home_age", "pool", "plumbing", "solar", "county"]
+
+# Liam's Harris HO3 check (round 36 step 8; round 42 step 0b measured it for network calls): PC 5, built 1994,
+# copper plumbing, Harris ZIP 77248, every topic asked.
+HARRIS_PROFILE = {
+    "year_built": 1994, "roof_age": 10, "roof_type": "Composition Shingle", "roof_shape": "Gable",
+    "construction_type": "Frame", "plumbing_type": "Copper", "occupancy_type": "Owner Occupied",
+    "ownership_type": "Individual Owner", "coastal_tier": "Not Coastal", "swimming_pool": "No Pool",
+    "pool_accessories": "None", "pool_fence_4ft": False, "pool_gate_locking": False, "has_dogs": "No",
+    "dog_breeds": [], "solar_panels": "No", "ppc": "5", "fire_station_miles": None, "hydrant_1000ft": "Yes",
+    "zip": "77248", "county": "Harris", "dwelling_amount": None, "dwelling_type": "House",
+    "harris_east_146": "Unknown",
+}
+HARRIS_CHECKED = ["ppc", "coastal", "home_age", "roof_age", "roof_type", "roof_shape", "construction", "plumbing",
+                  "pool", "dogs", "solar", "county", "dwelling_amount"]
