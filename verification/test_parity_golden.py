@@ -77,3 +77,15 @@ def test_the_check_catches_a_changed_text_in_a_full_card_and_in_a_hashed_card(go
                                     "<ul><li>Roof ok?</li> <li>Pool?</li></ul>")])
 def test_whitespace_alone_is_not_a_difference(k, a, b):
     assert eg.digest(eg.canonical(k, a)) == eg.digest(eg.canonical(k, b))
+
+
+def test_an_export_check_puts_the_flags_the_model_call_and_the_usage_log_back(monkeypatch):
+    """Round 42 (found by the fast tier on 805fb3d): run_check left every batch on and the model stubbed for the rest
+    of the pytest process, and 6 tests that ran after this file in the same shard failed (pilot / Sage-batch routing,
+    the round 36 holds, the plumbing lookup). A check now restores what it changed."""
+    import eligibility_check as ec
+    monkeypatch.delenv("ELIGIBILITY_USAGE_LOG", raising=False)
+    before = {f: getattr(ec, f) for f in eg.FLAGS}, ec._complete
+    eg.run_check(*next((pd, ch) for pid, pd, ch in eg.all_profiles() if pid == "LANDLORD"))
+    assert ({f: getattr(ec, f) for f in eg.FLAGS}, ec._complete) == before
+    assert "ELIGIBILITY_USAGE_LOG" not in os.environ

@@ -193,17 +193,31 @@ def card(rec, pd, checked, S, H, L, full):
     return out
 
 
+FLAGS = ("RULES_PILOT", "RULES_SAGE_BATCH", "RULES_HO3_BATCH", "RULES_DP_BATCH")
+
+
 def run_check(pd, checked):
+    """One check in the live configuration, then everything put back as it was: the batch flags, the model call and
+    the usage-log variable (the tests import this module, and later tests in the same process expect the defaults)."""
     os.environ.pop("ELIGIBILITY_DOTENV", None)
-    os.environ.setdefault("ELIGIBILITY_USAGE_LOG", os.path.join(tempfile.gettempdir(), "parity_export_usage.jsonl"))
     import eligibility_check as ec
-    for flag in ("RULES_PILOT", "RULES_SAGE_BATCH", "RULES_HO3_BATCH", "RULES_DP_BATCH"):
-        setattr(ec, flag, True)
+    saved = {f: getattr(ec, f) for f in FLAGS}, ec._complete, os.environ.get("ELIGIBILITY_USAGE_LOG")
 
     def no_model(*a, **k):
         raise RuntimeError("parity export: a check tried to call the model")
-    ec._complete = no_model
-    return ec.check_eligibility(dict(pd), checked_topics=checked, log_usage=False)
+    try:
+        for f in FLAGS:
+            setattr(ec, f, True)
+        ec._complete = no_model
+        if saved[2] is None:
+            os.environ["ELIGIBILITY_USAGE_LOG"] = os.path.join(tempfile.gettempdir(), "parity_export_usage.jsonl")
+        return ec.check_eligibility(dict(pd), checked_topics=checked, log_usage=False)
+    finally:
+        for f, v in saved[0].items():
+            setattr(ec, f, v)
+        ec._complete = saved[1]
+        if saved[2] is None:
+            os.environ.pop("ELIGIBILITY_USAGE_LOG", None)
 
 
 def build(todo):
