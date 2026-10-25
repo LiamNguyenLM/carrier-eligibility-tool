@@ -334,7 +334,9 @@ async function main() {
     await browser.close();
     server.close();
   }
-  const rp = OUT.replace(/candidate_/, "report_");
+  // round 44: never the candidate's own path (an --out without "candidate_" in its name overwrote the candidate)
+  const rp = path.basename(OUT).includes("candidate_") ? OUT.replace(/candidate_/, "report_")
+    : OUT.replace(/(\.jsonl?)?$/, ".report.json");
   fs.writeFileSync(rp, JSON.stringify(report, null, 1));
 
   console.log(`\nmode ${MODE}  (${report.url})`);
