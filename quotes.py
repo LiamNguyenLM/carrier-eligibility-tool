@@ -1,8 +1,6 @@
-"""Quote matching shared by the chat tab's quote verifier (chat.verify_quotes)
-and the eligibility pipeline's citation guard
+"""Quote matching for the eligibility pipeline's citation guard
 (eligibility_check._strip_misattributed_citations). Moved here from chat.py
-in round 26 so the pipeline can use it without importing chat (which imports
-eligibility_check). chat.py re-exports both names unchanged.
+in round 26; the chat tab itself was removed in round 43 (Liam, 2026-10-24).
 """
 
 
