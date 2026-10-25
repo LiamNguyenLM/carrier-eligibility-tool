@@ -1,0 +1,187 @@
+[
+ {
+  "name": "five markets 2026-10",
+  "body": {
+   "pd": {
+    "zip": "77494",
+    "county": "Fort Bend",
+    "year_built": 2015,
+    "dwelling_amount": 450000,
+    "occupancy_type": "Tenant Occupied"
+   },
+   "results": [
+    {
+     "carrier": "Allied_Trust_HO3",
+     "status": "ELIGIBLE"
+    },
+    {
+     "carrier": "TWICO_HO3",
+     "status": "ELIGIBLE"
+    },
+    {
+     "carrier": "Travelers_HO3_-_06.12.2026",
+     "status": "ELIGIBLE"
+    },
+    {
+     "carrier": "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3",
+     "status": "INSUFFICIENT_INFORMATION",
+     "missing_info": [
+      "Roof age"
+     ],
+     "reasons": [
+      "x"
+     ]
+    },
+    {
+     "carrier": "HOAIC_HO3",
+     "status": "INELIGIBLE",
+     "reasons": [
+      "[HOA-001] declines: no tenant occupied homes"
+     ]
+    }
+   ],
+   "as_of": "2026-10"
+  },
+  "expected": {
+   "title": "Where we usually place homes like this",
+   "basis": "Based on our homeowners placements; we don't have enough landlord history yet.",
+   "picks": [
+    {
+     "market": "Allied Trust",
+     "programs": [
+      "Allied_Trust_HO3"
+     ],
+     "held": null,
+     "reason": "Our homeowners sales in ZIP 77494: 11 of 80 with Allied Trust (14%)",
+     "fit": "13% of our 10-19-year-old homes vs 6% overall"
+    },
+    {
+     "market": "Travelers",
+     "programs": [
+      "Travelers_HO3_-_06.12.2026"
+     ],
+     "held": null,
+     "reason": "Our homeowners sales in ZIP 77494: 3 of 80 with Travelers (4%)",
+     "fit": "11% of our $400-599K Coverage A homes vs 9% overall"
+    },
+    {
+     "market": "Orion180",
+     "programs": [
+      "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3"
+     ],
+     "held": "Held: confirm Roof age",
+     "reason": "Our homeowners sales in ZIP 77494: 2 of 80 with Orion180 (2%)",
+     "fit": null
+    }
+   ],
+   "usual": null,
+   "footer": "From our HawkSoft placements through 2026-10. Where we have placed similar homes, not a price comparison."
+  }
+ },
+ {
+  "name": "five markets 2026-03",
+  "body": {
+   "pd": {
+    "zip": "77494",
+    "county": "Fort Bend",
+    "year_built": 2015,
+    "dwelling_amount": 450000,
+    "occupancy_type": "Tenant Occupied"
+   },
+   "results": [
+    {
+     "carrier": "Allied_Trust_HO3",
+     "status": "ELIGIBLE"
+    },
+    {
+     "carrier": "TWICO_HO3",
+     "status": "ELIGIBLE"
+    },
+    {
+     "carrier": "Travelers_HO3_-_06.12.2026",
+     "status": "ELIGIBLE"
+    },
+    {
+     "carrier": "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3",
+     "status": "INSUFFICIENT_INFORMATION",
+     "missing_info": [
+      "Roof age"
+     ],
+     "reasons": [
+      "x"
+     ]
+    },
+    {
+     "carrier": "HOAIC_HO3",
+     "status": "INELIGIBLE",
+     "reasons": [
+      "[HOA-001] declines: no tenant occupied homes"
+     ]
+    }
+   ],
+   "as_of": "2026-03"
+  },
+  "expected": {
+   "title": "Where we usually place homes like this",
+   "basis": "Based on our homeowners placements; we don't have enough landlord history yet.",
+   "picks": [
+    {
+     "market": "Allied Trust",
+     "programs": [
+      "Allied_Trust_HO3"
+     ],
+     "held": null,
+     "reason": "Our homeowners sales in ZIP 77494: 16 of 85 with Allied Trust (19%)",
+     "fit": null
+    },
+    {
+     "market": "Orion180",
+     "programs": [
+      "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3"
+     ],
+     "held": "Held: confirm Roof age",
+     "reason": "Our homeowners sales in ZIP 77494: 3 of 85 with Orion180 (4%)",
+     "fit": "10% of our $400-599K Coverage A homes vs 8% overall"
+    },
+    {
+     "market": "Travelers",
+     "programs": [
+      "Travelers_HO3_-_06.12.2026"
+     ],
+     "held": null,
+     "reason": "No recent sales with Travelers in ZIP 77494; ranked on our statewide mix",
+     "fit": null
+    }
+   ],
+   "usual": null,
+   "footer": "From our HawkSoft placements through 2026-10. Where we have placed similar homes, not a price comparison."
+  }
+ },
+ {
+  "name": "one candidate",
+  "body": {
+   "pd": {
+    "zip": "77494",
+    "county": "Fort Bend",
+    "year_built": 2015,
+    "dwelling_amount": 450000,
+    "occupancy_type": "Tenant Occupied"
+   },
+   "results": [
+    {
+     "carrier": "Allied_Trust_HO3",
+     "status": "ELIGIBLE"
+    },
+    {
+     "carrier": "Mercury_HO3",
+     "status": "INELIGIBLE",
+     "reasons": [
+      "no"
+     ]
+    }
+   ],
+   "as_of": "2026-10"
+  },
+  "expected": null
+ }
+]

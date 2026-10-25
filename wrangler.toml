@@ -1,0 +1,39 @@
+# cfig-eligibility -- the Carrier Eligibility Tool on Cloudflare (round 43 step 3).
+# This file lives at the REPO ROOT; every path below is relative to it.
+# Schema: node_modules/wrangler/config-schema.json (wrangler 4.149.0, pinned in cloudflare/package.json).
+name = "cfig-eligibility"
+main = "cloudflare/src/worker.js"
+compatibility_date = "2026-10-01"
+
+# Liam, 2026-10-24: a workers.dev address for now (cfigtx.com's DNS is not known yet). Cloudflare Access must be on
+# for it BEFORE it serves anything -- the static site carries the engine and its rules tables -- so this stays false
+# for the first deploy; once Access is on for the Worker (its Access tab, which covers workers.dev), Liam sets it to
+# true and pushes (DEPLOY_CLOUDFLARE.md). Preview URLs stay off. A custom domain later:
+#   routes = [{ pattern = "eligibility.cfigtx.com", custom_domain = true }]
+workers_dev = false
+preview_urls = false
+
+[assets]
+directory = "web/dist"
+binding = "ASSETS"
+# Only the API runs the Worker; every other path is a static file (no Worker CPU, no Worker request).
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cfig-eligibility"
+# Printed by `npx wrangler d1 create cfig-eligibility` (Liam, once). A placeholder works for --local.
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "cloudflare/migrations"
+
+[vars]
+ACCESS_TEAM_DOMAIN = "cfig.cloudflareaccess.com"        # Zero Trust -> Settings -> Custom pages: the team domain
+ACCESS_AUD = "REPLACE-WITH-THE-ACCESS-APPLICATION-AUD-TAG"   # Zero Trust -> Access -> Applications -> the app -> Overview
+# Comma list, case-insensitive. Jonathan's address is not known yet: replace the placeholder.
+ADMIN_EMAILS = "liam@cfigtx.com,JONATHAN-ADDRESS-TBD@cfigtx.com"
+# DEV_AUTH_EMAIL must NOT be set here. Local only, in .dev.vars (git-ignored) or `wrangler dev --var`:
+#   DEV_AUTH_EMAIL=liam@cfigtx.com
+# The Worker honours it only for plain-http requests to localhost / 127.0.0.1 / [::1].
+
+[observability]
+enabled = true

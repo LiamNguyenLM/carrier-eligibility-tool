@@ -23,8 +23,10 @@ import placement
 import feedback
 import display_names
 import confirm_topics
-
-FORM_SCOPE_CAPTION = "Only checked items are considered. Inspections and the condition of the home are not checked."
+# Round 43 step 2 (Liam, 2026-10-24): the form's lists, texts and form_request live in the engine, shared with
+# the static page (web/), so the two forms cannot drift.
+from engine import form as engine_form
+from engine.form import FORM_SCOPE_CAPTION, TESTER_NOTE  # noqa: F401
 from upload_carrier import (
     add_carrier_to_database,
     remove_carrier_from_database,
@@ -91,7 +93,8 @@ with st.sidebar:
         st.session_state.authenticated = False
         st.rerun()
 
-tab1, tab3, tab2 = st.tabs(["Eligibility Check", "Ask the Guides", "Manage Carriers"])
+# Round 43 step 0c (Liam, 2026-10-24): the "Ask the Guides" chat tab is gone.
+tab1, tab2 = st.tabs(["Eligibility Check", "Manage Carriers"])
 
 
 # ============================================================
@@ -111,17 +114,7 @@ def _send_feedback(record, property_details, key, checked=None):
 
 
 # Round 36 step 7 (Liam, 2026-10-10): what an agent testing the tool needs to know, in plain lines.
-TESTER_NOTE = (
-    "- **What it checks:** your property against each carrier's own underwriting guide. Every verdict comes "
-    "from the guide's rules.\n"
-    "- **Blank means unknown.** A field you leave blank (or a topic you don't tick) is never read as a yes "
-    "or a no.\n"
-    "- **Held** (Insufficient Information): the guide's answer depends on something you didn't give. Fill it "
-    "in and check again.\n"
-    "- **Confirm:** a rule the form doesn't ask about. The card can still be Eligible; check it with the "
-    "client or the guide before you bind.\n"
-    "- **Where we usually place homes like this** is our own placement history, not prices or quotes.\n"
-    "- If a card looks wrong, open **This looks wrong** on it and say why.")
+# Round 36 step 7 (Liam, 2026-10-10): TESTER_NOTE -- what an agent testing the tool needs to know (engine.form).
 
 
 @st.fragment
@@ -208,21 +201,13 @@ with tab1:
     with col2:
         coastal_tier = st.selectbox(
             "Coastal Tier",
-            [
-                "Not Coastal",
-                "Tier 1 - Closest to coast",
-                "Tier 2 - Moderate coastal area",
-                "Tier 3 - Outer coastal zone"
-            ],
+            list(engine_form.COASTAL_CHOICES),
             help="Tier 1 is highest wind risk, typically within 1 mile of Gulf or bay waters.",
             key="coastal", on_change=_autotick, args=("coastal", "coastal", "Not Coastal")
         )
         _check_box("coastal")
         # Always on: Occupancy, Ownership, Dwelling type.
-        occupancy_type = st.selectbox("Occupancy Type", [
-            "Owner Occupied", "Tenant Occupied", "Seasonal",
-            "Vacant", "Secondary Home"
-        ], key="occupancy")
+        occupancy_type = st.selectbox("Occupancy Type", list(engine_form.OCCUPANCY_CHOICES), key="occupancy")
 
         # Round 31 step 5 (Liam, 2026-10-08, decision 3): asked for every occupancy (was Owner Occupied
         # only, so a rental owned by an LLC or a trust could not be entered).
@@ -288,14 +273,14 @@ with tab1:
     st.subheader("📅 Property Age")
     col1, col2 = st.columns(2)
     with col1:
-        year_built = st.number_input("Year Built", min_value=1800,
-            max_value=2026, value=2000, key="year",
-            on_change=_autotick, args=("home_age", "year", 2000))
+        year_built = st.number_input("Year Built", min_value=engine_form.YEAR_MIN,
+            max_value=engine_form.YEAR_MAX, value=engine_form.YEAR_DEFAULT, key="year",
+            on_change=_autotick, args=("home_age", "year", engine_form.YEAR_DEFAULT))
         _check_box("home_age")
     with col2:
-        roof_age = st.number_input("Roof Age (years)", min_value=0,
-            max_value=100, value=10, key="roofage",
-            on_change=_autotick, args=("roof_age", "roofage", 10))
+        roof_age = st.number_input("Roof Age (years)", min_value=engine_form.ROOF_AGE_MIN,
+            max_value=engine_form.ROOF_AGE_MAX, value=engine_form.ROOF_AGE_DEFAULT, key="roofage",
+            on_change=_autotick, args=("roof_age", "roofage", engine_form.ROOF_AGE_DEFAULT))
         _check_box("roof_age")
 
     st.divider()
@@ -309,9 +294,8 @@ with tab1:
                                  format_func=lambda v: intake_fields.ROOF_LABELS.get(v, v),
                                  key="rooftype", on_change=_autotick, args=("roof_type", "rooftype", "Composition Shingle"))
         _check_box("roof_type")
-        construction_type = st.selectbox("Construction Type", [
-            "Frame", "Masonry", "Masonry Veneer", "Superior", "Manufactured/Mobile"
-        ], key="construction", on_change=_autotick, args=("construction", "construction", "Frame"))
+        construction_type = st.selectbox("Construction Type", list(engine_form.CONSTRUCTION_CHOICES),
+                                         key="construction", on_change=_autotick, args=("construction", "construction", "Frame"))
         _check_box("construction")
         # Round 35 step 3c (Liam, 2026-10-09, decision 1): PEX by install year (the "before 2011" rules), and
         # Cast iron. Stored values hold no comma; the labels are Liam's wording.
@@ -320,19 +304,12 @@ with tab1:
                                      key="plumbing", on_change=_autotick, args=("plumbing", "plumbing", "Copper"))
         _check_box("plumbing")
     with col2:
-        roof_shape = st.selectbox("Roof Shape", [
-            "Gable", "Hip", "Flat", "Gambrel", "Mansard", "Other"
-        ], key="roofshape", on_change=_autotick, args=("roof_shape", "roofshape", "Gable"))
+        roof_shape = st.selectbox("Roof Shape", list(engine_form.ROOF_SHAPE_CHOICES), key="roofshape", on_change=_autotick, args=("roof_shape", "roofshape", "Gable"))
         _check_box("roof_shape")
-        swimming_pool = st.selectbox("Swimming Pool", [
-            "No Pool", "Above Ground - Fenced", "Above Ground - Unfenced",
-            "In Ground - Fenced", "In Ground - Unfenced"
-        ], key="pool", on_change=_autotick, args=("pool", "pool", "No Pool"))
+        swimming_pool = st.selectbox("Swimming Pool", list(engine_form.POOL_CHOICES), key="pool", on_change=_autotick, args=("pool", "pool", "No Pool"))
         if swimming_pool != "No Pool":
-            pool_accessories = st.selectbox("Pool Accessories", [
-                "None", "Slide only", "Diving board only",
-                "Both slide and diving board"
-            ], key="poolacc", on_change=_autotick, args=("pool", "poolacc", "None"))
+            pool_accessories = st.selectbox("Pool Accessories", list(engine_form.POOL_ACCESSORY_CHOICES),
+                                            key="poolacc", on_change=_autotick, args=("pool", "poolacc", "None"))
         else:
             pool_accessories = "None"
         # Round 20 (Liam, 2026-10-01). Shown only for a fenced pool; the key
@@ -414,7 +391,7 @@ with tab1:
             on_change=_autotick, args=("dwelling_amount", "dwelling_amount", ""))
         dwelling_amount = intake_fields.parse_dwelling_amount(dwelling_amount_text)
         if dwelling_amount_text.strip() and dwelling_amount is None:
-            st.warning("Couldn't read that amount, so it will be treated as not given.")
+            st.warning(engine_form.DWELLING_AMOUNT_UNREADABLE)
         _check_box("dwelling_amount")
     with col3:
         # Required (Liam, 2026-10-02): always on, and the agent must pick one.
@@ -436,7 +413,7 @@ with tab1:
         losses_5yr = st.selectbox("Losses in the last 5 years", list(intake_fields.LOSS_COUNTS), key="losses_5yr",
                                   format_func=lambda v: v or "— not given —")
         loss_types, loss_year, losses_3yr = [], None, ""
-        if losses_5yr in ("1", "2", "3 or more"):
+        if losses_5yr in engine_form.LOSS_FOLLOW_UP:
             loss_types = st.multiselect("Types", list(intake_fields.LOSS_TYPES), key="loss_types")
             loss_year = st.number_input("Most recent loss year", min_value=date.today().year - 5,
                                         max_value=date.today().year, value=None, step=1, key="loss_year")
@@ -455,7 +432,7 @@ with tab1:
     checked_topics = [t for t in topics.TOPIC_KEYS if st.session_state.get(f"chk_{t}")]
 
     if submitted and not dwelling_type:
-        st.error("Pick a Dwelling type (House, Townhome or Condo) before running the check.")
+        st.error(engine_form.DWELLING_TYPE_REQUIRED)
         submitted = False
 
     # Round 26 step 7: every result element lives in one placeholder, made
@@ -466,69 +443,13 @@ with tab1:
     results_area = st.empty()
     if submitted:
         with results_area.container():
-            coastal_clean = coastal_tier.split(" - ")[0]
-            property_details = {
-                "year_built": year_built,
-                "roof_age": roof_age,
-                "roof_type": roof_type,
-                "roof_shape": roof_shape,
-                "construction_type": construction_type,
-                "plumbing_type": plumbing_type,
-                "occupancy_type": occupancy_type,
-                "ownership_type": ownership_type,
-                "coastal_tier": coastal_clean,
-                "swimming_pool": swimming_pool,
-                "pool_accessories": pool_accessories,
-                # ticked = a stated fact; unticked = unknown
-                "pool_fence_4ft": pool_fence_4ft,
-                "pool_gate_locking": pool_gate_locking,
-                "has_dogs": "Yes" if has_dogs else "No",
-                "dog_breeds": list(dog_breeds) if has_dogs else [],
-                "solar_panels": "Yes" if solar_panels else "No",
-                "ppc": ppc,
-                # optional (decision B): None / "Unknown" mean unknown
-                "fire_station_miles": intake_fields.parse_station_miles(station_text),
-                "hydrant_1000ft": hydrant_1000ft,
-                # optional: "" / None mean unknown. The ZIP never reaches the prompt.
-                "zip": intake_fields.parse_zip(zip_text)[0] or "",
-                "county": county,
-                "dwelling_amount": dwelling_amount,
-                "dwelling_type": dwelling_type,
-            }
-            # Round 30 step 1: present only when the question was shown, so every other
-            # profile's property_details (and prompt) is byte-identical.
-            if occupancy_type in intake_fields.OWNERS_OTHER_HOMES:
-                property_details["primary_home_carrier"] = primary_home_carrier or ""
-                property_details["primary_home_miles"] = primary_home_miles
-            # Round 39 step 1: the same answer for a rental, and the two rental questions (only when answered)
-            if occupancy_type == intake_fields.RENTAL_OCCUPANCY:
-                property_details["primary_home_carrier"] = primary_home_carrier or ""
-                if rental_units_total:
-                    property_details["rental_units_total"] = rental_units_total
-                if rental_term:
-                    property_details["rental_term"] = rental_term
-            # Round 35 steps 3d-f: present only when the question was shown (the same reason).
-            if ownership_type == "Trust":
-                property_details["trust_type"] = trust_type
-            if solar_panels:
-                property_details["solar_type"] = solar_type or ""
-                property_details["solar_tesla"] = solar_tesla
-            if county == "Harris":
-                property_details["harris_east_146"] = harris_east_146
-            # Round 37 step 4: present only when answered (every other prompt stays byte-identical)
-            if losses_5yr:
-                property_details["losses_5yr"] = losses_5yr
-                if loss_types:
-                    property_details["loss_types"] = list(loss_types)
-                if loss_year:
-                    property_details["loss_year"] = int(loss_year)
-                if losses_3yr:
-                    property_details["losses_3yr"] = losses_3yr
-            if electrical:
-                property_details["electrical"] = list(electrical)
-            # Round 39 step 4: present only when answered (a House)
-            if units_in_building:
-                property_details["units_in_building"] = units_in_building
+            # Round 43 step 2 (Liam, 2026-10-24): property_details from engine.form.form_request -- the same
+            # function the static page calls (the keys, and when each one is present, as before: a follow-up
+            # question's key only when it was shown or answered). The pool boxes' keys carry the pool answer.
+            _values = {k: st.session_state.get(k) for k in engine_form.VALUE_KEYS}
+            _values.update(pool_fence_4ft=pool_fence_4ft, pool_gate_locking=pool_gate_locking,
+                           chk={t: bool(st.session_state.get(f"chk_{t}")) for t in topics.TOPIC_KEYS})
+            property_details = engine_form.form_request(_values)["property_details"]
 
             # Round 36 step 6: each check's feedback controls get their own keys
             st.session_state["check_seq"] = st.session_state.get("check_seq", 0) + 1
@@ -575,7 +496,7 @@ with tab1:
 
             # Round 33 step 2 (Liam, 2026-10-09): where we usually place homes like this. It ranks the
             # markets the check did not rule out from our HawkSoft placements and never changes a verdict
-            # or the cards. Off unless ELIGIBILITY_PLACEMENT is exactly "1"; when off, nothing here runs.
+            # or the cards. ON unless ELIGIBILITY_PLACEMENT is set to other than "1"; when off, nothing here runs.
             if placement.enabled():
                 t_placement = time.perf_counter()
                 try:
@@ -724,7 +645,7 @@ with tab2:
     st.markdown("**" + placement.status_line() + "**", help=(
         "Where we usually place homes like this: ranks the carriers the check did not rule out from our "
         "HawkSoft placements (rules_data/placement/, refreshed monthly). Never changes a verdict. "
-        "ON only when ELIGIBILITY_PLACEMENT is exactly 1."))
+        "ON unless ELIGIBILITY_PLACEMENT is set to something other than 1 (e.g. 0)."))
 
     st.divider()
 
@@ -827,144 +748,3 @@ with tab2:
                 st.info("Guide date: " + (f"{got['guide_date']}, from {got['guide_date_source']}."
                                           if got.get("guide_date") else "not found in the guide or the file name."))
                 st.info("Switch to the Eligibility Check tab to use it.")
-
-
-# ============================================================
-# TAB 3: ASK THE GUIDES
-# ============================================================
-with tab3:
-    import chat as chat_module
-
-    st.title("Ask the Guides")
-    st.caption(
-        "One-off questions about a carrier's underwriting guide, answered with "
-        "quotes from the guide on file. This does not run an eligibility report."
-    )
-
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = []
-    if "chat_programs" not in st.session_state:
-        st.session_state.chat_programs = []
-
-    col_clear, col_note = st.columns([1, 4])
-    with col_clear:
-        if st.button("Clear chat", key="chat_clear", use_container_width=True):
-            st.session_state.chat_history = []
-            st.session_state.chat_programs = []
-            st.rerun()
-    with col_note:
-        if st.session_state.chat_programs:
-            st.caption(
-                "Follow-up questions will stay on: "
-                + ", ".join(display_names.display_name(p) for p in st.session_state.chat_programs)
-            )
-
-    def _render_result(result):
-        """One assistant turn. Warnings before the answer, never after."""
-        for program, defect in result.get("blocked", []):
-            st.error(
-                "**{p}** — this guide cannot be answered from.\n\n{d}\n\n"
-                "Upload the correct PDF on the Manage Carriers tab. This warning "
-                "clears itself once the right document is in place.".format(
-                    p=display_names.display_name(program), d=defect["detail"]
-                )
-            )
-
-        if result["mode"] == "ambiguous":
-            st.warning(
-                "**\"{phrase}\" matches more than one carrier.** These are different "
-                "insurers with different rules, so I'm not going to pick one for you. "
-                "Which did you mean?".format(phrase=result["phrase"])
-            )
-            for candidate in result["candidates"]:
-                st.markdown("- " + display_names.display_name(candidate))
-            return
-
-        if result["mode"] == "cross_carrier":
-            grouped = result["grouped"]
-
-            def _section(title, rows, empty):
-                st.markdown("### " + title)
-                if not rows:
-                    st.caption(empty)
-                    return
-                for row in rows:
-                    label = display_names.display_name(row["program"])
-                    if row["date"]:
-                        label += "  (guide dated " + row["date"] + ")"
-                    with st.expander(label):
-                        if row["detail"]:
-                            st.markdown(row["detail"])
-                        if row["quote"]:
-                            st.markdown("> " + row["quote"])
-
-            _section(
-                "Guide says yes (check the conditions)", grouped["yes"],
-                "No guide affirmatively addresses this.",
-            )
-            _section(
-                "Guide says no", grouped["no"],
-                "No guide excludes this.",
-            )
-            _section(
-                "Guide doesn't address it", grouped["not_addressed"],
-                "Every guide speaks to this.",
-            )
-            st.info(
-                "A guide that doesn't address something has no rule about it. "
-                "That is **not** the same as accepting it — confirm with the "
-                "underwriter before relying on silence."
-            )
-            if result.get("skipped"):
-                st.caption(
-                    "Excluded (no usable document on file): "
-                    + ", ".join(result["skipped"])
-                )
-            return
-
-        if result.get("answer"):
-            if result.get("quotes_verified") is False:
-                st.error(
-                    "**Some quotes below could not be found in the guide they are "
-                    "attributed to.** Treat this answer as unverified and check the "
-                    "PDF directly."
-                )
-                for problem in result["quote_problems"]:
-                    st.markdown(
-                        "- `{reason}` — {quote}".format(
-                            reason=problem["reason"], quote=problem["quote"][:200]
-                        )
-                    )
-            st.markdown(result["answer"])
-
-    # Replay the conversation so far.
-    for turn in st.session_state.chat_history:
-        with st.chat_message(turn["role"]):
-            if turn["role"] == "user":
-                st.markdown(turn["content"])
-            else:
-                _render_result(turn["result"])
-
-    question = st.chat_input("e.g. does Progressive take galvanized plumbing?")
-    if question:
-        with st.chat_message("user"):
-            st.markdown(question)
-
-        with st.chat_message("assistant"):
-            with st.spinner("Reading the guides..."):
-                result = chat_module.ask(
-                    question,
-                    history=[
-                        {"role": t["role"], "content": t.get("content", "")}
-                        for t in st.session_state.chat_history
-                    ],
-                    carried_forward=st.session_state.chat_programs,
-                )
-            _render_result(result)
-
-        st.session_state.chat_history.append({"role": "user", "content": question})
-        st.session_state.chat_history.append(
-            {"role": "assistant", "content": result.get("answer") or "", "result": result}
-        )
-        if result.get("programs"):
-            st.session_state.chat_programs = result["programs"]

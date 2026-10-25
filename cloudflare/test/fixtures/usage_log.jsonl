@@ -1,0 +1,3 @@
+{"ts": "2026-10-12T08:00:00+00:00", "model": "claude-haiku-5-5", "effort": "low", "fallback": false, "calls": {"eligibility": {"model": "claude-haiku-5-5", "input": 1000, "cache_read": 0, "cache_write": 0, "output": 200, "cost": 0.0002, "wall_s": 2.1, "attempts": 1}}, "cost": 0.0002, "wall_s": 12.35, "carriers": 41, "retries": 0, "timings": {"routing": 0.11, "models": 9.9}}
+{"ts": "2026-10-20T08:00:00+00:00", "model": "", "effort": "", "fallback": false, "calls": {}, "cost": 0.0, "wall_s": 1.2, "carriers": 40, "retries": 0, "timings": {"code_eval": 0.5}}
+{"ts": "2026-10-25T23:59:59+00:00", "model": "", "effort": "", "fallback": false, "calls": {}, "cost": 0.0, "wall_s": 0.9, "carriers": 40, "retries": 0, "timings": {}}

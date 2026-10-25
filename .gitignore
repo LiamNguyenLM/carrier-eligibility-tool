@@ -36,3 +36,12 @@ pilot_structured_rules/backtest/
 # Round 33 step 1: Claude's placement refresh state and raw build (hashed ids only). Never commit.
 # The built tables are copied into the tracked rules_data/placement/ by its sync_from_out.py.
 pilot_structured_rules/placement/
+
+# Round 43: the static page (web/) and the Worker
+node_modules/
+web/dist/
+web/dist.report.json
+web/tests/out/
+.wrangler/
+.dev.vars
+cloudflare/build/

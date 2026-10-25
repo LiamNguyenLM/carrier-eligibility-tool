@@ -2987,6 +2987,41 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     if Coverage A is $2+"); millions are read in full.
   <!-- end of round 41 decisions -->
 
+- **2026-10-24 — Liam's answers to the Round 42 plan (Round 43).** (1) Drop the chat tab. (2) cfigtx.com's DNS is
+  unknown: build for a workers.dev address, a custom domain later. (3) Go to Cloudflare as soon as parity passes; no
+  long side-by-side. (4) All office computers have modern browsers; no phone support needed. Claude's
+  recommendations, accepted: (5) design B1 -- the Python engine unchanged in the browser (Pyodide) behind Cloudflare
+  Access; (6) the Worker answers the placement panel, the placement tables never ship to the browser (it gets only
+  the top 3 markets and the reason lines); (7) login by Access with the emailed one-time PIN first, Microsoft 365
+  later; admins Liam and Jonathan. Round 43 merges the plan's Rounds 43 and 44 (build); Round 44 deploys.
+
+- **2026-10-24 — Round 43: the Cloudflare version, built and run locally (not deployed).**
+  - **Switches (0b):** the rules-table switches and the placement panel default ON ("0" turns one off). The test
+    suite pins them OFF (conftest), as every test was written.
+  - **Chat tab removed (0c);** OpenAI stays for the fallback model.
+  - **engine/ (step 1):** the check as one package. The old module names at the root are the same module objects;
+    `eligibility_check.py` is the native entry (.env, Streamlit secrets, the Anthropic client, the retriever).
+    - The store's facts come from `rules_data/engine_manifest.json` when FACTS is set (carriers, upload settings,
+      defects, solar classes, closed programs; `build_engine_manifest.py`, and a test fails while it is stale).
+    - With a manifest, a store read is an error.
+    - `engine.api.check(form, topics)` returns the results page as JSON.
+  - **web/ (step 2):** the static page, with Pyodide and the engine bundle; the form is shared with app.py through
+    `engine/form.py`.
+  - **cloudflare/ and wrangler.toml (step 3):** the Worker (Access check, usage, feedback, the placement panel from
+    D1, the admin CSV in parts of 300, weekly counts) and D1.
+  - **Docs:** `ADD_CARRIER.md` (tracked now; no in-app upload) and `DEPLOY_CLOUDFLARE.md` (Liam's Round 44 steps).
+  - **Parity:**
+    - the engine in a bundle-only folder: 3,569 golden profiles, 0 differences;
+    - the page in headless Edge: 3,569 profiles, 90,782 cards, 0 differences;
+    - the placement port: 14,436 cases, 0 differences.
+  - **Worker CPU** per request is 0.1–1.0 ms, under the Free plan's 10 ms.
+  - **Found and fixed along the way:**
+    - `closed_programs` read the store, which runs beside the repo had hidden;
+    - JavaScript turned 9.0 into 9 ("Fire station 9 mi"; the page now passes Python's JSON text);
+    - the admin CSV took 15 ms of CPU at 1,000 reports (now paged).
+  - **Re-export the golden file** (verification/parity, about 30 minutes as 8 shards) with any rules or card change;
+    ADD_CARRIER.md step 7.
+
 - **2026-10-24 — Round 42: scoping a move to Cloudflare (planning only; no product code changed).** The plan is
   `MIGRATION_PLAN.md` (repo root). What the round found and committed:
   - **0a.** WIL-123 stays a decline: its guide cell ("eligible only if all of the following criteria are met: ... No

@@ -11,6 +11,21 @@ plans this costs **$0 a month** for CFIG's size (assumptions in §3.1).
 not want the rules tables in agents' browsers, or if the first load is too slow on agents' machines. B1 and C share
 the engine bundle and the page, so the choice between them can wait until the Round 44 prototype has been measured.
 
+**Round 43 update (2026-10-24): Liam's answers, and the plan they set.**
+
+1. Drop the chat tab. (Done: round 43 step 0c.)
+2. cfigtx.com's DNS is unknown yet, so build for a workers.dev address; the custom domain can come later.
+3. Move to Cloudflare as soon as parity passes; no long side-by-side.
+4. Every office computer has a modern browser; no phone support is needed.
+5. Design B1 is accepted: the Python engine runs unchanged in the browser (Pyodide), behind Cloudflare Access.
+6. The Worker answers the placement panel. The placement tables never ship to the browser, which gets only the top 3
+   markets and the reason lines.
+7. Login: Cloudflare Access with the emailed one-time PIN first (no Microsoft admin setup needed); Microsoft 365 can
+   be added later. Admins are Liam and Jonathan.
+
+Rounds 43 and 44 below are merged: **Round 43** split the engine, built the page and the Worker and ran them locally
+(not deployed); **Round 44** deploys them (DEPLOY_CLOUDFLARE.md). Railway stays only until Round 44's checks pass.
+
 ---
 
 ## 0. Step 0 results
@@ -349,7 +364,7 @@ and policy, the IdP, creating the D1 database and connecting GitHub.
 
 ---
 
-## 6. Open questions for Liam
+## 6. Open questions for Liam (answered 2026-10-24: see the Round 43 update at the top)
 
 1. **The chat tab:** is it used? Drop it, keep it on Railway, or a Worker round (§3.6)?
 2. **Are the rules tables in agents' browsers acceptable?** Yes means B1 at $0; no means C at $5.

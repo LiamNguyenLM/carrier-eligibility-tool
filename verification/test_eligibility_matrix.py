@@ -5727,8 +5727,16 @@ class TestOptionalIntakeFields:
         assert '[""] + intake_fields.TEXAS_COUNTIES' in src
         assert 'list(intake_fields.DWELLING_TYPES)' in src and intake_fields.DWELLING_TYPES[0] == ""
         assert '"Dwelling amount (Coverage A, $)", value=""' in src
-        for key in ('"county": county', '"dwelling_amount": dwelling_amount', '"dwelling_type": dwelling_type'):
-            assert key in src
+        # CHANGED (round 43 step 2, Liam 2026-10-24: app.py builds property_details with engine.form.form_request,
+        # shared with the web page). Was: the three keys written in app.py's submit block. Now the function itself:
+        # a blank county / amount stays blank (unknown), never a default, and the picked type is sent as picked.
+        from engine import form
+        assert "engine_form.form_request(" in src
+        for county, amount, dtype in (("", "", "House"), ("Harris", "450,000", "Townhome")):
+            pd = form.form_request({"county": county, "dwelling_amount": amount, "dwelling_type": dtype, "chk": {},
+                                    "pool": "No Pool", "occupancy": "Owner Occupied"})["property_details"]
+            assert (pd["county"], pd["dwelling_amount"], pd["dwelling_type"]) == (
+                county, 450000 if amount else None, dtype)
 
     @pytest.mark.parametrize("profile", [STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE,
                                          OWNERSHIP_BASE_PROFILE],
@@ -5806,7 +5814,7 @@ class TestOptionalIntakeFields:
 # fixture, and the real FPC upgrade runs on it first.
 # ---------------------------------------------------------------------------
 
-import chat as _chat
+import quotes as _quotes  # round 43 step 0c: chat.py (which re-exported these) is gone
 import guides as _guides
 from structured_rules import sage_county_in_territory, SAGE_EAST_TEXAS_COUNTIES
 from eligibility_check import _SAGE_LOCATION_RULE
@@ -5857,10 +5865,10 @@ class TestSageCountyHold:
                 label = _TABLE_LABEL_IN_SENTENCE[carrier]
                 assert text.count(label) == 1, carrier
                 text = text.replace(label, "except\nNueces")
-            assert _chat._compare_key(sentence) in _chat._compare_key(text), carrier
+            assert _quotes.compare_key(sentence) in _quotes.compare_key(text), carrier
             # (its bullets and line breaks are not the sentence's: the app's own check, on compare keys)
-            assert _chat._appears_in(sentence, text) or (carrier in _TABLE_LABEL_IN_SENTENCE and _chat._appears_in(
-                _chat._compare_key(sentence), _chat._compare_key(_guides.guide_text(carrier)))), carrier
+            assert _quotes.appears_in(sentence, text) or (carrier in _TABLE_LABEL_IN_SENTENCE and _quotes.appears_in(
+                _quotes.compare_key(sentence), _quotes.compare_key(_guides.guide_text(carrier)))), carrier
         for carrier in _SAGE_UNRESTRICTED:
             text = _guides.guide_text(carrier).lower()
             assert "31 degrees" not in text and "state of texas" in text
@@ -5929,7 +5937,7 @@ class TestSageCountyHold:
             sentence = _SAGE_LOCATION_RULE[c][1]
             assert r["status"] == "INELIGIBLE" and r["flaw_count"] == 1, c
             assert f"{c}: '{sentence}'" in r["citations"]
-            assert _chat._appears_in(sentence, _guides.guide_text(c)), c   # quote-in-own-guide
+            assert _quotes.appears_in(sentence, _guides.guide_text(c)), c   # quote-in-own-guide
 
     def test_nueces_splits_the_family(self):
         by = _by_carrier(_replayed_run(dict(_LIAM_PPC3, county="Nueces"), _sage_answer()))
@@ -6100,13 +6108,13 @@ class TestChubbCoverageAHold:
         "become eligible for placement in our Standard Tier",
     ])
     def test_every_guide_phrase_the_hold_quotes_is_in_chubbs_guide(self, fragment):
-        assert _chat._compare_key(fragment) in _chat._compare_key(_guides.guide_text(_CHUBB))
+        assert _quotes.compare_key(fragment) in _quotes.compare_key(_guides.guide_text(_CHUBB))
 
     def test_the_notes_quote_only_what_the_guide_says(self):
         for amount in (450000, 1500000):
             note = _chubb_amount_note(amount)
             for quoted in re.findall(r'"([^"]+)"', note):
-                assert _chat._compare_key(quoted) in _chat._compare_key(_guides.guide_text(_CHUBB)), quoted
+                assert _quotes.compare_key(quoted) in _quotes.compare_key(_guides.guide_text(_CHUBB)), quoted
 
     def test_no_other_carrier_is_touched(self):
         blank = _by_carrier(_replayed_run(_LIAM_PPC3, _chubb_answer()))
@@ -6192,7 +6200,7 @@ class TestChubbBelowMinimumRefer:
                           "Coverage will not be declined solely based on the minimum of value of the property."]
         text = _guides.guide_text(_CHUBB)
         for q in quotes:
-            assert _chat._appears_in(_chat._compare_key(q), _chat._compare_key(text)), q
+            assert _quotes.appears_in(_quotes.compare_key(q), _quotes.compare_key(text)), q
             assert q in text, q                                # exact, not just after folding
 
 
@@ -6476,7 +6484,7 @@ class TestPoolBoxes:
     def test_the_gate_table_quotes_each_carriers_own_guide(self):
         for carrier, (_, phrase) in _POOL_GATE_RULE.items():
             text = _guides.guide_text(carrier)
-            assert _chat._appears_in(_chat._compare_key(phrase), _chat._compare_key(text)), carrier
+            assert _quotes.appears_in(_quotes.compare_key(phrase), _quotes.compare_key(text)), carrier
 
     def test_the_strict_box_settles_every_listed_carrier(self):
         assert all(settles for settles, _ in _POOL_GATE_RULE.values())

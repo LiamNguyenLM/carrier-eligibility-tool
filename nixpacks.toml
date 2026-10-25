@@ -1,0 +1,3 @@
+# Round 43 (2026-10-24): the repo root now has a package.json (the Cloudflare page and Worker). Railway must keep
+# building the Python app (Procfile: streamlit), not a Node one. Railpack reads railpack.json; Nixpacks reads this.
+providers = ['python']

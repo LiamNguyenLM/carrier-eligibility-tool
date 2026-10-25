@@ -1,0 +1,163 @@
+{
+ "harris_owner": [
+  {
+   "year_built": 1994,
+   "roof_age": 10,
+   "roof_type": "Composition Shingle",
+   "roof_shape": "Gable",
+   "construction_type": "Frame",
+   "plumbing_type": "Copper",
+   "occupancy_type": "Owner Occupied",
+   "ownership_type": "Individual Owner",
+   "coastal_tier": "Not Coastal",
+   "swimming_pool": "No Pool",
+   "pool_accessories": "None",
+   "pool_fence_4ft": false,
+   "pool_gate_locking": false,
+   "has_dogs": "No",
+   "dog_breeds": [],
+   "solar_panels": "No",
+   "ppc": "5",
+   "fire_station_miles": null,
+   "hydrant_1000ft": "Yes",
+   "zip": "77248",
+   "county": "Harris",
+   "dwelling_amount": null,
+   "dwelling_type": "House",
+   "harris_east_146": "Unknown"
+  },
+  [
+   "ppc",
+   "home_age",
+   "roof_age",
+   "county"
+  ]
+ ],
+ "rental_llc_losses": [
+  {
+   "year_built": 2000,
+   "roof_age": 10,
+   "roof_type": "Composition Shingle",
+   "roof_shape": "Gable",
+   "construction_type": "Frame",
+   "plumbing_type": "Copper",
+   "occupancy_type": "Tenant Occupied",
+   "ownership_type": "LLC",
+   "coastal_tier": "Not Coastal",
+   "swimming_pool": "No Pool",
+   "pool_accessories": "None",
+   "pool_fence_4ft": false,
+   "pool_gate_locking": false,
+   "has_dogs": "No",
+   "dog_breeds": [],
+   "solar_panels": "No",
+   "ppc": "N/A",
+   "fire_station_miles": 3.5,
+   "hydrant_1000ft": "Unknown",
+   "zip": "",
+   "county": "",
+   "dwelling_amount": 450000,
+   "dwelling_type": "House",
+   "primary_home_carrier": "The Hartford",
+   "rental_units_total": "1-4",
+   "rental_term": "Long-term",
+   "losses_5yr": "2",
+   "loss_types": [
+    "Water",
+    "Wind or hail"
+   ],
+   "loss_year": 2024,
+   "losses_3yr": "1",
+   "electrical": [
+    "Circuit breakers"
+   ],
+   "units_in_building": "2"
+  },
+  [
+   "ppc",
+   "dwelling_amount"
+  ]
+ ],
+ "seasonal_trust_solar_pool": [
+  {
+   "year_built": 2000,
+   "roof_age": 10,
+   "roof_type": "Composition Shingle",
+   "roof_shape": "Gable",
+   "construction_type": "Frame",
+   "plumbing_type": "Copper",
+   "occupancy_type": "Seasonal",
+   "ownership_type": "Trust",
+   "coastal_tier": "Tier 2",
+   "swimming_pool": "In Ground - Fenced",
+   "pool_accessories": "Slide only",
+   "pool_fence_4ft": true,
+   "pool_gate_locking": false,
+   "has_dogs": "Yes",
+   "dog_breeds": [
+    "None of these"
+   ],
+   "solar_panels": "Yes",
+   "ppc": "N/A",
+   "fire_station_miles": null,
+   "hydrant_1000ft": "Unknown",
+   "zip": "",
+   "county": "",
+   "dwelling_amount": null,
+   "dwelling_type": "Townhome",
+   "primary_home_carrier": "Travelers",
+   "primary_home_miles": 40.0,
+   "trust_type": "Family trust",
+   "solar_type": "Roof-mounted panels",
+   "solar_tesla": "No"
+  },
+  [
+   "coastal",
+   "pool",
+   "dogs",
+   "solar"
+  ]
+ ],
+ "condo_county_by_hand": [
+  {
+   "year_built": 2000,
+   "roof_age": 22,
+   "roof_type": "Tile",
+   "roof_shape": "Flat",
+   "construction_type": "Masonry",
+   "plumbing_type": "Copper",
+   "occupancy_type": "Owner Occupied",
+   "ownership_type": "Individual Owner",
+   "coastal_tier": "Not Coastal",
+   "swimming_pool": "No Pool",
+   "pool_accessories": "None",
+   "pool_fence_4ft": false,
+   "pool_gate_locking": false,
+   "has_dogs": "No",
+   "dog_breeds": [],
+   "solar_panels": "No",
+   "ppc": "N/A",
+   "fire_station_miles": null,
+   "hydrant_1000ft": "Unknown",
+   "zip": "78701",
+   "county": "Bexar",
+   "dwelling_amount": null,
+   "dwelling_type": "Condo"
+  },
+  [
+   "ppc",
+   "coastal",
+   "home_age",
+   "roof_age",
+   "roof_type",
+   "roof_shape",
+   "construction",
+   "plumbing",
+   "pool",
+   "dogs",
+   "solar",
+   "county",
+   "dwelling_amount"
+  ]
+ ]
+}

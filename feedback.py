@@ -19,10 +19,8 @@ import usage_log
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_PATH = os.path.join(HERE, "carrier_docs_db", "feedback_log.jsonl")
-CHOICES = ("Should be Eligible", "Should be Ineligible", "Should be Refer", "Not sure")
-# Round 40 step 2: NatGen Custom360 HO3's rows are NC3-NNN and Progressive HO6's PH6-NNN (a digit in the prefix);
-# they were missing from deciding_rows
-ROW_ID = re.compile(r"\b[A-Z][A-Z0-9]{2}-\d{3}\b")
+# Round 43 step 1: the choices, ROW_ID and deciding_rows live in the engine (the browser fills a report too).
+from engine.feedback_fields import CHOICES, ROW_ID, deciding_rows  # noqa: E402,F401
 CSV_COLUMNS = ("ts", "app_version", "name", "carrier", "display_name", "verdict", "choice", "comment",
                "reasons", "deciding_rows", "model", "rules_table", "checked_topics", "property_details")
 
@@ -44,21 +42,6 @@ def app_version():
         return out.stdout.strip() or "unknown"
     except (OSError, subprocess.SubprocessError):
         return "unknown"
-
-
-def deciding_rows(record):
-    """The rules-table rows the card rests on: every row ID in its reasons, citations, missing items and
-    notes, in order of first appearance."""
-    seen = []
-    for field in ("reasons", "citations", "missing_info", "also_confirm"):
-        for text in record.get(field) or []:
-            for rid in ROW_ID.findall(str(text)):
-                if rid not in seen:
-                    seen.append(rid)
-    for rid in ROW_ID.findall(str(record.get("notes") or "")):
-        if rid not in seen:
-            seen.append(rid)
-    return seen
 
 
 def record(record_, property_details, choice, comment="", name="", model="", display_name="", now=None,

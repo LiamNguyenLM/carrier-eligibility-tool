@@ -1,0 +1,23 @@
+{
+  "name": "cfig-eligibility",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Round 43: the Carrier Eligibility Tool as a static page (the Python engine in Pyodide) and a Cloudflare Worker",
+  "scripts": {
+    "build": "node web/build.mjs",
+    "parity:web": "node web/tests/parity.mjs",
+    "dev": "wrangler dev --local",
+    "migrate:local": "wrangler d1 migrations apply DB --local",
+    "migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "sync:placement": "node cloudflare/scripts/sync_placement.mjs",
+    "import:logs": "node cloudflare/scripts/import_logs.mjs",
+    "test:worker": "node --test cloudflare/test/worker.test.mjs",
+    "bench:worker": "node cloudflare/scripts/bench_cpu.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.63.0",
+    "pyodide": "0.28.3",
+    "wrangler": "4.149.0"
+  }
+}

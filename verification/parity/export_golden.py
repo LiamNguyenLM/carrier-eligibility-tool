@@ -18,6 +18,9 @@ usage (cwd = the repo):
   python verification/parity/export_golden.py merge <out.json.xz> <shard files...>
   python verification/parity/export_golden.py compare <golden.json.xz> <candidate.json.xz>
   python verification/parity/export_golden.py show <profile id>
+  python verification/parity/export_golden.py export-engine <out.json.gz> [--shard i/n]
+      (round 43: the same profiles through engine.api as the browser runs it -- only the bundle's data files,
+       registered strictly, and rules_data/engine_manifest.json instead of the store; compare it with the golden)
   python verification/parity/export_golden.py inputs <golden.json.xz> <out.json>   (the profiles, for a port's runner)
 
 The whole export takes about 30 minutes as 8 processes at once, then merge:
@@ -177,6 +180,81 @@ def card_texts(rec, pd, checked):
            "notes": rec.get("notes") or "", "also_confirm": rec.get("also_confirm") or [],
            "confirm_items": rec.get("confirm_items") or []}
     return {k: canonical(k, raw[k]) for k in TEXTS}
+
+
+def page_texts(c):
+    """A card of engine.api's results page (api.card) in card_texts' terms."""
+    raw = {"name": c["name"], "first": c["first"], "missing": c["missing"], "confirm": c["confirm_html"],
+           "details": c["details_html"], "ids": c["ids_html"], "warning": c["warning"], "reasons": c["reasons"],
+           "citations": c["citations"], "notes": c["notes"], "also_confirm": c["also_confirm"],
+           "confirm_items": c["confirm_items"]}
+    return {k: canonical(k, raw[k]) for k in TEXTS}
+
+
+def doc_from_pages(pages):
+    """A golden document from engine.api results pages ({profile id: page}), to compare with the golden."""
+    S, H, L, profiles = Table(), Table(), Table(), {}
+    for pid, pg in pages.items():
+        full = not pid.startswith("fuzz_")
+        cards_ = []
+        for c in pg["cards"]:
+            out = {"carrier": c["carrier"], "status": c["status"], "raw": c["raw_status"], "flaws": c["flaw_count"],
+                   "rows": L(sorted(set(ROW.findall(" ".join(map(str, c["reasons"])))))),
+                   "held": L([norm(x) for x in c["missing_info"]]),
+                   "confirm_rows": L(sorted({i.get("row") or "" for i in c["confirm_items"]}))}
+            for k, v in page_texts(c).items():
+                out[k] = ([S(x) for x in v] if isinstance(v, list) else S(v)) if full else H(digest(v))
+            out["full"] = full
+            cards_.append(out)
+        profiles[pid] = {"pd": pg["property_details"], "checked": pg["checked_topics"],
+                         "top_box": [[S(norm(t)), a, b] for t, a, b in pg["top_box"]], "cards": cards_}
+    return {"meta": {"made": datetime.date.today().isoformat(), "year": datetime.date.today().year,
+                     "profiles": len(profiles), "exact": list(EXACT), "texts": list(TEXTS),
+                     "note": "from engine.api results pages"},
+            "strings": S.table, "hashes": H.table, "lists": L.table, "profiles": profiles}
+
+
+def export_engine(path, shard=None, inside=False):
+    """The golden's profiles through engine.api as the browser runs it: in a temporary folder holding ONLY the bundle
+    (engine/*.py, its data files, the manifest -- as Pyodide's file system does) plus this script and the golden, an
+    isolated interpreter (-I) registers the bundle's data files strictly before any engine module loads, and the
+    manifest replaces the store; the repo's store modules are not there to import. Shards and merges like export."""
+    import subprocess
+    if not inside:
+        import shutil
+        import tempfile
+        rels = json.loads(subprocess.run(
+            [sys.executable, "-c", "import json, engine.bundle as b; "
+                                   "print(json.dumps(b.code_files() + b.data_files() + [b.MANIFEST]))"],
+            cwd=ROOT, capture_output=True, text=True, check=True).stdout)
+        tmp = tempfile.mkdtemp(prefix="engine_bundle_")
+        try:
+            for rel in rels + ["verification/parity/export_golden.py", "verification/parity/golden.json.xz"]:
+                os.makedirs(os.path.join(tmp, os.path.dirname(rel)), exist_ok=True)
+                shutil.copy(os.path.join(ROOT, rel), os.path.join(tmp, rel))
+            env = {k: v for k, v in os.environ.items() if not k.startswith("ELIGIBILITY_")}
+            subprocess.run([sys.executable, "-I", os.path.join(tmp, "verification", "parity", "export_golden.py"),
+                            "export-engine", os.path.abspath(path), "--inside"] + (["--shard", shard] if shard else []),
+                           cwd=tmp, env=env, check=True)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        return
+    files = []                                 # inside the bundle folder: every file but the code and this script
+    for d, _, names in os.walk(ROOT):
+        rel = os.path.relpath(d, ROOT).replace("\\", "/")
+        if rel.split("/")[0] not in ("engine", "verification"):
+            files += [n if rel == "." else f"{rel}/{n}" for n in names]
+    from engine import data
+    data.register({p: open(os.path.join(ROOT, p), encoding="utf-8").read() for p in files}, strict=True)
+    import engine.api as api
+    with open(os.path.join(ROOT, "rules_data", "engine_manifest.json"), encoding="utf-8") as fh:
+        api.load(manifest=json.load(fh))
+    golden = load(GOLDEN)
+    todo = list(golden["profiles"].items())
+    if shard:
+        i, n = map(int, shard.split("/"))
+        todo = todo[i::n]
+    write(doc_from_pages({pid: api.check(p["pd"], p["checked"]) for pid, p in todo}), path)
 
 
 def card(rec, pd, checked, S, H, L, full):
@@ -360,7 +438,9 @@ def inputs(golden, out):
     """Every profile's inputs, in the golden's order, as [{"id", "pd", "checked"}] -- what a port's runner reads."""
     doc = load(golden)
     with open(out, "w", encoding="utf-8") as fh:
-        json.dump([{"id": pid, "pd": p["pd"], "checked": p["checked"]} for pid, p in doc["profiles"].items()], fh)
+        json.dump([{"id": pid, "pd": p["pd"], "checked": p["checked"],
+                    # the pd as Python's JSON text: the page passes it through untouched (JS turns 9.0 into 9)
+                    "pd_json": json.dumps(p["pd"], ensure_ascii=False)} for pid, p in doc["profiles"].items()], fh)
     print(f"{len(doc['profiles'])} profiles -> {out}")
 
 
@@ -390,5 +470,7 @@ if __name__ == "__main__":
         show(sys.argv[2])
     elif cmd == "inputs":
         inputs(argv[0], argv[1])
+    elif cmd == "export-engine":
+        export_engine([a for a in argv if a != "--inside"][0], opts.get("--shard"), inside="--inside" in argv)
     else:
         sys.exit(__doc__)

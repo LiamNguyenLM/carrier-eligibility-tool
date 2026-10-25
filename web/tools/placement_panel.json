@@ -1,0 +1,29 @@
+{
+ "panel": {
+  "title": "Where we usually place homes like this",
+  "basis": null,
+  "picks": [
+   {
+    "market": "Mock market A",
+    "programs": [
+     "ARI_(HOA+)"
+    ],
+    "held": null,
+    "reason": "MOCK: made-up reason line, not placement data",
+    "fit": null
+   },
+   {
+    "market": "Mock market B",
+    "programs": [
+     "Allied_Trust_HO3"
+    ],
+    "held": "Held: confirm the open items on its card",
+    "reason": "MOCK: made-up reason line",
+    "fit": null
+   }
+  ],
+  "usual": "",
+  "footer": "MOCK placement panel: made up for the page draft, no HawkSoft data."
+ },
+ "markdown": "#### Where we usually place homes like this\n1. **Mock market A** — ARI (HOA+)\n    - MOCK: made-up reason line, not placement data\n2. **Mock market B** — Allied Trust (HO3)\n    - Held: confirm the open items on its card\n    - MOCK: made-up reason line"
+}
