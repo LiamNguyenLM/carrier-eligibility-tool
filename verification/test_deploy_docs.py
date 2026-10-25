@@ -40,3 +40,12 @@ def test_the_deploy_guide_uses_wranglers_names():
     guide = _text("DEPLOY_CLOUDFLARE.md")
     assert name == db == "cfig-eligibility"
     assert f"d1 create {db}" in guide and f"execute {db} --remote" in guide and "workers_dev = true" in guide
+
+
+def test_railway_keeps_building_the_python_app():
+    """Round 43: package.json sits at the repo root now (the Cloudflare page and Worker). Railway's builders detect
+    Node from a root package.json, so both are pinned to Python until Railway is retired (railpack.json for Railpack,
+    nixpacks.toml for Nixpacks); the Procfile still starts streamlit."""
+    assert json.loads(_text("railpack.json"))["provider"] == "python"
+    assert re.search(r"^providers = \['python'\]$", _text("nixpacks.toml"), re.M)
+    assert "streamlit run app.py" in _text("Procfile")
