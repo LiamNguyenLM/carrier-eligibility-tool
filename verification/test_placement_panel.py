@@ -58,7 +58,9 @@ def test_off_by_default_and_nothing_runs_when_off():
     assert src[guard:call].count("\n") <= 3                                  # the only call, right under the guard
     assert src.count("placement.panel(") == 1 and src.count("placement.panel_markdown(") == 1
     # the check itself never reads the placement module or its switch
-    ec_src = open(os.path.join(ROOT, "eligibility_check.py"), encoding="utf-8").read()
+    # CHANGED (round 43 step 1, Liam 2026-10-24: the check moved to engine/pipeline.py). Was eligibility_check.py.
+    ec_src = open(os.path.join(ROOT, "engine", "pipeline.py"), encoding="utf-8").read()
+    assert "def _check_eligibility(" in ec_src
     assert not re.search(r"\bimport placement\b|\bplacement\.|ELIGIBILITY_PLACEMENT", ec_src)
 
 

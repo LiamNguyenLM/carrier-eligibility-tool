@@ -12,7 +12,7 @@ import pytest
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 SWITCHES = ("ELIGIBILITY_RULES_PILOT", "ELIGIBILITY_RULES_SAGE_BATCH", "ELIGIBILITY_RULES_HO3_BATCH",
             "ELIGIBILITY_RULES_DP_BATCH", "ELIGIBILITY_PLACEMENT")
-PRINT = ("import eligibility_check as e, placement as p; "
+PRINT = ("import engine.pipeline as e, placement as p; "
          "print(e.RULES_PILOT, e.RULES_SAGE_BATCH, e.RULES_HO3_BATCH, e.RULES_DP_BATCH, p.enabled())")
 
 
