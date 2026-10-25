@@ -13,6 +13,8 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const now = () => performance.now();
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
+// the same words as the Worker's FEEDBACK_NOT_SAVED (cloudflare/src/routes.js), which answers a failed D1 write
+const FEEDBACK_NOT_SAVED = "Couldn’t save — try again later.";
 
 // The results page's strings: form_spec()["results"] (engine/form.py). Only the f-string parts are put together
 // here.
@@ -563,7 +565,11 @@ function wireFeedback(root, res, pd, checked) {
         $(".sent", box).hidden = false;
         form.reset();                                        // clear_on_submit=True
       } catch (e) {
-        $(".send-failed", box).textContent = "Could not send (" + (e.message || e) + "). Try again.";
+        // round 44b (Liam, 2026-10-25): one message for every failure -- D1 refusing the write (the Worker's 503),
+        // a timeout or no network. What was typed stays in the form for the retry.
+        console.error("feedback not saved --", e);
+        $(".sent", box).hidden = true;
+        $(".send-failed", box).textContent = FEEDBACK_NOT_SAVED;
         $(".send-failed", box).hidden = false;
       }
     });

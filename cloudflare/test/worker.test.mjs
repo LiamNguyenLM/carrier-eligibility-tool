@@ -149,6 +149,76 @@ test("POST /api/feedback: feedback.record()'s fields, choice outside CHOICES bec
   db.sqlite.prepare("DELETE FROM feedback WHERE source = 'worker'").run();     // keep the CSV test to the imports
 });
 
+// ------------------------------------------------------------------------------------------------ D1 write failures
+// Round 44b (Liam, 2026-10-25): after the placement load blew D1's free tier, a D1 write failing must never break a
+// check or a login. Three ways D1 can fail a write, each one tried on every route below.
+function failingDbs() {
+  const refused = () => Promise.reject(new Error("D1_ERROR: Exceeded maximum rows written per day"));
+  const writesRefused = { prepare: (sql) => {
+    const s = db.prepare(sql);                     // reads still work, every write is refused (the daily limit)
+    const wrap = (st) => ({ bind: (...p) => wrap(st.bind(...p)), first: (c) => st.first(c), all: () => st.all(), run: refused });
+    return wrap(s);
+  }, batch: refused };
+  const unreachable = { prepare: () => { throw new Error("D1_ERROR: Network connection lost"); }, batch: refused };
+  return { "writes refused (daily limit)": writesRefused, "D1 unreachable (prepare throws)": unreachable, "no DB binding": undefined };
+}
+
+async function withConsoleErrors(fn) {
+  const logged = [], orig = console.error;
+  console.error = (...a) => logged.push(a.map(String).join(" "));
+  try { await fn(); } finally { console.error = orig; }
+  return logged;
+}
+
+test("a usage row D1 can't write is logged and dropped: 202, never an error the page would show", async () => {
+  const body = { ts: "2026-10-25T18:00:00+00:00", app_version: "abc1234", wall_s: 1.2, carriers: 41, timings: { engine_s: 0.8 } };
+  const before_ = db.sqlite.prepare("SELECT count(*) AS n FROM usage").get().n;
+  for (const [label, bad] of Object.entries(failingDbs())) {
+    let r;
+    const logged = await withConsoleErrors(async () => {
+      r = await call(req("/api/usage", { method: "POST", token: agent, body }), makeEnv(bad));
+    });
+    assert.equal(r.status, 202, label);
+    assert.deepEqual(await r.json(), { ok: false, saved: false }, label);
+    assert.ok(logged.some((l) => l.startsWith("usage: D1 write failed")), `${label}: ${logged}`);
+  }
+  assert.equal(db.sqlite.prepare("SELECT count(*) AS n FROM usage").get().n, before_);
+  // a bad body is still a 400, D1 or not: validation comes first
+  assert.equal((await call(req("/api/usage", { method: "POST", token: agent, body: { carriers: "41" } }),
+    makeEnv(failingDbs()["D1 unreachable (prepare throws)"]))).status, 400);
+});
+
+test("a feedback report D1 can't write says so: 503 \"Couldn't save -- try again later.\", logged", async () => {
+  const { FEEDBACK_NOT_SAVED } = await import("../src/routes.js");
+  assert.equal(FEEDBACK_NOT_SAVED, "Couldn’t save — try again later.");
+  const body = { ts: "2026-10-25T18:01:00+00:00", property_details: { zip: "77494" }, carrier: "TWICO_HO3",
+    verdict: "INELIGIBLE", choice: "Should be Eligible", comment: "roof is 9 years old" };
+  for (const [label, bad] of Object.entries(failingDbs())) {
+    let r;
+    const logged = await withConsoleErrors(async () => {
+      r = await call(req("/api/feedback", { method: "POST", token: agent, body }), makeEnv(bad));
+    });
+    assert.equal(r.status, 503, label);
+    assert.deepEqual(await r.json(), { ok: false, saved: false, error: FEEDBACK_NOT_SAVED }, label);
+    assert.ok(logged.some((l) => l.startsWith("feedback: D1 write failed")), `${label}: ${logged}`);
+  }
+  assert.equal(db.sqlite.prepare("SELECT count(*) AS n FROM feedback WHERE source = 'worker'").get().n, 0);
+});
+
+test("with D1 failing, a whole check still works: whoami, placement and usage answer; only feedback says it failed", async () => {
+  const cases = JSON.parse(readFileSync(join(FIX, "placement_cases.json"), "utf8"));
+  const withPanel = cases.find((c) => c.expected);
+  for (const [label, bad] of Object.entries(failingDbs())) {
+    const e = makeEnv(bad);
+    await withConsoleErrors(async () => {
+      assert.equal((await call(req("/api/whoami", { token: agent }), e)).status, 200, label);
+      const p = await call(req("/api/placement", { method: "POST", token: agent, body: withPanel.body }), e);
+      assert.equal(await p.text(), JSON.stringify(withPanel.expected), label);
+      assert.equal((await call(req("/api/usage", { method: "POST", token: agent, body: { carriers: 3 } }), e)).status, 202, label);
+    });
+  }
+});
+
 // ------------------------------------------------------------------------------------------------ placement
 test("POST /api/placement answers exactly what placement.panel() does (fixtures from Python)", async () => {
   const cases = JSON.parse(readFileSync(join(FIX, "placement_cases.json"), "utf8"));

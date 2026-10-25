@@ -79,6 +79,24 @@ def test_a_migration_drops_every_placement_table_from_d1():
     assert not any(re.search(r"CREATE TABLE\s+(IF NOT EXISTS\s+)?placement_", s) for s in later)
 
 
+def test_a_failed_d1_write_reaches_the_agent_only_for_feedback():
+    # Round 44b (Liam, 2026-10-25): feedback that couldn't be saved says "couldn't save -- try again later"; a usage
+    # row that couldn't be saved is never shown. The Worker side is in worker.test.mjs / gate.test.mjs.
+    js = open(os.path.join(ROOT, "web", "src", "app.js"), encoding="utf-8").read()
+    routes = open(os.path.join(ROOT, "cloudflare", "src", "routes.js"), encoding="utf-8").read()
+    api = open(os.path.join(ROOT, "web", "src", "worker_api.js"), encoding="utf-8").read()
+    const = r'const FEEDBACK_NOT_SAVED = "(.*?)";'
+    page, worker = re.search(const, js).group(1), re.search("export " + const, routes).group(1)
+    assert page == worker == r"Couldn’t save — try again later."
+    wire = re.search(r"function wireFeedback\(.*?\n}\n", js, re.S).group(0)
+    assert re.search(r"catch \(e\) \{.*?\.send-failed\", box\)\.textContent = FEEDBACK_NOT_SAVED;", wire, re.S)
+    assert "Could not send" not in js
+    # the page's two Worker calls: feedback throws on any non-2xx (so a 503 shows the message); usage never throws
+    assert re.search(r"export async function feedback\(record\) \{\s*await postJson\(\"/api/feedback\", record\);", api)
+    assert re.search(r"export async function usage\(body\) \{\s*try \{ await postJson\(\"/api/usage\", body\); \} catch", api)
+    assert "if (!r.ok) throw" in api
+
+
 def test_the_config_keeps_the_site_behind_a_gate():
     # CHANGED (round 44 step 1, Liam 2026-10-25: a shared-password gate until Access): the address is on from the
     # first deploy because the Worker runs first for every path and its gate fails closed without its secrets. Was:
