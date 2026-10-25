@@ -1,0 +1,42 @@
+"""Round 43 step 4 (Liam, 2026-10-24): the deploy guide and the runbooks name real things -- every `npm run <script>`
+is in package.json, every repo file they tell Liam to run or open exists, and the Worker / database name matches
+wrangler.toml -- so a document cannot drift from the repo unnoticed. Zero API."""
+import json
+import os
+import re
+
+import pytest
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DOCS = ["DEPLOY_CLOUDFLARE.md", "ADD_CARRIER.md", "cloudflare/README.md", "web/README.md"]
+pytestmark = pytest.mark.retrieval
+
+
+def _text(doc):
+    return open(os.path.join(ROOT, doc), encoding="utf-8").read()
+
+
+@pytest.mark.parametrize("doc", DOCS)
+def test_every_npm_script_a_doc_names_exists(doc):
+    scripts = json.load(open(os.path.join(ROOT, "package.json"), encoding="utf-8"))["scripts"]
+    named = set(re.findall(r"npm run ([\w:]+)", _text(doc)))
+    assert named <= set(scripts) | {"build"}, named - set(scripts)
+
+
+@pytest.mark.parametrize("doc", DOCS)
+def test_every_repo_file_a_doc_runs_or_opens_exists(doc):
+    paths = set(re.findall(r"\b((?:cloudflare|web|verification|rules_data|engine)/[\w./-]+\.(?:mjs|json|js|py|sql|md|csv|xz))",
+                           _text(doc)))
+    made = re.compile(r"(^|/)(build|out|dist)/|engine_manifest|parity_cases|candidate|placement_data\.py")
+    missing = sorted(p for p in paths if not made.search(p) and "<" not in p
+                     and not os.path.exists(os.path.join(ROOT, p)))
+    assert missing == []
+
+
+def test_the_deploy_guide_uses_wranglers_names():
+    toml = _text("wrangler.toml")
+    name = re.search(r'^name = "([^"]+)"', toml, re.M).group(1)
+    db = re.search(r'^database_name = "([^"]+)"', toml, re.M).group(1)
+    guide = _text("DEPLOY_CLOUDFLARE.md")
+    assert name == db == "cfig-eligibility"
+    assert f"d1 create {db}" in guide and f"execute {db} --remote" in guide and "workers_dev = true" in guide

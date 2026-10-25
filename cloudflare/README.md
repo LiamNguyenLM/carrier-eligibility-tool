@@ -13,7 +13,7 @@ Every command below runs from the **repo root**. `wrangler.toml` goes at the roo
 | file | what it is |
 |---|---|
 | `wrangler.toml` (repo root) | Worker `cfig-eligibility`. Assets `web/dist` with binding `ASSETS`; `run_worker_first = ["/api/*"]`. D1 `cfig-eligibility` with binding `DB` and `migrations_dir = cloudflare/migrations`. Vars `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `ADMIN_EMAILS`. `workers_dev` and `preview_urls` are off (see Access). |
-| `cloudflare/package.json` | wrangler pinned to 4.149.0 (released 2026-10-08), plus npm scripts. |
+| `package.json` (repo root) | wrangler pinned to 4.149.0 (released 2026-10-08), plus the npm scripts: dev, migrate:local, migrate:remote, sync:placement, import:logs, test:worker, bench:worker. |
 | `cloudflare/src/worker.js` | Entry point. Sends `/api/*` to `routes.js` and everything else to `ASSETS`. |
 | `cloudflare/src/access.js` | Checks the `Cf-Access-Jwt-Assertion` token: RS256, team JWKS cached per isolate, `iss`, `aud`, `exp`/`nbf`, and an email in the token. Also holds the local-only `DEV_AUTH_EMAIL` bypass. |
 | `cloudflare/src/routes.js` | The six `/api` routes. Checks request bodies and size limits; builds the admin CSV and the weekly counts. |
@@ -51,13 +51,13 @@ Worker reduces any list it gets to its first non-blank string, so sending the wh
 ## Run it locally (no Cloudflare login needed)
 
 ```sh
-cd cloudflare && npm ci && cd ..                     # wrangler 4.149.0 into cloudflare/node_modules
-npx --prefix cloudflare wrangler d1 migrations apply DB --local
+npm ci                                              # at the repo root: wrangler 4.149.0, pyodide, playwright-core
+npx wrangler d1 migrations apply DB --local
 node cloudflare/scripts/sync_placement.mjs           # -> cloudflare/build/placement_sync.sql
-npx --prefix cloudflare wrangler d1 execute DB --local --file=cloudflare/build/placement_sync.sql
-npx --prefix cloudflare wrangler dev --local --var DEV_AUTH_EMAIL:liam@cfigtx.com
+npx wrangler d1 execute DB --local --file=cloudflare/build/placement_sync.sql
+npx wrangler dev --local --var DEV_AUTH_EMAIL:liam@cfigtx.com
 #   http://127.0.0.1:8787/ serves web/dist (it must exist); http://127.0.0.1:8787/api/whoami
-node --test "cloudflare/test/*.test.mjs"              # the route tests (zero network)
+npm run test:worker                                  # the route tests (zero network)
 ```
 
 `DEV_AUTH_EMAIL` stands in for an Access token only when the request is plain `http://` to localhost, 127.0.0.1 or
@@ -80,8 +80,8 @@ are still committed.
 python rules_data/placement/sync_from_out.py             # as today: Claude's built tables -> rules_data/placement/
 git add rules_data/placement && git commit -m "Placement tables through YYYY-MM"
 node cloudflare/scripts/sync_placement.mjs               # -> cloudflare/build/placement_sync.sql (~1.6 MB)
-npx --prefix cloudflare wrangler d1 execute cfig-eligibility --remote --file=cloudflare/build/placement_sync.sql
-npx --prefix cloudflare wrangler d1 execute cfig-eligibility --remote --file=cloudflare/scripts/check_placement.sql
+npx wrangler d1 execute cfig-eligibility --remote --file=cloudflare/build/placement_sync.sql
+npx wrangler d1 execute cfig-eligibility --remote --file=cloudflare/scripts/check_placement.sql
 #   all_ok = 1, data_through = the new month
 ```
 
@@ -106,7 +106,7 @@ to every query.
 ```sh
 # Liam: download carrier_docs_db/feedback_log.jsonl and usage_log.jsonl from the Railway volume first
 node cloudflare/scripts/import_logs.mjs --feedback feedback_log.jsonl --usage usage_log.jsonl
-npx --prefix cloudflare wrangler d1 execute cfig-eligibility --remote --file=cloudflare/build/import_logs.sql
+npx wrangler d1 execute cfig-eligibility --remote --file=cloudflare/build/import_logs.sql
 ```
 
 - Each line's key is the sha256 of its JSON with sorted keys, inserted with `INSERT OR IGNORE`. Importing the same
@@ -117,15 +117,17 @@ npx --prefix cloudflare wrangler d1 execute cfig-eligibility --remote --file=clo
 
 ## Access and the variables
 
-1. Zero Trust → Access → Applications: create a self-hosted application for the custom domain (all paths). Its
-   policy allows the CFIG agents. Copy the application's **AUD tag** into `ACCESS_AUD`.
-2. `ACCESS_TEAM_DOMAIN` is the team domain, `<team>.cloudflareaccess.com`. The draft has `cfig.cloudflareaccess.com`
-   as a placeholder; confirm it.
+The click-by-click steps are in DEPLOY_CLOUDFLARE.md (repo root). In short:
+
+1. Protect the Worker with Access (the Worker's **Access** tab → All traffic; it covers the workers.dev address
+   Liam chose for now and any custom domain later). Copy the application's **AUD tag** into `ACCESS_AUD`.
+2. `ACCESS_TEAM_DOMAIN` is the team domain, `<team>.cloudflareaccess.com`. `wrangler.toml` ships a placeholder; until
+   both are real values every /api call fails closed (500).
 3. `ADMIN_EMAILS` is a comma list, case-insensitive. Liam (`liam@cfigtx.com`) is in it. **Jonathan's address is a
    placeholder** (`JONATHAN-ADDRESS-TBD@cfigtx.com`): replace it.
-4. Keep `workers_dev = false` and `preview_urls = false`. Access protects only the hostname it is configured on. A
-   `*.workers.dev` or preview URL would serve `web/dist` (the engine and its rules tables) with no Access in front.
-   The API would still refuse requests there, because it checks the token itself.
+4. `workers_dev` stays false until Access is on, then Liam sets it to true (the app's address); `preview_urls` stays
+   false. A `*.workers.dev` or preview URL without Access in front would serve `web/dist` (the engine and its rules
+   tables); the API would still refuse requests there, because it checks the token itself.
 5. Once: `npx wrangler d1 create cfig-eligibility`, then put the printed `database_id` into `wrangler.toml`.
 
 ## Placement parity (the port against Python)
