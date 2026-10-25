@@ -3041,6 +3041,23 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     runs in 1.8 s with no API key and no network connection. (`HERMES_MCP.md`'s "Paid, 30-90 s" predates the
     switches defaulting ON.)
 
+- **2026-10-25 — Round 44b: the placement tables leave D1; D1 write failures are never fatal.**
+  - **Why:** loading the placement tables into D1 blew the free tier: 143k rows written against 100k a day (index
+    entries count as rows). Once the allowance is gone, no D1 query runs that day, reads included.
+  - **The tables now ship inside the Worker.** `cloudflare/scripts/build_placement.mjs` builds them from
+    `rules_data/placement/*.csv` into `cloudflare/build/placement_data.js` (git-ignored, refused by web/build.mjs).
+    wrangler.toml's `[build]` runs it before every deploy. Sizes:
+    - the Worker is 337.85 KiB (86.91 KiB gzip), against a 64 MiB limit;
+    - startup is about 1.5 ms of JSON.parse.
+  - **Monthly refresh:** update the CSVs, then push. A bad CSV fails the build, and the live version stays.
+    Migration 0003 drops the D1 tables.
+  - **Results:** placement parity is 14,436 cases with 0 differences. A panel costs 0.30 ms of CPU (it was 1.0 ms on
+    D1).
+  - **D1 failures:**
+    - a usage row that can't be written is logged and dropped (202);
+    - feedback answers 503, and the page shows "Couldn’t save — try again later.";
+    - login carries on without the lockout counter.
+
 - **2026-10-24 — Round 42: scoping a move to Cloudflare (planning only; no product code changed).** The plan is
   `MIGRATION_PLAN.md` (repo root). What the round found and committed:
   - **0a.** WIL-123 stays a decline: its guide cell ("eligible only if all of the following criteria are met: ... No

@@ -177,8 +177,9 @@ right, or writes what the carrier really does. Fix what they mark. Their decisio
    node web/tests/parity.mjs --profiles inputs.json --out web/tests/out/candidate.json
    python web/tests/candidate_to_golden.py web/tests/out/candidate.json        # 0 difference(s)
    ```
-6. **Placement**: a new market goes in `rules_data/placement/placement_markets.csv`; then refresh the Worker's
-   tables (cloudflare/README.md, "Monthly placement refresh").
+6. **Placement**: a new market goes in `rules_data/placement/placement_markets.csv`. Nothing else to load: the Worker
+   rebuilds its placement tables from the CSVs on every deploy (round 44b; DEPLOY_CLOUDFLARE.md, section 3 step 4).
+   To check before pushing: `npm run build:placement` prints the row counts, or the CSV line at fault.
 7. **Push** (Liam): the push deploys (Workers Builds). The web version needs no `FORCE_RESEED` -- it has no store at
    run time; Railway, while it still runs, does.
 - Never open a tracked seed with chromadb directly: opening a store writes to its sqlite file. Tests read

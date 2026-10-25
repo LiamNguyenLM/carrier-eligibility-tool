@@ -17,22 +17,30 @@ Docs were checked on 2026-10-24/25. A tag such as [S9] points to the Sources lis
 1. `npm ci`, then `npx wrangler login` and `npx wrangler whoami`. The last should show the CFIG account [S5].
 2. Your commit 9a739a5 already has the database id. If you ever recreate the database, run
    `npx wrangler d1 create cfig-eligibility`, paste the new `database_id` into `wrangler.toml`, and commit [S6].
-3. Create the tables. This is migrations 0001 and 0002; 0002 holds the login lockout [S7]:
+3. Create the tables. This is migrations 0001 to 0003 [S7]:
+   - 0002 holds the login lockout;
+   - 0003 drops the placement tables again. They are now part of the Worker (see the box below), and D1 keeps only
+     feedback, usage and the lockout.
    ```
    npm run migrate:remote
    ```
-4. Load the placement tables. These never reach the browser; the Worker answers the panel from them:
-   ```
-   node cloudflare/scripts/sync_placement.mjs
-   npx wrangler d1 execute cfig-eligibility --remote --file=cloudflare/build/placement_sync.sql
-   npx wrangler d1 execute cfig-eligibility --remote --file=cloudflare/scripts/check_placement.sql   # all_ok = 1
-   ```
-5. Optional: import Railway's logs, if you can download them. Re-running never duplicates a row. Delete the files
+   If it fails with a daily-limit error, D1's free allowance for the day is used up. Nothing can query D1 until it
+   resets at 00:00 UTC (7 pm Central in summer, 6 pm in winter) [S33]. Run it again after that.
+4. Optional: import Railway's logs, if you can download them. Re-running never duplicates a row. Delete the files
    afterwards; they hold real feedback.
    ```
    node cloudflare/scripts/import_logs.mjs --feedback <feedback_log.jsonl> --usage <usage_log.jsonl>
    npx wrangler d1 execute cfig-eligibility --remote --file=cloudflare/build/import_logs.sql
    ```
+   Each imported line costs 3 to 4 rows written: the row plus one per index (a usage row has two, a report three)
+   [S33]. Keep one day's import under about 25,000 lines (`wc -l` on the two files).
+
+> **No placement load step.** On 2026-10-25 loading the placement tables into D1 used 143k rows written, against a
+> free allowance of 100k a day (index entries count too). So the tables now go into the Worker itself:
+> - **On every deploy:** wrangler builds them from `rules_data/placement/*.csv` (the `[build]` step in
+>   `wrangler.toml` [S35]), on your machine and in the GitHub build alike. The browser never gets them.
+> - **Size:** the Worker is about 340 KB, against Cloudflare's 64 MiB limit [S34].
+> - **Monthly refresh:** update the CSVs and push (section 3, step 4).
 
 ## 2. The three secrets
 
@@ -76,6 +84,20 @@ npx wrangler secret put SESSION_SECRET      # 32+ random characters, never typed
    you push code that needs them).
 3. A push also still deploys Railway while it exists. `railpack.json` / `nixpacks.toml` keep it building the Python
    app. If you revive Railway, check its build log says Python.
+4. **The monthly placement refresh is "update the CSVs, push":**
+   ```
+   python rules_data/placement/sync_from_out.py        # as before: the refreshed tables -> rules_data/placement/
+   git add rules_data/placement
+   git commit -m "Placement tables through YYYY-MM"
+   git push
+   ```
+   - **What the build does:** it rebuilds the Worker's tables from those CSVs. In the build log (Deployments → the
+     new version → View build), look for this line, with the new month:
+     `[custom build] placement tables: wrote ... data through YYYY-MM`.
+   - **If a CSV is bad** (a missing column, a bad month or count, no `data_through`): the build stops with
+     "placement tables not built" and the line at fault. The live version keeps answering with last month's
+     tables. Fix the CSV and push again.
+   - **No D1 step, no window without a panel.** A deploy switches every request to the new tables at once.
 
 ## 4. The address
 
@@ -103,6 +125,16 @@ same code under another address.
 5. **Log out**, then sign in with the admin password → **Download feedback** gives the CSV, and
    `/api/admin/weekly` gives the counts.
 6. **Log out** → back to the login page, and the tool's address shows the login page again.
+
+**If D1 runs out of its free allowance** (100k rows written a day; when it is used up no D1 query runs at all, reads
+included [S33]):
+- logins and checks still work, and so does the placement panel (it never uses D1);
+- the login lockout doesn't count wrong passwords that day;
+- usage rows are dropped;
+- "This looks wrong" says "Couldn’t save — try again later.", keeping what the agent typed.
+
+Each failure is in the Worker's logs: **Workers & Pages → cfig-eligibility → Logs**, lines starting "usage: D1 write
+failed", "feedback: D1 write failed" or "login_failures". The allowance resets at 00:00 UTC.
 
 ## 6. Rolling back
 
@@ -164,7 +196,7 @@ same code under another address.
 ## Turning off Railway
 
 Once agents have used the new address for a day or two:
-1. import Railway's final logs (1.5), if you can still download them;
+1. import Railway's final logs (1.4), if you can still download them;
 2. point any bookmarks at the new address;
 3. delete the Railway service and cancel the plan;
 4. note the date in `handoff.md`.
@@ -193,3 +225,6 @@ CFIG-GPT needs nothing: its MCP server imports the engine on your laptop and nev
 - [S29] https://developers.cloudflare.com/d1/reference/time-travel/
 - [S30] https://developers.cloudflare.com/workers/configuration/versions-and-deployments/rollbacks/
 - [S32] https://developers.cloudflare.com/workers/configuration/routing/workers-dev/
+- [S33] https://developers.cloudflare.com/d1/platform/pricing/ (free limits, the 00:00 UTC reset, index writes)
+- [S34] https://developers.cloudflare.com/workers/platform/limits/ (Worker size: 64 MiB, uncompressed only)
+- [S35] https://developers.cloudflare.com/workers/wrangler/configuration/#custom-builds
