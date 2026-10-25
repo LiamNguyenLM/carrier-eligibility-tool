@@ -19,9 +19,13 @@ COASTAL = sorted(rid for rid, m in ev._map().items() if "coastal_tier" in m["fie
 
 
 def test_the_form_labels_are_the_app_s_options():
+    # CHANGED (round 43 step 2, Liam 2026-10-24: one form for app.py and the web page -- the choices live in
+    # engine/form.py and app.py reads them from there). Was: each label written in app.py's source.
+    from engine import form
     src = open(os.path.join(ROOT, "app.py"), encoding="utf-8").read()
-    for label in LABELS:
-        assert f'"{label}"' in src
+    assert "list(engine_form.COASTAL_CHOICES)" in src
+    assert set(LABELS) == set(form.COASTAL_CHOICES)
+    assert {c.split(" - ")[0] for c in form.COASTAL_CHOICES} == {v or "Not Coastal" for v in LABELS.values()}
 
 
 def test_the_28_coastal_lines():

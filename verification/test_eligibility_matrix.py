@@ -5727,8 +5727,16 @@ class TestOptionalIntakeFields:
         assert '[""] + intake_fields.TEXAS_COUNTIES' in src
         assert 'list(intake_fields.DWELLING_TYPES)' in src and intake_fields.DWELLING_TYPES[0] == ""
         assert '"Dwelling amount (Coverage A, $)", value=""' in src
-        for key in ('"county": county', '"dwelling_amount": dwelling_amount', '"dwelling_type": dwelling_type'):
-            assert key in src
+        # CHANGED (round 43 step 2, Liam 2026-10-24: app.py builds property_details with engine.form.form_request,
+        # shared with the web page). Was: the three keys written in app.py's submit block. Now the function itself:
+        # a blank county / amount stays blank (unknown), never a default, and the picked type is sent as picked.
+        from engine import form
+        assert "engine_form.form_request(" in src
+        for county, amount, dtype in (("", "", "House"), ("Harris", "450,000", "Townhome")):
+            pd = form.form_request({"county": county, "dwelling_amount": amount, "dwelling_type": dtype, "chk": {},
+                                    "pool": "No Pool", "occupancy": "Owner Occupied"})["property_details"]
+            assert (pd["county"], pd["dwelling_amount"], pd["dwelling_type"]) == (
+                county, 450000 if amount else None, dtype)
 
     @pytest.mark.parametrize("profile", [STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE,
                                          OWNERSHIP_BASE_PROFILE],
