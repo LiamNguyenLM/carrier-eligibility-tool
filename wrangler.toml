@@ -13,6 +13,15 @@ compatibility_date = "2026-10-01"
 workers_dev = true
 preview_urls = false
 
+# Round 44b (Liam, 2026-10-25): the placement tables are part of the Worker, not D1 (loading them into D1 blew the free
+# tier's 100k rows written a day). Before every `wrangler deploy` and `wrangler dev`, wrangler runs this: it turns
+# rules_data/placement/*.csv into cloudflare/build/placement_data.js, which routes.js imports. So a push with new CSVs
+# deploys new tables, and a bad CSV fails the build (the live version stays). The module is git-ignored and never in
+# web/dist: the browser never gets the tables.
+[build]
+command = "node cloudflare/scripts/build_placement.mjs"
+watch_dir = ["cloudflare/src", "rules_data/placement"]
+
 [assets]
 directory = "web/dist"
 binding = "ASSETS"

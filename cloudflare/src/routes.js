@@ -4,12 +4,14 @@
 //   GET  /api/whoami              {email, admin}
 //   POST /api/usage               one row per check (usage_log.record()'s fields; the browser makes no model call)
 //   POST /api/feedback            one "This looks wrong" report (feedback.record()'s fields) + the agent's email
-//   POST /api/placement           placement.panel()'s dict, or null (placement.js)
+//   POST /api/placement           placement.panel()'s dict, or null (placement.js; the tables are in the bundle)
 //   GET  /api/admin/feedback.csv  the reports, feedback.to_csv()'s columns (+ email last), 300 a part (?part=N)
 //   GET  /api/admin/weekly        checks and reports per ISO week
 import { AuthError, identify } from "./access.js";
 import { CSV_HEADER, feedbackCsvLine } from "./csv.js";
 import { ageBand, buildPanel, covaBand, loadPanelTables, monthIndex, parsePlacementBody, pyCmp, pyStrip } from "./placement.js";
+// Generated from rules_data/placement/*.csv before every deploy / dev run (wrangler.toml [build]); git-ignored.
+import PLACEMENT from "../build/placement_data.js";
 
 export const CHOICES = ["Should be Eligible", "Should be Ineligible", "Should be Refer", "Not sure"];
 const LIMITS = { usage: 16 * 1024, feedback: 64 * 1024, placement: 64 * 1024 };
@@ -129,14 +131,9 @@ async function postPlacement(request, env) {
     throw new HttpError(400, e.message);
   }
   const year = parseInt(req.asOf.slice(0, 4), 10);
-  let T;
-  try {
-    T = await loadPanelTables(env.DB, { zip5: req.pd.zip, county: req.pd.county, ageB: ageBand(year, req.pd.year_built),
-      covaB: covaBand(req.pd.dwelling_amount), asof: monthIndex(req.asOf) });
-  } catch (e) {
-    console.error("placement: D1 failed --", e && e.message);
-    throw new HttpError(503, "placement data unavailable");      // e.g. while a monthly refresh is importing
-  }
+  // round 44b: the tables are bundled into the Worker (build_placement.mjs), so the panel never touches D1
+  const T = loadPanelTables(PLACEMENT, { zip5: req.pd.zip, county: req.pd.county, ageB: ageBand(year, req.pd.year_built),
+    covaB: covaBand(req.pd.dwelling_amount), asof: monthIndex(req.asOf) });
   return json(buildPanel(req.results, req.pd, req.asOf, T));
 }
 

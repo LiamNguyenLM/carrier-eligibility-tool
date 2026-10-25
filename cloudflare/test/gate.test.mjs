@@ -3,9 +3,10 @@
 // so a test can prove a refused request never reached a static file.
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
-import worker from "../src/worker.js";
 import { COOKIE, MAX_FAILURES, SESSION_DAYS, signSession } from "../src/session.js";
-import { DEFAULT_CSV_DIR, makeDb } from "../scripts/harness.mjs";
+import { loadWorker, makeDb } from "../scripts/harness.mjs";
+
+const { worker } = await loadWorker();
 
 const SECRETS = { APP_PASSWORD: "agents-pass-2026", ADMIN_PASSWORD: "admin-pass-2026!",
   SESSION_SECRET: "s".repeat(24) + "-0123456789abcdef" };
@@ -34,7 +35,7 @@ async function loginAs(password, name = "") {
   return m[1];
 }
 
-before(() => { db = makeDb(DEFAULT_CSV_DIR, []); });
+before(() => { db = makeDb(); });
 
 // every kind of path the site serves: the page, its scripts, the engine bundle, Pyodide, the rules data, the API
 const PATHS = [["GET", "/"], ["GET", "/index.html"], ["GET", "/src/app.js"], ["GET", "/engine.tar.gz"],

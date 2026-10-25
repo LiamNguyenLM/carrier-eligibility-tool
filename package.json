@@ -10,9 +10,9 @@
     "dev": "wrangler dev --local",
     "migrate:local": "wrangler d1 migrations apply DB --local",
     "migrate:remote": "wrangler d1 migrations apply DB --remote",
-    "sync:placement": "node cloudflare/scripts/sync_placement.mjs",
+    "build:placement": "node cloudflare/scripts/build_placement.mjs",
     "import:logs": "node cloudflare/scripts/import_logs.mjs",
-    "test:worker": "node --test cloudflare/test/worker.test.mjs cloudflare/test/gate.test.mjs",
+    "test:worker": "node --test --test-concurrency=1 cloudflare/test/worker.test.mjs cloudflare/test/gate.test.mjs",
     "bench:worker": "node cloudflare/scripts/bench_cpu.mjs",
     "bench:gate": "node cloudflare/scripts/bench_gate.mjs"
   },

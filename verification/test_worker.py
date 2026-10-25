@@ -2,7 +2,8 @@
 routes, the D1 stand-in, the feedback CSV, the log import), the placement port against Python's placement.panel on
 every golden profile (the browser never gets the tables: the Worker answers the panel), the config's safety
 settings, and the page's feedback / usage bodies against feedback.record and the Worker's fields. Zero API; Node's
-built-ins only (no npm install needed)."""
+built-ins only (no npm install needed). Round 44b: the placement tables are bundled into the Worker (built from the
+CSVs before every deploy), not loaded into D1."""
 import json
 import os
 import re
@@ -39,6 +40,43 @@ def test_the_placement_port_matches_python_on_every_golden_profile(tmp_path):
     rc, out = _node("cloudflare/scripts/placement_parity.mjs", str(cases))
     assert rc == 0 and re.search(r"TOTAL\s+\d+ cases: 0 differences", out), out[-3000:]
     assert re.search(r"golden\s+3569 cases", out), out[-1000:]
+
+
+PLACEMENT_TABLES = ("placement_zip", "placement_county", "placement_profile", "placement_all", "placement_markets",
+                    "placement_meta")
+
+
+def test_the_placement_tables_are_built_into_every_deploy_not_loaded_into_d1():
+    # Round 44b (Liam, 2026-10-25): the D1 load blew the free tier (143k rows written / 100k a day). The tables are
+    # now a module the Worker imports, which wrangler builds from the CSVs before every deploy and dev run -- so the
+    # monthly refresh is "update the CSVs, push", and no step writes them to D1.
+    toml = open(os.path.join(ROOT, "wrangler.toml"), encoding="utf-8").read()
+    build = re.search(r"^\[build\]\n(.*?)(?=^\[)", toml, re.M | re.S)
+    assert build and re.search(r'^command = "node cloudflare/scripts/build_placement\.mjs"$', build.group(1), re.M)
+    assert "rules_data/placement" in build.group(1)                  # wrangler dev rebuilds on a CSV change
+    routes = open(os.path.join(ROOT, "cloudflare", "src", "routes.js"), encoding="utf-8").read()
+    assert 'import PLACEMENT from "../build/placement_data.js";' in routes
+    post = re.search(r"async function postPlacement\(.*?\n}\n", routes, re.S).group(0)
+    assert "env.DB" not in post and "loadPanelTables(PLACEMENT," in post
+    ignore = open(os.path.join(ROOT, ".gitignore"), encoding="utf-8").read().splitlines()
+    assert "cloudflare/build/" in ignore                              # generated, never committed
+    for gone in ("cloudflare/scripts/sync_placement.mjs", "cloudflare/scripts/check_placement.sql"):
+        assert not os.path.exists(os.path.join(ROOT, gone)), gone
+    pkg = json.load(open(os.path.join(ROOT, "package.json"), encoding="utf-8"))
+    assert "sync:placement" not in pkg["scripts"] and "build_placement.mjs" in pkg["scripts"]["build:placement"]
+
+
+def test_a_migration_drops_every_placement_table_from_d1():
+    mig = os.path.join(ROOT, "cloudflare", "migrations")
+    files = sorted(f for f in os.listdir(mig) if f.endswith(".sql"))
+    assert "0003_drop_placement.sql" in files, files
+    sql = open(os.path.join(mig, "0003_drop_placement.sql"), encoding="utf-8").read()
+    dropped = re.findall(r"^DROP TABLE IF EXISTS (\w+);$", sql, re.M)
+    created = re.findall(r"^CREATE TABLE (placement_\w+)", open(os.path.join(mig, "0001_init.sql"), encoding="utf-8").read(), re.M)
+    assert sorted(dropped) == sorted(created) == sorted(PLACEMENT_TABLES)
+    # nothing after 0003 brings one back (worker.test.mjs checks the same on the applied schema)
+    later = [open(os.path.join(mig, f), encoding="utf-8").read() for f in files if f > "0003_drop_placement.sql"]
+    assert not any(re.search(r"CREATE TABLE\s+(IF NOT EXISTS\s+)?placement_", s) for s in later)
 
 
 def test_the_config_keeps_the_site_behind_a_gate():

@@ -43,6 +43,24 @@ def test_no_placement_table_can_ship(name):
     assert not any(fnmatch.fnmatchcase(name, p) for p in _build_list())
 
 
+def _forbidden_regexes():
+    """build.mjs's FORBIDDEN list as Python regexes (each JS /.../i literal; \\/ means / in both)."""
+    block = re.search(r"const FORBIDDEN = \[(.*?)\];", BUILD, re.S).group(1)
+    return [re.compile(src, re.I if "i" in flags else 0) for src, flags in re.findall(r"/(.+?)/([a-z]*)(?:,|\s*$)", block)]
+
+
+# Round 44b (Liam, 2026-10-25): the placement tables are bundled into the Worker as cloudflare/build/placement_data.js.
+# The page's build must refuse that module however it gets there: by its own path, by name alone, or renamed.
+@pytest.mark.parametrize("name", ["cloudflare/build/placement_data.js", "placement_data.js", "src/placement_data.min.js",
+                                  "cloudflare/build/anything_else.js", "rules_data/placement/placement_markets.csv"])
+def test_the_workers_placement_module_can_never_ship_in_the_page(name):
+    rx = _forbidden_regexes()
+    assert len(rx) >= 5, rx
+    assert any(r.search(name) for r in rx), name
+    for ok in ("src/app.js", "engine.tar.gz", "rules_data/carrier_rules_pilot_v5.csv", "build.json"):
+        assert not any(r.search(ok) for r in rx), ok
+
+
 def test_the_page_loads_the_manifest_before_any_check():
     js = open(os.path.join(ROOT, "web", "src", "engine.js"), encoding="utf-8").read()
     assert "engine_manifest.json" in js and "_web_api.load(manifest=" in js

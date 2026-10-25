@@ -6,15 +6,15 @@
 //
 // Each route runs as the Worker's own fetch() on real Request objects (built before the clock starts), with an Access
 // token verified on every request (RS256 against a cached test JWKS) and env.DB the node:sqlite D1 stand-in loaded
-// with the real placement tables plus a year of synthetic usage / feedback rows. Windows' process CPU clock ticks
+// with a year of synthetic usage / feedback rows. Round 44b: the placement tables are the Worker's bundled module,
+// built from the CSVs first (loadWorker), so the placement routes read no D1 in either measurement. Windows' process CPU clock ticks
 // every ~15.6 ms, so a request is never timed alone: process.cpuUsage() over a block of N requests, divided by N.
 // Two measurements per route: A with D1 = node:sqlite in this process (SQLite's work counted too -- an upper bound),
 // B with D1's answers replayed as JSON (CannedDb below) -- the Worker's own CPU, which is what the 10 ms limit counts.
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import worker from "../src/worker.js";
 import { resetJwksCache } from "../src/access.js";
-import { DEFAULT_CSV_DIR, makeAccess, makeDb, makeEnv, req } from "./harness.mjs";
+import { DEFAULT_CSV_DIR, loadWorker, makeAccess, makeDb, makeEnv, req } from "./harness.mjs";
 import { sqlLit } from "./lib.mjs";
 import { feedbackCsvLine } from "../src/csv.js";
 
@@ -67,7 +67,8 @@ function placementBodies() {
 const A = await makeAccess();
 globalThis.fetch = A.fetchStub;
 resetJwksCache();
-const db = makeDb(csvDir, syntheticLogs());
+const { worker } = await loadWorker(csvDir);
+const db = makeDb(syntheticLogs());
 const env = makeEnv(db);
 const agent = await A.token(), admin = await A.token({ email: "liam@cfigtx.com" });
 const bodies = placementBodies();

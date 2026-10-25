@@ -1,11 +1,12 @@
 // A Worker environment in plain Node, for the tests and the CPU benchmark (round 43 step 3): env.DB is the node:sqlite
-// D1 stand-in loaded with the migrations and the placement sync, env.ASSETS a stub, and Access is a test RS256 key
-// pair whose JWKS is served by a stubbed fetch() -- so every request still goes through the full token check.
+// D1 stand-in loaded with the migrations, env.ASSETS a stub, and Access is a test RS256 key pair whose JWKS is served
+// by a stubbed fetch() -- so every request still goes through the full token check. Round 44b: the placement tables
+// are no longer in D1 but in the Worker's bundle, so loadWorker() builds that module from the CSVs first.
 import { readdirSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { D1Stub } from "./lib.mjs";
-import { buildSyncSql } from "./sync_placement.mjs";
+import { DEFAULT_CSV_DIR as CSV_DIR, writePlacementModule } from "./build_placement.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const TEAM = "cfig-test.cloudflareaccess.com";
@@ -38,16 +39,26 @@ export async function makeAccess() {
   true, ["sign", "verify"])).privateKey };
 }
 
-/** The D1 stand-in with the migrations and the placement tables (from csvDir) applied. */
-export function makeDb(csvDir, extraSql = []) {
+/** The D1 stand-in with every migration applied (0003 drops the placement tables again), then extraSql. */
+export function makeDb(extraSql = []) {
   const db = new D1Stub(":memory:");
   const migDir = join(HERE, "..", "migrations");
   for (const f of readdirSync(migDir).filter((x) => x.endsWith(".sql")).sort()) db.sqlite.exec(readFileSync(join(migDir, f), "utf8"));
   db.sqlite.exec("BEGIN");
-  db.sqlite.exec(buildSyncSql(csvDir).sql);
   for (const s of extraSql) db.sqlite.exec(s);
   db.sqlite.exec("COMMIT");
   return db;
+}
+
+/**
+ * {worker: the Worker's default export, built: what was built}, with its placement module (cloudflare/build/placement_data.js) built from csvDir
+ * first -- what wrangler's [build] step does before a deploy. A dynamic import, because routes.js imports the module
+ * statically and it must exist before routes.js is linked.
+ */
+export async function loadWorker(csvDir = CSV_DIR) {
+  const built = writePlacementModule(csvDir);
+  const mod = await import("../src/worker.js");
+  return { worker: mod.default, built };
 }
 
 export function makeEnv(db, vars = {}) {
@@ -65,4 +76,4 @@ export function req(path, { method = "GET", token, body, type = "application/jso
     : typeof body === "string" ? body : JSON.stringify(body) });
 }
 
-export const DEFAULT_CSV_DIR = resolve(HERE, "..", "..", "rules_data", "placement");
+export const DEFAULT_CSV_DIR = CSV_DIR;
