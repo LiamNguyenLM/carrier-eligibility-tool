@@ -22,8 +22,11 @@ def _node(*args, timeout=900):
     return out.returncode, out.stdout + out.stderr
 
 
-def test_the_worker_node_tests_pass():
-    rc, out = _node("--test", "cloudflare/test/worker.test.mjs")
+@pytest.mark.parametrize("name", ["worker", "gate"])
+def test_the_worker_node_tests_pass(name):
+    # round 44: + gate.test.mjs, the password gate (no path without a session, tampered / expired cookies, admin
+    # routes, the lockout, missing secrets, access mode unchanged)
+    rc, out = _node("--test", f"cloudflare/test/{name}.test.mjs")
     assert rc == 0 and re.search(r"\bfail 0\b", out), out[-3000:]
 
 
@@ -38,12 +41,19 @@ def test_the_placement_port_matches_python_on_every_golden_profile(tmp_path):
     assert re.search(r"golden\s+3569 cases", out), out[-1000:]
 
 
-def test_the_config_keeps_the_site_behind_access():
+def test_the_config_keeps_the_site_behind_a_gate():
+    # CHANGED (round 44 step 1, Liam 2026-10-25: a shared-password gate until Access): the address is on from the
+    # first deploy because the Worker runs first for every path and its gate fails closed without its secrets. Was:
+    # workers_dev = false and run_worker_first = ["/api/*"] until Access is on.
     toml = open(os.path.join(ROOT, "wrangler.toml"), encoding="utf-8").read()
-    assert re.search(r"^workers_dev = false$", toml, re.M)          # until Access is on (DEPLOY_CLOUDFLARE.md)
+    mode = re.search(r'^AUTH_MODE = "(\w+)"', toml, re.M).group(1)
+    assert mode in ("password", "access")
+    if mode == "password":                       # the gate must see every path, static files included
+        assert re.search(r"^run_worker_first = true$", toml, re.M)
     assert re.search(r"^preview_urls = false$", toml, re.M)
-    assert 'directory = "web/dist"' in toml and 'run_worker_first = ["/api/*"]' in toml
-    assert not re.search(r"^DEV_AUTH_EMAIL\s*=", toml, re.M)
+    assert 'directory = "web/dist"' in toml
+    for secret in ("APP_PASSWORD", "ADMIN_PASSWORD", "SESSION_SECRET", "DEV_AUTH_EMAIL"):
+        assert not re.search(rf"^{secret}\s*=", toml, re.M), secret      # secrets: wrangler secret put, never here
 
 
 def test_the_pages_feedback_line_has_feedback_records_fields():

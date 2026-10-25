@@ -1,23 +1,25 @@
 # cfig-eligibility -- the Carrier Eligibility Tool on Cloudflare (round 43 step 3).
 # This file lives at the REPO ROOT; every path below is relative to it.
-# Schema: node_modules/wrangler/config-schema.json (wrangler 4.149.0, pinned in cloudflare/package.json).
+# Schema: node_modules/wrangler/config-schema.json (wrangler 4.149.0, pinned in the root package.json).
 name = "cfig-eligibility"
 main = "cloudflare/src/worker.js"
 compatibility_date = "2026-10-01"
 
-# Liam, 2026-10-24: a workers.dev address for now (cfigtx.com's DNS is not known yet). Cloudflare Access must be on
-# for it BEFORE it serves anything -- the static site carries the engine and its rules tables -- so this stays false
-# for the first deploy; once Access is on for the Worker (its Access tab, which covers workers.dev), Liam sets it to
-# true and pushes (DEPLOY_CLOUDFLARE.md). Preview URLs stay off. A custom domain later:
+# Liam, 2026-10-24: a workers.dev address for now (cfigtx.com's DNS is not known yet). Round 44 (Liam, 2026-10-25):
+# until Cloudflare Access is on, the Worker's own password gate protects every path (AUTH_MODE below), and it fails
+# closed while its secrets are missing -- so the address can be on from the first deploy: before the secrets are set
+# it shows only "isn't set up yet". Preview URLs stay off. A custom domain later:
 #   routes = [{ pattern = "eligibility.cfigtx.com", custom_domain = true }]
-workers_dev = false
+workers_dev = true
 preview_urls = false
 
 [assets]
 directory = "web/dist"
 binding = "ASSETS"
-# Only the API runs the Worker; every other path is a static file (no Worker CPU, no Worker request).
-run_worker_first = ["/api/*"]
+# Round 44: the Worker runs first for EVERY path, so the password gate sees the page, the scripts, the engine bundle
+# and the rules data before they are served (each is a Worker request; well inside the free plan). Under Access this
+# can go back to ["/api/*"] (DEPLOY_CLOUDFLARE.md, "Later: Cloudflare Access").
+run_worker_first = true
 
 [[d1_databases]]
 binding = "DB"
@@ -27,6 +29,11 @@ database_id = "dca0e63f-c783-474d-9412-126ab1e345eb"
 migrations_dir = "cloudflare/migrations"
 
 [vars]
+# Round 44 (Liam, 2026-10-25): "password" until Cloudflare Access is on, then "access" (DEPLOY_CLOUDFLARE.md).
+# Password mode needs three secrets, set with `npx wrangler secret put` and never written here or in git:
+# APP_PASSWORD (the agents'), ADMIN_PASSWORD (a different one: feedback download, weekly counts), SESSION_SECRET
+# (32+ random characters; changing it signs everyone out). Any missing: every path refuses.
+AUTH_MODE = "password"
 ACCESS_TEAM_DOMAIN = "cfig.cloudflareaccess.com"        # Zero Trust -> Settings -> Custom pages: the team domain
 ACCESS_AUD = "REPLACE-WITH-THE-ACCESS-APPLICATION-AUD-TAG"   # Zero Trust -> Access -> Applications -> the app -> Overview
 # Comma list, case-insensitive. Jonathan's address is not known yet: replace the placeholder.

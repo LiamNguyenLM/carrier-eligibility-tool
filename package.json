@@ -12,8 +12,9 @@
     "migrate:remote": "wrangler d1 migrations apply DB --remote",
     "sync:placement": "node cloudflare/scripts/sync_placement.mjs",
     "import:logs": "node cloudflare/scripts/import_logs.mjs",
-    "test:worker": "node --test cloudflare/test/worker.test.mjs",
-    "bench:worker": "node cloudflare/scripts/bench_cpu.mjs"
+    "test:worker": "node --test cloudflare/test/worker.test.mjs cloudflare/test/gate.test.mjs",
+    "bench:worker": "node cloudflare/scripts/bench_cpu.mjs",
+    "bench:gate": "node cloudflare/scripts/bench_gate.mjs"
   },
   "devDependencies": {
     "playwright-core": "1.63.0",

@@ -115,9 +115,20 @@ npx wrangler d1 execute cfig-eligibility --remote --file=cloudflare/build/import
 - Lines that are not JSON, or have no `ts`, are skipped and reported.
 - The SQL holds real agent feedback. Do not commit it; delete it after the import.
 
-## Access and the variables
+## Who gets in: AUTH_MODE
 
-The click-by-click steps are in DEPLOY_CLOUDFLARE.md (repo root). In short:
+`AUTH_MODE` in wrangler.toml (round 44, Liam 2026-10-25):
+- **"password"** (now): `src/session.js` is a shared-password gate in front of every path (`run_worker_first =
+  true`). The agents' password gives a session, the admin password an admin one. The session is an HMAC-signed
+  cookie, 7 days. 10 wrong passwords in 15 minutes lock that address out for 15 minutes (D1 `login_failures`).
+  Secrets: `APP_PASSWORD`, `ADMIN_PASSWORD`, `SESSION_SECRET`, set with `npx wrangler secret put`; if one is missing
+  or weak, every path fails closed. Tests: `test/gate.test.mjs`; CPU: `npm run bench:gate`.
+- **"access"** (later): Cloudflare Access in front, and the API checks its token, as below.
+- Anything else: every path 503.
+
+## Access and the variables (AUTH_MODE = "access")
+
+The click-by-click steps are in DEPLOY_CLOUDFLARE.md (repo root, section 8). In short:
 
 1. Protect the Worker with Access (the Worker's **Access** tab → All traffic; it covers the workers.dev address
    Liam chose for now and any custom domain later). Copy the application's **AUD tag** into `ACCESS_AUD`.

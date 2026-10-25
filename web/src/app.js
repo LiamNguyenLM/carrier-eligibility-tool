@@ -72,6 +72,7 @@ hook.whenReady = (async () => {
     resultTexts(state.spec.results);
     const t2 = now();
     buildForm(state.spec);
+    if (state.who) showWho(state.who);        // round 44: whoami usually answers first; now the name field exists
     const t3 = now();
     state.loadTimings = { ...engine.timings, spec_s: (t2 - t1) / 1000, form_s: (t3 - t2) / 1000,
                           total_s: (t3 - t0) / 1000 };
@@ -89,9 +90,12 @@ function showWho(who) {
   state.who = who;
   const el = $("#who");
   if (!who) return;
-  el.innerHTML = `<span class="email">${escapeHtml(who.email)}</span>`
+  // round 44: under the password gate there is no email -- the name typed at the login, if any -- and its own logout
+  el.innerHTML = `<span class="email">${escapeHtml(who.email || who.name || "Signed in")}</span>`
     + (who.admin ? ` · <a href="/api/admin/feedback.csv" id="dl-feedback">Download feedback</a>` : "")
-    + ` · <a href="/cdn-cgi/access/logout">Log out</a>`;
+    + ` · <a href="${escapeHtml(who.logout || "/cdn-cgi/access/logout")}">Log out</a>`;
+  const nameField = $("#f-tester_name");
+  if (nameField && who.name && !nameField.value) nameField.value = who.name;      // the login's name, for feedback
   const dl = $("#dl-feedback");
   if (dl) dl.addEventListener("click", (e) => { e.preventDefault(); downloadFeedback(); });
 }
