@@ -23,7 +23,7 @@ run_worker_first = ["/api/*"]
 binding = "DB"
 database_name = "cfig-eligibility"
 # Printed by `npx wrangler d1 create cfig-eligibility` (Liam, once). A placeholder works for --local.
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "dca0e63f-c783-474d-9412-126ab1e345eb"
 migrations_dir = "cloudflare/migrations"
 
 [vars]
