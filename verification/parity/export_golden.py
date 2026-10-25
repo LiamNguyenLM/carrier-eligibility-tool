@@ -438,7 +438,9 @@ def inputs(golden, out):
     """Every profile's inputs, in the golden's order, as [{"id", "pd", "checked"}] -- what a port's runner reads."""
     doc = load(golden)
     with open(out, "w", encoding="utf-8") as fh:
-        json.dump([{"id": pid, "pd": p["pd"], "checked": p["checked"]} for pid, p in doc["profiles"].items()], fh)
+        json.dump([{"id": pid, "pd": p["pd"], "checked": p["checked"],
+                    # the pd as Python's JSON text: the page passes it through untouched (JS turns 9.0 into 9)
+                    "pd_json": json.dumps(p["pd"], ensure_ascii=False)} for pid, p in doc["profiles"].items()], fh)
     print(f"{len(doc['profiles'])} profiles -> {out}")
 
 

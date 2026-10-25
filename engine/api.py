@@ -6,6 +6,8 @@ columns and "Could Not Be Checked", and each card's text exactly as app.py rende
 In the browser: load(files, manifest) once -- the bundle's data files (engine.data) and the store's facts
 (rules_data/engine_manifest.json) -- then check(). Natively check() reads the store as the app does unless a
 manifest was loaded."""
+import json
+
 from . import cards
 from . import confirm_topics
 from . import data
@@ -73,6 +75,17 @@ def check(property_details, checked_topics=None):
     checked = None if checked_topics is None else list(checked_topics)
     results, _ = pipeline.run_check(dict(pd), checked_topics=checked)
     return page(results, pd, checked)
+
+
+# Round 43 step 2: the form's data and behaviour (engine/form.py), which the page calls through engine.api.
+from .form import (feedback_record, form_messages, form_request, form_spec, placement_request,  # noqa: E402,F401
+                   usage_record, zip_changed)
+
+
+def check_json(property_details_json, checked_topics_json="null"):
+    """check() with its inputs as JSON text, as Python wrote them (form_request's property_details_json): the browser
+    passes the text through untouched, so a float such as 9.0 stays a float (JavaScript would make it 9)."""
+    return check(json.loads(property_details_json), json.loads(checked_topics_json))
 
 
 def placement_markdown(panel):
