@@ -1,12 +1,15 @@
-"""Paid, run by hand: does the MCP server give the same verdicts as the app's own call? (Liam, 2026-10-16)
+"""Run by hand: does the MCP server give the same verdicts as the website? (Liam, 2026-10-16; 2026-10-25: "direct" is
+now the website's path, engine.api.check with rules_data/engine_manifest.json loaded, not the Streamlit pipeline.)
 
     venv\\Scripts\\python.exe verification\\mcp_parity.py            # 3 profiles x 2 paths = 6 checks
-    venv\\Scripts\\python.exe verification\\mcp_parity.py --runs 3   # repeat, to see flakiness
+    venv\\Scripts\\python.exe verification\\mcp_parity.py --runs 3   # repeat, to see any run-to-run difference
 
-Both paths get the same full profile (every topic checked), so any difference is either the MCP wrapper
-(a bug here) or the pipeline's own run-to-run drift (run it again, or use --runs, before calling it a bug).
+Free: no model call and no network (the engine decides every carrier from its rules tables). Both paths get the
+same full profile (every topic checked), so a difference is the MCP wrapper (a bug here) -- the engine has no
+run-to-run drift any more, so --runs should never change the answer.
 """
 import argparse
+import json
 import os
 import sys
 
@@ -18,12 +21,22 @@ import carrier_mcp  # noqa: E402
 from profiles import STANDARD_PROFILE, ALT_PROFILE, COASTAL_PPC4_PROFILE  # noqa: E402
 
 PROFILES = {"STANDARD": STANDARD_PROFILE, "ALT": ALT_PROFILE, "COASTAL_PPC4": COASTAL_PPC4_PROFILE}
+MANIFEST = os.path.join(ROOT, "rules_data", "engine_manifest.json")
 
 
 def direct(profile):
-    ec = carrier_mcp._load()["ec"]
+    """The website's path: engine.api.check with the manifest loaded (no store, no retrieval, no model), set up here
+    on its own rather than through carrier_mcp, so the comparison does not share the connector's code."""
+    import engine.api as api
+    import engine.pipeline as pipeline
     pd = dict(profile, dog_breeds=list(profile.get("dog_breeds") or ()))
-    return {r["carrier"]: r.get("status") for r in ec.check_eligibility(pd, checked_topics=None)}
+    with open(MANIFEST, encoding="utf-8") as fh:
+        api.load(manifest=json.load(fh))
+    try:
+        page = api.check(pd, None)
+    finally:
+        pipeline.FACTS = None
+    return {c["carrier"]: c["status"] for c in page["cards"]}
 
 
 def via_mcp(profile):
@@ -49,11 +62,11 @@ def main():
             b, not_checked = via_mcp(profile)
             diffs = sorted(c for c in set(a) | set(b) if a.get(c) != b.get(c))
             total_diff += len(diffs)
-            print(f"{name} run {run}: {len(a)} carriers direct, {len(b)} via MCP, {len(diffs)} differ"
+            print(f"{name} run {run}: {len(a)} carriers direct (website), {len(b)} via MCP, {len(diffs)} differ"
                   + (f"; MCP left unchecked: {not_checked}" if not_checked not in ("", "nothing") else ""))
             for c in diffs:
-                print(f"    {c}: app={a.get(c)}  mcp={b.get(c)}")
-    print("PARITY OK" if total_diff == 0 else f"PARITY: {total_diff} differences -- rerun to separate drift")
+                print(f"    {c}: website={a.get(c)}  mcp={b.get(c)}")
+    print("PARITY OK" if total_diff == 0 else f"PARITY: {total_diff} differences")
 
 
 if __name__ == "__main__":

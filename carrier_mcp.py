@@ -4,7 +4,7 @@ Read-only by design: three tools, no uploads, no reseeds, nothing that writes to
 
   list_carriers        the indexed programs, with forms and guide dates
   search_guidelines    raw passages from one carrier's guide (or all), with file and page -- no LLM call
-  check_eligibility    the full pipeline the Streamlit app runs; a compact reply (the app's results page)
+  check_eligibility    the website's engine call (engine.api.check); the results page as plain text
   carrier_details      one carrier's full card from the last check (free, no rerun)
 
 Run:   venv\\Scripts\\python.exe carrier_mcp.py          (stdio; Hermes launches it)
@@ -51,14 +51,18 @@ def _quiet():
 
 
 def _load():
-    """Import the pipeline once (Chroma + embeddings load here: a few seconds)."""
+    """Import the pipeline once (Chroma + embeddings load here: a few seconds), and read the engine's manifest --
+    the store's facts as the website gets them (rules_data/engine_manifest.json) -- once, for check_eligibility."""
     with _lock:
         if not _mods:
             with _quiet():
+                import json
                 import cards
                 import confirm_topics
                 import display_names
                 import eligibility_check
+                import engine.api
+                import engine.pipeline
                 import intake_fields
                 import topics
                 from shared_resources import get_vectorstore
@@ -67,9 +71,59 @@ def _load():
                 store._collection.count()          # open the index now, not on the first request
                 if placement.enabled():
                     placement.load_tables()
+                with open(os.path.join(HERE, "rules_data", "engine_manifest.json"), encoding="utf-8") as fh:
+                    manifest = json.load(fh)
                 _mods.update(ec=eligibility_check, intake=intake_fields, topics=topics, cards=cards,
-                             confirm=confirm_topics, names=display_names, store=store)
+                             confirm=confirm_topics, names=display_names, store=store, api=engine.api,
+                             pipeline=engine.pipeline, manifest=manifest)
     return _mods
+
+
+# check_eligibility runs engine.api.check as the website does: with the manifest's facts in place of the store
+# (engine.pipeline.FACTS). That setting is module-wide, and search_guidelines / list_carriers read the store through
+# the same module (stitched text, the carrier list), so it is set only for the length of one check, under this lock,
+# which those tools take too: neither ever sees the other's state.
+_engine_lock = threading.Lock()
+
+
+def _engine_page(pd, checked):
+    """engine.api.check(property_details, checked_topics) -- the website's call: the manifest loaded, no store, no
+    retrieval, no model. Returns its results page (header, top box, columns, cards)."""
+    m = _load()
+    with _engine_lock:
+        previous = m["pipeline"].FACTS
+        m["api"].load(manifest=m["manifest"])
+        try:
+            return m["api"].check(pd, checked)
+        finally:
+            m["pipeline"].FACTS = previous
+
+
+# The record fields card(), confirm_topics.top_box and placement.panel read, as engine.api's card names them.
+_RECORD_FIELDS = ("carrier", "status", "flaw_count", "reasons", "citations", "missing_info", "notes",
+                  "also_confirm", "confirm_items", "rules_table", "model_fallback")
+
+
+def _records(page):
+    """engine.api.check's cards -> the records check_eligibility used to return, for this file's card(), the top box
+    and the placement panel. Same-named fields copy across; the rest:
+      raw_status  -> _raw_status
+      name        -> display_name   (record_name() gives back the same name: the page resolved it from display_name)
+      guide_date / guide_date_source: not on the page -- from the manifest's upload settings, as the pipeline stamps
+                  them (none today, so the card's date comes from the file name, as before)
+      guide_only: never set without a model (the website has none); a table-less guide is NOT_EVALUATED instead."""
+    settings = _load()["manifest"].get("upload_settings") or {}
+    out = []
+    for c in page["cards"]:
+        rec = {k: c[k] for k in _RECORD_FIELDS if k in c}
+        rec["_raw_status"] = c.get("raw_status")
+        if c.get("name"):
+            rec["display_name"] = c["name"]
+        stored = settings.get(c.get("carrier") or "", {})
+        if stored.get("guide_date"):
+            rec["guide_date"], rec["guide_date_source"] = stored["guide_date"], stored.get("guide_date_source", "")
+        out.append(rec)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -106,7 +160,7 @@ def list_carriers() -> list[dict]:
     of a carrier's exact name, or to say a carrier is NOT in the index rather than guessing."""
     m = _load()
     ec = m["ec"]
-    with _quiet():
+    with _engine_lock, _quiet():                   # the store, never the manifest a check sets (see _engine_page)
         settings = ec.upload_settings()
         out = []
         for c in sorted(ec.get_all_carriers()):
@@ -127,43 +181,44 @@ def search_guidelines(query: str, carrier: str | None = None, k: int = 4) -> dic
     could not be read, do not infer it."""
     m = _load()
     ec, store = m["ec"], m["store"]
-    k = max(1, min(int(k or 4), 8))
-    where = None
-    if carrier:
-        resolved, err = _resolve_carrier(carrier)
-        if err:
-            return err
-        carrier, where = resolved, {"carrier": resolved}
-    with _quiet():
-        docs = store.similarity_search(query, k=k, filter=where)
-        passages = []
-        for d in docs:
-            md = d.metadata or {}
-            c = md.get("carrier", "")
-            if carrier and c != carrier:               # belt and braces: never return another carrier's text
-                continue
-            text = d.page_content
-            try:
-                text = ec.stitched_text(c, text, bool(md.get("is_table")))
-            except Exception:
-                pass
-            try:
-                header_only = bool(md.get("is_table")) and ec._is_header_only_table(d.page_content)
-            except Exception:
-                header_only = False
-            page = md.get("page")
-            passages.append({"carrier": c, "file": md.get("source_file", ""),
-                             "page": page + 1 if isinstance(page, int) else page,
-                             "section": md.get("section", ""), "is_table": bool(md.get("is_table")),
-                             "header_only": header_only, "text": text})
-    # Hermes spills tool results over ~8,000 characters to a file; keep the reply under that so it is read whole.
-    budget = 6500
-    for p in passages:
-        room = max(400, budget // max(1, len(passages)))
-        if len(p["text"]) > room:
-            p["text"] = p["text"][:room].rsplit(" ", 1)[0] + " [...]"
-    return {"query": query, "carrier": carrier or "all", "passages": passages,
-            "note": "Verbatim guide text. Page numbers are 1-based PDF pages."}
+    with _engine_lock:                             # the store, never the manifest a check sets (see _engine_page)
+        k = max(1, min(int(k or 4), 8))
+        where = None
+        if carrier:
+            resolved, err = _resolve_carrier(carrier)
+            if err:
+                return err
+            carrier, where = resolved, {"carrier": resolved}
+        with _quiet():
+            docs = store.similarity_search(query, k=k, filter=where)
+            passages = []
+            for d in docs:
+                md = d.metadata or {}
+                c = md.get("carrier", "")
+                if carrier and c != carrier:               # belt and braces: never return another carrier's text
+                    continue
+                text = d.page_content
+                try:
+                    text = ec.stitched_text(c, text, bool(md.get("is_table")))
+                except Exception:
+                    pass
+                try:
+                    header_only = bool(md.get("is_table")) and ec._is_header_only_table(d.page_content)
+                except Exception:
+                    header_only = False
+                page = md.get("page")
+                passages.append({"carrier": c, "file": md.get("source_file", ""),
+                                 "page": page + 1 if isinstance(page, int) else page,
+                                 "section": md.get("section", ""), "is_table": bool(md.get("is_table")),
+                                 "header_only": header_only, "text": text})
+        # Hermes spills tool results over ~8,000 characters to a file; keep the reply under that so it is read whole.
+        budget = 6500
+        for p in passages:
+            room = max(400, budget // max(1, len(passages)))
+            if len(p["text"]) > room:
+                p["text"] = p["text"][:room].rsplit(" ", 1)[0] + " [...]"
+        return {"query": query, "carrier": carrier or "all", "passages": passages,
+                "note": "Verbatim guide text. Page numbers are 1-based PDF pages."}
 
 
 # The form's own choices. A field's default is used only to fill an UNCHECKED topic (never read by the check).
@@ -298,7 +353,7 @@ def dwelling_quote_problem(dwelling_type, quote):
 
 @mcp.tool(structured_output=False)
 def check_eligibility(profile: dict, dwelling_type_quote: str = "") -> str:
-    """Run the full carrier eligibility check (the same pipeline as the agency's Streamlit tool) for one Texas
+    """Run the full carrier eligibility check (the same engine call as the agency's website) for one Texas
     property. Give only the facts you actually know -- a topic left out is NOT considered, exactly like an
     unticked box on the form, so ELIGIBLE means "no problem found on the topics that were checked".
 
@@ -320,8 +375,9 @@ def check_eligibility(profile: dict, dwelling_type_quote: str = "") -> str:
     Returns the app's results page as plain markdown. Your reply to the agent IS that page: copy it from the first
     line to the last, every heading, numbered line and bullet, in order -- especially the numbered "Where we usually
     place homes like this" ranking with its bullet lines and footer. Then add at most two sentences of your own. For one carrier's full card, call carrier_details (free). dwelling_type, occupancy_type and
-    ownership_type must come from the agent in THIS conversation -- ask if they have not said them. Relay these in the tool's words -- do not re-derive or add rules. Takes 30-90 s and
-    makes paid model calls: run it once per property, not per question."""
+    ownership_type must come from the agent in THIS conversation -- ask if they have not said them. Relay these in the tool's words -- do not re-derive or add rules. Free: no
+    model call and no network -- it runs the website's engine (engine.api.check) on this machine; about 0.3-0.9 s a
+    check once the server is up (measured 2026-10-25, office laptop). Run it once per property, not per question."""
     pd, checked, errors = build_property_details(profile)
     if not errors:
         why = dwelling_quote_problem(pd.get("dwelling_type"), dwelling_type_quote)
@@ -331,9 +387,9 @@ def check_eligibility(profile: dict, dwelling_type_quote: str = "") -> str:
         return ("PROFILE NOT ACCEPTED -- nothing was checked. Fix these and call again (ask the agent for anything "
                 "they have not said):\n" + "\n".join(f"- {e}" for e in errors))
     m = _load()
-    ec, tp = m["ec"], m["topics"]
     with _quiet():
-        results = ec.check_eligibility(pd, checked_topics=checked)
+        # the website's engine call (Liam, 2026-10-25): the connector's verdicts match the website by construction
+        results = _records(_engine_page(pd, checked))
     with _quiet():
         cards_out = [card(r, pd, checked) for r in results]
         top = m["confirm"].top_box(results, pd, checked)

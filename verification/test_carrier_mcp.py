@@ -215,3 +215,86 @@ def test_check_refuses_a_guessed_dwelling_type_before_any_paid_call():
         {"occupancy_type": "Owner Occupied", "ownership_type": "Individual Owner", "dwelling_type": "House"},
         dwelling_type_quote="owner-occupied home")
     assert out.startswith("PROFILE NOT ACCEPTED") and "ASK" in out
+
+
+# --- the website's engine call (Liam, 2026-10-25) ---------------------------------------------------------------
+# check_eligibility runs engine.api.check with rules_data/engine_manifest.json loaded -- the website's call -- so its
+# verdicts match the website by construction. The suite pins the rules-table switches OFF (conftest.py); Hermes runs
+# with their defaults (ON), so these tests turn them on, and stub the model so any call to it fails loudly.
+GOOD = {"occupancy_type": "Owner Occupied", "ownership_type": "Individual Owner", "dwelling_type": "House",
+        "zip": "77248", "year_built": 1994, "ppc": "5"}
+RENTAL = {"occupancy_type": "Tenant Occupied", "ownership_type": "LLC", "dwelling_type": "House",
+          "units_in_building": "2", "losses_5yr": "2", "loss_types": ["Water", "Wind or hail"], "loss_year": 2024,
+          "losses_3yr": "1", "electrical": ["Circuit breakers"], "dwelling_amount": "450,000", "fire_station_miles": 9}
+SEASONAL = {"occupancy_type": "Seasonal", "ownership_type": "Trust", "trust_type": "Family trust",
+            "dwelling_type": "Townhome", "primary_home_carrier": "Travelers", "solar_panels": "Yes",
+            "solar_type": "Roof-mounted panels", "solar_tesla": "No", "swimming_pool": "In Ground - Fenced",
+            "pool_accessories": "Slide only", "pool_fence_4ft": True, "coastal_tier": "Tier 2", "county": "Galveston"}
+QUOTES = {"House": "it's a house", "Townhome": "a townhouse", "Condo": "a condo"}
+
+
+@pytest.fixture
+def live(monkeypatch):
+    m = carrier_mcp._load()
+    for flag in ("RULES_PILOT", "RULES_SAGE_BATCH", "RULES_HO3_BATCH", "RULES_DP_BATCH"):
+        monkeypatch.setattr(m["pipeline"], flag, True)
+    monkeypatch.setattr(m["pipeline"], "_complete", lambda *a, **k: pytest.fail("a check called the model"))
+    return m
+
+
+def _check(profile):
+    return carrier_mcp.check_eligibility(profile, dwelling_type_quote=QUOTES[profile["dwelling_type"]])
+
+
+def test_check_goes_through_the_websites_engine_call(live, monkeypatch):
+    calls = []
+    real = live["api"].check
+
+    def spy(pd, checked=None):
+        calls.append((dict(pd), checked, live["pipeline"].FACTS is live["manifest"]))
+        return real(pd, checked)
+    monkeypatch.setattr(live["api"], "check", spy)
+    monkeypatch.setattr(live["ec"], "check_eligibility", lambda *a, **k: pytest.fail("the old pipeline call"))
+    out = _check(GOOD)
+    pd, checked, _ = carrier_mcp.build_property_details(GOOD)
+    assert calls == [(pd, checked, True)]              # once, the form's inputs, the manifest loaded
+    assert live["pipeline"].FACTS is None              # only for that call: the store tools never see it
+    assert out.startswith("**Checked as:**")
+
+
+@pytest.mark.parametrize("profile,quote", [
+    ({"occupancy_type": "Owner Occupied", "ownership_type": "Individual Owner"}, "a house"),   # no dwelling_type
+    (dict(GOOD), "owner-occupied home"),                                                       # a guessed House
+    (dict(GOOD, roof_shape="Dome"), "a house"),                                                # not a form choice
+])
+def test_a_rejected_profile_never_reaches_the_engine(live, monkeypatch, profile, quote):
+    monkeypatch.setattr(live["api"], "check", lambda *a, **k: pytest.fail("the engine was called"))
+    out = carrier_mcp.check_eligibility(profile, dwelling_type_quote=quote)
+    assert out.startswith("PROFILE NOT ACCEPTED")
+
+
+def test_the_reply_has_every_section_in_order(live, monkeypatch):
+    monkeypatch.setenv("ELIGIBILITY_PLACEMENT", "1")   # the suite pins it off; Hermes's config sets it
+    out = _check(GOOD)
+    page = out.split("\n\n---\n")[0]
+    marks = ["**Checked as:**", "**Not checked:**", "### Where we usually place homes like this", "\n1. **",
+             "\n    - ", "*From our HawkSoft placements", "### Things to confirm with the client",
+             "### Eligible (", "### Refer to underwriting (", "### Insufficient information (", "### Not eligible ("]
+    at = [page.find(x) for x in marks]
+    assert -1 not in at, [x for x, i in zip(marks, at) if i < 0]
+    assert at == sorted(at), list(zip(marks, at))
+    assert len(page) <= 7000 and len(out) < 8000      # Hermes spills replies over ~8,000 characters to a file
+
+
+@pytest.mark.parametrize("profile", [GOOD, RENTAL, SEASONAL], ids=["harris_owner", "rental_llc", "seasonal_trust"])
+def test_the_engine_records_give_the_cards_the_pipeline_records_gave(live, monkeypatch, profile):
+    """The adapter (_records): the reply and every carrier_details card are the same through engine.api.check as
+    through the pipeline's own records (eligibility_check.check_eligibility, which this file called before)."""
+    monkeypatch.setenv("ELIGIBILITY_PLACEMENT", "1")
+    new, new_cards = _check(profile), dict(carrier_mcp._LAST["cards"])
+    monkeypatch.setattr(carrier_mcp, "_engine_page",
+                        lambda pd, ch: live["ec"].check_eligibility(pd, checked_topics=ch, log_usage=False))
+    monkeypatch.setattr(carrier_mcp, "_records", lambda records: records)
+    old, old_cards = _check(profile), dict(carrier_mcp._LAST["cards"])
+    assert new == old
+    assert new_cards == old_cards and len(new_cards) >= 10

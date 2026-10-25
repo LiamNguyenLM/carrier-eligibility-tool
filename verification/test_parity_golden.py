@@ -89,3 +89,20 @@ def test_an_export_check_puts_the_flags_the_model_call_and_the_usage_log_back(mo
     eg.run_check(*next((pd, ch) for pid, pd, ch in eg.all_profiles() if pid == "LANDLORD"))
     assert ({f: getattr(ec, f) for f in eg.FLAGS}, ec._complete) == before
     assert "ELIGIBILITY_USAGE_LOG" not in os.environ
+
+
+def test_cfig_gpts_connector_reproduces_the_golden(golden, monkeypatch):
+    """Liam, 2026-10-25: CFIG-GPT's MCP connector (carrier_mcp.py) checks through engine.api.check with the manifest
+    loaded -- the website's call -- so on the golden's named and fuzz profiles its engine call reproduces the golden
+    exactly, the same as the website (export-engine, the browser harness)."""
+    pytest.importorskip("mcp")
+    sys.path.insert(0, os.path.join(HERE, ".."))
+    import carrier_mcp
+    m = carrier_mcp._load()
+    for flag in ("RULES_PILOT", "RULES_SAGE_BATCH", "RULES_HO3_BATCH", "RULES_DP_BATCH"):
+        monkeypatch.setattr(m["pipeline"], flag, True)          # Hermes runs with the defaults (ON); conftest pins OFF
+    monkeypatch.setattr(m["pipeline"], "_complete", lambda *a, **k: pytest.fail("the connector called the model"))
+    prof = {pid: (pd, ch) for pid, pd, ch in eg.all_profiles()}
+    pages = {pid: carrier_mcp._engine_page(*prof[pid]) for pid in SAMPLE}
+    assert eg.compare(golden, eg.doc_from_pages(pages), partial=True) == []
+    assert m["pipeline"].FACTS is None
