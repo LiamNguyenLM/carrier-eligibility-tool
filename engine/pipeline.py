@@ -3935,8 +3935,9 @@ def _check_eligibility(property_details, carrier_subset=None, checked_topics=Non
         relevant_carriers = [c for c in relevant_carriers if c not in pilot["carriers"]]
     # Round 43 step 1: with a manifest (the browser) there is no store or model -- a carrier left for the model is
     # "not evaluated" (_add_fixed_rows), and nothing below reads a store.
+    no_table = []
     if FACTS is not None:
-        relevant_carriers = []
+        no_table, relevant_carriers = list(relevant_carriers), []
     vectorstore = get_vectorstore() if FACTS is None else None
 
     seen = set()
@@ -4478,6 +4479,11 @@ def _check_eligibility(property_details, carrier_subset=None, checked_topics=Non
 
         final = _add_fixed_rows(filtered, relevant_carriers, unavailable, defects, unrecognised)
         final += [_closed_program_row(c) for c in closed]
+        # Round 43 step 3 (Liam, 2026-10-24): with a manifest (the browser) there is no model, so a carrier without a
+        # rules table is not "left out by the model's answer" -- it is not checked here yet. Say so plainly.
+        for r in final:
+            if r.get("status") == NOT_EVALUATED and r.get("carrier") in no_table:
+                r["reasons"], r["notes"] = [NO_TABLE_TEXT], NO_TABLE_NOTE
         if unrecognised or usable_answer_count(final) == 0:
             _print_raw_diagnostics(
                 "UNUSABLE MODEL ANSWER: {} usable record(s), {} with an unrecognised status "
@@ -5020,6 +5026,10 @@ _GUIDE_UNAVAILABLE_TEXT = {
 }
 _GUIDE_WRONG_DOCUMENT_TEXT = "The guide on file is the wrong document -- check with the carrier directly."
 _NOT_EVALUATED_TEXT = "No answer came back for this carrier in this check -- run the check again."
+# Round 43 step 3: the Cloudflare version's card for a guide with no rules table yet (it makes no model call).
+NO_TABLE_TEXT = "No rules table yet for this guide, so it is not checked here -- read the guide before quoting."
+NO_TABLE_NOTE = ("This guide's rules table is not built yet (ADD_CARRIER.md). Without a table the web version makes no "
+                 "model call, so nothing is decided for it.")
 
 
 # Round 26 step 9 (Liam, 2026-10-05). A program its own guide closes to new

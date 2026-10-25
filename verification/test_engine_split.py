@@ -180,6 +180,10 @@ def test_a_carrier_left_for_the_model_is_not_evaluated_without_a_store(how, monk
     assert routed and all(statuses[c] == pipeline.NOT_EVALUATED for c in routed), statuses
     assert called == [] and set(page["header"]["not_checked_names"]) >= {
         c["name"] for c in page["cards"] if c["carrier"] in routed}
+    # round 43 step 3: the card says why -- no rules table yet -- not "the model's answer left it out"
+    for c in page["cards"]:
+        if c["carrier"] in routed:
+            assert c["reasons"] == [pipeline.NO_TABLE_TEXT] and "No rules table yet" in c["warning"], c
 
 
 def test_the_guide_unavailable_text_names_data_defects_kind():
