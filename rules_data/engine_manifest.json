@@ -43,6 +43,10 @@
   "The_Hartford_HO3_-_07.09.2026",
   "Travelers_HO3_-_06.12.2026"
  ],
+ "closed": [
+  "NatGen_Premier_OneChoice_DP3_-_02.26.2025",
+  "NatGen_Premier_OneChoice_HO3_-_02.26.2025"
+ ],
  "defects": {
   "Liberty_Mutual_HO6_-_02.21.2026": {
    "detail": "This program's document is byte-identical to Liberty_Mutual_HO3_-_02.21.2026 (sha256 459271a88734), and the shared text reads as the Liberty_Mutual_HO3_-_02.21.2026 program rather than this one -- so the correct PDF for this program was never ingested.",

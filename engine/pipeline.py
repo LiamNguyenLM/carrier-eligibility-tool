@@ -49,7 +49,10 @@ FACTS = None
 
 
 def get_vectorstore():
-    """The Chroma store (shared_resources, cached there). Native only."""
+    """The Chroma store (shared_resources, cached there). Native only: with a manifest loaded (FACTS) a store read is
+    an error, never a silent read of whatever store happens to be on disk."""
+    if FACTS is not None:
+        raise RuntimeError("engine: a store read with a manifest loaded (FACTS) -- this fact belongs in the manifest")
     from shared_resources import get_vectorstore as _get
     return _get()
 
@@ -5035,7 +5038,10 @@ CLOSED_PROGRAMS = {
 
 
 def closed_programs(carriers):
-    """The carriers in `carriers` whose guide still says they are closed."""
+    """The carriers in `carriers` whose guide still says they are closed (round 43: the manifest's list when FACTS is
+    set -- build_engine_manifest.py reads it from the guides)."""
+    if FACTS is not None:
+        return [c for c in carriers if c in CLOSED_PROGRAMS and c in FACTS["closed"]]
     keys = _guide_keys()
     return [c for c in carriers if c in CLOSED_PROGRAMS and c in keys
             and quotes.appears_in(quotes.compare_key(CLOSED_PROGRAMS[c][1]), keys[c])]

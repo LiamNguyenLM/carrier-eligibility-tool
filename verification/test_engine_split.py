@@ -4,8 +4,11 @@ file-system dependency; Streamlit and the browser both call it. These tests keep
   modules;
 - the old module names (eligibility_check, rules_evaluator, cards, ...) are the same module objects as the engine's;
 - rules_data/engine_manifest.json (the store's facts for the browser) matches the store;
-- with ONLY the bundle's files registered (strictly: no disk) and the manifest, a fresh interpreter gives the same
-  results pages as the native pipeline and as the golden file, on named and fuzz profiles;
+- a fresh, isolated interpreter in a folder holding ONLY the bundle (engine/*.py, its data files, the manifest -- as
+  Pyodide's file system holds) gives the same results pages as the native pipeline and as the golden file, on named
+  and fuzz profiles; the repo's store modules cannot even be imported there (round 43: closed_programs read the
+  guides' text from the store, and a run beside the repo hid it);
+- with a manifest loaded, a store read is an error;
 - a carrier left for the model is "not evaluated" there, never a silent pass (two ways to reach it).
 Zero API."""
 import json
@@ -66,7 +69,8 @@ def test_the_manifest_matches_the_store():
 
 
 BROWSER = r"""
-import json, sys
+import json, os, sys
+sys.path.insert(0, os.getcwd())
 from engine import data
 inp = json.load(sys.stdin)
 data.register(inp["files"], strict=True)          # before any engine module reads a table
@@ -79,12 +83,25 @@ print(json.dumps(pages, default=str))
 """
 
 
-def _browser_pages(profiles):
+def _bundle_copy(tmp):
+    """The bundle alone in tmp (as the browser's file system holds it)."""
+    import shutil
+    for rel in bundle.code_files() + bundle.data_files() + [bundle.MANIFEST]:
+        os.makedirs(os.path.join(tmp, os.path.dirname(rel)), exist_ok=True)
+        shutil.copy(os.path.join(ROOT, rel), os.path.join(tmp, rel))
+    return str(tmp)
+
+
+def _browser_pages(profiles, tmp):
     files = {p: open(os.path.join(ROOT, p), encoding="utf-8").read() for p in bundle.data_files()}
     with open(os.path.join(ROOT, bundle.MANIFEST), encoding="utf-8") as fh:
         manifest = json.load(fh)
-    return json.loads(_fresh(BROWSER, json.dumps({"files": files, "manifest": manifest, "profiles": profiles},
-                                                 default=str)))
+    env = {k: v for k, v in os.environ.items() if not k.startswith("ELIGIBILITY_")}
+    out = subprocess.run([sys.executable, "-I", "-c", BROWSER], cwd=_bundle_copy(tmp), env=env, capture_output=True,
+                         text=True, encoding="utf-8", timeout=600,
+                         input=json.dumps({"files": files, "manifest": manifest, "profiles": profiles}, default=str))
+    assert out.returncode == 0, out.stderr[-3000:]
+    return json.loads(out.stdout)
 
 
 @pytest.fixture(scope="module")
@@ -94,8 +111,31 @@ def sample():
 
 
 @pytest.fixture(scope="module")
-def browser(sample):
-    return _browser_pages(sample)
+def browser(sample, tmp_path_factory):
+    return _browser_pages(sample, tmp_path_factory.mktemp("bundle"))
+
+
+def test_the_store_modules_cannot_be_imported_beside_the_bundle(tmp_path):
+    code = ("import os, sys\n"
+            "sys.path.insert(0, os.getcwd())\n"
+            "for m in ('guides', 'shared_resources', 'store_cache', 'data_defects', 'usage_log'):\n"
+            "    try:\n"
+            "        __import__(m)\n"
+            "        print('importable', m)\n"
+            "    except ImportError:\n"
+            "        pass\n"
+            "import engine.api\n"
+            "print('ok')\n")
+    out = subprocess.run([sys.executable, "-I", "-c", code], cwd=_bundle_copy(tmp_path), capture_output=True,
+                         text=True, timeout=300)
+    assert out.stdout.split() == ["ok"], (out.stdout, out.stderr[-1000:])
+
+
+def test_with_a_manifest_a_store_read_is_an_error(monkeypatch):
+    monkeypatch.setattr(pipeline, "FACTS", {"carriers": [], "upload_settings": {}, "defects": {}, "solar": {},
+                                            "closed": []})
+    with pytest.raises(RuntimeError, match="manifest"):
+        pipeline.get_vectorstore()
 
 
 def test_the_browser_engine_matches_the_golden_file(browser):

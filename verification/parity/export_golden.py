@@ -214,14 +214,36 @@ def doc_from_pages(pages):
             "strings": S.table, "hashes": H.table, "lists": L.table, "profiles": profiles}
 
 
-def export_engine(path, shard=None):
-    """The golden's profiles through engine.api as the browser runs it: this process registers ONLY the bundle's
-    data files (engine.bundle.data_files(), strictly -- a read of any other file raises) before any engine module
-    loads, and the manifest replaces the store. Shards and merges like export."""
+def export_engine(path, shard=None, inside=False):
+    """The golden's profiles through engine.api as the browser runs it: in a temporary folder holding ONLY the bundle
+    (engine/*.py, its data files, the manifest -- as Pyodide's file system does) plus this script and the golden, an
+    isolated interpreter (-I) registers the bundle's data files strictly before any engine module loads, and the
+    manifest replaces the store; the repo's store modules are not there to import. Shards and merges like export."""
     import subprocess
-    files = json.loads(subprocess.run(
-        [sys.executable, "-c", "import json, engine.bundle as b; print(json.dumps(b.data_files()))"],
-        cwd=ROOT, capture_output=True, text=True, check=True).stdout)
+    if not inside:
+        import shutil
+        import tempfile
+        rels = json.loads(subprocess.run(
+            [sys.executable, "-c", "import json, engine.bundle as b; "
+                                   "print(json.dumps(b.code_files() + b.data_files() + [b.MANIFEST]))"],
+            cwd=ROOT, capture_output=True, text=True, check=True).stdout)
+        tmp = tempfile.mkdtemp(prefix="engine_bundle_")
+        try:
+            for rel in rels + ["verification/parity/export_golden.py", "verification/parity/golden.json.xz"]:
+                os.makedirs(os.path.join(tmp, os.path.dirname(rel)), exist_ok=True)
+                shutil.copy(os.path.join(ROOT, rel), os.path.join(tmp, rel))
+            env = {k: v for k, v in os.environ.items() if not k.startswith("ELIGIBILITY_")}
+            subprocess.run([sys.executable, "-I", os.path.join(tmp, "verification", "parity", "export_golden.py"),
+                            "export-engine", os.path.abspath(path), "--inside"] + (["--shard", shard] if shard else []),
+                           cwd=tmp, env=env, check=True)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        return
+    files = []                                 # inside the bundle folder: every file but the code and this script
+    for d, _, names in os.walk(ROOT):
+        rel = os.path.relpath(d, ROOT).replace("\\", "/")
+        if rel.split("/")[0] not in ("engine", "verification"):
+            files += [n if rel == "." else f"{rel}/{n}" for n in names]
     from engine import data
     data.register({p: open(os.path.join(ROOT, p), encoding="utf-8").read() for p in files}, strict=True)
     import engine.api as api
@@ -447,6 +469,6 @@ if __name__ == "__main__":
     elif cmd == "inputs":
         inputs(argv[0], argv[1])
     elif cmd == "export-engine":
-        export_engine(argv[0], opts.get("--shard"))
+        export_engine([a for a in argv if a != "--inside"][0], opts.get("--shard"), inside="--inside" in argv)
     else:
         sys.exit(__doc__)
