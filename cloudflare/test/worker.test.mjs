@@ -39,8 +39,11 @@ test("every /api route needs a valid Access token", async () => {
 });
 
 test("whoami: the verified email, lower-cased, and admin from ADMIN_EMAILS", async () => {
-  assert.deepEqual(await (await call(req("/api/whoami", { token: agent }))).json(), { email: "agent@cfigtx.com", admin: false });
-  assert.deepEqual(await (await call(req("/api/whoami", { token: liam }))).json(), { email: "liam@cfigtx.com", admin: true });
+  // CHANGED (round 44 step 1, Liam 2026-10-25: the password gate): + name, mode and the logout link, which the page
+  // uses; Access mode's email and admin answers are as before.
+  const extra = { name: "", mode: "access", logout: "/cdn-cgi/access/logout" };
+  assert.deepEqual(await (await call(req("/api/whoami", { token: agent }))).json(), { email: "agent@cfigtx.com", admin: false, ...extra });
+  assert.deepEqual(await (await call(req("/api/whoami", { token: liam }))).json(), { email: "liam@cfigtx.com", admin: true, ...extra });
 });
 
 test("a bad token is refused: signature, audience, issuer, expiry, nbf, algorithm, no email", async () => {

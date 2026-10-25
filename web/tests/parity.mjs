@@ -38,6 +38,12 @@ const TEXT_KEYS = ["carrier", "status", "name", "first", "missing", "confirm_htm
 const RECORD_KEYS = ["raw_status", "flaw_count", "reasons", "citations", "notes", "also_confirm", "confirm_items",
                      "missing_info", "deciding_rows", "rules_table"];
 const COLS = ["eligible", "refer", "insufficient_info", "not_eligible", "could_not_check"];
+// Round 44: --base <url> runs against a server that is already up (npx wrangler dev: the real Worker, its password
+// gate and local D1) instead of tools/serve.mjs; --password signs in on its login page in every fresh browser
+// context (or HARNESS_PASSWORD, to keep it off the command line). The page's own POSTs are captured either way.
+const BASE = opt("--base", null);
+const PASSWORD = opt("--password", process.env.HARNESS_PASSWORD || null);
+const captured = [];                         // {path, body} of every POST the page sends
 
 const sortKeys = (v) => (Array.isArray(v) ? v.map(sortKeys) : v && typeof v === "object"
   ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortKeys(v[k])])) : v);
@@ -57,14 +63,28 @@ async function openPage(browser, base, errors) {
   const ctx = await browser.newContext();                  // a fresh context: empty cache, a true first load
   // nothing leaves localhost: any other request is aborted and reported
   await ctx.route("**/*", (route) => {
-    const u = route.request().url();
-    if (u.startsWith(base)) return route.continue();
+    const r = route.request();
+    const u = r.url();
+    if (u.startsWith(base)) {
+      if (r.method() === "POST" && new URL(u).pathname.startsWith("/api/")) {
+        try { captured.push({ path: new URL(u).pathname, body: r.postDataJSON() }); } catch { /* not JSON */ }
+      }
+      return route.continue();
+    }
     external.push(u);
     return route.abort();
   });
   const page = await ctx.newPage();
   page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
   page.on("console", (m) => { if (m.type() === "error") errors.push("console: " + m.text()); });
+  if (PASSWORD) {                              // round 44: through the gate's login page, as an agent would
+    await page.goto(base + "/login");
+    await page.fill('input[name="password"]', PASSWORD);
+    await page.fill('input[name="name"]', "Parity Harness");
+    await Promise.all([page.waitForURL(base + "/"), page.click('button[type="submit"]')]);
+  }
+  const requests = [];                         // every request this page load sends to the site (round 44)
+  page.on("request", (r) => { if (r.url().startsWith(base)) requests.push(new URL(r.url()).pathname); });
   const t0 = Date.now();
   await page.goto(base + QUERY);
   await page.waitForFunction(() => window.__eligibility && (window.__eligibility.ready || window.__eligibility.error),
@@ -73,7 +93,8 @@ async function openPage(browser, base, errors) {
   const err = await page.evaluate(() => window.__eligibility.error);
   if (err) throw new Error("page did not load: " + err);
   const lt = await page.evaluate(() => window.__eligibility.loadTimings());
-  return { ctx, page, wall, lt };
+  await page.waitForTimeout(300);              // let whoami settle before counting
+  return { ctx, page, wall, lt: { ...lt, requests: requests.length, request_paths: [...requests] } };
 }
 
 function formDiff(profile, form, notes) {
@@ -240,7 +261,7 @@ async function feedbackRoundTrip(page, server, report) {
   await fb.locator("textarea").fill("  parity harness test  ");
   await fb.locator("button[type=submit]").click();
   await fb.locator(".sent").waitFor({ state: "visible", timeout: 5000 });
-  const posts = server.posts.filter((p) => p.path === "/api/feedback");
+  const posts = (server.posts.length ? server.posts : captured).filter((p) => p.path === "/api/feedback");
   const rec = posts[posts.length - 1]?.body;
   const want = ["ts", "app_version", "name", "property_details", "carrier", "display_name", "verdict", "reasons",
                 "deciding_rows", "model", "rules_table", "checked_topics", "choice", "comment"];
@@ -265,7 +286,8 @@ async function main() {
     console.error(`no build at ${DIST}: run npm run build first`);
     process.exit(2);
   }
-  const server = await startServer({ dir: DIST, mockApi: true });
+  const server = BASE ? { url: BASE.replace(/\/$/, ""), posts: [], close() {} }
+    : await startServer({ dir: DIST, mockApi: true });
   const browser = await chromium.launch({ channel: "msedge", headless: !flag("--headed") });
   const errors = [];
   const report = { mode: MODE, dist: DIST, url: server.url + QUERY, loads: [] };
@@ -298,9 +320,9 @@ async function main() {
       await partCheck(page, checkProfiles, expected, report);
       await feedbackRoundTrip(page, server, report);
       report.worker_posts = {
-        usage: server.posts.filter((p) => p.path === "/api/usage").length,
-        placement: server.posts.filter((p) => p.path === "/api/placement").length,
-        feedback: server.posts.filter((p) => p.path === "/api/feedback").length,
+        usage: (server.posts.length ? server.posts : captured).filter((p) => p.path === "/api/usage").length,
+        placement: (server.posts.length ? server.posts : captured).filter((p) => p.path === "/api/placement").length,
+        feedback: (server.posts.length ? server.posts : captured).filter((p) => p.path === "/api/feedback").length,
       };
       const u = server.posts.find((p) => p.path === "/api/usage")?.body;
       report.usage_example = u;
@@ -312,13 +334,15 @@ async function main() {
     await browser.close();
     server.close();
   }
-  const rp = OUT.replace(/candidate_/, "report_");
+  // round 44: never the candidate's own path (an --out without "candidate_" in its name overwrote the candidate)
+  const rp = path.basename(OUT).includes("candidate_") ? OUT.replace(/candidate_/, "report_")
+    : OUT.replace(/(\.jsonl?)?$/, ".report.json");
   fs.writeFileSync(rp, JSON.stringify(report, null, 1));
 
   console.log(`\nmode ${MODE}  (${report.url})`);
   report.loads.forEach((l, i) => console.log(`first load ${i + 1}: ${l.wall_s.toFixed(2)} s wall (pyodide `
     + `${l.pyodide_s.toFixed(2)} s, bundle unpack ${l.bundle_s.toFixed(2)} s, import ${l.import_s.toFixed(2)} s, `
-    + `spec ${l.spec_s.toFixed(2)} s, form ${l.form_s.toFixed(2)} s)`));
+    + `spec ${l.spec_s.toFixed(2)} s, form ${l.form_s.toFixed(2)} s); ${l.requests} requests to the site`));
   if (report.form) {
     const f = report.form;
     console.log(`(a) form: ${f.profiles} profiles; pd equal ${f.pd_equal}; expressible (pd and topics) ${f.expressible}`);

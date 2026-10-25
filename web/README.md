@@ -78,8 +78,9 @@ Part (b) bypasses the form, so it covers all 3,569.
 
 ## Where the page differs from app.py
 
-1. **Login:** none on the page. Cloudflare Access does it. The top bar shows the signed-in email and, for admins, a
-   feedback download link.
+1. **Login:** none on the page itself. The Worker's password gate (round 44, until Cloudflare Access) shows its own
+   login page before anything loads; the name typed there fills "Your name". The top bar shows the name (or, under
+   Access, the email), the logout link and, for admins, a feedback download link.
 2. **No Manage Carriers tab:** no upload or remove (see ADD_CARRIER.md), and no fingerprint, model or usage lines.
    The chat tab is gone in both versions.
 3. **"This looks wrong":** an inline expander. It says "Sent -- thank you." only once the Worker has accepted the

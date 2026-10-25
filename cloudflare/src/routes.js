@@ -199,7 +199,9 @@ async function weekly(env) {
 }
 
 const ROUTES = {
-  "GET /api/whoami": async (req, env, who) => json({ email: who.email, admin: who.admin }),
+  // round 44: + name, mode and the logout link (Access's in access mode, the gate's in password mode)
+  "GET /api/whoami": async (req, env, who) => json({ email: who.email, admin: who.admin, name: who.name || "",
+    mode: who.mode || "access", logout: who.mode === "password" ? "/logout" : "/cdn-cgi/access/logout" }),
   "POST /api/usage": postUsage,
   "POST /api/feedback": postFeedback,
   "POST /api/placement": postPlacement,
@@ -207,10 +209,11 @@ const ROUTES = {
   "GET /api/admin/weekly": async (req, env) => weekly(env),
 };
 
-export async function handleApi(request, env, ctx, url = new URL(request.url)) {
-  let who;
+export async function handleApi(request, env, ctx, url = new URL(request.url), known = null) {
+  // round 44: in password mode the gate (session.js) has already identified the caller
+  let who = known;
   try {
-    who = await identify(request, env);
+    if (!who) who = await identify(request, env);
   } catch (e) {
     if (e instanceof AuthError) return json({ error: e.message }, e.status);
     console.error("auth failed --", e);

@@ -3022,6 +3022,25 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
   - **Re-export the golden file** (verification/parity, about 30 minutes as 8 shards) with any rules or card change;
     ADD_CARRIER.md step 7.
 
+- **2026-10-25 — Liam: Railway is down; the tool must work for agents on Monday WITHOUT Cloudflare Access.** Zero
+  Trust needs the company card, which Jonathan will set up later, so Access is postponed. The tool goes live on the
+  workers.dev address with the same protection Railway had: a shared agent password (APP_PASSWORD), plus an admin
+  password for the feedback download and weekly counts. It must switch cleanly to Access later.
+- **2026-10-25 — Round 44: the shared-password gate.**
+  - `AUTH_MODE` in `wrangler.toml`: "password" now, "access" later (exactly round 43's JWT behaviour).
+  - In password mode the Worker runs first for every path (`run_worker_first = true`), and `cloudflare/src/session.js`
+    serves nothing without a session: not the page, a script, the engine bundle, the rules data or the API.
+    - The session is an HMAC-SHA256-signed cookie (`SESSION_SECRET`): HttpOnly, Secure, SameSite=Lax, 7 days.
+    - The login's optional name fills "Your name".
+    - 10 wrong passwords in 15 minutes lock that address out for 15 minutes (D1 `login_failures`, migration 0002).
+    - A missing or weak secret fails closed on every path.
+  - Secrets go only through `wrangler secret put`.
+  - `workers_dev = true` ships now: the gate is in the same code and fails closed until the secrets exist.
+  - `DEPLOY_CLOUDFLARE.md` is rewritten for password mode; Access is its section 8, "later".
+  - **CFIG-GPT** needs nothing. Its MCP server imports the engine on Liam's laptop and never called Railway: a check
+    runs in 1.8 s with no API key and no network connection. (`HERMES_MCP.md`'s "Paid, 30-90 s" predates the
+    switches defaulting ON.)
+
 - **2026-10-24 — Round 42: scoping a move to Cloudflare (planning only; no product code changed).** The plan is
   `MIGRATION_PLAN.md` (repo root). What the round found and committed:
   - **0a.** WIL-123 stays a decline: its guide cell ("eligible only if all of the following criteria are met: ... No
