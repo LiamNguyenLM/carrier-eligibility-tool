@@ -2,15 +2,16 @@
 // for every static file too. Same method as bench_cpu.mjs: blocks of N requests timed with process.cpuUsage()
 // (Windows' clock ticks every ~15.6 ms), ASSETS a stub, D1 the node:sqlite stand-in.
 //   usage (cwd = the repo root): node cloudflare/scripts/bench_gate.mjs [--n 2000] [--blocks 3]
-import worker from "../src/worker.js";
 import { COOKIE, signSession } from "../src/session.js";
-import { DEFAULT_CSV_DIR, makeDb } from "./harness.mjs";
+import { loadWorker, makeDb } from "./harness.mjs";
+
+const { worker } = await loadWorker();
 
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf(k); return i < 0 ? d : args[i + 1]; };
 const N = parseInt(opt("--n", "2000"), 10), BLOCKS = parseInt(opt("--blocks", "3"), 10);
 const SECRETS = { APP_PASSWORD: "bench-agent-pass-1", ADMIN_PASSWORD: "bench-admin-pass-2", SESSION_SECRET: "b".repeat(48) };
-const db = makeDb(DEFAULT_CSV_DIR, []);
+const db = makeDb();
 const env = { DB: db, AUTH_MODE: "password", ...SECRETS,
   ASSETS: { fetch: async () => new Response("x".repeat(1024), { status: 200, headers: { etag: '"1"' } }) } };
 const BASE = "https://cfig-eligibility.example.workers.dev";

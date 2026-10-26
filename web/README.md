@@ -84,7 +84,8 @@ Part (b) bypasses the form, so it covers all 3,569.
 2. **No Manage Carriers tab:** no upload or remove (see ADD_CARRIER.md), and no fingerprint, model or usage lines.
    The chat tab is gone in both versions.
 3. **"This looks wrong":** an inline expander. It says "Sent -- thank you." only once the Worker has accepted the
-   report; otherwise "Could not send ... Try again.", keeping what was typed.
+   report; otherwise (the Worker couldn't save it, a timeout, no network) "Couldn’t save — try again later.",
+   keeping what was typed.
 4. **The placement panel:** fetched from the Worker after the cards render, then shown above the columns within 2 s,
    or not at all.
 5. **Dollar signs:** `$...$` stays text. Streamlit turns a line with two dollar amounts into LaTeX.

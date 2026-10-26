@@ -1,20 +1,22 @@
 // The Worker's routes end to end in Node (round 43 step 3): node --test cloudflare/test/
-// Zero network: D1 is node:sqlite (scripts/lib.mjs), Access is a test key pair (scripts/harness.mjs).
+// Zero network: D1 is node:sqlite (scripts/lib.mjs), Access is a test key pair (scripts/harness.mjs). The placement
+// tables are built into the Worker's module from the CSVs first (loadWorker), as wrangler's [build] step does.
 // PLACEMENT_CSV_DIR overrides rules_data/placement (the drafts directory has no repo around it).
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { before, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import worker from "../src/worker.js";
 import { resetJwksCache } from "../src/access.js";
-import { isoWeek } from "../src/routes.js";
-import { DEFAULT_CSV_DIR, makeAccess, makeDb, makeEnv, req } from "../scripts/harness.mjs";
+import { buildPlacementData, DEFAULT_OUT, placementModuleSource } from "../scripts/build_placement.mjs";
+import { DEFAULT_CSV_DIR, loadWorker, makeAccess, makeDb, makeEnv, req } from "../scripts/harness.mjs";
 import { buildImportSql } from "../scripts/import_logs.mjs";
 import { parseCsv } from "../scripts/lib.mjs";
 
 const FIX = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
 const CSV_DIR = process.env.PLACEMENT_CSV_DIR || DEFAULT_CSV_DIR;
+const { worker, built } = await loadWorker(CSV_DIR);
+const { isoWeek } = await import("../src/routes.js");
 let A, env, db, agent, liam;
 const call = (r, e = env) => worker.fetch(r, e, {});
 
@@ -23,7 +25,7 @@ before(async () => {
   globalThis.fetch = A.fetchStub;
   resetJwksCache();
   const { sql } = buildImportSql({ feedback: join(FIX, "feedback_log.jsonl"), usage: join(FIX, "usage_log.jsonl") });
-  db = makeDb(CSV_DIR, [sql, sql]);                         // imported twice: must not duplicate
+  db = makeDb([sql, sql]);                         // imported twice: must not duplicate
   env = makeEnv(db);
   agent = await A.token();
   liam = await A.token({ email: "Liam@CFIGtx.com" });
@@ -147,6 +149,76 @@ test("POST /api/feedback: feedback.record()'s fields, choice outside CHOICES bec
   db.sqlite.prepare("DELETE FROM feedback WHERE source = 'worker'").run();     // keep the CSV test to the imports
 });
 
+// ------------------------------------------------------------------------------------------------ D1 write failures
+// Round 44b (Liam, 2026-10-25): after the placement load blew D1's free tier, a D1 write failing must never break a
+// check or a login. Three ways D1 can fail a write, each one tried on every route below.
+function failingDbs() {
+  const refused = () => Promise.reject(new Error("D1_ERROR: Exceeded maximum rows written per day"));
+  const writesRefused = { prepare: (sql) => {
+    const s = db.prepare(sql);                     // reads still work, every write is refused (the daily limit)
+    const wrap = (st) => ({ bind: (...p) => wrap(st.bind(...p)), first: (c) => st.first(c), all: () => st.all(), run: refused });
+    return wrap(s);
+  }, batch: refused };
+  const unreachable = { prepare: () => { throw new Error("D1_ERROR: Network connection lost"); }, batch: refused };
+  return { "writes refused (daily limit)": writesRefused, "D1 unreachable (prepare throws)": unreachable, "no DB binding": undefined };
+}
+
+async function withConsoleErrors(fn) {
+  const logged = [], orig = console.error;
+  console.error = (...a) => logged.push(a.map(String).join(" "));
+  try { await fn(); } finally { console.error = orig; }
+  return logged;
+}
+
+test("a usage row D1 can't write is logged and dropped: 202, never an error the page would show", async () => {
+  const body = { ts: "2026-10-25T18:00:00+00:00", app_version: "abc1234", wall_s: 1.2, carriers: 41, timings: { engine_s: 0.8 } };
+  const before_ = db.sqlite.prepare("SELECT count(*) AS n FROM usage").get().n;
+  for (const [label, bad] of Object.entries(failingDbs())) {
+    let r;
+    const logged = await withConsoleErrors(async () => {
+      r = await call(req("/api/usage", { method: "POST", token: agent, body }), makeEnv(bad));
+    });
+    assert.equal(r.status, 202, label);
+    assert.deepEqual(await r.json(), { ok: false, saved: false }, label);
+    assert.ok(logged.some((l) => l.startsWith("usage: D1 write failed")), `${label}: ${logged}`);
+  }
+  assert.equal(db.sqlite.prepare("SELECT count(*) AS n FROM usage").get().n, before_);
+  // a bad body is still a 400, D1 or not: validation comes first
+  assert.equal((await call(req("/api/usage", { method: "POST", token: agent, body: { carriers: "41" } }),
+    makeEnv(failingDbs()["D1 unreachable (prepare throws)"]))).status, 400);
+});
+
+test("a feedback report D1 can't write says so: 503 \"Couldn't save -- try again later.\", logged", async () => {
+  const { FEEDBACK_NOT_SAVED } = await import("../src/routes.js");
+  assert.equal(FEEDBACK_NOT_SAVED, "Couldn’t save — try again later.");
+  const body = { ts: "2026-10-25T18:01:00+00:00", property_details: { zip: "77494" }, carrier: "TWICO_HO3",
+    verdict: "INELIGIBLE", choice: "Should be Eligible", comment: "roof is 9 years old" };
+  for (const [label, bad] of Object.entries(failingDbs())) {
+    let r;
+    const logged = await withConsoleErrors(async () => {
+      r = await call(req("/api/feedback", { method: "POST", token: agent, body }), makeEnv(bad));
+    });
+    assert.equal(r.status, 503, label);
+    assert.deepEqual(await r.json(), { ok: false, saved: false, error: FEEDBACK_NOT_SAVED }, label);
+    assert.ok(logged.some((l) => l.startsWith("feedback: D1 write failed")), `${label}: ${logged}`);
+  }
+  assert.equal(db.sqlite.prepare("SELECT count(*) AS n FROM feedback WHERE source = 'worker'").get().n, 0);
+});
+
+test("with D1 failing, a whole check still works: whoami, placement and usage answer; only feedback says it failed", async () => {
+  const cases = JSON.parse(readFileSync(join(FIX, "placement_cases.json"), "utf8"));
+  const withPanel = cases.find((c) => c.expected);
+  for (const [label, bad] of Object.entries(failingDbs())) {
+    const e = makeEnv(bad);
+    await withConsoleErrors(async () => {
+      assert.equal((await call(req("/api/whoami", { token: agent }), e)).status, 200, label);
+      const p = await call(req("/api/placement", { method: "POST", token: agent, body: withPanel.body }), e);
+      assert.equal(await p.text(), JSON.stringify(withPanel.expected), label);
+      assert.equal((await call(req("/api/usage", { method: "POST", token: agent, body: { carriers: 3 } }), e)).status, 202, label);
+    });
+  }
+});
+
 // ------------------------------------------------------------------------------------------------ placement
 test("POST /api/placement answers exactly what placement.panel() does (fixtures from Python)", async () => {
   const cases = JSON.parse(readFileSync(join(FIX, "placement_cases.json"), "utf8"));
@@ -166,10 +238,83 @@ test("POST /api/placement refuses a bad body", async () => {
   assert.equal(await (await call(req("/api/placement", { method: "POST", token: agent, body: ok }))).text(), "null");
 });
 
-test("POST /api/placement says 503 when D1 is unavailable", async () => {
-  const broken = makeEnv({ prepare: db.prepare.bind(db), batch: async () => { throw new Error("D1_ERROR: database is importing"); } });
+// Round 44b (Liam, 2026-10-25): the placement tables left D1 for the Worker's bundle. CHANGED: "says 503 when D1 is
+// unavailable" became the two tests below -- the panel no longer reads D1 at all, so D1 down must not change it.
+test("POST /api/placement answers from memory: the same panels with D1 failing or missing", async () => {
   const cases = JSON.parse(readFileSync(join(FIX, "placement_cases.json"), "utf8"));
-  assert.equal((await call(req("/api/placement", { method: "POST", token: agent, body: cases[0].body }), broken)).status, 503);
+  const boom = () => { throw new Error("D1_ERROR: daily rows-written limit exceeded"); };
+  const envs = {
+    "every D1 call throws": makeEnv({ prepare: boom, batch: async () => boom(), exec: async () => boom() }),
+    "no DB binding at all": makeEnv(undefined),
+  };
+  for (const [label, e] of Object.entries(envs)) {
+    for (const c of cases) {
+      const r = await call(req("/api/placement", { method: "POST", token: agent, body: c.body }), e);
+      assert.equal(r.status, 200, `${label}: ${c.name}`);
+      assert.equal(await r.text(), JSON.stringify(c.expected), `${label}: ${c.name}`);
+    }
+  }
+});
+
+test("D1 holds no placement table after the migrations (0003 drops them)", () => {
+  const names = db.sqlite.prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'index') AND name LIKE 'placement%'").all();
+  assert.deepEqual(names, []);
+  const left = db.sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' "
+    + "AND name NOT LIKE '_cf_%' AND name <> 'd1_migrations' ORDER BY name").all().map((r) => r.name);
+  assert.deepEqual(left, ["feedback", "login_failures", "usage"]);
+});
+
+test("the bundled module is the CSVs: what the Worker imported is exactly what build_placement makes of them now", async () => {
+  const fresh = buildPlacementData(CSV_DIR);
+  assert.equal(readFileSync(DEFAULT_OUT, "utf8"), placementModuleSource(fresh.data));
+  const { default: imported } = await import("../build/placement_data.js");
+  assert.deepEqual(imported, fresh.data);
+  assert.equal(built.counts.rows_zip, readFileSync(join(CSV_DIR, "placement_zip.csv"), "utf8").trim().split(/\r?\n/).length - 1);
+  assert.ok(imported.meta.data_through && /^\d{4}-\d{2}$/.test(imported.meta.data_through));
+});
+
+test("a county or ZIP named like an Object property finds no rows, not Object.prototype's", async () => {
+  // the same hole phrased four ways: a key inherited from Object.prototype, the prototype itself, an inherited
+  // camel-case key (ZIP and bands are not lower-cased), and a county that only becomes "constructor" once stripped
+  // and lower-cased the way placement.py keys counties
+  const ok = { pd: { zip: "77494", county: "Fort Bend", year_built: 1994, dwelling_amount: 350000 },
+    results: [{ carrier: "Mercury_HO3_-_01.01.2026", status: "ELIGIBLE" }, { carrier: "TWICO_HO3", status: "ELIGIBLE" }] };
+  const { loadPanelTables } = await import("../src/placement.js");
+  const { default: data } = await import("../build/placement_data.js");
+  for (const key of ["constructor", "__proto__", "toString", " Constructor "]) {
+    const T = loadPanelTables(data, { zip5: key, county: key, ageB: key, covaB: key, asof: 24321 });
+    assert.deepEqual([T.zip, T.county, T.profile.age_band, T.profile.covA_band], [[], [], [], []], key);
+    const body = { ...ok, pd: { ...ok.pd, county: key } };
+    const r = await call(req("/api/placement", { method: "POST", token: agent, body }));
+    assert.equal(r.status, 200, key);
+  }
+});
+
+test("a bad CSV stops the build: nothing is written over the module the Worker has", async () => {
+  const { mkdtempSync, writeFileSync, copyFileSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { writePlacementModule } = await import("../scripts/build_placement.mjs");
+  const before_ = readFileSync(DEFAULT_OUT, "utf8");
+  const tmp = mkdtempSync(join(tmpdir(), "placement-bad-"));
+  const bad = {
+    "a month that is not YYYY-MM": ["placement_zip.csv", (t) => t.replace(/\n(\d{4})-(\d{2}),/, "\n$1/$2,")],
+    "a count that is not a number": ["placement_county.csv", (t) => t.replace(/,(\d+)(\r?\n)/, ",many$2")],
+    "no data_through": ["placement_meta.csv", (t) => t.replace(/data_through,[^\r\n]*\r?\n/, "")],
+  };
+  try {
+    for (const [label, [file, edit]] of Object.entries(bad)) {
+      const dir = mkdtempSync(join(tmp, "case-"));
+      for (const f of readdirSync(CSV_DIR).filter((x) => x.endsWith(".csv"))) copyFileSync(join(CSV_DIR, f), join(dir, f));
+      const text = readFileSync(join(dir, file), "utf8");
+      assert.notEqual(edit(text), text, `${label}: the edit must change the file`);
+      writeFileSync(join(dir, file), edit(text));
+      assert.throws(() => writePlacementModule(dir, DEFAULT_OUT), /placement tables not built/, label);
+      assert.equal(readFileSync(DEFAULT_OUT, "utf8"), before_, label);
+    }
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+  assert.ok(existsSync(DEFAULT_OUT));
 });
 
 // ------------------------------------------------------------------------------------------------ admin

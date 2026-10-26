@@ -42,6 +42,24 @@ def test_the_deploy_guide_uses_wranglers_names():
     assert f"d1 create {db}" in guide and f"execute {db} --remote" in guide and "workers_dev = true" in guide
 
 
+@pytest.mark.parametrize("doc", DOCS)
+def test_no_doc_loads_the_placement_tables_into_d1(doc):
+    # Round 44b (Liam, 2026-10-25): the tables are built into the Worker on every deploy; a D1 load step (which blew
+    # the free tier) must not survive in any runbook, under the old script names or as a d1 execute of them.
+    text = _text(doc)
+    for old in ("sync_placement", "sync:placement", "placement_sync.sql", "check_placement"):
+        assert old not in text, (doc, old)
+    assert not re.search(r"d1 execute[^\n]*placement", text), doc
+
+
+def test_the_deploy_guide_says_the_monthly_refresh_is_update_the_csvs_and_push():
+    guide = _text("DEPLOY_CLOUDFLARE.md")
+    refresh = guide[guide.index("**The monthly placement refresh is"):guide.index("## 4. The address")]
+    assert "sync_from_out.py" in refresh and "git push" in refresh and "data through YYYY-MM" in refresh
+    assert "No placement load step" in guide and "0003" in guide
+    assert "Couldn’t save — try again later." in guide
+
+
 def test_railway_keeps_building_the_python_app():
     """Round 43: package.json sits at the repo root now (the Cloudflare page and Worker). Railway's builders detect
     Node from a root package.json, so both are pinned to Python until Railway is retired (railpack.json for Railpack,

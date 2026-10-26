@@ -7,6 +7,7 @@
 //         the candidate is compared with the golden by web/tests/candidate_to_golden.py)
 //            --limit N  --skip-form  --skip-check  --loads N (first-load timing runs, default 3)
 //            --out <candidate.json> (default tests/out/candidate_<mode>.json)  --headed
+//            --feedback-fails (round 44b: the Worker's answers when D1 can't write; see FEEDBACK_FAILS)
 //
 // (a) form: for every profile, fillForm(pd, checked) through the widgets' DOM events, submit(), and compare
 //     lastForm() with the profile (every differing key, and why).
@@ -44,6 +45,17 @@ const COLS = ["eligible", "refer", "insufficient_info", "not_eligible", "could_n
 const BASE = opt("--base", null);
 const PASSWORD = opt("--password", process.env.HARNESS_PASSWORD || null);
 const captured = [];                         // {path, body} of every POST the page sends
+// Round 44b: --feedback-fails answers the page's POSTs as the Worker does when D1 can't write (feedback: 503 with
+// "Couldn't save -- try again later."; usage: 202, not saved). The report must then show that message and keep what
+// was typed, and the checks must render as usual.
+const FEEDBACK_FAILS = flag("--feedback-fails");
+const NOT_SAVED = "Couldn’t save — try again later.";
+const FAILED_ANSWERS = {
+  "/api/feedback": { status: 503, body: { ok: false, saved: false, error: NOT_SAVED } },
+  "/api/usage": { status: 202, body: { ok: false, saved: false } },
+};
+// the browser's and the page's own console lines for those answers, expected in that mode
+const EXPECTED_IN_FAIL_MODE = [/status of 503/, /feedback not saved --/];
 
 const sortKeys = (v) => (Array.isArray(v) ? v.map(sortKeys) : v && typeof v === "object"
   ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortKeys(v[k])])) : v);
@@ -66,8 +78,13 @@ async function openPage(browser, base, errors) {
     const r = route.request();
     const u = r.url();
     if (u.startsWith(base)) {
-      if (r.method() === "POST" && new URL(u).pathname.startsWith("/api/")) {
-        try { captured.push({ path: new URL(u).pathname, body: r.postDataJSON() }); } catch { /* not JSON */ }
+      const p = new URL(u).pathname;
+      if (r.method() === "POST" && p.startsWith("/api/")) {
+        try { captured.push({ path: p, body: r.postDataJSON() }); } catch { /* not JSON */ }
+        if (FEEDBACK_FAILS && FAILED_ANSWERS[p]) {
+          const a = FAILED_ANSWERS[p];
+          return route.fulfill({ status: a.status, contentType: "application/json", body: JSON.stringify(a.body) });
+        }
       }
       return route.continue();
     }
@@ -76,7 +93,11 @@ async function openPage(browser, base, errors) {
   });
   const page = await ctx.newPage();
   page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
-  page.on("console", (m) => { if (m.type() === "error") errors.push("console: " + m.text()); });
+  page.on("console", (m) => {
+    if (m.type() !== "error") return;
+    if (FEEDBACK_FAILS && EXPECTED_IN_FAIL_MODE.some((rx) => rx.test(m.text()))) return;
+    errors.push("console: " + m.text());
+  });
   if (PASSWORD) {                              // round 44: through the gate's login page, as an agent would
     await page.goto(base + "/login");
     await page.fill('input[name="password"]', PASSWORD);
@@ -260,6 +281,18 @@ async function feedbackRoundTrip(page, server, report) {
   await fb.locator("input[type=radio]").first().check();
   await fb.locator("textarea").fill("  parity harness test  ");
   await fb.locator("button[type=submit]").click();
+  if (FEEDBACK_FAILS) {
+    const problems = [];
+    await fb.locator(".send-failed").waitFor({ state: "visible", timeout: 5000 });
+    const shown = (await fb.locator(".send-failed").textContent()).trim();
+    if (shown !== NOT_SAVED) problems.push("message " + JSON.stringify(shown));
+    if (await fb.locator(".sent").isVisible()) problems.push('"Sent" shown for a report that was not saved');
+    const kept = await fb.locator("textarea").inputValue();
+    if (kept !== "  parity harness test  ") problems.push("comment not kept for the retry: " + JSON.stringify(kept));
+    if (!captured.some((p) => p.path === "/api/feedback")) problems.push("no POST /api/feedback");
+    report.feedback = problems.length ? { ok: false, problems } : { ok: true, failed_as_expected: shown };
+    return;
+  }
   await fb.locator(".sent").waitFor({ state: "visible", timeout: 5000 });
   const posts = (server.posts.length ? server.posts : captured).filter((p) => p.path === "/api/feedback");
   const rec = posts[posts.length - 1]?.body;
@@ -319,10 +352,12 @@ async function main() {
       console.log(`(b) check: ${checkProfiles.length} profiles ...`);
       await partCheck(page, checkProfiles, expected, report);
       await feedbackRoundTrip(page, server, report);
+      // --feedback-fails answers some POSTs in the browser, so only the captured list has them all
+      const seen = FEEDBACK_FAILS || !server.posts.length ? captured : server.posts;
       report.worker_posts = {
-        usage: (server.posts.length ? server.posts : captured).filter((p) => p.path === "/api/usage").length,
-        placement: (server.posts.length ? server.posts : captured).filter((p) => p.path === "/api/placement").length,
-        feedback: (server.posts.length ? server.posts : captured).filter((p) => p.path === "/api/feedback").length,
+        usage: seen.filter((p) => p.path === "/api/usage").length,
+        placement: seen.filter((p) => p.path === "/api/placement").length,
+        feedback: seen.filter((p) => p.path === "/api/feedback").length,
       };
       const u = server.posts.find((p) => p.path === "/api/usage")?.body;
       report.usage_example = u;

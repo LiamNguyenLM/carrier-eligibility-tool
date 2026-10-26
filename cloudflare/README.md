@@ -2,8 +2,8 @@
 
 The Worker answers the API. The static site (`web/dist`: the page and the Pyodide engine) is served by Workers
 Static Assets. The Worker never runs for those files. Cloudflare Access sits in front of the whole hostname. The
-placement tables live only in D1: the browser posts one check's verdicts and gets back the panel's top 3 markets and
-their reason lines, never the tables.
+placement tables are part of the Worker (round 44b; they were in D1 until loading them blew the free tier): the
+browser posts one check's verdicts and gets back the panel's top 3 markets and their reason lines, never the tables.
 
 Every command below runs from the **repo root**. `wrangler.toml` goes at the root; everything else goes under
 `cloudflare/`.
@@ -13,18 +13,19 @@ Every command below runs from the **repo root**. `wrangler.toml` goes at the roo
 | file | what it is |
 |---|---|
 | `wrangler.toml` (repo root) | Worker `cfig-eligibility`. Assets `web/dist` with binding `ASSETS`; `run_worker_first = ["/api/*"]`. D1 `cfig-eligibility` with binding `DB` and `migrations_dir = cloudflare/migrations`. Vars `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `ADMIN_EMAILS`. `workers_dev` and `preview_urls` are off (see Access). |
-| `package.json` (repo root) | wrangler pinned to 4.149.0 (released 2026-10-08), plus the npm scripts: dev, migrate:local, migrate:remote, sync:placement, import:logs, test:worker, bench:worker. |
+| `package.json` (repo root) | wrangler pinned to 4.149.0 (released 2026-10-08), plus the npm scripts: dev, migrate:local, migrate:remote, build:placement, import:logs, test:worker, bench:worker, bench:gate. |
 | `cloudflare/src/worker.js` | Entry point. Sends `/api/*` to `routes.js` and everything else to `ASSETS`. |
 | `cloudflare/src/access.js` | Checks the `Cf-Access-Jwt-Assertion` token: RS256, team JWKS cached per isolate, `iss`, `aud`, `exp`/`nbf`, and an email in the token. Also holds the local-only `DEV_AUTH_EMAIL` bypass. |
 | `cloudflare/src/routes.js` | The six `/api` routes. Checks request bodies and size limits; builds the admin CSV and the weekly counts. |
 | `cloudflare/src/csv.js` | `feedback.to_csv()`'s row, byte for byte. Each report's line is built when it is written and stored in `feedback.csv_row`, so the admin download is only a join of stored lines (see CPU). |
-| `cloudflare/src/placement.js` | A line-for-line port of `placement.panel()` and the functions it calls. It reads only one panel's rows from D1, in one batch. |
-| `cloudflare/migrations/0001_init.sql` | Tables `feedback`, `usage`, `placement_zip/county/profile/all/markets/meta`, with the indexes the panel's queries use. |
-| `cloudflare/scripts/sync_placement.mjs` | The monthly refresh: `rules_data/placement/*.csv` become one SQL file that replaces every placement table. |
-| `cloudflare/scripts/check_placement.sql` | Run after a refresh: compares row counts with the counts the sync wrote. `all_ok` must be 1. |
+| `cloudflare/src/placement.js` | A line-for-line port of `placement.panel()` and the functions it calls. It reads only one panel's rows, from the bundled tables in memory. |
+| `cloudflare/scripts/build_placement.mjs` | `rules_data/placement/*.csv` → `cloudflare/build/placement_data.js` (git-ignored), which `routes.js` imports. wrangler.toml's `[build]` runs it before every deploy and `wrangler dev`. It refuses a CSV with a missing column, a bad month or count, or no `data_through`. |
+| `cloudflare/migrations/0001_init.sql` | Tables `feedback`, `usage`, and the placement tables (dropped again by 0003). |
+| `cloudflare/migrations/0002_login_failures.sql` | The password gate's lockout counter. |
+| `cloudflare/migrations/0003_drop_placement.sql` | Round 44b: drops `placement_zip/county/profile/all/markets/meta`. |
 | `cloudflare/scripts/import_logs.mjs` | Turns Railway's `feedback_log.jsonl` and `usage_log.jsonl` into `INSERT OR IGNORE` SQL. Safe to re-run. |
 | `cloudflare/scripts/placement_parity_cases.py` | Python side of the parity check. Runs `placement.panel()` on the parity golden's profiles and writes the expected answers. |
-| `cloudflare/scripts/placement_parity.mjs` | JS side. Runs the Worker's code path on node:sqlite and requires a byte-identical JSON match. |
+| `cloudflare/scripts/placement_parity.mjs` | JS side. Runs the Worker's code path on the tables `build_placement.mjs` makes, and requires a byte-identical JSON match. |
 | `cloudflare/scripts/bench_cpu.mjs` | CPU per request for every route, measured over blocks of 2,000 requests. |
 | `cloudflare/scripts/lib.mjs`, `harness.mjs` | CSV reader, SQL literals, a D1 stand-in on `node:sqlite`, and a test Access key pair with its JWKS. |
 | `cloudflare/test/worker.test.mjs` (+ `fixtures/`) | 18 route tests, all in Node. Fixtures come from the real `feedback.record()`, `usage_log.record()` and `placement.panel()`. |
@@ -37,9 +38,9 @@ POST routes need `Content-Type: application/json`.
 | route | body / answer |
 |---|---|
 | `GET /api/whoami` | `{email, admin}` |
-| `POST /api/usage` | `{ts, app_version, wall_s, carriers, timings}`, at most 16 KB. Stored with the email. `model`/`effort` are `''` and `cost` is 0. 201 `{ok, id}`. |
-| `POST /api/feedback` | The fields of `feedback.record()`, at most 64 KB. A `choice` not in `CHOICES` is stored as "Not sure"; `name` and `comment` are stripped. Stored with the email. 201. |
-| `POST /api/placement` | `{pd: {zip, county, year_built, dwelling_amount, occupancy_type}, results: [{carrier, status, missing_info, reasons}], as_of?}`, at most 64 KB. Answers `placement.panel()`'s dict or `null`. Bad body: 400. D1 unavailable (for example during a refresh import): 503, and the page should show no panel. `as_of` defaults to the current month in America/Chicago. |
+| `POST /api/usage` | `{ts, app_version, wall_s, carriers, timings}`, at most 16 KB. Stored with the email. `model`/`effort` are `''` and `cost` is 0. 201 `{ok, id}`. If D1 can't write it: logged, 202 `{ok: false, saved: false}` (the page ignores it). |
+| `POST /api/feedback` | The fields of `feedback.record()`, at most 64 KB. A `choice` not in `CHOICES` is stored as "Not sure"; `name` and `comment` are stripped. Stored with the email. 201. If D1 can't write it: logged, 503 `{error: "Couldn’t save — try again later."}`, which the page shows. |
+| `POST /api/placement` | `{pd: {zip, county, year_built, dwelling_amount, occupancy_type}, results: [{carrier, status, missing_info, reasons}], as_of?}`, at most 64 KB. Answers `placement.panel()`'s dict or `null`. Bad body: 400. Never reads D1, so it answers the same while D1 is down or out of its daily allowance. `as_of` defaults to the current month in America/Chicago. |
 | `GET /api/admin/feedback.csv` | Admins only (403 otherwise). The same bytes as `feedback.to_csv()` (same columns, same Python CSV and `json.dumps` formatting), plus an `email` column at the end. |
 | `GET /api/admin/weekly` | Admins only. `{weeks: [{week: "2026-W43", start, checks, feedback}], totals}`, counted by `received_at` in UTC ISO weeks. |
 
@@ -53,11 +54,10 @@ Worker reduces any list it gets to its first non-blank string, so sending the wh
 ```sh
 npm ci                                              # at the repo root: wrangler 4.149.0, pyodide, playwright-core
 npx wrangler d1 migrations apply DB --local
-node cloudflare/scripts/sync_placement.mjs           # -> cloudflare/build/placement_sync.sql
-npx wrangler d1 execute DB --local --file=cloudflare/build/placement_sync.sql
 npx wrangler dev --local --var DEV_AUTH_EMAIL:liam@cfigtx.com
 #   http://127.0.0.1:8787/ serves web/dist (it must exist); http://127.0.0.1:8787/api/whoami
-npm run test:worker                                  # the route tests (zero network)
+npm run test:worker                                  # the route and gate tests (zero network)
+# wrangler dev builds cloudflare/build/placement_data.js first ([build]); the tests build it themselves
 ```
 
 `DEV_AUTH_EMAIL` stands in for an Access token only when the request is plain `http://` to localhost, 127.0.0.1 or
@@ -73,33 +73,23 @@ Add to `.gitignore`: `cloudflare/node_modules/`, `cloudflare/build/`, `.wrangler
 
 ## The monthly placement refresh (Liam)
 
-This replaces "commit and push the refreshed CSVs" for the panel's data. The CSVs stay in the repo as the source and
-are still committed.
+Update the CSVs and push (round 44b, Liam 2026-10-25):
 
 ```sh
-python rules_data/placement/sync_from_out.py             # as today: Claude's built tables -> rules_data/placement/
-git add rules_data/placement && git commit -m "Placement tables through YYYY-MM"
-node cloudflare/scripts/sync_placement.mjs               # -> cloudflare/build/placement_sync.sql (~1.6 MB)
-npx wrangler d1 execute cfig-eligibility --remote --file=cloudflare/build/placement_sync.sql
-npx wrangler d1 execute cfig-eligibility --remote --file=cloudflare/scripts/check_placement.sql
-#   all_ok = 1, data_through = the new month
+python rules_data/placement/sync_from_out.py             # as before: Claude's built tables -> rules_data/placement/
+npm run build:placement                                  # optional: the row counts, or the CSV line at fault
+git add rules_data/placement && git commit -m "Placement tables through YYYY-MM" && git push
 ```
 
-**Is a half-applied refresh possible?** No, as far as wrangler 4.149 says, though I could not try it against a real
-account:
+The GitHub build runs `npx wrangler deploy`, whose `[build]` step rebuilds the module from the CSVs it checked out;
+its log shows `placement tables: wrote ... data through YYYY-MM`. A bad CSV fails that step, so nothing deploys and
+the live version keeps last month's tables. A deploy switches to the new tables for every request at once: no window
+without a panel, and no D1 write at all.
 
-- `--remote --file` goes through D1's import API, and wrangler prints: "if the execution fails to complete, your DB
-  will return to its original state and you can safely retry". It also warns that the database is unavailable to
-  queries while the import runs. In that window `/api/placement` answers 503 and the page shows no panel; nothing
-  ever reads a half-written table.
-- `--local --file` runs the whole file as one `batch()`, which is one transaction.
-- For the same reason the file has no `BEGIN`/`COMMIT`: wrangler strips one pair and refuses more.
-
-The file is DELETE-all followed by INSERTs. It is byte-identical for the same CSVs, so re-running it is harmless. The
-sync refuses to write anything if a CSV is missing a column, has a bad month or count, or `placement_meta.csv` has no
-`data_through`. `check_placement.sql` is the after-check. A versioned-rows design (load a new version, then flip a
-pointer) would cover a non-atomic import too. I left it out because the import is atomic and it would add a column
-to every query.
+**Why not D1:** on 2026-10-25 the D1 load used 143k rows written against D1 Free's 100k a day (about 28,700 table
+rows, and each write to an indexed table counts once more per index). Once the allowance is gone, no D1 query runs
+that day, reads included. In the bundle the tables cost 298 KB of the Worker's 64 MiB and about 1.5 ms of
+JSON.parse at isolate start-up (limit 1 s), and the panel's CPU fell (below).
 
 ## Importing the Railway logs (once, or again later)
 
@@ -159,18 +149,37 @@ compared byte for byte, key order included.
   their real reason texts).
 
 Python always got the full records and the full property details. The Worker got the reduced body the browser sends.
-Rerun this after any change to `placement.py`'s rules, or before trusting a new month's tables if the sync changed.
+Rerun this after any change to `placement.py`'s rules, or if `build_placement.mjs` changes. Round 44b (tables
+from memory, 2026-10-25): 14,436 cases (no `native`), 0 differences.
 
 ## CPU per request (Workers Free plan: 10 ms)
 
 `node cloudflare/scripts/bench_cpu.mjs --cases cloudflare/build/parity_cases.json`. Node 24 on this laptop. Each
 cell is `process.cpuUsage()` over a block of 2,000 requests divided by 2,000. Every request carries an Access token
-that is fully checked. Tables: the real placement tables, 20,000 usage rows (a year at ~55 checks a day) and 1,000
-reports (5,000 for the last line).
+that is fully checked. Tables: the real placement tables (D1 in round 43, the bundle since 44b), 20,000 usage rows
+(a year at ~55 checks a day) and 1,000 reports (5,000 for the last line).
 
 - **A** counts everything in this process, SQLite's work included: an upper bound.
 - **B** answers each D1 query from the JSON of its real answer, parsed fresh every time. That is what a Worker does
   with a D1 result, so B is the Worker's own CPU: the number the 10 ms limit counts.
+
+Round 44b, 2026-10-25 (placement from the bundle; 5 blocks of 2,000, medians; nothing else running):
+
+| route | A: ms/req | B: Worker ms/req |
+|---|---|---|
+| GET /api/whoami | 0.16 | 0.10 |
+| POST /api/usage | 0.16 | 0.14 |
+| POST /api/feedback | 0.22 | 0.17 |
+| POST /api/placement, a panel (500 real check bodies, ~8 KB each) | 0.30 | 0.30 |
+| POST /api/placement, null (fewer than 2 candidates) | 0.21 | 0.19 |
+| GET /api/admin/weekly (20,000 checks) | 20.4 | 0.33 |
+| GET /api/admin/feedback.csv (1,000 reports, part 1) | 12.3 | 1.01 |
+| GET /api/whoami, no token (401) | 0.03 | 0.02 |
+
+The placement rows are the same in A and B now: no D1. Under D1 (round 43, below) a panel was 3.3 ms in A and 1.0
+ms in B. The password gate adds 0.05-0.10 ms a request (`npm run bench:gate`).
+
+Round 43, 2026-10-24 (placement in D1; 3 blocks):
 
 | route | A: ms/req (3 blocks) | B: Worker ms/req (3 blocks) |
 |---|---|---|
@@ -185,7 +194,7 @@ reports (5,000 for the last line).
 | GET /api/whoami, no token (401) | 0.06, 0.04, 0.05 | 0.06, 0.06, 0.04 |
 
 The Access check alone costs 0.05 to 0.2 ms; the laptop was shared with other jobs, so small numbers wander by about
-2x. A panel reads about 1,000 D1 rows; at D1 Free's 5 M rows read a day, that is roughly 5,000 panels a day.
+2x. Under D1 a panel read about 1,000 D1 rows (5 M rows read a day: roughly 5,000 panels); since round 44b it reads none.
 
 **What this proves:** the Worker's own JavaScript (token check, body parsing, the panel arithmetic, building the
 CSV) stays under 10 ms by a wide margin on every route, except the CSV once there are about 6,000 reports. Two

@@ -4,12 +4,18 @@
 //   GET  /api/whoami              {email, admin}
 //   POST /api/usage               one row per check (usage_log.record()'s fields; the browser makes no model call)
 //   POST /api/feedback            one "This looks wrong" report (feedback.record()'s fields) + the agent's email
-//   POST /api/placement           placement.panel()'s dict, or null (placement.js)
+//   POST /api/placement           placement.panel()'s dict, or null (placement.js; the tables are in the bundle)
 //   GET  /api/admin/feedback.csv  the reports, feedback.to_csv()'s columns (+ email last), 300 a part (?part=N)
 //   GET  /api/admin/weekly        checks and reports per ISO week
+//
+// Round 44b (Liam, 2026-10-25): a D1 write that fails is never fatal. A usage row is logged and dropped (202); a
+// feedback report answers 503 "Couldn't save -- try again later." so the agent can resend. The placement panel never
+// reads D1, and the gate's lockout counter (session.js) logs and carries on.
 import { AuthError, identify } from "./access.js";
 import { CSV_HEADER, feedbackCsvLine } from "./csv.js";
 import { ageBand, buildPanel, covaBand, loadPanelTables, monthIndex, parsePlacementBody, pyCmp, pyStrip } from "./placement.js";
+// Generated from rules_data/placement/*.csv before every deploy / dev run (wrangler.toml [build]); git-ignored.
+import PLACEMENT from "../build/placement_data.js";
 
 export const CHOICES = ["Should be Eligible", "Should be Ineligible", "Should be Refer", "Not sure"];
 const LIMITS = { usage: 16 * 1024, feedback: 64 * 1024, placement: 64 * 1024 };
@@ -94,10 +100,20 @@ async function postUsage(request, env, who) {
   const row = [nowIso(), who.email, tsOr(b.ts, "ts"), str(b.app_version, "app_version", 64),
     round2(num(b.wall_s, "wall_s", { max: 86400 })), num(b.carriers, "carriers", { max: 10000, int: true }),
     JSON.stringify(timings)];
-  const r = await env.DB.prepare("INSERT INTO usage (received_at, email, ts, app_version, wall_s, carriers, timings) "
-    + "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)").bind(...row).run();
+  let r;
+  try {
+    r = await env.DB.prepare("INSERT INTO usage (received_at, email, ts, app_version, wall_s, carriers, timings) "
+      + "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)").bind(...row).run();
+  } catch (e) {
+    // round 44b: a usage row is bookkeeping -- D1 refusing it (e.g. the free tier's daily write limit) must not show
+    // as an error anywhere. Logged, and answered 202 so the page carries on as for any other answer.
+    console.error("usage: D1 write failed, row not saved --", e && e.message);
+    return json({ ok: false, saved: false }, 202);
+  }
   return json({ ok: true, id: r.meta.last_row_id }, 201);
 }
+
+export const FEEDBACK_NOT_SAVED = "Couldn’t save — try again later.";
 
 async function postFeedback(request, env, who) {
   const b = await readJson(request, LIMITS.feedback);
@@ -115,8 +131,15 @@ async function postFeedback(request, env, who) {
     checked_topics: checked === null ? null : JSON.stringify(checked), choice, comment: pyStrip(str(b.comment, "comment", 20000)) };
   row.csv_row = feedbackCsvLine(row);
   const cols = Object.keys(row);
-  const r = await env.DB.prepare(`INSERT INTO feedback (${cols.join(", ")}) VALUES (${cols.map((_, i) => "?" + (i + 1)).join(", ")})`)
-    .bind(...Object.values(row)).run();
+  let r;
+  try {
+    r = await env.DB.prepare(`INSERT INTO feedback (${cols.join(", ")}) VALUES (${cols.map((_, i) => "?" + (i + 1)).join(", ")})`)
+      .bind(...Object.values(row)).run();
+  } catch (e) {
+    // round 44b: the agent must know the report did not arrive (the page keeps what they typed), so not a 202
+    console.error("feedback: D1 write failed, report not saved --", e && e.message);
+    return json({ ok: false, saved: false, error: FEEDBACK_NOT_SAVED }, 503);
+  }
   return json({ ok: true, id: r.meta.last_row_id }, 201);
 }
 
@@ -129,14 +152,9 @@ async function postPlacement(request, env) {
     throw new HttpError(400, e.message);
   }
   const year = parseInt(req.asOf.slice(0, 4), 10);
-  let T;
-  try {
-    T = await loadPanelTables(env.DB, { zip5: req.pd.zip, county: req.pd.county, ageB: ageBand(year, req.pd.year_built),
-      covaB: covaBand(req.pd.dwelling_amount), asof: monthIndex(req.asOf) });
-  } catch (e) {
-    console.error("placement: D1 failed --", e && e.message);
-    throw new HttpError(503, "placement data unavailable");      // e.g. while a monthly refresh is importing
-  }
+  // round 44b: the tables are bundled into the Worker (build_placement.mjs), so the panel never touches D1
+  const T = loadPanelTables(PLACEMENT, { zip5: req.pd.zip, county: req.pd.county, ageB: ageBand(year, req.pd.year_built),
+    covaB: covaBand(req.pd.dwelling_amount), asof: monthIndex(req.asOf) });
   return json(buildPanel(req.results, req.pd, req.asOf, T));
 }
 

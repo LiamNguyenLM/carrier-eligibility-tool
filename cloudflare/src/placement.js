@@ -1,9 +1,10 @@
 // The placement panel, answered by the Worker (round 43 step 3).
 //
 // A line-for-line port of placement.py's panel() and everything it calls (markets_in, candidates, rank,
-// nearby, fit_line, _compact, _pct), reading only the rows one panel needs from D1 instead of
-// load_tables()'s whole CSVs. panel_markdown() is NOT ported: the browser builds the markdown itself
-// (Python in Pyodide) from the dict returned here.
+// nearby, fit_line, _compact, _pct), reading only the rows one panel needs from the tables bundled into the
+// Worker (round 44b; they were in D1 until the load blew the free tier) instead of load_tables()'s whole CSVs.
+// panel_markdown() is NOT ported: the browser builds the markdown itself (Python in Pyodide) from the dict returned
+// here.
 //
 // Python behaviour kept on purpose (each one is checked by cloudflare/scripts/placement_parity.mjs):
 //   * round() is round-half-even (_pct: 1 of 8 is "12%", not "13%");
@@ -11,9 +12,9 @@
 //   * _compact cuts by code points, not UTF-16 units;
 //   * every sort is Python's (stable, code-point order), every weighted sum is taken in the CSV's row
 //     order and every "sum(d.values())" in the dict's insertion order (Map here).
-// One deliberate difference: placement.py's statewide mix T["all"] is every placement_zip row; D1 holds it
-// summed per (month, market) (placement_all). The weights are the same; the floating-point sums can differ
-// in the last bit, which can only matter for two scores equal to ~1e-16 -- the parity check counts it.
+// One deliberate difference: placement.py's statewide mix T["all"] is every placement_zip row; the bundled tables
+// hold it summed per (month, market) (as D1's placement_all did). The weights are the same; the floating-point sums
+// can differ in the last bit, which can only matter for two scores equal to ~1e-16 -- the parity check counts it.
 
 export const HALF_LIFE = 4.0, WINDOW_MONTHS = 36, K_ZIP = 15.0, K_COUNTY = 30.0, MIN_DIM = 20.0;
 export const AGE = [[10, 20, 30, 40, 60], ["0-9", "10-19", "20-29", "30-39", "40-59", "60+"]];
@@ -89,44 +90,39 @@ export const ageBand = (year, yearBuilt) => (yearBuilt ? band(year - yearBuilt, 
 export const covaBand = (covA) => (covA && covA >= 20000 ? band(covA, COVA) : "");
 
 // ------------------------------------------------------------------------------------------ the data
+const NO_ROWS = Object.freeze([]);
+
+/** One key's rows (a ZIP, a county key, a band) -- an own property only, so a county typed as "constructor" or
+ * "__proto__" finds no rows instead of Object.prototype's. */
+const own = (o, k) => (o && Object.hasOwn(o, k) ? o[k] : NO_ROWS);
+
+/** [[mi, market, n], ...] for the flat rows with mi in [lo, hi], in their CSV order. */
+function windowRows(flat, names, lo, hi) {
+  const out = [];
+  for (let i = 0; i < flat.length; i += 3) {
+    const mi = flat[i];
+    if (mi >= lo && mi <= hi) out.push([mi, names[flat[i + 1]], flat[i + 2]]);
+  }
+  return out;
+}
+
 /**
- * Every row one panel can use, in one D1 batch (one round trip): the markets and meta (a few dozen rows), and
- * the 36 whole months before as_of of the statewide mix, the ZIP, the county and the home's two profile
- * bands. Returns the same shapes placement.load_tables() builds, restricted to those keys and months.
+ * Every row one panel can use, from the tables bundled into the Worker (cloudflare/scripts/build_placement.mjs; round
+ * 44b, they left D1): the markets and data_through, and the 36 whole months before as_of of the statewide mix, the
+ * ZIP, the county and the home's two profile bands. Returns the same shapes placement.load_tables() builds,
+ * restricted to those keys and months -- what the D1 batch returned before.
  */
-export async function loadPanelTables(db, { zip5, county, ageB, covaB, asof }) {
+export function loadPanelTables(data, { zip5, county, ageB, covaB, asof }) {
   const lo = asof - WINDOW_MONTHS, hi = asof - 1;
-  const q = [
-    db.prepare("SELECT program_prefix, market FROM placement_markets ORDER BY seq"),
-    db.prepare("SELECT key, value FROM placement_meta WHERE key = 'data_through'"),
-    db.prepare("SELECT mi, market, n FROM placement_all WHERE mi BETWEEN ?1 AND ?2 ORDER BY seq").bind(lo, hi),
-  ];
-  const slots = {};
-  const add = (name, stmt) => { slots[name] = q.length; q.push(stmt); };
-  if (zip5) {
-    add("zip", db.prepare("SELECT mi, market, n FROM placement_zip WHERE zip = ?1 AND mi BETWEEN ?2 AND ?3 "
-      + "ORDER BY seq").bind(zip5, lo, hi));
-  }
-  const ck = countyKey(county);
-  add("county", db.prepare("SELECT mi, market, n FROM placement_county WHERE county_key = ?1 AND mi BETWEEN ?2 "
-    + "AND ?3 ORDER BY seq").bind(ck, lo, hi));
-  for (const [dim, val] of [["age_band", ageB], ["covA_band", covaB]]) {
-    if (val) {
-      add(dim, db.prepare("SELECT mi, market, n FROM placement_profile WHERE dim = ?1 AND value = ?2 AND mi BETWEEN "
-        + "?3 AND ?4 ORDER BY seq").bind(dim, val, lo, hi));
-    }
-  }
-  const res = await db.batch(q);
-  const rows = (i) => (i === undefined ? [] : res[i].results.map((r) => [r.mi, r.market, r.n]));
-  const meta = {};
-  for (const r of res[1].results) meta[r.key] = r.value;
+  const rows = (flat) => windowRows(flat, data.names, lo, hi);
+  const band = (dim, val) => (val ? rows(own(own(data.profile, dim), val)) : []);
   return {
-    markets: res[0].results.map((r) => [r.program_prefix, r.market]),
-    meta,
-    all: rows(2),
-    zip: rows(slots.zip),
-    county: rows(slots.county),
-    profile: { age_band: rows(slots.age_band), covA_band: rows(slots.covA_band) },
+    markets: data.markets,
+    meta: { data_through: data.meta.data_through },
+    all: rows(data.all),
+    zip: zip5 ? rows(own(data.zip, zip5)) : [],
+    county: rows(own(data.county, countyKey(county))),
+    profile: { age_band: band("age_band", ageB), covA_band: band("covA_band", covaB) },
   };
 }
 
@@ -341,12 +337,11 @@ export function parsePlacementBody(body) {
   return { pd: p, results, asOf };
 }
 
-/** POST /api/placement's answer: panel() or null. One D1 batch (the candidates need the markets table, so the
- * rows are read even when the answer turns out null: one round trip beats two). */
-export async function placementPanel(db, body) {
+/** POST /api/placement's answer: panel() or null, from the bundled tables (`data`, build_placement.mjs). */
+export function placementPanel(data, body) {
   const { pd, results, asOf } = parsePlacementBody(body);
   const year = parseInt(asOf.slice(0, 4), 10);
-  const T = await loadPanelTables(db, { zip5: pd.zip, county: pd.county, ageB: ageBand(year, pd.year_built),
+  const T = loadPanelTables(data, { zip5: pd.zip, county: pd.county, ageB: ageBand(year, pd.year_built),
     covaB: covaBand(pd.dwelling_amount), asof: monthIndex(asOf) });
   return buildPanel(results, pd, asOf, T);
 }

@@ -31,7 +31,9 @@ export const ENGINE_DATA_FILES = [
   "rules_data/engine_manifest.json",
 ];
 // What may never ship: HawkSoft placement data (the Worker serves the panel).
-const FORBIDDEN = [/(^|\/)rules_data\/placement(\/|$)/, /(^|\/)placement_[^/]*\.csv$/i, /(^|\/)\.env/];
+// round 44b: + the Worker's bundled placement module (cloudflare/build/placement_data.js) under any name
+const FORBIDDEN = [/(^|\/)rules_data\/placement(\/|$)/, /(^|\/)placement_[^/]*\.csv$/i, /(^|\/)placement_data[^/]*$/i,
+  /(^|\/)cloudflare\/build(\/|$)/, /(^|\/)\.env/];
 
 
 const PYODIDE_FILES = ["pyodide.mjs", "pyodide.asm.js", "pyodide.asm.wasm", "python_stdlib.zip", "pyodide-lock.json"];

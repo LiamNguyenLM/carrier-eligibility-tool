@@ -3,9 +3,10 @@
 // so a test can prove a refused request never reached a static file.
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
-import worker from "../src/worker.js";
 import { COOKIE, MAX_FAILURES, SESSION_DAYS, signSession } from "../src/session.js";
-import { DEFAULT_CSV_DIR, makeDb } from "../scripts/harness.mjs";
+import { loadWorker, makeDb } from "../scripts/harness.mjs";
+
+const { worker } = await loadWorker();
 
 const SECRETS = { APP_PASSWORD: "agents-pass-2026", ADMIN_PASSWORD: "admin-pass-2026!",
   SESSION_SECRET: "s".repeat(24) + "-0123456789abcdef" };
@@ -34,7 +35,7 @@ async function loginAs(password, name = "") {
   return m[1];
 }
 
-before(() => { db = makeDb(DEFAULT_CSV_DIR, []); });
+before(() => { db = makeDb(); });
 
 // every kind of path the site serves: the page, its scripts, the engine bundle, Pyodide, the rules data, the API
 const PATHS = [["GET", "/"], ["GET", "/index.html"], ["GET", "/src/app.js"], ["GET", "/engine.tar.gz"],
@@ -131,6 +132,44 @@ test(`${MAX_FAILURES} wrong passwords lock that address out, even for the right 
   db.sqlite.prepare("UPDATE login_failures SET locked_until = 0, window_start = 0 WHERE ip = ?").run(ip);
   assert.equal((await call(postLogin({ password: SECRETS.APP_PASSWORD }, ip))).status, 303);
   assert.equal(db.sqlite.prepare("SELECT count(*) AS n FROM login_failures WHERE ip = ?").get(ip).n, 0);
+});
+
+// Round 44b (Liam, 2026-10-25): "if the login-lockout counter ... can't write, login and checks still work (log the
+// error)". Three ways D1 can fail the counter: its writes refused, every call failing, and the reads failing too.
+test("the lockout counter failing in D1 never stops a login or a check; the error is logged", async () => {
+  const refused = () => Promise.reject(new Error("D1_ERROR: Exceeded maximum rows written per day"));
+  const writesRefused = { prepare: (sql) => {
+    const wrap = (st) => ({ bind: (...p) => wrap(st.bind(...p)), first: (c) => st.first(c), all: () => st.all(), run: refused });
+    return wrap(db.prepare(sql));
+  }, batch: refused };
+  const unreachable = { prepare: () => { throw new Error("D1_ERROR: Network connection lost"); }, batch: refused };
+  const readsFail = { prepare: () => ({ bind() { return this; }, first: refused, all: refused, run: refused }), batch: refused };
+  for (const [label, bad] of Object.entries({ "writes refused": writesRefused, "D1 unreachable": unreachable,
+    "reads and writes fail": readsFail })) {
+    const e = envOf({ DB: bad });
+    const logged = [], orig = console.error;
+    console.error = (...a) => logged.push(a.map(String).join(" "));
+    try {
+      const wrong = await call(postLogin({ password: "not-it" }, "198.51.100.9"), e);
+      assert.equal(wrong.status, 401, label);
+      assert.match(await wrong.text(), /That password isn&#39;t right\.|That password isn't right\./, label);
+      const ok = await call(postLogin({ password: SECRETS.APP_PASSWORD, name: "Jo", next: "/" }, "198.51.100.9"), e);
+      assert.equal(ok.status, 303, label);
+      const cookie = /cfig_session=([^;]+)/.exec(ok.headers.get("set-cookie") || "")[1];
+      assert.equal((await call(get("/", { cookie }), e)).status, 200, label);
+      const usage = await call(get("/api/usage", { cookie, method: "POST", type: "application/json",
+        body: JSON.stringify({ carriers: 3 }) }), e);
+      assert.equal(usage.status, 202, label);
+      const fb = await call(get("/api/feedback", { cookie, method: "POST", type: "application/json",
+        body: JSON.stringify({ carrier: "TWICO_HO3", comment: "x" }) }), e);
+      assert.equal(fb.status, 503, label);
+      assert.equal((await fb.json()).error, "Couldn’t save — try again later.", label);
+    } finally {
+      console.error = orig;
+    }
+    assert.ok(logged.some((l) => l.startsWith("login_failures write failed")), `${label}: ${logged}`);
+    if (label !== "writes refused") assert.ok(logged.some((l) => l.startsWith("login_failures read failed")), label);
+  }
 });
 
 test("a missing or weak secret fails closed: every path refuses, the login page says the tool isn't set up", async () => {
