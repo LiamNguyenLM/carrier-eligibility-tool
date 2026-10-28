@@ -17,10 +17,11 @@ Docs were checked on 2026-10-24/25. A tag such as [S9] points to the Sources lis
 1. `npm ci`, then `npx wrangler login` and `npx wrangler whoami`. The last should show the CFIG account [S5].
 2. Your commit 9a739a5 already has the database id. If you ever recreate the database, run
    `npx wrangler d1 create cfig-eligibility`, paste the new `database_id` into `wrangler.toml`, and commit [S6].
-3. Create the tables. This is migrations 0001 to 0003 [S7]:
+3. Create the tables. This is migrations 0001 to 0004 [S7]:
    - 0002 holds the login lockout;
    - 0003 drops the placement tables again. They are now part of the Worker (see the box below), and D1 keeps only
-     feedback, usage and the lockout.
+     feedback, usage and the lockout;
+   - 0004 adds the Ask the Guides log (`chat_log`) and marks chat reports in `feedback` (section 9).
    ```
    npm run migrate:remote
    ```
@@ -159,8 +160,8 @@ failed", "feedback: D1 write failed" or "login_failures". The allowance resets a
 > The eligibility tool is back, at a new address: **https://cfig-eligibility.<subdomain>.workers.dev**. Please
 > bookmark it. Sign in with the password I'm sending separately, plus your name if you like (it goes on any "This
 > looks wrong" report you send). You stay signed in for 7 days on that computer.
-> What's different from the old site: no "Ask the Guides" chat tab. The first visit takes a few seconds to load the
-> tool; after that it's quick. Checks, cards and "This looks wrong" work as before.
+> What's different from the old site: the first visit takes a few seconds to load the tool; after that it's quick.
+> Checks, cards and "This looks wrong" work as before. "Ask the Guides" is back as its own tab (section 9).
 
 ## 8. Later: switching to Cloudflare Access (after Jonathan's Zero Trust setup)
 
@@ -192,6 +193,44 @@ failed", "feedback: D1 write failed" or "login_failures". The allowance resets a
    npx wrangler secret delete SESSION_SECRET
    ```
    Tell agents to sign in with their email from now on.
+
+## 9. Ask the Guides (round 45)
+
+The chat tab answers from CFIG's guides and rules tables only, with Claude Haiku 5.5. It costs about $0.001 a
+question. Three limits keep the cost down:
+- 30 questions an hour per login;
+- $3 a day across everyone (`CHAT_DAILY_CAP_USD` in `wrangler.toml`);
+- over a limit, the tab says so, and the checker is unaffected.
+
+1. **The key.** In the Anthropic console, make an API key for this tool. Then run:
+   ```
+   npx wrangler secret put ANTHROPIC_API_KEY
+   ```
+   Paste the key when it asks. It lives only in Cloudflare: never in `wrangler.toml`, git, a chat or this guide. Until
+   it is set, the tab says "Ask the Guides isn't set up yet."
+2. **The table.** Run `npm run migrate:remote`. It applies 0004 (the chat log); 0001–0003 are already in.
+3. **Push** `main`. The build bundles the guides' text into the Worker, never into the page.
+4. **Try it** in a private window, signed in with the agent password. Open **Ask the Guides** and ask:
+   - "Does the Hartford take a home with a diving board?" Expect: No, labelled **CFIG experience** (not the guide).
+   - "Which carriers decline Federal Pacific panels?" Expect: a list with a source under each carrier (guide date,
+     page).
+   - "Does State Farm take homes with a pool?" Expect: CFIG has no State Farm guide on file.
+5. **See what agents ask:** sign in with the admin password, then use **Download chat log** in the top bar. It has
+   one row per question: who, question, carriers cited, tokens and cost. Answers are not kept. Reports from "This
+   answer looks wrong" are in **Download feedback**, with verdict `CHAT`.
+6. **Check the CPU once it's live.** Go to **Workers & Pages → cfig-eligibility → Observability**. CPU time per
+   request should stay well under 10 ms:
+   - measured here, a chat answer used 1.5 ms (p95 3 ms);
+   - loading the Worker's bundled guide text takes about 0.1 s, once per instance.
+
+   If requests fail with error 1102 ("Worker exceeded CPU time limit"), tell Claude. The fix is either to shrink the
+   bundle or to move to Workers Paid ($5 a month, which allows 30 s of CPU per request); decide that before
+   upgrading.
+
+**Note for agents:**
+> **Ask the Guides** is back, as a tab next to the eligibility check. Ask about any carrier's rules ("Does the
+> Hartford take a trampoline?"). Each answer cites the carrier, guide date and page; check the page before you rely on
+> it. "CFIG experience" means our own experience, not the carrier's guide.
 
 ## Turning off Railway
 

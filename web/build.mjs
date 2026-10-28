@@ -32,12 +32,15 @@ export const ENGINE_DATA_FILES = [
 ];
 // What may never ship: HawkSoft placement data (the Worker serves the panel).
 // round 44b: + the Worker's bundled placement module (cloudflare/build/placement_data.js) under any name
+// round 45: + Ask the Guides' material (rules_data/chat, the Worker's chat_index.js): the guides' text stays server-side
 const FORBIDDEN = [/(^|\/)rules_data\/placement(\/|$)/, /(^|\/)placement_[^/]*\.csv$/i, /(^|\/)placement_data[^/]*$/i,
-  /(^|\/)cloudflare\/build(\/|$)/, /(^|\/)\.env/];
+  /(^|\/)cloudflare\/build(\/|$)/, /(^|\/)\.env/, /(^|\/)rules_data\/chat(\/|$)/, /(^|\/)chat_index[^/]*$/i,
+  /(^|\/)guide_chunks[^/]*$/i];
 
 
 const PYODIDE_FILES = ["pyodide.mjs", "pyodide.asm.js", "pyodide.asm.wasm", "python_stdlib.zip", "pyodide-lock.json"];
-const PAGE_FILES = ["index.html", "src/app.js", "src/engine.js", "src/markdown.js", "src/worker_api.js", "src/styles.css"];
+const PAGE_FILES = ["index.html", "src/app.js", "src/chat.js", "src/engine.js", "src/markdown.js", "src/worker_api.js",
+  "src/styles.css"];
 
 function args(argv) {
   const out = {};

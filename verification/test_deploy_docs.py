@@ -25,7 +25,8 @@ def test_every_npm_script_a_doc_names_exists(doc):
 
 @pytest.mark.parametrize("doc", DOCS)
 def test_every_repo_file_a_doc_runs_or_opens_exists(doc):
-    paths = set(re.findall(r"\b((?:cloudflare|web|verification|rules_data|engine)/[\w./-]+\.(?:mjs|json|js|py|sql|md|csv|xz))",
+    # round 45: + jsonl, and an extension must end the name (".jsonl" was read as ".json" + "l")
+    paths = set(re.findall(r"\b((?:cloudflare|web|verification|rules_data|engine)/[\w./-]+\.(?:mjs|jsonl|json|js|py|sql|md|csv|xz))(?![\w])",
                            _text(doc)))
     made = re.compile(r"(^|/)(build|out|dist)/|engine_manifest|parity_cases|candidate|placement_data\.py")
     missing = sorted(p for p in paths if not made.search(p) and "<" not in p
@@ -58,6 +59,16 @@ def test_the_deploy_guide_says_the_monthly_refresh_is_update_the_csvs_and_push()
     assert "sync_from_out.py" in refresh and "git push" in refresh and "data through YYYY-MM" in refresh
     assert "No placement load step" in guide and "0003" in guide
     assert "Couldn’t save — try again later." in guide
+
+
+def test_the_deploy_guide_sets_up_ask_the_guides_with_a_secret():
+    # Round 45 (Liam, 2026-10-28): the key goes in with wrangler secret put, never into a file; 0004 is migrated; three
+    # questions to try; a note for agents.
+    guide = _text("DEPLOY_CLOUDFLARE.md")
+    sec = guide[guide.index("## 9. Ask the Guides"):guide.index("## Turning off Railway")]
+    assert "npx wrangler secret put ANTHROPIC_API_KEY" in sec and "npm run migrate:remote" in sec and "0004" in sec
+    assert sec.count('- "') >= 3 and "Note for agents" in sec
+    assert not __import__("re").search(r"sk-ant-[A-Za-z0-9]", guide)
 
 
 def test_railway_keeps_building_the_python_app():

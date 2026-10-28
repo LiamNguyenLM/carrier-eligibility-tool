@@ -3041,6 +3041,25 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     runs in 1.8 s with no API key and no network connection. (`HERMES_MCP.md`'s "Paid, 30-90 s" predates the
     switches defaulting ON.)
 
+- **2026-10-28 — Round 45: "Ask the Guides" is back, on the Cloudflare version.** Liam: Jonathan is hesitant about
+  CFIG-GPT, so agents need the guides inside the tool.
+  - **What it is:** a tab beside the checker. The Worker answers with Claude Haiku 5.5 (`CHAT_MODEL`) from CFIG's
+    material only: the guide chunks (`rules_data/chat/`, exported from the store), the rules tables and
+    `cfig_knowledge.csv` ("CFIG experience").
+  - **How:** BM25 retrieval over that material, bundled into the Worker, with carrier and topic routing. Every answer
+    cites [S#] sources rendered from the index (carrier, guide date, page, rule ID).
+  - **Cost guard:** 30 questions an hour per login; $3 a day; one D1 read and one write a question.
+  - **The key:** a Worker secret, ANTHROPIC_API_KEY.
+  - **The API call:** a direct fetch, not the SDK. The SDK measured 4.5 ms of Worker CPU per answer on average (p95
+    about 9 ms) against the Free plan's 10 ms; the direct fetch measures 1.5 ms.
+  - **Tests:**
+    - 40-question live set (`verification/chat/`), graded by an independent agent: final prompt 39 / 38 / 36 correct
+      in three runs, 0 wrong, 0 made up, 0 wrong carrier;
+    - about $0.0008 a question;
+    - first words median 0.66 s.
+  - **Known gap:** a long cross-carrier list can still merge two Hartford stove rows (Q19).
+  - **The old Railway chat** (chat.py, removed in round 43 step 0c) is described in the round-45 report.
+
 - **2026-10-25 — Round 44b: the placement tables leave D1; D1 write failures are never fatal.**
   - **Why:** loading the placement tables into D1 blew the free tier: 143k rows written against 100k a day (index
     entries count as rows). Once the allowance is gone, no D1 query runs that day, reads included.

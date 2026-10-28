@@ -98,6 +98,14 @@ export async function sessionOf(request, env) {
   return verifySession(cookieOf(request, COOKIE), env.SESSION_SECRET);
 }
 
+/** Round 45: a stable id for this login (the chat's per-session rate limit): the first 16 hex of the cookie's
+ * SHA-256. Not secret, and the cookie can't be rebuilt from it. */
+export async function sessionKey(request) {
+  const c = cookieOf(request, COOKIE) || "";
+  const d = new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(c)));
+  return [...d.slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 /** A same-site path to go back to after the login (never another site). */
 export function safeNext(next) {
   const s = String(next || "/");
