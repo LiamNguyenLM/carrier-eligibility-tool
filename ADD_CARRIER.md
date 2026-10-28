@@ -180,7 +180,13 @@ right, or writes what the carrier really does. Fix what they mark. Their decisio
 6. **Placement**: a new market goes in `rules_data/placement/placement_markets.csv`. Nothing else to load: the Worker
    rebuilds its placement tables from the CSVs on every deploy (round 44b; DEPLOY_CLOUDFLARE.md, section 3 step 4).
    To check before pushing: `npm run build:placement` prints the row counts, or the CSV line at fault.
-7. **Push** (Liam): the push deploys (Workers Builds). The web version needs no `FORCE_RESEED` -- it has no store at
+7. **Ask the Guides' text** (round 45): re-export the chat corpus from the new store, and commit it with the seed. A new
+   carrier's rules table, CFIG knowledge or display name reaches the chat by itself at the next deploy.
+   `verification/test_chat_corpus.py` fails while this export is stale.
+   ```
+   python cloudflare/scripts/export_chat_corpus.py        # -> rules_data/chat/guide_chunks.jsonl + programs.json
+   ```
+8. **Push** (Liam): the push deploys (Workers Builds). The web version needs no `FORCE_RESEED` -- it has no store at
    run time; Railway, while it still runs, does.
 - Never open a tracked seed with chromadb directly: opening a store writes to its sqlite file. Tests read
   `carrier_docs_db`.

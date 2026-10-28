@@ -61,6 +61,16 @@ def test_the_deploy_guide_says_the_monthly_refresh_is_update_the_csvs_and_push()
     assert "Couldn’t save — try again later." in guide
 
 
+def test_the_deploy_guide_sets_up_ask_the_guides_with_a_secret():
+    # Round 45 (Liam, 2026-10-28): the key goes in with wrangler secret put, never into a file; 0004 is migrated; three
+    # questions to try; a note for agents.
+    guide = _text("DEPLOY_CLOUDFLARE.md")
+    sec = guide[guide.index("## 9. Ask the Guides"):guide.index("## Turning off Railway")]
+    assert "npx wrangler secret put ANTHROPIC_API_KEY" in sec and "npm run migrate:remote" in sec and "0004" in sec
+    assert sec.count('- "') >= 3 and "Note for agents" in sec
+    assert not __import__("re").search(r"sk-ant-[A-Za-z0-9]", guide)
+
+
 def test_railway_keeps_building_the_python_app():
     """Round 43: package.json sits at the repo root now (the Cloudflare page and Worker). Railway's builders detect
     Node from a root package.json, so both are pinned to Python until Railway is retired (railpack.json for Railpack,

@@ -7,11 +7,11 @@ Q03, Q12, Q15, Q19, Q21, Q39 and Q40 and agreed with every grade.
 | run | prompt | correct | partly | wrong | made up | wrong carrier | citation wrong | cost |
 |---|---|---|---|---|---|---|---|---|
 | 2 | first version | 34 | 6 | 0 | 0 | 1 | 1 | $0.031 |
-| 3 | final rules (SDK transport) | 39 | 1 | 0 | 0 | 0 | 0 | $0.031 |
-| 4 | final rules (SDK transport) | 38 | 2 | 0 | 0 | 0 | 1 | $0.031 |
-| 6 | final (direct fetch) | 36 | 4 | 0 | 0 | 0 | 1 | $0.031 |
+| 3 | sources grouped by program (SDK) | 39 | 1 | 0 | 0 | 0 | 0 | $0.031 |
+| 4 | sources grouped by program (SDK) | 38 | 2 | 0 | 0 | 0 | 1 | $0.031 |
+| 6 | final: + one line per rule, no ranges (direct fetch) | 36 | 4 | 0 | 0 | 0 | 1 | $0.031 |
 
-Target (Liam): no made-up content, no wrong carrier, at least 34/40 correct. Held on every run with the final rules.
+Target (Liam): no made-up content, no wrong carrier, at least 34/40 correct. Held on runs 3, 4 and 6 (run 2 had one wrong carrier, fixed by grouping the sources).
 
 Known gaps (partly, recurring):
 - Q19 (wood stoves, across carriers): the Hartford's three stove rows (HAR-013 Protection Class 10, HAR-014 installation,
