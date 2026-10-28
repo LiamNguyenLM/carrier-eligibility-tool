@@ -8,7 +8,7 @@
 //              and the API also verifies Access's token itself (access.js), failing closed.
 // Anything else fails closed: 503 for every path.
 import { handleApi } from "./routes.js";
-import { authMode, login, loginPage, logout, notConfigured, refuse, safeNext, sessionOf } from "./session.js";
+import { authMode, login, loginPage, logout, notConfigured, refuse, safeNext, sessionKey, sessionOf } from "./session.js";
 
 const isApi = (url) => url.pathname === "/api" || url.pathname.startsWith("/api/");
 
@@ -41,7 +41,8 @@ async function passwordMode(request, env, ctx, url) {
   const session = await sessionOf(request, env);
   if (!session) return refuse(request, url);
   if (isApi(url)) {
-    const who = { email: "", name: session.name || "", admin: session.role === "admin", mode: "password" };
+    const who = { email: "", name: session.name || "", admin: session.role === "admin", mode: "password",
+      sid: url.pathname === "/api/chat" ? await sessionKey(request) : "" };      // round 45: the chat's rate limit
     return handleApi(request, env, ctx, url, who);
   }
   return asset(request, env);

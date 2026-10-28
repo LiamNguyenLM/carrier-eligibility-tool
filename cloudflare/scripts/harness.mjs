@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { D1Stub } from "./lib.mjs";
 import { DEFAULT_CSV_DIR as CSV_DIR, writePlacementModule } from "./build_placement.mjs";
+import { writeChatModule } from "./build_chat_index.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const TEAM = "cfig-test.cloudflareaccess.com";
@@ -57,6 +58,7 @@ export function makeDb(extraSql = []) {
  */
 export async function loadWorker(csvDir = CSV_DIR) {
   const built = writePlacementModule(csvDir);
+  built.chat = writeChatModule();                      // round 45: Ask the Guides' material, the same way
   const mod = await import("../src/worker.js");
   return { worker: mod.default, built };
 }

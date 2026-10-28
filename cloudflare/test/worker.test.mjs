@@ -261,7 +261,8 @@ test("D1 holds no placement table after the migrations (0003 drops them)", () =>
   assert.deepEqual(names, []);
   const left = db.sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' "
     + "AND name NOT LIKE '_cf_%' AND name <> 'd1_migrations' ORDER BY name").all().map((r) => r.name);
-  assert.deepEqual(left, ["feedback", "login_failures", "usage"]);
+  // CHANGED (round 45, Liam 2026-10-28: Ask the Guides): + chat_log (migration 0004). Was feedback, login_failures, usage.
+  assert.deepEqual(left, ["chat_log", "feedback", "login_failures", "usage"]);
 });
 
 test("the bundled module is the CSVs: what the Worker imported is exactly what build_placement makes of them now", async () => {

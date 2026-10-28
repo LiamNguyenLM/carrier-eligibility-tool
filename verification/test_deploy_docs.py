@@ -25,7 +25,8 @@ def test_every_npm_script_a_doc_names_exists(doc):
 
 @pytest.mark.parametrize("doc", DOCS)
 def test_every_repo_file_a_doc_runs_or_opens_exists(doc):
-    paths = set(re.findall(r"\b((?:cloudflare|web|verification|rules_data|engine)/[\w./-]+\.(?:mjs|json|js|py|sql|md|csv|xz))",
+    # round 45: + jsonl, and an extension must end the name (".jsonl" was read as ".json" + "l")
+    paths = set(re.findall(r"\b((?:cloudflare|web|verification|rules_data|engine)/[\w./-]+\.(?:mjs|jsonl|json|js|py|sql|md|csv|xz))(?![\w])",
                            _text(doc)))
     made = re.compile(r"(^|/)(build|out|dist)/|engine_manifest|parity_cases|candidate|placement_data\.py")
     missing = sorted(p for p in paths if not made.search(p) and "<" not in p

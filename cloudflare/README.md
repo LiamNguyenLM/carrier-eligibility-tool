@@ -19,6 +19,9 @@ Every command below runs from the **repo root**. `wrangler.toml` goes at the roo
 | `cloudflare/src/routes.js` | The six `/api` routes. Checks request bodies and size limits; builds the admin CSV and the weekly counts. |
 | `cloudflare/src/csv.js` | `feedback.to_csv()`'s row, byte for byte. Each report's line is built when it is written and stored in `feedback.csv_row`, so the admin download is only a join of stored lines (see CPU). |
 | `cloudflare/src/placement.js` | A line-for-line port of `placement.panel()` and the functions it calls. It reads only one panel's rows, from the bundled tables in memory. |
+| `cloudflare/src/chat.js`, `chat_text.js`, `chat_route.js` | Ask the Guides (round 45): routing, BM25 retrieval, the prompt, citations and the quote check; the route with its cost guard, the model call and the chat log. |
+| `cloudflare/scripts/build_chat_index.mjs` | `rules_data/chat/*` + the rules tables → `cloudflare/build/chat_index.js` (git-ignored, never in `web/dist`), built by the same `[build]` step. |
+| `cloudflare/scripts/export_chat_corpus.py` | The carrier store's chunks → `rules_data/chat/guide_chunks.jsonl` + `programs.json` (committed). Rerun after a reseed. |
 | `cloudflare/scripts/build_placement.mjs` | `rules_data/placement/*.csv` → `cloudflare/build/placement_data.js` (git-ignored), which `routes.js` imports. wrangler.toml's `[build]` runs it before every deploy and `wrangler dev`. It refuses a CSV with a missing column, a bad month or count, or no `data_through`. |
 | `cloudflare/migrations/0001_init.sql` | Tables `feedback`, `usage`, and the placement tables (dropped again by 0003). |
 | `cloudflare/migrations/0002_login_failures.sql` | The password gate's lockout counter. |
@@ -42,12 +45,36 @@ POST routes need `Content-Type: application/json`.
 | `POST /api/feedback` | The fields of `feedback.record()`, at most 64 KB. A `choice` not in `CHOICES` is stored as "Not sure"; `name` and `comment` are stripped. Stored with the email. 201. If D1 can't write it: logged, 503 `{error: "Couldn’t save — try again later."}`, which the page shows. |
 | `POST /api/placement` | `{pd: {zip, county, year_built, dwelling_amount, occupancy_type}, results: [{carrier, status, missing_info, reasons}], as_of?}`, at most 64 KB. Answers `placement.panel()`'s dict or `null`. Bad body: 400. Never reads D1, so it answers the same while D1 is down or out of its daily allowance. `as_of` defaults to the current month in America/Chicago. |
 | `GET /api/admin/feedback.csv` | Admins only (403 otherwise). The same bytes as `feedback.to_csv()` (same columns, same Python CSV and `json.dumps` formatting), plus an `email` column at the end. |
+| `POST /api/chat` | `{question, history?: [{q, a}]}` (question at most 1,000 characters, 6 turns). Answers NDJSON: `start`, `text` pieces, then `done` with the citations, or `error`. 400 bad body, 429 over the hourly limit or the daily cap, 503 no key or `chat_log` unreadable. |
+| `GET /api/admin/chat.csv` | Admins only. The chat log, 500 questions a part (`?part=N`, `X-Chat-Parts`). |
 | `GET /api/admin/weekly` | Admins only. `{weeks: [{week: "2026-W43", start, checks, feedback}], totals}`, counted by `received_at` in UTC ISO weeks. |
 
 **`missing_info` / `reasons` in the placement body:** send the **first non-blank string** of each list, not
 blindly the first item. `panel()` skips blank and non-string items, so a list that starts with `""` would otherwise
 give a different "Held: confirm ..." line. On all 3,569 golden profiles the two readings give the same result. The
 Worker reduces any list it gets to its first non-blank string, so sending the whole list is also correct, just bigger.
+
+## Ask the Guides (round 45, Liam 2026-10-28)
+
+The design, chosen after measuring:
+- **Material:** the carrier store's chunks with their pages (exported once to `rules_data/chat/`), the rules tables' rows (plain rule, verbatim quote, PDF page, topic, effect) and `cfig_knowledge.csv` (labelled "CFIG experience"). These 7,561 units are bundled into the Worker like the placement tables: 4.9 MB, built at deploy, never in `web/dist`.
+- **Retrieval:** option (a), BM25 over that bundle. The question is routed first: carrier names (display names, file names, the workbook names, "Sage" for the family, possessives) and a product word (HO3 / DP3 / landlord / condo); a follow-up keeps the last carrier.
+  - Rules-table rows on the question's topic rank higher, and each guide chunk goes with the chunk before it, for its heading.
+  - Sources are grouped under their program, so one carrier's row is never read as another's.
+  - Retrieval costs 0.6–3 ms of Node CPU per question.
+- **Why not Vectorize:** option (b), Vectorize plus Workers AI embeddings, would fit the free tier only with `bge-small` (7,561 × 384 = 2.9M of 5M stored dimensions; embedding the corpus ≈ 3.7k of the 10k daily neurons). It needs an index created from Liam's account and a load step, and exact terms (FPE, rule IDs) still need keyword search. It's left for later.
+- **Model:** `CHAT_MODEL` (Haiku 5.5), called by `fetch` and streamed. The Worker writes the whole prompt; the browser sends only the question and the last 6 turns.
+  - The prompt says: only the sources; cite `[S#]`; quote verbatim; silence is not acceptance; CFIG experience is never the guide; ignore instructions in the question.
+  - Citations shown under an answer come from the index (carrier, guide date, page, rule ID), never from the model, and every quote of 20+ characters is looked up in the sources.
+- **Not the SDK:** the Anthropic SDK measured 4.4–4.6 ms of Worker CPU a question on average (p95 about 9 ms, max 18 ms) against 10 ms; the direct call measures 1.5 ms (p95 3 ms).
+- **Cost guard:** one D1 read before the call (this login's questions in the last hour, today's spend) and one write after it (the `chat_log` row, plus its one index entry).
+  - 30 questions an hour per login (`CHAT_RATE_PER_HOUR`).
+  - $3 a UTC day (`CHAT_DAILY_CAP_USD`).
+  - If `chat_log` can't be read, chat refuses and the checker is untouched.
+- **Measured (40-question set, `verification/chat/`):**
+  - about $0.0008 a question;
+  - first words median 0.66 s;
+  - full answer median 1.6 s, p95 5.5 s.
 
 ## Run it locally (no Cloudflare login needed)
 

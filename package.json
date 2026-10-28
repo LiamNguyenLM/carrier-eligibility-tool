@@ -14,7 +14,8 @@
     "import:logs": "node cloudflare/scripts/import_logs.mjs",
     "test:worker": "node --test --test-concurrency=1 cloudflare/test/worker.test.mjs cloudflare/test/gate.test.mjs",
     "bench:worker": "node cloudflare/scripts/bench_cpu.mjs",
-    "bench:gate": "node cloudflare/scripts/bench_gate.mjs"
+    "bench:gate": "node cloudflare/scripts/bench_gate.mjs",
+    "build:chat": "node cloudflare/scripts/build_chat_index.mjs"
   },
   "devDependencies": {
     "playwright-core": "1.63.0",

@@ -7,6 +7,8 @@
 //   POST /api/placement           placement.panel()'s dict, or null (placement.js; the tables are in the bundle)
 //   GET  /api/admin/feedback.csv  the reports, feedback.to_csv()'s columns (+ email last), 300 a part (?part=N)
 //   GET  /api/admin/weekly        checks and reports per ISO week
+//   POST /api/chat                Ask the Guides: one question, answered as a stream (chat_route.js, round 45)
+//   GET  /api/admin/chat.csv      the chat log, 500 questions a part (?part=N)
 //
 // Round 44b (Liam, 2026-10-25): a D1 write that fails is never fatal. A usage row is logged and dropped (202); a
 // feedback report answers 503 "Couldn't save -- try again later." so the agent can resend. The placement panel never
@@ -16,6 +18,7 @@ import { CSV_HEADER, feedbackCsvLine } from "./csv.js";
 import { ageBand, buildPanel, covaBand, loadPanelTables, monthIndex, parsePlacementBody, pyCmp, pyStrip } from "./placement.js";
 // Generated from rules_data/placement/*.csv before every deploy / dev run (wrangler.toml [build]); git-ignored.
 import PLACEMENT from "../build/placement_data.js";
+import { chatCsv, postChat } from "./chat_route.js";
 
 export const CHOICES = ["Should be Eligible", "Should be Ineligible", "Should be Refer", "Not sure"];
 const LIMITS = { usage: 16 * 1024, feedback: 64 * 1024, placement: 64 * 1024 };
@@ -122,6 +125,7 @@ async function postFeedback(request, env, who) {
   if (!isObj(pd)) throw new HttpError(400, "property_details must be an object");
   let checked = null;
   if (b.checked_topics !== undefined && b.checked_topics !== null) checked = strList(b.checked_topics, "checked_topics");
+  if (b.kind === "chat") return saveFeedback(env, chatFeedbackRow(b, who));
   const choice = CHOICES.includes(b.choice) ? b.choice : "Not sure";             // feedback.record()'s rule
   const row = { received_at: nowIso(), email: who.email, ts: tsOr(b.ts, "ts"), app_version: str(b.app_version, "app_version", 64),
     name: pyStrip(str(b.name, "name", 200)), property_details: JSON.stringify(pd), carrier: str(b.carrier, "carrier", 300),
@@ -130,6 +134,27 @@ async function postFeedback(request, env, who) {
     model: str(b.model, "model", 100), rules_table: b.rules_table ? 1 : 0,
     checked_topics: checked === null ? null : JSON.stringify(checked), choice, comment: pyStrip(str(b.comment, "comment", 20000)) };
   row.csv_row = feedbackCsvLine(row);
+  return saveFeedback(env, row);
+}
+
+// Round 45: "This answer looks wrong" under an Ask the Guides answer. Same table and CSV, kind = 'chat': the CSV's
+// verdict column says CHAT, its carrier column the carriers the answer cited, its reasons the question, and
+// property_details holds the question and the answer.
+export const CHAT_CHOICES = ["The answer is wrong", "A citation is wrong", "It didn't answer the question", "Not sure"];
+function chatFeedbackRow(b, who) {
+  const question = str(b.question, "question", 1000), answer = str(b.answer, "answer", 8000);
+  const row = { received_at: nowIso(), email: who.email, ts: tsOr(b.ts, "ts"), app_version: str(b.app_version, "app_version", 64),
+    name: pyStrip(str(b.name, "name", 200)), property_details: JSON.stringify({ question, answer }),
+    carrier: strList(b.carriers, "carriers", 50).join("; ").slice(0, 300), display_name: "Ask the Guides", verdict: "CHAT",
+    reasons: JSON.stringify([question]), deciding_rows: "[]", model: str(b.model, "model", 100), rules_table: 0,
+    checked_topics: null, choice: CHAT_CHOICES.includes(b.choice) ? b.choice : "Not sure",
+    comment: pyStrip(str(b.comment, "comment", 20000)) };
+  row.csv_row = feedbackCsvLine(row);
+  row.kind = "chat";
+  return row;
+}
+
+async function saveFeedback(env, row) {
   const cols = Object.keys(row);
   let r;
   try {
@@ -225,6 +250,8 @@ const ROUTES = {
   "POST /api/placement": postPlacement,
   "GET /api/admin/feedback.csv": async (req, env) => feedbackCsv(env, new URL(req.url)),
   "GET /api/admin/weekly": async (req, env) => weekly(env),
+  "POST /api/chat": (req, env, who, ctx) => postChat(req, env, who, ctx, { readJson, HttpError, nowIso }),
+  "GET /api/admin/chat.csv": async (req, env) => chatCsv(env, new URL(req.url)),
 };
 
 export async function handleApi(request, env, ctx, url = new URL(request.url), known = null) {

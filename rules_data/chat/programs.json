@@ -1,0 +1,547 @@
+[
+ {
+  "program": "ARI_(HOA+)",
+  "display": "ARI (HOA+)",
+  "date": "",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "ARI HOA / HOA Plus"
+  ]
+ },
+ {
+  "program": "ARI_(HOB)",
+  "display": "ARI (HOB)",
+  "date": "",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "ARI HOB"
+  ]
+ },
+ {
+  "program": "Allied_Trust_HO3",
+  "display": "Allied Trust (HO3)",
+  "date": "",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Allied Trust HO3"
+  ]
+ },
+ {
+  "program": "CHUBB_HO_-_05.22.2026",
+  "display": "Chubb (HO)",
+  "date": "05/22/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Chubb HO"
+  ]
+ },
+ {
+  "program": "Centauri_-_DP3_-_11.16.2022",
+  "display": "Centauri (DP3)",
+  "date": "11/16/2022",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Centauri DP3"
+  ]
+ },
+ {
+  "program": "Centauri_-_HO3_-_05.01.2026",
+  "display": "Centauri (HO3)",
+  "date": "05/01/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Centauri HO3 (scanned, OCR)"
+  ]
+ },
+ {
+  "program": "Foremost_DP3_and_HO3_-_07.01.2026",
+  "display": "Foremost Choice (DP3 and HO3)",
+  "date": "07/01/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Foremost Choice Homeowners",
+   "Foremost Dwelling Fire (TDP-3)"
+  ]
+ },
+ {
+  "program": "HOAIC_-_DP_Guide_DP3",
+  "display": "HOAIC (DP3)",
+  "date": "",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": true,
+  "occupancy_names": {},
+  "workbook_names": [
+   "HOAIC Texas Dwelling (TDP3)"
+  ]
+ },
+ {
+  "program": "HOAIC_-_TX-HOMEOWNERS-0326_HO3",
+  "display": "HOAIC (HO3)",
+  "date": "03/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": true,
+  "occupancy_names": {},
+  "workbook_names": [
+   "HOAIC HO3"
+  ]
+ },
+ {
+  "program": "Liberty_Mutual_DP3_-_02.21.2026",
+  "display": "Liberty Mutual (DP3)",
+  "date": "02/21/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Liberty Mutual / Safeco Landlord DP3"
+  ]
+ },
+ {
+  "program": "Liberty_Mutual_HO3_-_02.21.2026",
+  "display": "Liberty Mutual (HO3)",
+  "date": "02/21/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Liberty Mutual / Safeco HO3"
+  ]
+ },
+ {
+  "program": "Liberty_Mutual_HO6_-_02.21.2026",
+  "display": "Liberty Mutual (HO6)",
+  "date": "02/21/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "This program's document is byte-identical to Liberty_Mutual_HO3_-_02.21.2026 (sha256 459271a88734), and the shared text reads as the Liberty_Mutual_HO3_-_02.21.2026 program rather than this one -- so the correct PDF for this program was never ingested.",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": []
+ },
+ {
+  "program": "Mercury_HO3_-_01.01.2026",
+  "display": "Mercury (HO3)",
+  "date": "01/01/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Mercury HO3"
+  ]
+ },
+ {
+  "program": "NatGen_Custom360_DP3_-_06.25.2026",
+  "display": "NatGen Custom360 (DP3)",
+  "date": "06/25/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "NatGen Custom360 Landlord"
+  ]
+ },
+ {
+  "program": "NatGen_Custom360_HO3_-_09.02.2026",
+  "display": "NatGen Custom360 (HO3)",
+  "date": "09/02/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "NatGen Custom360 HO3"
+  ]
+ },
+ {
+  "program": "NatGen_Premier_OneChoice_DP3_-_02.26.2025",
+  "display": "NatGen Premier OneChoice (DP3)",
+  "date": "02/26/2025",
+  "has_text": true,
+  "closed": true,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "NatGen Premier Dwelling Fire (closed)"
+  ]
+ },
+ {
+  "program": "NatGen_Premier_OneChoice_HO3_-_02.26.2025",
+  "display": "NatGen Premier OneChoice (HO3)",
+  "date": "02/26/2025",
+  "has_text": true,
+  "closed": true,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": []
+ },
+ {
+  "program": "Orion_Underwriting_Guide_-_TX_-_07.06.26_HO3",
+  "display": "Orion180 Flex (HO3)",
+  "date": "07/06/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Orion180 Flex HO3"
+  ]
+ },
+ {
+  "program": "Progressive_DP3_-_10.01.2024",
+  "display": "Progressive (DP3)",
+  "date": "10/01/2024",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Progressive DP3"
+  ]
+ },
+ {
+  "program": "Progressive_HO3_-_04.01.2026",
+  "display": "Progressive (HO3)",
+  "date": "04/01/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Progressive HO3"
+  ]
+ },
+ {
+  "program": "Progressive_HO6_-_10.01.2025",
+  "display": "Progressive (HO6)",
+  "date": "10/01/2025",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Progressive HO6 (condo)"
+  ]
+ },
+ {
+  "program": "Sage_-_Auros_HO3",
+  "display": "SageSure Auros (HO3)",
+  "date": "",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Sage Auros HO3"
+  ]
+ },
+ {
+  "program": "Sage_-_Markel_DP3",
+  "display": "SageSure Markel (DP3)",
+  "date": "",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Sage Markel DP3"
+  ]
+ },
+ {
+  "program": "Sage_-_Markel_HO3",
+  "display": "SageSure Markel (HO3)",
+  "date": "",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Sage Markel HO3"
+  ]
+ },
+ {
+  "program": "Sage_-_Occidental_DP3",
+  "display": "SageSure Occidental (DP3)",
+  "date": "",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Sage Occidental DP3"
+  ]
+ },
+ {
+  "program": "Sage_-_Occidental_HO3_-_12.02.2025",
+  "display": "SageSure Occidental (HO3)",
+  "date": "12/02/2025",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Sage Occidental HO3"
+  ]
+ },
+ {
+  "program": "Sage_-_SURE_DP-3_-_01.31.2026",
+  "display": "SageSure SURE (DP3)",
+  "date": "01/31/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Sage SURE DP3"
+  ]
+ },
+ {
+  "program": "Sage_-_SURE_HO-3_-_01.31.2026",
+  "display": "SageSure SURE (HO3)",
+  "date": "01/31/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Sage SURE HO-3"
+  ]
+ },
+ {
+  "program": "Sage_-_SafePort_DP-3_-_01.31.2026",
+  "display": "SageSure SafePort (DP3)",
+  "date": "01/31/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Sage SafePort DP3"
+  ]
+ },
+ {
+  "program": "Sage_-_SafePort_HO-3_-_01.31.2026",
+  "display": "SageSure SafePort (HO3)",
+  "date": "01/31/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Sage SafePort HO-3"
+  ]
+ },
+ {
+  "program": "Sage_-_Trium_Lloyd's_Non-Admitted_HO3_HO5_-_02.24.2026",
+  "display": "SageSure Trium Lloyd's Non-Admitted (HO3 / HO5)",
+  "date": "02/24/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Sage Trium Lloyd's HO3/HO5"
+  ]
+ },
+ {
+  "program": "Sage_-_Vave_DP3_-_07.01.2026",
+  "display": "SageSure Vave (DP3)",
+  "date": "07/01/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Sage Vave DP3"
+  ]
+ },
+ {
+  "program": "Sage_-_Vave_HO3_-_07.01.2026",
+  "display": "SageSure Vave (HO3)",
+  "date": "07/01/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Sage Vave HO3"
+  ]
+ },
+ {
+  "program": "Sage_-_Wilshire_HO3_-_12.02.2025",
+  "display": "SageSure Wilshire (HO3)",
+  "date": "12/02/2025",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Sage Wilshire HO3"
+  ]
+ },
+ {
+  "program": "Steadily_Underwriting_Guidelines_DP3",
+  "display": "Steadily (DP3)",
+  "date": "",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Steadily DP3"
+  ]
+ },
+ {
+  "program": "Swyfft_-_Benchmark_(Admitted)_HO3",
+  "display": "Swyfft Benchmark Admitted (HO3)",
+  "date": "",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": true,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Swyfft Benchmark (Admitted) HO3"
+  ]
+ },
+ {
+  "program": "Swyfft_-_Benchmark_(Surplus)_HO3",
+  "display": "Swyfft Benchmark Surplus (HO3)",
+  "date": "",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": true,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Swyfft Benchmark (Surplus) HO3"
+  ]
+ },
+ {
+  "program": "Swyfft_-_Lloyds_(Surplus)_HO3",
+  "display": "Swyfft Lloyds Surplus (HO3)",
+  "date": "",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": true,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Swyfft Lloyd's (Surplus) HO3"
+  ]
+ },
+ {
+  "program": "Swyfft_-_Topa_(Surplus)_HO3",
+  "display": "Swyfft Topa Surplus (HO3)",
+  "date": "",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": true,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Swyfft Topa (Surplus) HO3"
+  ]
+ },
+ {
+  "program": "TWICO_HO3",
+  "display": "TWICO (HO3)",
+  "date": "",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": true,
+  "occupancy_names": {},
+  "workbook_names": [
+   "TWICO HO3"
+  ]
+ },
+ {
+  "program": "The_Hartford_HO3_-_07.09.2026",
+  "display": "The Hartford (HO3)",
+  "date": "07/09/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {
+   "Tenant Occupied": "The Hartford (HO3 rental: Rental Property Protection Plus)"
+  },
+  "workbook_names": [
+   "The Hartford HO3"
+  ]
+ },
+ {
+  "program": "Travelers_HO3_-_06.12.2026",
+  "display": "Travelers (HO3)",
+  "date": "06/12/2026",
+  "has_text": true,
+  "closed": false,
+  "defect": "",
+  "summary_sheet": false,
+  "occupancy_names": {},
+  "workbook_names": [
+   "Travelers Quantum Home 2.0"
+  ]
+ }
+]

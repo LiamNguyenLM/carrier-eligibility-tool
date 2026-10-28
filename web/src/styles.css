@@ -116,3 +116,22 @@ details.feedback > summary {
 .could-not { margin-top: 12px; }
 .could-not-row { margin-bottom: 14px; font-size: 14px; }
 .verdicts .col > h3 { margin-top: 8px; }
+
+/* Round 45: the two tabs, and Ask the Guides */
+.tabs { display: flex; gap: 4px; max-width: 1400px; margin: 0 auto; padding: 8px 24px 0; border-bottom: 1px solid var(--line); }
+.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 8px 14px; }
+.tabs button.active { border-bottom-color: var(--accent); color: var(--accent); font-weight: 600; }
+main[hidden] { display: none; }
+#chat { max-width: 900px; }
+.chat-turn { margin: 16px 0; }
+.chat-q { background: #f0f2f6; border-radius: var(--radius); padding: 8px 12px; margin-left: 15%; white-space: pre-wrap; }
+.chat-a { padding: 8px 4px; }
+.chat-a .answer h1, .chat-a .answer h2, .chat-a .answer h3 { font-size: 16px; margin: 8px 0 4px; }
+.chat-cites { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); margin-top: 8px; padding-top: 4px; }
+.chat-cites ul { margin: 2px 0; padding-left: 18px; }
+.chat-cites li { margin: 3px 0; }
+.chat-cites .quote { font-style: italic; color: var(--fg); overflow-wrap: anywhere; }
+.chat-cites .cfig, .chat-a .cfig { background: var(--warn-bg); color: var(--warn-fg); padding: 0 4px; border-radius: 3px; }
+sup.cite a { font-size: 11px; text-decoration: none; color: var(--info-fg); }
+.chat-form { position: sticky; bottom: 0; background: var(--bg); padding: 8px 0; border-top: 1px solid var(--line); }
+.chat-buttons { display: flex; gap: 8px; margin-top: 6px; }

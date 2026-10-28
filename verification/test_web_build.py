@@ -51,13 +51,16 @@ def _forbidden_regexes():
 
 # Round 44b (Liam, 2026-10-25): the placement tables are bundled into the Worker as cloudflare/build/placement_data.js.
 # The page's build must refuse that module however it gets there: by its own path, by name alone, or renamed.
+# Round 45: + Ask the Guides' material (the guides' text and the Worker's chat index), by path, by name or renamed.
 @pytest.mark.parametrize("name", ["cloudflare/build/placement_data.js", "placement_data.js", "src/placement_data.min.js",
-                                  "cloudflare/build/anything_else.js", "rules_data/placement/placement_markets.csv"])
+                                  "cloudflare/build/anything_else.js", "rules_data/placement/placement_markets.csv",
+                                  "rules_data/chat/guide_chunks.jsonl", "rules_data/chat/programs.json",
+                                  "src/chat_index.js", "guide_chunks.jsonl.gz"])
 def test_the_workers_placement_module_can_never_ship_in_the_page(name):
     rx = _forbidden_regexes()
     assert len(rx) >= 5, rx
     assert any(r.search(name) for r in rx), name
-    for ok in ("src/app.js", "engine.tar.gz", "rules_data/carrier_rules_pilot_v5.csv", "build.json"):
+    for ok in ("src/app.js", "src/chat.js", "engine.tar.gz", "rules_data/carrier_rules_pilot_v5.csv", "build.json"):
         assert not any(r.search(ok) for r in rx), ok
 
 

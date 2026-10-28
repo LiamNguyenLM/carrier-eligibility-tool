@@ -55,6 +55,7 @@ const hook = {
   lastForm: () => clone(state.lastForm),
   lastResult: () => clone(state.lastResult),
   lastTimings: () => clone(state.lastTimings),
+  appVersion: () => appVersion(),                 // round 45: the chat tab stamps its feedback with it
   readResults: () => readResultsFromDom(),
   placementSettled: () => state.placementPromise,
   spec: () => state.spec,
@@ -94,28 +95,32 @@ function showWho(who) {
   if (!who) return;
   // round 44: under the password gate there is no email -- the name typed at the login, if any -- and its own logout
   el.innerHTML = `<span class="email">${escapeHtml(who.email || who.name || "Signed in")}</span>`
-    + (who.admin ? ` · <a href="/api/admin/feedback.csv" id="dl-feedback">Download feedback</a>` : "")
+    + (who.admin ? ` · <a href="/api/admin/feedback.csv" id="dl-feedback">Download feedback</a>`
+      + ` · <a href="/api/admin/chat.csv" id="dl-chat">Download chat log</a>` : "")      // round 45: the chat log
     + ` · <a href="${escapeHtml(who.logout || "/cdn-cgi/access/logout")}">Log out</a>`;
   const nameField = $("#f-tester_name");
   if (nameField && who.name && !nameField.value) nameField.value = who.name;      // the login's name, for feedback
   const dl = $("#dl-feedback");
   if (dl) dl.addEventListener("click", (e) => { e.preventDefault(); downloadFeedback(); });
+  const dc = $("#dl-chat");
+  if (dc) dc.addEventListener("click", (e) => { e.preventDefault(); downloadParts("chat", "x-chat-parts", "chat_log.csv"); });
 }
 
 // Round 43 step 3: the Worker sends the feedback 300 reports at a time (the Free plan's 10 ms CPU); fetch every part
-// and save one file.
-async function downloadFeedback() {
+// and save one file. Round 45: the chat log the same way (500 questions a part).
+const downloadFeedback = () => downloadParts("feedback", "x-feedback-parts", "feedback_log.csv");
+async function downloadParts(what, header, filename) {
   const chunks = [];
   let parts = 1;
   for (let part = 1; part <= parts; part++) {
-    const r = await fetch(`/api/admin/feedback.csv?part=${part}`, { credentials: "same-origin" });
-    if (!r.ok) { alert(`Could not download the feedback (HTTP ${r.status}).`); return; }
-    parts = Number(r.headers.get("x-feedback-parts") || "1");
+    const r = await fetch(`/api/admin/${what}.csv?part=${part}`, { credentials: "same-origin" });
+    if (!r.ok) { alert(`Could not download the ${what === "chat" ? "chat log" : "feedback"} (HTTP ${r.status}).`); return; }
+    parts = Number(r.headers.get(header) || "1");
     chunks.push(await r.text());
   }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob(chunks, { type: "text/csv" }));
-  a.download = "feedback_log.csv";
+  a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 }

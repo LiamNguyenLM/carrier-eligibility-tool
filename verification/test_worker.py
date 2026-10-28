@@ -52,8 +52,11 @@ def test_the_placement_tables_are_built_into_every_deploy_not_loaded_into_d1():
     # monthly refresh is "update the CSVs, push", and no step writes them to D1.
     toml = open(os.path.join(ROOT, "wrangler.toml"), encoding="utf-8").read()
     build = re.search(r"^\[build\]\n(.*?)(?=^\[)", toml, re.M | re.S)
-    assert build and re.search(r'^command = "node cloudflare/scripts/build_placement\.mjs"$', build.group(1), re.M)
-    assert "rules_data/placement" in build.group(1)                  # wrangler dev rebuilds on a CSV change
+    # CHANGED (round 45, Liam 2026-10-28): the same step also builds Ask the Guides' index, and wrangler dev watches all
+    # of rules_data. Was: command = "node cloudflare/scripts/build_placement.mjs", watch_dir rules_data/placement.
+    assert build and re.search(r'^command = "node cloudflare/scripts/build_placement\.mjs && '
+                               r'node cloudflare/scripts/build_chat_index\.mjs"$', build.group(1), re.M)
+    assert re.search(r'^watch_dir = \[.*"rules_data".*\]$', build.group(1), re.M)   # wrangler dev rebuilds on a CSV change
     routes = open(os.path.join(ROOT, "cloudflare", "src", "routes.js"), encoding="utf-8").read()
     assert 'import PLACEMENT from "../build/placement_data.js";' in routes
     post = re.search(r"async function postPlacement\(.*?\n}\n", routes, re.S).group(0)
@@ -143,3 +146,4 @@ def test_the_pages_bodies_are_what_the_worker_reads(body):
         for k in ("zip", "county", "year_built", "dwelling_amount", "occupancy_type", "missing_info", "reasons"):
             assert k in src, k
     json.dumps(sent)
+

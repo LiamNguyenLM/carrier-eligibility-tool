@@ -7,14 +7,20 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%A0%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="src/styles.css">
   <script type="module" src="src/app.js"></script>
+  <script type="module" src="src/chat.js"></script>
 </head>
 <body>
   <header class="topbar">
     <span class="app-name">Carrier Eligibility Tool</span>
     <span id="who" class="who"></span>
   </header>
+  <nav class="tabs" role="tablist">
+    <button type="button" role="tab" data-tab="check" class="active" aria-selected="true">Eligibility Check</button>
+    <button type="button" role="tab" data-tab="chat" aria-selected="false">Ask the Guides</button>
+  </nav>
   <main id="app">
     <div id="loading" class="alert info">Loading the rules engine…</div>
   </main>
+  <main id="chat" hidden></main>
 </body>
 </html>

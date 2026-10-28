@@ -18,9 +18,11 @@ preview_urls = false
 # rules_data/placement/*.csv into cloudflare/build/placement_data.js, which routes.js imports. So a push with new CSVs
 # deploys new tables, and a bad CSV fails the build (the live version stays). The module is git-ignored and never in
 # web/dist: the browser never gets the tables.
+# Round 45: the same step builds Ask the Guides' material (cloudflare/build/chat_index.js) from rules_data/chat and the
+# rules tables, also part of the Worker and never in web/dist.
 [build]
-command = "node cloudflare/scripts/build_placement.mjs"
-watch_dir = ["cloudflare/src", "rules_data/placement"]
+command = "node cloudflare/scripts/build_placement.mjs && node cloudflare/scripts/build_chat_index.mjs"
+watch_dir = ["cloudflare/src", "rules_data"]
 
 [assets]
 directory = "web/dist"
@@ -47,6 +49,12 @@ ACCESS_TEAM_DOMAIN = "cfig.cloudflareaccess.com"        # Zero Trust -> Settings
 ACCESS_AUD = "REPLACE-WITH-THE-ACCESS-APPLICATION-AUD-TAG"   # Zero Trust -> Access -> Applications -> the app -> Overview
 # Comma list, case-insensitive. Jonathan's address is not known yet: replace the placeholder.
 ADMIN_EMAILS = "liam@cfigtx.com,JONATHAN-ADDRESS-TBD@cfigtx.com"
+# Round 45 (Liam, 2026-10-28): Ask the Guides. The model (any Claude model id; Haiku 5.5 by default), the daily spend
+# cap across everyone (US dollars, UTC day) and the questions one login may ask an hour. The Anthropic key is a secret:
+# `npx wrangler secret put ANTHROPIC_API_KEY` (never here). Without it the chat says it isn't set up; the checker works.
+CHAT_MODEL = "claude-haiku-5-5"
+CHAT_DAILY_CAP_USD = "3"
+CHAT_RATE_PER_HOUR = "30"
 # DEV_AUTH_EMAIL must NOT be set here. Local only, in .dev.vars (git-ignored) or `wrangler dev --var`:
 #   DEV_AUTH_EMAIL=liam@cfigtx.com
 # The Worker honours it only for plain-http requests to localhost / 127.0.0.1 / [::1].
