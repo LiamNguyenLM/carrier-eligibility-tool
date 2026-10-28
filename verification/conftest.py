@@ -1,6 +1,8 @@
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # Pin the suite to Sonnet regardless of the app's own default. As of
@@ -29,3 +31,19 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "baseline: slow, calls the real pipeline end to end (real API cost)"
     )
+
+
+def drop_held_usage_line():
+    """Round 45 (2026-10-28): a check run with log_usage=False holds its usage line until the page finishes it, and
+    the next check in the process writes a held line out (engine/pipeline.py). A test that holds one and stops
+    there (test_carrier_mcp's engine-vs-pipeline cards test) put a stray line in the next test's log whenever a
+    shard split put the two in one process. Never imports the pipeline: a test that never ran a check has none."""
+    pipeline = sys.modules.get("engine.pipeline")
+    if pipeline is not None and getattr(pipeline._PENDING, "line", None):
+        pipeline._PENDING.line = None
+
+
+@pytest.fixture(autouse=True)
+def _no_usage_line_held_from_an_earlier_test():
+    drop_held_usage_line()
+    yield

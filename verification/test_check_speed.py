@@ -12,6 +12,7 @@ every usage-log line (each model call's wall time and HTTP attempts, the stages,
 check's breakdown in the Fingerprint panel, and a warm-up at app start. Zero API."""
 import json
 import os
+import subprocess
 import sys
 import time
 
@@ -292,6 +293,31 @@ def test_a_held_line_the_page_never_finished_is_written_by_the_next_check(no_log
     ec.check_eligibility({})
     lines = no_log.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 2 and "render" not in json.loads(lines[0])["timings"]
+
+
+# Round 45 (2026-10-28): a line one test held must never reach the next test's log -- conftest drops it before each
+# test. Found when a shard put test_carrier_mcp's engine-vs-pipeline cards test just before the test above it.
+@pytest.mark.parametrize("hold", ["a check the page never finished", "a line left by hand"])
+def test_a_line_an_earlier_test_held_is_dropped_before_the_next(no_log, monkeypatch, hold):
+    import conftest
+    monkeypatch.setattr(ec, "_check_eligibility", lambda *a, **k: [{"carrier": "X", "status": "ELIGIBLE"}])
+    if hold == "a check the page never finished":
+        ec.check_eligibility({}, log_usage=False)
+    else:
+        ec._PENDING.line = {"ts": "2026-10-28T21:51:25+00:00", "carriers": 28, "timings": {}}
+    conftest.drop_held_usage_line()
+    ec.check_eligibility({})
+    assert len(no_log.read_text(encoding="utf-8").splitlines()) == 1
+
+
+def test_the_shard_order_that_failed_passes():
+    # the exact scenario: these two nodes, in this order, in one process (fast_r45_s1/s4/s5, shards 1-2)
+    nodes = ["verification/test_carrier_mcp.py::test_the_engine_records_give_the_cards_the_pipeline_records_gave"
+             "[harris_owner]",
+             "verification/test_check_speed.py::test_the_app_writes_the_line_after_the_page_with_its_time"]
+    out = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", *nodes], cwd=ROOT,
+                         capture_output=True, text=True, encoding="utf-8", timeout=600)
+    assert out.returncode == 0 and "2 passed" in out.stdout, out.stdout[-3000:]
 
 
 @pytest.mark.parametrize("line,want", [
