@@ -23,10 +23,12 @@ def _node(*args, timeout=900):
     return out.returncode, out.stdout + out.stderr
 
 
-@pytest.mark.parametrize("name", ["worker", "gate"])
+@pytest.mark.parametrize("name", ["worker", "gate", "chat"])
 def test_the_worker_node_tests_pass(name):
     # round 44: + gate.test.mjs, the password gate (no path without a session, tampered / expired cookies, admin
     # routes, the lockout, missing secrets, access mode unchanged)
+    # round 45: + chat.test.mjs, Ask the Guides (retrieval per guaranteed topic, the cost guard, the stream and its
+    # citations, the key never leaving the Worker, chat feedback) -- zero API, a fake model
     rc, out = _node("--test", f"cloudflare/test/{name}.test.mjs")
     assert rc == 0 and re.search(r"\bfail 0\b", out), out[-3000:]
 
@@ -147,3 +149,22 @@ def test_the_pages_bodies_are_what_the_worker_reads(body):
             assert k in src, k
     json.dumps(sent)
 
+
+def test_ask_the_guides_is_configured_with_a_secret_key_and_a_cost_guard():
+    # Round 45 (Liam, 2026-10-28): the key is a Worker secret (never in wrangler.toml); the model, the daily cap and the
+    # hourly limit are vars; chat_log and feedback.kind come from migration 0004; the Worker calls the API itself.
+    toml = open(os.path.join(ROOT, "wrangler.toml"), encoding="utf-8").read()
+    assert not re.search(r"^ANTHROPIC_API_KEY\s*=", toml, re.M)
+    assert re.search(r'^CHAT_MODEL = "claude-haiku-5-5"$', toml, re.M)
+    assert re.search(r'^CHAT_DAILY_CAP_USD = "3"$', toml, re.M)
+    assert re.search(r'^CHAT_RATE_PER_HOUR = "30"$', toml, re.M)
+    mig = open(os.path.join(ROOT, "cloudflare", "migrations", "0004_chat.sql"), encoding="utf-8").read()
+    assert "CREATE TABLE chat_log" in mig and "ALTER TABLE feedback ADD COLUMN kind" in mig
+    assert mig.count("CREATE INDEX") == 1                                 # one index: two rows written a question
+    src = open(os.path.join(ROOT, "cloudflare", "src", "chat_route.js"), encoding="utf-8").read()
+    assert 'API_URL = "https://api.anthropic.com/v1/messages"' in src and "env.ANTHROPIC_API_KEY" in src
+    for leak in ("console.log(env", "JSON.stringify(env", "ANTHROPIC_API_KEY}"):
+        assert leak not in src, leak
+    pkg = json.load(open(os.path.join(ROOT, "package.json"), encoding="utf-8"))
+    assert "build_chat_index.mjs" in pkg["scripts"]["build:chat"]
+    assert "@anthropic-ai/sdk" not in json.dumps(pkg)                   # measured too slow for 10 ms (chat_route.js)

@@ -76,6 +76,9 @@ The design, chosen after measuring:
   - first words median 0.66 s;
   - full answer median 1.6 s, p95 5.5 s.
 
+Tests: `cloudflare/test/chat.test.mjs` (zero API); live: `python verification/chat/run_live.py` (paid, capped); the page:
+`node web/tests/chat_page.mjs --answers <run.jsonl> --profiles <parity inputs>`; CPU: `node cloudflare/scripts/bench_chat.mjs --fetch`.
+
 ## Run it locally (no Cloudflare login needed)
 
 ```sh

@@ -41,7 +41,8 @@ before(() => { db = makeDb(); });
 const PATHS = [["GET", "/"], ["GET", "/index.html"], ["GET", "/src/app.js"], ["GET", "/engine.tar.gz"],
   ["GET", "/pyodide/pyodide.asm.wasm"], ["GET", "/build.json"], ["GET", "/rules_data/carrier_rules_pilot_v5.csv"],
   ["GET", "/api/whoami"], ["POST", "/api/usage"], ["POST", "/api/feedback"], ["POST", "/api/placement"],
-  ["GET", "/api/admin/feedback.csv"], ["GET", "/api/admin/weekly"], ["GET", "/nope"]];
+  ["GET", "/api/admin/feedback.csv"], ["GET", "/api/admin/weekly"], ["GET", "/nope"],
+  ["POST", "/api/chat"], ["GET", "/api/admin/chat.csv"]];                    // round 45: Ask the Guides
 
 async function refused(r, label) {
   assert.ok([302, 401, 503].includes(r.status), `${label}: ${r.status}`);
