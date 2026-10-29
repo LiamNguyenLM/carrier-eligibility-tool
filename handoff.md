@@ -3041,6 +3041,20 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     runs in 1.8 s with no API key and no network connection. (`HERMES_MCP.md`'s "Paid, 30-90 s" predates the
     switches defaulting ON.)
 
+- **2026-10-29 — Round 46: Ask the Guides on Sonnet 5.5, carrier cards, dark mode, the CFIG logo.** Liam's request.
+  - **Model:** `CHAT_MODEL = "claude-sonnet-5-5"`. Sonnet 5.5 rejects `thinking: disabled`; its off setting is
+    `between_tools` (`thinkingFor` in chat_route.js). Haiku is one line away in wrangler.toml.
+  - **Cards:** the prompt asks for one `### program` section per carrier, opening with a verdict that follows the
+    rules table's effect; `web/src/chat_cards.js` turns each into a card (badge, one line, a dropdown with the
+    conditions, the guide's wording and the card's own sources).
+  - **Dark mode** (tokens in styles.css, `src/theme.js`) and the **CFIG logo** (a light-lettered copy for dark mode).
+  - **Fixed from round 45:** source cards showed one chunk's text under the other chunk's heading; the quote check
+    flagged the guide's own sentences when the PDF interleaved a table column.
+  - **Results** (`verification/chat/RESULTS_round46.md`): two runs, 34/40 correct each, 0 wrong carrier; run 2 has one
+    made-up line (Q20's opening). Not better than Haiku (36/40) on this set, at about 24x the cost: $0.019 a question,
+    first words 1.2 s. The $3 daily cap now covers about 150 questions.
+  - **Backlog:** TRV-013, ALL-167 and HAR-075 are never retrieved for their questions (todo tests in chat.test.mjs).
+
 - **2026-10-28 — Round 45: "Ask the Guides" is back, on the Cloudflare version.** Liam: Jonathan is hesitant about
   CFIG-GPT, so agents need the guides inside the tool.
   - **What it is:** a tab beside the checker. The Worker answers with Claude Haiku 5.5 (`CHAT_MODEL`) from CFIG's

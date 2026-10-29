@@ -82,7 +82,7 @@ Part (b) bypasses the form, so it covers all 3,569.
    login page before anything loads; the name typed there fills "Your name". The top bar shows the name (or, under
    Access, the email), the logout link and, for admins, a feedback download link.
 2. **No Manage Carriers tab:** no upload or remove (see ADD_CARRIER.md), and no fingerprint, model or usage lines.
-   The chat tab is gone in both versions.
+   The chat tab is the Worker's "Ask the Guides" (round 45; carrier cards since round 46), not app.py's chat.
 3. **"This looks wrong":** an inline expander. It says "Sent -- thank you." only once the Worker has accepted the
    report; otherwise (the Worker couldn't save it, a timeout, no network) "Couldn’t save — try again later.",
    keeping what was typed.
@@ -97,3 +97,6 @@ Part (b) bypasses the form, so it covers all 3,569.
    - the pool boxes reset when the pool answer changes.
 8. **No model:** usage rows carry no token or cost fields, and feedback's `model` is "". A guide with no rules table
    shows under Could Not Be Checked: "No rules table yet for this guide...".
+9. **Look (round 46, Liam 2026-10-29):** the CFIG logo at the top left (`src/cfig-logo.png`; in dark mode
+   `src/cfig-logo-dark.png`, the same logo with light lettering) and a light / dark mode. Dark mode follows the
+   computer's setting until the agent picks one with the top bar's button (`src/theme.js`, kept per browser).

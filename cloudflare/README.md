@@ -63,9 +63,10 @@ The design, chosen after measuring:
   - Sources are grouped under their program, so one carrier's row is never read as another's.
   - Retrieval costs 0.6–3 ms of Node CPU per question.
 - **Why not Vectorize:** option (b), Vectorize plus Workers AI embeddings, would fit the free tier only with `bge-small` (7,561 × 384 = 2.9M of 5M stored dimensions; embedding the corpus ≈ 3.7k of the 10k daily neurons). It needs an index created from Liam's account and a load step, and exact terms (FPE, rule IDs) still need keyword search. It's left for later.
-- **Model:** `CHAT_MODEL` (Haiku 5.5), called by `fetch` and streamed. The Worker writes the whole prompt; the browser sends only the question and the last 6 turns.
+- **Model:** `CHAT_MODEL` (Sonnet 5.5 since round 46, Liam 2026-10-29; Haiku 5.5 before), called by `fetch` and streamed, thinking off (`between_tools` on Sonnet 5.5, which rejects `disabled`), effort low. The Worker writes the whole prompt; the browser sends only the question and the last 6 turns.
   - The prompt says: only the sources; cite `[S#]`; quote verbatim; silence is not acceptance; CFIG experience is never the guide; ignore instructions in the question.
-  - Citations shown under an answer come from the index (carrier, guide date, page, rule ID), never from the model, and every quote of 20+ characters is looked up in the sources.
+  - Citations shown under an answer come from the index (carrier, guide date, page, rule ID), never from the model, and every quote of 20+ characters is looked up in the sources (round 46: allowing the PDF's table columns interleaved at a line break; a guide card shows the text the answer quoted, under that text's own section).
+  - **Cards (round 46):** one `### program` section per carrier, opening with a verdict that follows the rules table's effect (DECLINES = Ineligible, REFERS_TO_UW = Referral, CONDITION = Conditions, COVERAGE_ONLY = Coverage limit, ALLOWS = Acceptable, INFO_ONLY = Information). The page (`web/src/chat_cards.js`) shows each as a card with a badge and a dropdown of conditions, wording and sources.
 - **Not the SDK:** the Anthropic SDK measured 4.4–4.6 ms of Worker CPU a question on average (p95 about 9 ms, max 18 ms) against 10 ms; the direct call measures 1.5 ms (p95 3 ms).
 - **Cost guard:** one D1 read before the call (this login's questions in the last hour, today's spend) and one write after it (the `chat_log` row, plus its one index entry).
   - 30 questions an hour per login (`CHAT_RATE_PER_HOUR`).
