@@ -11,7 +11,7 @@ const { worker } = await loadWorker();
 const { default: CHAT } = await import("../build/chat_index.js");
 const chatMod = await import("../src/chat.js");
 const route = await import("../src/chat_route.js");
-const { retrieve, unverifiedQuotes, costUsd } = chatMod;
+const { retrieve, unverifiedQuotes, quoteInText, costUsd } = chatMod;
 
 const SECRETS = { APP_PASSWORD: "agents-pass-2026", ADMIN_PASSWORD: "admin-pass-2026!",
   SESSION_SECRET: "s".repeat(24) + "-0123456789abcdef" };
@@ -335,6 +335,36 @@ test("quotes: an invented quote is flagged; a real one, or one shortened with '.
   const q2 = CHAT.units[r2.sources.find((s) => CHAT.units[s.units[0]].id === "HAR-003").units[0]].pr;
   assert.ok(q2.startsWith("Coverage A over $1,500,000"));
   assert.deepEqual(unverifiedQuotes(CHAT, `"Coverage A over $1,500,000 ... must be referred to underwriting before binding."`, r2.sources), []);
+});
+
+// Round 46 (2026-10-29): the Sonnet run flagged 4 quotes; 3 were the guide's sentence with a table column's words
+// (interleaved at a line break in the PDF text) left out -- found now -- and 1 left out a word mid-line -- still flagged.
+test("quotes: a sentence quoted without the PDF's interleaved column words is found; a dropped word is not", () => {
+  // a table's verdict column inside the sentence, at the line break (two phrasings)
+  assert.ok(quoteInText("not professionally installed, or inspected and approved by a Fire Marshal",
+    "Wood/coal/pellet stove that was not professionally installed, or inspected and Decline\napproved by a Fire Marshal or qualified professional."));
+  assert.ok(quoteInText("has ever bitten anyone or exhibits undue aggressiveness.",
+    "- Any breed and dog has ever bitten anyone or exhibits Decline\nundue aggressiveness\n- Any liability loss"));
+  // the next column's text between the two halves (two phrasings)
+  assert.ok(quoteInText("to evaluate increased likelihood of future losses.",
+    "er to evaluate increased likelihood\nthat have not been well maintained, or other condition that presents an unusual of future losses\nhazard."));
+  assert.ok(quoteInText("Roofs over 20 years old are ineligible",
+    "Roofs over 20 years Refer to\nUnderwriting for\nold are ineligible"));
+  // a word left out mid-line, a word changed, words out of order, a gap too long: still not found
+  assert.ok(!quoteInText("not interested in writing", "exposures we would not be interested in writing."));
+  assert.ok(!quoteInText("Homes with galvanized plumbing are acceptable", "Homes with galvanized plumbing are ineligible."));
+  assert.ok(!quoteInText("ineligible are homes with galvanized plumbing", "Homes with galvanized plumbing are ineligible."));
+  assert.ok(!quoteInText("roofs are ineligible", "roofs\n" + "x ".repeat(16) + "are ineligible"));
+  // the exact answers from the run (Q19, Q30): no longer flagged with the sources they were given
+  for (const [question, quote] of [["Which carriers decline wood-burning stoves?",
+    "not professionally installed, or inspected and approved by a Fire Marshal or qualified professional."],
+  ["Which dog breeds does the Hartford decline?", "has ever bitten anyone or exhibits undue aggressiveness."]]) {
+    const ret = retrieve(CHAT, question);
+    assert.deepEqual(unverifiedQuotes(CHAT, `The guide: "${quote}" [S1]`, ret.sources), [], question);
+  }
+  // ... and Q11's dropped "be" still is
+  const r11 = retrieve(CHAT, "What is Liberty Mutual HO3's Coverage A limit in Protection Class 10?");
+  assert.deepEqual(unverifiedQuotes(CHAT, 'a list of exposures it is "not interested in writing" [S1]', r11.sources), ["not interested in writing"]);
 });
 
 test("POST /api/chat needs a session, and its admin CSV needs the admin password", async () => {
