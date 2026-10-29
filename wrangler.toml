@@ -49,10 +49,10 @@ ACCESS_TEAM_DOMAIN = "cfig.cloudflareaccess.com"        # Zero Trust -> Settings
 ACCESS_AUD = "REPLACE-WITH-THE-ACCESS-APPLICATION-AUD-TAG"   # Zero Trust -> Access -> Applications -> the app -> Overview
 # Comma list, case-insensitive. Jonathan's address is not known yet: replace the placeholder.
 ADMIN_EMAILS = "liam@cfigtx.com,JONATHAN-ADDRESS-TBD@cfigtx.com"
-# Round 45 (Liam, 2026-10-28): Ask the Guides. The model (any Claude model id; Haiku 5.5 by default), the daily spend
+# Round 45 (Liam, 2026-10-28): Ask the Guides. The model (any Claude model id; Sonnet 5.5 since round 46, was Haiku 5.5), the daily spend
 # cap across everyone (US dollars, UTC day) and the questions one login may ask an hour. The Anthropic key is a secret:
 # `npx wrangler secret put ANTHROPIC_API_KEY` (never here). Without it the chat says it isn't set up; the checker works.
-CHAT_MODEL = "claude-haiku-5-5"
+CHAT_MODEL = "claude-sonnet-5-5"
 CHAT_DAILY_CAP_USD = "3"
 CHAT_RATE_PER_HOUR = "30"
 # DEV_AUTH_EMAIL must NOT be set here. Local only, in .dev.vars (git-ignored) or `wrangler dev --var`:

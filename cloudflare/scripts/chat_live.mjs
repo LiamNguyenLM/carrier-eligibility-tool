@@ -26,7 +26,7 @@ const { worker } = await loadWorker();
 const SECRETS = { APP_PASSWORD: "live-agents-pass", ADMIN_PASSWORD: "live-admin-pass!", SESSION_SECRET: "l".repeat(32) };
 const db = makeDb();
 const env = { DB: db, AUTH_MODE: "password", ...SECRETS, ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
-  CHAT_MODEL: opt("--model", "claude-haiku-5-5"), CHAT_DAILY_CAP_USD: String(CAP), CHAT_RATE_PER_HOUR: "1000",
+  CHAT_MODEL: opt("--model", "claude-sonnet-5-5"), CHAT_DAILY_CAP_USD: String(CAP), CHAT_RATE_PER_HOUR: "1000",
   ASSETS: { fetch: async () => new Response("asset") } };
 const cookie = await signSession({ role: "agent", name: "Live Test", exp: Math.floor(Date.now() / 1000) + 7200 },
   SECRETS.SESSION_SECRET);

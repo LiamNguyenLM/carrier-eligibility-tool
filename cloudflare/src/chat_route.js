@@ -16,8 +16,18 @@ import CHAT from "../build/chat_index.js";
 import { ChatInputError, citation, citedNumbers, costUsd, parseChatBody, retrieve, systemPrompt, unverifiedQuotes,
   userMessage } from "./chat.js";
 
-export const DEFAULT_MODEL = "claude-haiku-5-5";
-export const CHAT_MAX_TOKENS = 3000;
+// Round 46 (Liam, 2026-10-29): Sonnet 5.5, was Haiku 5.5 (round 45). About 20x Haiku's price per token.
+export const DEFAULT_MODEL = "claude-sonnet-5-5";
+export const CHAT_MAX_TOKENS = 4000;          // round 46: was 3000; a cross-carrier answer is one card per program
+
+// Thinking off, effort low: the answer is a lookup in the sources given, and the agent waits for the first words.
+// Sonnet 5.5 rejects {type: "disabled"} with a 400; its "off" is "between_tools" (effort high or below). Opus 5.5 and
+// Fable can't turn thinking off: the field is left out (adaptive, kept short by effort low).
+export function thinkingFor(model) {
+  if (/^claude-sonnet-5-5/.test(model)) return { type: "between_tools" };
+  if (/^claude-(opus-5-5|fable-)/.test(model)) return null;
+  return { type: "disabled" };
+}
 export const MESSAGES = {
   notConfigured: "Ask the Guides isn't set up yet. The eligibility check still works.",
   unavailable: "Ask the Guides is unavailable right now. The eligibility check still works; please try again later.",
@@ -151,7 +161,7 @@ export async function postChat(request, env, who, ctx, { readJson, HttpError, no
         model, max_tokens: CHAT_MAX_TOKENS, stream: true,
         system: [{ type: "text", text: system(), cache_control: { type: "ephemeral" } }],
         messages: [{ role: "user", content: userMessage(CHAT, ret, req.question, req.history) }],
-        thinking: { type: "disabled" }, output_config: { effort: "low" },
+        output_config: { effort: "low" }, ...(thinkingFor(model) ? { thinking: thinkingFor(model) } : {}),
       });
       stop = null;
       for await (const ev of stream) {

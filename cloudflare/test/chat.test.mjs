@@ -190,6 +190,29 @@ test("the Worker builds the prompt: the browser's 'system' / 'model' / 'messages
   assert.match(p.messages[0].content, /AGENT'S QUESTION: Hartford pool rule\?/);
 });
 
+// Round 46 (Liam, 2026-10-29): Sonnet 5.5 by default. Sonnet 5.5 answers {thinking: disabled} with a 400, so the
+// Worker sends its "off" setting, between_tools; any other model keeps disabled. Effort stays low.
+test("without CHAT_MODEL the Worker asks Sonnet 5.5, thinking between_tools", async () => {
+  fakeModel();
+  calls = [];
+  const env = envOf(makeDb());
+  delete env.CHAT_MODEL;
+  const r = await post(env, { question: "Hartford pool rule?" }, { cookie: await cookieFor() });
+  assert.equal(r.status, 200);
+  const p = calls[0].params;
+  assert.equal(p.model, "claude-sonnet-5-5");
+  assert.deepEqual(p.thinking, { type: "between_tools" });
+  assert.deepEqual(p.output_config, { effort: "low" });
+});
+
+test("thinking is off in the form each model accepts (left out where it cannot be off)", () => {
+  for (const [model, type] of [["claude-sonnet-5-5", "between_tools"], ["claude-haiku-5-5", "disabled"],
+    ["claude-sonnet-5", "disabled"]]) {
+    assert.deepEqual(route.thinkingFor(model), { type }, model);
+  }
+  for (const model of ["claude-opus-5-5", "claude-fable-5-1"]) assert.equal(route.thinkingFor(model), null, model);
+});
+
 test("a bad body is refused before any model call (too long, wrong history, not JSON)", async () => {
   fakeModel();
   calls = [];
