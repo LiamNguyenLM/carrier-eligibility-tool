@@ -39,7 +39,7 @@ test("the verdict line is read however the model punctuates it", () => {
 
 test("every verdict the prompt names has its colour; anything else is a plain card", () => {
   const tones = { Ineligible: "bad", Referral: "warn", Conditions: "warn", "Coverage limit": "info", Acceptable: "ok",
-    "Not addressed": "muted" };
+    Information: "muted", "Not addressed": "muted" };                // round 46 step 4: + Information (INFO_ONLY)
   for (const [v, tone] of Object.entries(tones)) {
     const [c] = splitCards(`### X (HO3)\n**${v}**: y`).cards;
     assert.equal(c.verdict, v);

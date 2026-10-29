@@ -181,7 +181,7 @@ export async function postChat(request, env, who, ctx, { readJson, HttpError, no
       const nums = citedNumbers(answer, ret.sources.length);
       const sent = ret.sources.filter((s) => nums.includes(s.n));
       const unverified = unverifiedQuotes(CHAT, answer, ret.sources);
-      await send({ t: "done", citations: sent.map((s) => citation(CHAT, s)), unverified, stop,
+      await send({ t: "done", citations: sent.map((s) => citation(CHAT, s, answer)), unverified, stop,
         cost_usd: Number(costUsd(model, usage).toFixed(6)), first_ms: firstMs, total_ms: Date.now() - t0 });
       return { answer, firstMs, usage, status, cited: [...new Set(sent.map((s) => citation(CHAT, s).carrier))],
         unverified: unverified.length };

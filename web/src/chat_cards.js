@@ -9,10 +9,10 @@
 // (chat.js) renders it, and web/tests/chat_cards.test.mjs tests it in Node. An answer with no sections (not on file,
 // an unknown carrier, a refusal) has no cards and renders as plain text.
 
-const LABELS = ["Ineligible", "Referral", "Conditions", "Coverage limit", "Acceptable", "Not addressed"];
+const LABELS = ["Ineligible", "Referral", "Conditions", "Coverage limit", "Acceptable", "Information", "Not addressed"];
 // the badge colour: bad (declines), warn (needs something), info (coverage, not eligibility), ok, muted
 export const TONES = { ineligible: "bad", referral: "warn", conditions: "warn", "coverage limit": "info",
-  acceptable: "ok", "not addressed": "muted" };
+  acceptable: "ok", information: "muted", "not addressed": "muted" };
 const LABEL = Object.fromEntries(LABELS.map((l) => [l.toLowerCase(), l]));
 
 const HEADING = /^\s{0,3}#{2,4}\s+(.+?)\s*#*\s*$/;

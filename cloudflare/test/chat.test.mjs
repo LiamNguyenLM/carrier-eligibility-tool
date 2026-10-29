@@ -11,7 +11,7 @@ const { worker } = await loadWorker();
 const { default: CHAT } = await import("../build/chat_index.js");
 const chatMod = await import("../src/chat.js");
 const route = await import("../src/chat_route.js");
-const { retrieve, unverifiedQuotes, quoteInText, costUsd } = chatMod;
+const { retrieve, unverifiedQuotes, quoteInText, costUsd, citation, systemPrompt } = chatMod;
 
 const SECRETS = { APP_PASSWORD: "agents-pass-2026", ADMIN_PASSWORD: "admin-pass-2026!",
   SESSION_SECRET: "s".repeat(24) + "-0123456789abcdef" };
@@ -365,6 +365,84 @@ test("quotes: a sentence quoted without the PDF's interleaved column words is fo
   // ... and Q11's dropped "be" still is
   const r11 = retrieve(CHAT, "What is Liberty Mutual HO3's Coverage A limit in Protection Class 10?");
   assert.deepEqual(unverifiedQuotes(CHAT, 'a list of exposures it is "not interested in writing" [S1]', r11.sources), ["not interested in writing"]);
+});
+
+// Round 46 (2026-10-29): a guide source is two chunks (the one before gives the heading). The grader found 6 cards
+// showing the second chunk's text under the first chunk's section (Q01 S16: "Condition of Property" over the Secondary /
+// Seasonal text). The card now shows the text the answer quoted, under its own section; with no quote, the matched chunk.
+test("a guide source's card shows the quoted text under that text's own section and page", () => {
+  const q01 = "Does the Hartford accept a fenced in-ground pool on an owner-occupied home?";
+  const ret = retrieve(CHAT, q01);
+  const two = (first, last) => ret.sources.find((s) => s.units.length === 2
+    && CHAT.units[s.units[0]].s === first && CHAT.units[s.units[1]].s === last);
+  const s16 = two("Condition of Property", "Secondary/Seasonal Residence");
+  assert.ok(s16, "Q01's two-chunk source");
+  // the quote is in the first chunk: its section, its text
+  let c = citation(CHAT, s16, 'listed as concerns: "unfenced swimming pools, hot tubs, fish ponds, bodies of water, or trampolines" [S16]');
+  assert.equal(c.section, "Condition of Property");
+  assert.match(c.text.replace(/\s+/g, " "), /unfenced swimming pools, hot tubs, fish ponds/);
+  // no quote: the matched (last) chunk, under ITS section -- never the first chunk's
+  c = citation(CHAT, s16, "The Hartford refers secondary homes [S16].");
+  assert.equal(c.section, "Secondary/Seasonal Residence");
+  assert.ok(c.text.startsWith(CHAT.units[s16.units[1]].x.slice(0, 60)));
+  // a second phrasing: a quote in the first chunk of another two-chunk source
+  const s13 = two("Appliance/Mold Related Claims", "Number of Families");
+  const firstText = CHAT.units[s13.units[0]].x;
+  const quote = firstText.split(/\s+/).slice(4, 14).join(" ");
+  c = citation(CHAT, s13, `It says "${quote}" [S13].`);
+  assert.equal(c.section, "Appliance/Mold Related Claims");
+  assert.equal(c.page, CHAT.units[s13.units[0]].pg);
+  // every two-chunk card, quoted or not, shows text from the chunk whose section and page it names
+  for (const question of [q01, "Which carriers decline wood-burning stoves?", "Which carriers have an acreage limit?"]) {
+    for (const s of retrieve(CHAT, question).sources.filter((x) => CHAT.units[x.units[0]].k === "g")) {
+      const card = citation(CHAT, s, "");
+      const unit = s.units.map((i) => CHAT.units[i]).find((u) => u.x.includes(card.text.replace(/^…|…$/g, "").slice(0, 80)));
+      assert.ok(unit, `S${s.n}: card text from no chunk`);
+      assert.equal(card.section, unit.s || "", `S${s.n}`);
+      assert.equal(card.page, unit.pg, `S${s.n}`);
+    }
+  }
+});
+
+// Round 46 (run 2): one source quoted twice -- the card centred on the first quote found, so the quote cited to it
+// could be cut off (Q05 S16, Q35 S8). It now centres on the quote whose citation names that source.
+test("a source quoted twice shows the quote cited to it", () => {
+  const ret = retrieve(CHAT, "Does the Hartford accept a fenced in-ground pool on an owner-occupied home?");
+  const s16 = ret.sources.find((s) => s.units.length === 2 && CHAT.units[s.units[0]].s === "Condition of Property");
+  const a = "unfenced swimming pools, hot tubs, fish ponds, bodies of water, or trampolines";
+  const b = CHAT.units[s16.units[1]].x.replace(/^\[[^\]]*\]\s*/, "").split(/\s+/).slice(0, 9).join(" ");
+  for (const cites of [`[S${s16.n}]`, `[S3, S${s16.n}]`, `[S3][S${s16.n}]`]) {
+    const c = citation(CHAT, s16, `Also "${a}" [S2]. And "${b}" ${cites}.`);
+    assert.equal(c.section, "Secondary/Seasonal Residence", cites);
+  }
+  assert.equal(citation(CHAT, s16, `"${a}" [S${s16.n}]. And "${b}" [S2].`).section, "Condition of Property");
+});
+
+// Round 46 backlog (not fixed this round): rows the expected answer needs that retrieval never sends, so no model can
+// cite them. Recurred in both Sonnet runs (and round 45 for Q19). Retrieval ranking change = its own round.
+for (const [question, rule, why] of [
+  ["What loss history makes a Travelers Quantum Home ineligible?", "TRV-013", "Q14: the mold-claim / MDR-1 row"],
+  ["Which carriers have an acreage limit?", "ALL-167", "Q18: Allied Trust 5-10 acres referred before binding"],
+  ["Which carriers decline wood-burning stoves?", "HAR-075", "Q19: the Hartford rental program's stove decline"]]) {
+  test(`retrieval sends ${rule} for "${question}"`, { todo: `${why} -- not retrieved (round 46 backlog)` }, () => {
+    const ret = retrieve(CHAT, question);
+    assert.ok(ret.sources.some((s) => s.units.some((u) => CHAT.units[u].id === rule)), `${rule} not among ${ret.sources.length} sources`);
+  });
+}
+
+// Round 46: the grader found 5 verdict labels that didn't match the row's effect (Allied Trust's DECLINES as Referral,
+// Markel's COVERAGE_ONLY as Conditions, Centauri's INFO_ONLY as Referral). The prompt maps each effect to its verdict.
+test("the prompt maps every rules-table effect to its verdict, one program per section", () => {
+  const sys = systemPrompt(CHAT);
+  for (const pair of ["DECLINES = Ineligible", "REFERS_TO_UW = Referral", "CONDITION = Conditions",
+    "COVERAGE_ONLY = Coverage limit", "ALLOWS = Acceptable", "INFO_ONLY = Information"]) assert.ok(sys.includes(pair), pair);
+  const effects = new Set(CHAT.units.filter((u) => u.k === "r").map((u) => u.eff));
+  for (const e of effects) {
+    if (e && e !== "UNKNOWN") assert.ok(sys.includes(`${e} = `), `effect ${e} has no verdict in the prompt`);
+  }
+  assert.match(sys, /Exactly one program per section/);
+  assert.match(sys, /never write a section for a group of programs/);
+  assert.match(sys, /Not addressed \(only for a program the agent named/);
 });
 
 test("POST /api/chat needs a session, and its admin CSV needs the admin password", async () => {
