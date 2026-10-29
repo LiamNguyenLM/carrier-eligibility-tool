@@ -1,6 +1,6 @@
 """Round 45: run Ask the Guides live (PAID; Haiku 5.5 costs about $0.001 a question) through the Worker's own code path.
 
-    python verification/chat/run_live.py [--ids Q01,Q07] [--cap 2.00] [--model claude-haiku-5-5] [--out FILE]
+    python verification/chat/run_live.py [--ids Q01,Q07] [--cap 2.00] [--model claude-sonnet-5-5] [--out FILE]
 
 The key: env_setup.load_env() reads it into THIS process (ELIGIBILITY_DOTENV, as every live run here does), and the
 Node child inherits it. Nothing prints it, and it is never set in a shell or a settings file. Without a key: exit 2.

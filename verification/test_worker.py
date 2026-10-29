@@ -155,7 +155,8 @@ def test_ask_the_guides_is_configured_with_a_secret_key_and_a_cost_guard():
     # hourly limit are vars; chat_log and feedback.kind come from migration 0004; the Worker calls the API itself.
     toml = open(os.path.join(ROOT, "wrangler.toml"), encoding="utf-8").read()
     assert not re.search(r"^ANTHROPIC_API_KEY\s*=", toml, re.M)
-    assert re.search(r'^CHAT_MODEL = "claude-haiku-5-5"$', toml, re.M)
+    # CHANGED round 46 (Liam, 2026-10-29): Sonnet 5.5, was claude-haiku-5-5
+    assert re.search(r'^CHAT_MODEL = "claude-sonnet-5-5"$', toml, re.M)
     assert re.search(r'^CHAT_DAILY_CAP_USD = "3"$', toml, re.M)
     assert re.search(r'^CHAT_RATE_PER_HOUR = "30"$', toml, re.M)
     mig = open(os.path.join(ROOT, "cloudflare", "migrations", "0004_chat.sql"), encoding="utf-8").read()

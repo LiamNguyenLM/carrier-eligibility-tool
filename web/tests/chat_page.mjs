@@ -3,17 +3,23 @@
 // Zero API: the page is web/dist on tools/serve.mjs, and POST /api/chat is answered in the browser with a recorded
 // answer from the live test (verification/chat/run_live.py's JSONL), streamed as the Worker streams it.
 //
-//   node web/tests/chat_page.mjs --answers <run.jsonl> --profiles <parity inputs json> [--id Q01] [--dist web/dist] [--headed]
-// (--profiles: the list web/tests/parity.mjs takes; its first profile is checked after the chat)
+//   node web/tests/chat_page.mjs --answers <run.jsonl> --profiles <parity inputs json> [--id Q01] [--dist web/dist]
+//                                [--headed] [--shots <dir>]
+// (--profiles: the list web/tests/parity.mjs takes; its first profile is checked after the chat; --shots saves light
+// and dark screenshots of the answer)
 //
 // Checks: the tab switches; the answer renders as it streams, with [S#] as links and a Sources list naming carrier,
 // guide date and page; "This answer looks wrong" posts kind "chat"; a 429 (the spend cap) and a dropped connection
 // show their messages; and the eligibility check still loads and runs after the chat (the checker is untouched).
+// Round 46 (Liam, 2026-10-29): an answer with program sections shows one card per program (name, verdict badge, one
+// line), each opening to its own sources; "Open all" opens every card; the header's button switches dark mode, with the
+// light-lettered logo, and the choice survives a reload.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 import { startServer } from "../tools/serve.mjs";
+import { splitCards } from "../src/chat_cards.js";
 
 const WEB = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const argv = process.argv.slice(2);
@@ -64,8 +70,14 @@ try {
   const answerText = await turn.locator(".answer").innerText();
   check(answerText.replace(/\s+/g, " ").includes(rec.answer.replace(/\[S\d+[^\]]*\]/g, "").split("\n")[0].trim().slice(0, 30)),
     "the answer text is not on the page");
-  const sups = await turn.locator("sup.cite a").count();
+  const sups = await turn.locator("sup.cite").count();      // round 46: a card's summary line has marks, not links
   check(sups >= rec.citations.length, `${sups} citation links for ${rec.citations.length} citations`);
+  // round 46: with cards, the full list is a closed "All sources" dropdown (its text reads empty until opened)
+  const allSources = turn.locator(".chat-cites details.all-sources");
+  if (await allSources.count()) {
+    check(!(await allSources.evaluate((d) => d.open)), "All sources starts open");
+    await allSources.locator("summary").click();
+  }
   const cites = await turn.locator(".chat-cites li").allInnerTexts();
   check(cites.length === rec.citations.length, `${cites.length} sources listed, ${rec.citations.length} cited`);
   for (const [i, c] of rec.citations.entries()) {
@@ -76,6 +88,56 @@ try {
   }
   check(posts[0].question === rec.question && Array.isArray(posts[0].history) && !("system" in posts[0]),
     "the page sent more than the question and history");
+
+  // 1b. round 46: the cards
+  const want = splitCards(rec.answer).cards;
+  const cards = turn.locator("details.cc");
+  check(await cards.count() === want.length, `${await cards.count()} cards for ${want.length} program sections`);
+  if (want.length) {
+    const names = await turn.locator("details.cc .cc-name").allInnerTexts();
+    check(names.map((n) => n.trim()).join("|") === want.map((c) => c.title).join("|"), "card names: " + names.join("|"));
+    const badges = await turn.locator("details.cc .badge").allInnerTexts();
+    check(badges.length === want.filter((c) => c.verdict).length, `${badges.length} badges`);
+    check(await turn.locator("details.cc[open]").count() === 0, "a card starts open");
+    await cards.first().locator("summary").click();
+    check(await cards.first().evaluate((d) => d.open), "the first card did not open");
+    const own = await cards.first().locator(".cc-src li").allInnerTexts();
+    const firstCited = rec.citations.filter((c) => (want[0].summary + want[0].body).includes(`S${c.n}`));
+    check(own.length >= 1 && own.every((li) => firstCited.some((c) => li.includes(c.carrier))),
+      "the first card's sources: " + own.join(" / "));
+    if (want.length > 1) {
+      await turn.locator(".cc-all").click();
+      check(await turn.locator("details.cc[open]").count() === want.length, "Open all left a card closed");
+      await turn.locator(".cc-all").click();
+      check(await turn.locator("details.cc[open]").count() === 0, "Close all left a card open");
+    }
+    check(await turn.locator(".chat-cites details.all-sources").count() === 1, "no All sources dropdown");
+  }
+
+  // 1c. round 46: dark mode and the logo
+  const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  const shown = (sel) => page.locator(sel).isVisible();
+  check(await shown(".logo-light") && !(await shown(".logo-dark")), "light mode: the wrong logo");
+  check(await bg() === "rgb(255, 255, 255)", "light mode background " + await bg());
+  const shots = opt("--shots");
+  if (shots) {
+    fs.mkdirSync(shots, { recursive: true });
+    if (want.length) await cards.first().locator("summary").click();
+    await page.screenshot({ path: path.join(shots, `chat_${rec.id}_light.png`), fullPage: true });
+  }
+  await page.click("#theme-toggle");
+  check(await page.evaluate(() => document.documentElement.dataset.theme) === "dark", "the button did not pick dark");
+  check(await bg() === "rgb(15, 17, 23)", "dark mode background " + await bg());
+  check(await shown(".logo-dark") && !(await shown(".logo-light")), "dark mode: the wrong logo");
+  if (shots) await page.screenshot({ path: path.join(shots, `chat_${rec.id}_dark.png`), fullPage: true });
+  await page.reload();
+  await page.waitForSelector("#chat:not([hidden]) #chat-q");
+  check(await bg() === "rgb(15, 17, 23)", "dark mode did not survive a reload");
+  await page.click("#theme-toggle");
+  check(await bg() === "rgb(255, 255, 255)", "the button did not switch back to light");
+  await page.fill("#chat-q", rec.question);                 // the reload cleared the chat: ask again for the next steps
+  await page.click("#chat-ask");
+  await page.waitForFunction(() => window.__chat.turns().length === 1, null, { timeout: 10000 });
 
   // 2. "This answer looks wrong"
   const fb = turn.locator("details.feedback");
@@ -92,7 +154,8 @@ try {
   await page.fill("#chat-q", "What about their other rules?");
   await page.click("#chat-ask");
   await page.waitForFunction(() => window.__chat.turns().length === 2);
-  check(posts[1].history.length === 1 && posts[1].history[0].q === rec.question, "the follow-up had no history");
+  const last = posts.length - 1;
+  check(posts[last].history.length === 1 && posts[last].history[0].q === rec.question, "the follow-up had no history");
 
   // 4. failures show a clear message
   mode = "cap";
@@ -116,10 +179,10 @@ try {
   const run = await page.evaluate(([p, c]) => window.__eligibility.runCheck(p, c).then(
     (r) => ({ ok: true, r: r && Object.keys(r) }), (e) => ({ ok: false, e: String(e) })), [pd, prof.checked]);
   check(run.ok, "runCheck failed: " + JSON.stringify(run));
-  const cards = await page.evaluate(() => (window.__eligibility.readResults() || {}).cards?.length || 0);
-  check(cards > 10, `the check rendered ${cards} cards`);
-  console.log(`chat tab: ${rec.id}, ${rec.citations.length} citations, ${sups} links; follow-up, feedback, cap and `
-    + `connection messages checked; checker after the chat: ${cards} cards`);
+  const checked = await page.evaluate(() => (window.__eligibility.readResults() || {}).cards?.length || 0);
+  check(checked > 10, `the check rendered ${checked} cards`);
+  console.log(`chat tab: ${rec.id}, ${rec.citations.length} citations, ${sups} marks, ${want.length} carrier cards; `
+    + `dark mode, logo, follow-up, feedback, cap and connection messages checked; checker after the chat: ${checked} cards`);
 } finally {
   await browser.close();
   server.close();

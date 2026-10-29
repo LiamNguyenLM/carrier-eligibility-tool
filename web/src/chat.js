@@ -5,7 +5,8 @@
 // own index (carrier, guide date, page, rule ID -- never from the model), or error. This page sends only the
 // question and the last few turns.
 
-import { markdown, escapeHtml } from "./markdown.js";
+import { markdown, escapeHtml, inline } from "./markdown.js";
+import { splitCards } from "./chat_cards.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const MAX_TURNS = 6;
@@ -50,6 +51,7 @@ function build() {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask($("#chat-q").value); }
   });
   $("#chat-clear").addEventListener("click", () => { chat.turns = []; $("#chat-log").innerHTML = ""; });
+  $("#chat-log").addEventListener("click", followCite);
 }
 
 // ---------------------------------------------------------------------------------------------------------- render
@@ -66,9 +68,37 @@ function citeNumbers(bracket) {
 }
 const citeLinks = (html, id) => html.replace(CITE_RE, (m) =>
   citeNumbers(m).map((n) => `<sup class="cite"><a href="#${id}-s${n}">S${n}</a></sup>`).join(""));
+// in a card's one-line summary (inside <summary>, where a link would fight the dropdown): marks, not links
+const citeMarks = (html) => html.replace(CITE_RE, (m) =>
+  citeNumbers(m).map((n) => `<sup class="cite">S${n}</sup>`).join(""));
+const citedIn = (text) => [...String(text).matchAll(CITE_RE)].flatMap((m) => citeNumbers(m[0]));
 
-function renderAnswer(box, text, id) {
-  $(".answer", box).innerHTML = citeLinks(markdown(text), id);
+// Round 46 (Liam, 2026-10-29): one card per carrier program (chat_cards.js), each a dropdown with the program's
+// conditions, the guide's wording and its own sources. Re-rendered on every streamed piece; a card the agent opened
+// stays open (turn.open).
+function cardHtml(c, k, id, turn) {
+  const kid = `${id}-k${k}`;
+  const nums = new Set(citedIn(c.summary + "\n" + c.body));
+  const srcs = turn.citations.filter((x) => nums.has(x.n));
+  return `<details class="cc tone-${c.tone}" data-k="${k}"${turn.open.has(k) ? " open" : ""}>
+    <summary><span class="cc-head"><span class="cc-name">${escapeHtml(c.title)}</span>`
+    + (c.verdict ? `<span class="badge tone-${c.tone}">${escapeHtml(c.verdict)}</span>` : "") + `</span>`
+    + (c.summary ? `<span class="cc-line">${citeMarks(inline(c.summary))}</span>` : "") + `</summary>
+    <div class="cc-body md">${c.body ? citeLinks(markdown(c.body), kid) : ""}`
+    + (srcs.length ? `<div class="cc-src"><div class="caption">Sources</div><ul>${srcs.map((x) => citationHtml(x, kid)).join("")}</ul></div>`
+      : (c.body ? "" : `<div class="caption">No more detail in the sources.</div>`))
+    + `</div></details>`;
+}
+
+function renderAnswer(el, turn, id) {
+  const { intro, cards } = splitCards(turn.a);
+  turn.cards = cards.length;
+  const box = $(".answer", el);
+  if (!cards.length) { box.innerHTML = citeLinks(markdown(turn.a), id); return; }
+  box.innerHTML = (intro ? citeLinks(markdown(intro), id) : "")
+    + (cards.length > 1 ? `<div class="cc-tools"><button type="button" class="linkish cc-all">`
+      + `${turn.open.size === cards.length ? "Close all" : "Open all"}</button></div>` : "")
+    + `<div class="cc-list">${cards.map((c, k) => cardHtml(c, k, id, turn)).join("")}</div>`;
 }
 
 function citationHtml(c, id) {
@@ -86,7 +116,20 @@ function citationHtml(c, id) {
     + `<div class="quote">${escapeHtml(c.text)}</div></li>`;
 }
 
-function turnBox(question) {
+// a citation link opens the dropdowns it sits behind (a card, All sources) before it scrolls there
+function followCite(e) {
+  const a = e.target.closest("sup.cite a");
+  if (!a) return;
+  const target = document.getElementById(a.getAttribute("href").slice(1));
+  if (!target) return;
+  e.preventDefault();
+  for (let d = target.closest("details"); d; d = d.parentElement && d.parentElement.closest("details")) d.open = true;
+  target.scrollIntoView({ block: "center", behavior: "smooth" });
+  target.classList.add("flash");
+  setTimeout(() => target.classList.remove("flash"), 1500);
+}
+
+function turnBox(question, turn) {
   const id = `t${++chat.seq}`;
   const el = document.createElement("div");
   el.className = "chat-turn";
@@ -96,6 +139,20 @@ function turnBox(question) {
       <div class="chat-note" hidden></div><div class="chat-cites" hidden></div><div class="chat-fb"></div></div>`;
   $("#chat-log").append(el);
   el.scrollIntoView({ block: "nearest" });
+  // the cards are re-rendered on every streamed piece: remember which the agent opened ("toggle" doesn't bubble)
+  el.addEventListener("toggle", (e) => {
+    const d = e.target;
+    if (!d.matches || !d.matches("details.cc")) return;
+    const k = Number(d.dataset.k);
+    if (d.open) turn.open.add(k); else turn.open.delete(k);
+    const all = $(".cc-all", el);
+    if (all) all.textContent = turn.open.size === turn.cards ? "Close all" : "Open all";
+  }, true);
+  el.addEventListener("click", (e) => {
+    if (!e.target.closest(".cc-all")) return;
+    const openAll = turn.open.size !== turn.cards;
+    for (const d of el.querySelectorAll("details.cc")) d.open = openAll;
+  });
   return { el, id };
 }
 
@@ -106,8 +163,8 @@ async function ask(raw) {
   chat.busy = true;
   $("#chat-ask").disabled = true;
   $("#chat-q").value = "";
-  const { el, id } = turnBox(question);
-  const turn = { q: question, a: "", citations: [], unverified: [], error: null, carriers: [] };
+  const turn = { q: question, a: "", citations: [], unverified: [], error: null, carriers: [], open: new Set(), cards: 0 };
+  const { el, id } = turnBox(question, turn);
   const fail = (msg) => {
     turn.error = msg;
     const note = $(".chat-note", el);
@@ -141,7 +198,7 @@ async function ask(raw) {
           else if (ev.t === "text") {
             turn.a += ev.d;
             $(".spinner", el)?.remove();
-            renderAnswer(el, turn.a, id);
+            renderAnswer(el, turn, id);
           } else if (ev.t === "done") {
             turn.citations = ev.citations || [];
             turn.unverified = ev.unverified || [];
@@ -156,8 +213,12 @@ async function ask(raw) {
   }
   $(".spinner", el)?.remove();
   if (turn.citations.length) {
+    if (turn.cards) renderAnswer(el, turn, id);             // each card's own sources, now that they're known
     const cites = $(".chat-cites", el);
-    cites.innerHTML = `<div class="caption">Sources</div><ul>${turn.citations.map((c) => citationHtml(c, id)).join("")}</ul>`;
+    const list = `<ul>${turn.citations.map((c) => citationHtml(c, id)).join("")}</ul>`;
+    // with cards, every source is in its card's dropdown: the full list is one more dropdown
+    cites.innerHTML = turn.cards ? `<details class="all-sources"><summary>All sources (${turn.citations.length})</summary>${list}</details>`
+      : `<div class="caption">Sources</div>${list}`;
     cites.hidden = false;
   }
   if (turn.unverified.length && !turn.error) {
@@ -167,7 +228,7 @@ async function ask(raw) {
     note.hidden = false;
   }
   if (turn.a && !turn.error) $(".chat-fb", el).append(feedbackControl(turn));
-  chat.turns.push(turn);
+  chat.turns.push({ ...turn, open: undefined });
   chat.busy = false;
   $("#chat-ask").disabled = false;
   return turn;

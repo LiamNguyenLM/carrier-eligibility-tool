@@ -39,8 +39,9 @@ const FORBIDDEN = [/(^|\/)rules_data\/placement(\/|$)/, /(^|\/)placement_[^/]*\.
 
 
 const PYODIDE_FILES = ["pyodide.mjs", "pyodide.asm.js", "pyodide.asm.wasm", "python_stdlib.zip", "pyodide-lock.json"];
-const PAGE_FILES = ["index.html", "src/app.js", "src/chat.js", "src/engine.js", "src/markdown.js", "src/worker_api.js",
-  "src/styles.css"];
+// round 46: + chat_cards.js (the chat's carrier cards), theme.js (light / dark) and the CFIG logo (and its dark-mode copy)
+const PAGE_FILES = ["index.html", "src/app.js", "src/chat.js", "src/chat_cards.js", "src/engine.js", "src/markdown.js",
+  "src/worker_api.js", "src/styles.css", "src/theme.js", "src/cfig-logo.png", "src/cfig-logo-dark.png"];
 
 function args(argv) {
   const out = {};
