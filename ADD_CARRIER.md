@@ -182,9 +182,13 @@ right, or writes what the carrier really does. Fix what they mark. Their decisio
    To check before pushing: `npm run build:placement` prints the row counts, or the CSV line at fault.
 7. **Ask the Guides' text** (round 45): re-export the chat corpus from the new store, and commit it with the seed. A new
    carrier's rules table, CFIG knowledge or display name reaches the chat by itself at the next deploy.
-   `verification/test_chat_corpus.py` fails while this export is stale.
+   `verification/test_chat_corpus.py` fails while this export is stale. Round 47: then re-export the cross-carrier
+   outcomes (every program's checker label per topic; about 3 minutes, no API), after ANY change to a rules table,
+   a field map or the checker -- `verification/test_chat_outcomes.py` fails while it is stale. A guide whose file
+   name has no date: add the date its own text prints to `rules_data/chat/guide_dates.csv` first.
    ```
    python cloudflare/scripts/export_chat_corpus.py        # -> rules_data/chat/guide_chunks.jsonl + programs.json
+   python cloudflare/scripts/export_chat_outcomes.py      # -> rules_data/chat/outcomes.json
    ```
 8. **Push** (Liam): the push deploys (Workers Builds). The web version needs no `FORCE_RESEED` -- it has no store at
    run time; Railway, while it still runs, does.

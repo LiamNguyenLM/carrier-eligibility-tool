@@ -8,6 +8,9 @@
 //        page, topic, effect, when it applies and its exceptions
 //   "c"  a CFIG knowledge row: rules_data/cfig_knowledge.csv (labelled "CFIG experience", never the guide)
 // plus a BM25 inverted index over all of them (chat_text.terms), the carrier-name aliases, and the program list.
+// Round 47: + each rule row's state (RULE / SILENT / NO_RESTRICTION / UNCLEAR), a rule ID -> unit lookup, and the
+// topic sweep for cross-carrier questions (rules_data/chat/sweep_topics.json, and outcomes.json: every program's
+// label from the checker, exported by export_chat_outcomes.py).
 //
 // usage (cwd = the repo root):  node cloudflare/scripts/build_chat_index.mjs [--out FILE]
 import { createHash } from "node:crypto";
@@ -56,7 +59,7 @@ export function buildChatData(rulesDir = RULES_DIR) {
       const program = byWorkbook.get(r.Carrier);
       if (!program) { problems.push(`${f} ${r["Rule ID"]}: no program for workbook carrier ${JSON.stringify(r.Carrier)}`); continue; }
       const page = parseInt(String(r["PDF page"] || "").replace(/\.0$/, ""), 10);
-      units.push({ k: "r", p: pIndex.get(program), id: r["Rule ID"], wb: r.Carrier, topic: r.Topic, eff: r.Effect,
+      units.push({ k: "r", p: pIndex.get(program), id: r["Rule ID"], wb: r.Carrier, topic: r.Topic, eff: r.Effect, st: r.State,
         pr: clean(r["Plain rule"]), aw: clean(r["Applies when"]), ex: clean(r["Exceptions / cure"]),
         q: clean(r["Verbatim quote from guide"]), pg: Number.isFinite(page) ? page : null });
     }
@@ -93,12 +96,30 @@ export function buildChatData(rulesDir = RULES_DIR) {
   units.forEach((u, i) => { avg[u.k] += len[i]; cnt[u.k]++; });
   for (const k of Object.keys(avg)) avg[k] = cnt[k] ? avg[k] / cnt[k] : 1;
 
+  // round 47: the topic sweep -- the spec, the checker's outcomes, and where each rule row is
+  const spec = JSON.parse(readFileSync(join(rulesDir, "chat", "sweep_topics.json"), "utf8"));
+  const outcomes = JSON.parse(readFileSync(join(rulesDir, "chat", "outcomes.json"), "utf8"));
+  const rid = {};
+  units.forEach((u, i) => { if ((u.k === "r" || u.k === "c") && !(u.id in rid)) rid[u.id] = i; });   // CFIG rows too (CFG-001)
+  for (const [key, scopes] of Object.entries(outcomes.sweeps)) {
+    for (const [scope, per] of Object.entries(scopes)) {
+      for (const [prog, o] of Object.entries(per)) {
+        if (!pIndex.has(prog)) problems.push(`outcomes.json ${key} ${scope}: unknown program ${prog}`);
+        for (const id of o.rows) if (!(id in rid)) problems.push(`outcomes.json ${key} ${scope} ${prog}: no row ${id}`);
+      }
+    }
+  }
+  if (problems.length) throw new Error("chat index not built:\n  " + problems.slice(0, 20).join("\n  "));
+  const sweep = { spec, scopes: outcomes.scopes, sweeps: outcomes.sweeps };
+
   const hash = createHash("sha256");
   hash.update(readFileSync(join(rulesDir, "chat", "guide_chunks.jsonl")));
   hash.update(readFileSync(join(rulesDir, "chat", "programs.json")));
+  hash.update(readFileSync(join(rulesDir, "chat", "sweep_topics.json")));
+  hash.update(readFileSync(join(rulesDir, "chat", "outcomes.json")));
   for (const f of [...ruleFiles, "cfig_knowledge.csv"]) hash.update(f).update(readFileSync(join(rulesDir, f)));
   const data = { format: 1, sha: hash.digest("hex").slice(0, 16), programs, aliases: buildAliases(programs),
-    units, len, avg, index };
+    units, len, avg, index, rid, sweep };
   return { data, counts: { guide: cnt.g, rules: cnt.r, cfig: cnt.c, terms: post.size, programs: programs.length } };
 }
 

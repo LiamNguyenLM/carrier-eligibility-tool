@@ -1,0 +1,17 @@
+# Round 47 (Liam, 2026-11): guide dates for the programs whose file name has none, read from the guide's own text (the
+# chunk and page given; found by searching rules_data/chat/guide_chunks.jsonl for dates and checked by hand). Ask the
+# Guides shows them; export_chat_corpus.py uses this only when the file name has no date. TWICO's guide prints none.
+program,date,where
+ARI_(HOA+),11/03/2023,"p.1 header: ""HOA Underwriting Guidelines 11/3/2023"" (also ""Revised November 2023"")"
+ARI_(HOB),11/03/2023,"p.1 header: ""HOB Underwriting Guidelines 11/3/2023"" (also ""Revised November 2023"")"
+Allied_Trust_HO3,07/01/2025,"p.2: ""07/01/2025 UNDERWRITING GUIDELINES"" (ALL-179: effective 7/01/2025 new business)"
+HOAIC_-_DP_Guide_DP3,11/2025,"p.2 footer: ""(rev. Nov 2025)"""
+Sage_-_Auros_HO3,08/19/2025,"p.2 footer: ""REVISED 08/19/2025"""
+Sage_-_Markel_DP3,11/19/2025,"p.2: ""Markel Non-Admitted DP3 Underwriting Overview | Revised 11/19/2025"""
+Sage_-_Markel_HO3,11/19/2025,"p.2: ""Markel Non-Admitted HO3 HO5 Underwriting Overview | Revised 11/19/2025"""
+Sage_-_Occidental_DP3,10/24/2025,"p.2 footer: ""REVISED 10/24/2025"""
+Steadily_Underwriting_Guidelines_DP3,06/18/2026,"p.1 footer: ""Last Revision Date 06.18.2026"""
+Swyfft_-_Benchmark_(Admitted)_HO3,10/28/2025,"p.2 footer: ""Swyfft | TX HO-3 Admitted | 10.28.2025"""
+Swyfft_-_Benchmark_(Surplus)_HO3,10/28/2025,"p.2 footer: ""Swyfft | TX BSIC E&S | 10.28.2025"""
+Swyfft_-_Lloyds_(Surplus)_HO3,10/28/2025,"p.2 footer: ""Swyfft | TX HO-3 E&S Lloyd's | 10.28.2025"""
+Swyfft_-_Topa_(Surplus)_HO3,10/28/2025,"p.2 footer: ""Swyfft | TX HO-3 E&S TOPA | 10.28.2025"""

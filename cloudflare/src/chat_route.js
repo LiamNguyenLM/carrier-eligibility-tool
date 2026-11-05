@@ -8,17 +8,22 @@
 // ONE write: its chat_log row (time, session, name, question, programs, cited carriers, tokens, cost, model, timings).
 //
 // The browser gets NDJSON, one event a line:
-//   {"t":"start","carriers":[...],"mode":"named"|"follow_up"|"all"}
+//   {"t":"start","carriers":[...],"mode":"named"|"follow_up"|"all"|"sweep", "sweep":{scope_line, programs:[{k, name,
+//                                                  label, srcs}]} (round 47: a cross-carrier topic question)}
 //   {"t":"text","d":"..."}                       the answer as it is written
-//   {"t":"done","citations":[...],"unverified":[...],"stop":"end_turn","cost_usd":0.0012,"first_ms":900,"total_ms":4100}
+//   {"t":"done","citations":[...],"unverified":[...],"stop":"end_turn","cost_usd":0.0012,"first_ms":900,"total_ms":4100,
+//    "sweep_lines":{k: line}, "sweep_filled":[k]}  (a sweep: every program's line; filled = the model left it out)
 //   {"t":"error","error":"<a fixed message>"}    the model call failed (never the API's own text, never a key)
 import CHAT from "../build/chat_index.js";
-import { ChatInputError, citation, citedNumbers, costUsd, parseChatBody, retrieve, systemPrompt, unverifiedQuotes,
+import { ChatInputError, citation, citedNumbers, costUsd, parseChatBody, plan, systemPrompt, unverifiedQuotes,
   userMessage } from "./chat.js";
+import { finishSweep, sweepTable } from "./chat_sweep.js";
 
 // Round 46 (Liam, 2026-10-29): Sonnet 5.5, was Haiku 5.5 (round 45). About 20x Haiku's price per token.
 export const DEFAULT_MODEL = "claude-sonnet-5-5";
 export const CHAT_MAX_TOKENS = 4000;          // round 46: was 3000; a cross-carrier answer is one card per program
+// Round 47: a sweep is one line per program (up to ~45), at most ~40 tokens a line
+export const SWEEP_MAX_TOKENS = 6000;
 
 // Thinking off, effort low: the answer is a lookup in the sources given, and the agent waits for the first words.
 // Sonnet 5.5 rejects {type: "disabled"} with a 400; its "off" is "between_tools" (effort high or below). Opus 5.5 and
@@ -143,9 +148,10 @@ export async function postChat(request, env, who, ctx, { readJson, HttpError, no
   if (spent >= cap) return errorJson(429, MESSAGES.overCap, { reason: "daily_cap" });
   if (asked >= perHour) return errorJson(429, MESSAGES.rate(asked), { reason: "rate_limit" });
 
-  const ret = retrieve(CHAT, req.question, req.history);
+  const ret = plan(CHAT, req.question, req.history);
   const model = env.CHAT_MODEL || DEFAULT_MODEL;
   const carriers = ret.route.mode === "all" ? [] : ret.route.programs.map((i) => CHAT.programs[i].display);
+  const mode = ret.sweep ? "sweep" : ret.route.mode;
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
   const enc = new TextEncoder();
@@ -153,12 +159,12 @@ export async function postChat(request, env, who, ctx, { readJson, HttpError, no
 
   const run = async () => {
     let answer = "", firstMs = 0, usage = {}, stop = "error", status = "error";
-    await send({ t: "start", carriers, mode: ret.route.mode });
+    await send({ t: "start", carriers, mode, ...(ret.sweep ? { sweep: sweepTable(ret.sweep) } : {}) });
     try {
       const client = await clientFactory(env);
       // the raw stream events: only the text pieces and the usage (message_start / message_delta) are read
       const stream = await client.messages.create({
-        model, max_tokens: CHAT_MAX_TOKENS, stream: true,
+        model, max_tokens: ret.sweep ? SWEEP_MAX_TOKENS : CHAT_MAX_TOKENS, stream: true,
         system: [{ type: "text", text: system(), cache_control: { type: "ephemeral" } }],
         messages: [{ role: "user", content: userMessage(CHAT, ret, req.question, req.history) }],
         output_config: { effort: "low" }, ...(thinkingFor(model) ? { thinking: thinkingFor(model) } : {}),
@@ -179,11 +185,15 @@ export async function postChat(request, env, who, ctx, { readJson, HttpError, no
       stop = stop || "end_turn";
       status = stop === "end_turn" ? "ok" : stop;
       const nums = citedNumbers(answer, ret.sources.length);
-      const sent = ret.sources.filter((s) => nums.includes(s.n));
+      // a sweep shows every program's sources (behind "Show sources"), cited or not
+      const sent = ret.sweep ? ret.sources : ret.sources.filter((s) => nums.includes(s.n));
       const unverified = unverifiedQuotes(CHAT, answer, ret.sources);
+      const fin = ret.sweep ? finishSweep(CHAT, ret.sweep, answer) : null;
       await send({ t: "done", citations: sent.map((s) => citation(CHAT, s, answer)), unverified, stop,
-        cost_usd: Number(costUsd(model, usage).toFixed(6)), first_ms: firstMs, total_ms: Date.now() - t0 });
-      return { answer, firstMs, usage, status, cited: [...new Set(sent.map((s) => citation(CHAT, s).carrier))],
+        cost_usd: Number(costUsd(model, usage).toFixed(6)), first_ms: firstMs, total_ms: Date.now() - t0,
+        ...(fin ? { sweep_lines: fin.lines, sweep_filled: fin.filled } : {}) });
+      return { answer, firstMs, usage, status, cited: [...new Set(sent.filter((s) => !ret.sweep || nums.includes(s.n))
+        .map((s) => citation(CHAT, s).carrier))],
         unverified: unverified.length };
     } catch (e) {
       await send({ t: "error", error: modelError(e) });
