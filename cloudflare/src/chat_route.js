@@ -12,7 +12,8 @@
 //                                                  label, srcs}]} (round 47: a cross-carrier topic question)}
 //   {"t":"text","d":"..."}                       the answer as it is written
 //   {"t":"done","citations":[...],"unverified":[...],"stop":"end_turn","cost_usd":0.0012,"first_ms":900,"total_ms":4100,
-//    "sweep_lines":{k: line}, "sweep_filled":[k]}  (a sweep: every program's line; filled = the model left it out)
+//    "sweep_lines":{k: line}, "sweep_filled":[k], "sweep_note":"..."}  (a sweep: every program's line; filled = the
+//                                                  model left it out; note = anything else it wrote, e.g. a refusal)
 //   {"t":"error","error":"<a fixed message>"}    the model call failed (never the API's own text, never a key)
 import CHAT from "../build/chat_index.js";
 import { ChatInputError, citation, citedNumbers, costUsd, parseChatBody, plan, systemPrompt, unverifiedQuotes,
@@ -191,7 +192,7 @@ export async function postChat(request, env, who, ctx, { readJson, HttpError, no
       const fin = ret.sweep ? finishSweep(CHAT, ret.sweep, answer) : null;
       await send({ t: "done", citations: sent.map((s) => citation(CHAT, s, answer)), unverified, stop,
         cost_usd: Number(costUsd(model, usage).toFixed(6)), first_ms: firstMs, total_ms: Date.now() - t0,
-        ...(fin ? { sweep_lines: fin.lines, sweep_filled: fin.filled } : {}) });
+        ...(fin ? { sweep_lines: fin.lines, sweep_filled: fin.filled, sweep_note: fin.note } : {}) });
       return { answer, firstMs, usage, status, cited: [...new Set(sent.filter((s) => !ret.sweep || nums.includes(s.n))
         .map((s) => citation(CHAT, s).carrier))],
         unverified: unverified.length };

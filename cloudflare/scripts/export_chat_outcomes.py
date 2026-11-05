@@ -4,7 +4,8 @@
 eligibility check would give. Top-k search left most programs out. So, at build time, for every topic and form value
 in rules_data/chat/sweep_topics.json and every scope (HO3 owner-occupied, DP3 rental, HO6 condo), this runs the
 checker (engine.api.check, the browser's code) on a neutral profile -- the form's defaults with the scope's and the
-value's answers, only the value's topic ticked -- and on the same profile without the value, and writes
+value's answers, EVERY topic ticked (a full check: a rule that also needs the year built, such as Allied Trust's
+galvanized decline, is skipped by a partial check) -- and on the same profile without the value, and writes
 
   rules_data/chat/outcomes.json    {scopes: {HO3: {programs: [{program, name}]}}, sweeps: {"pool/above_unfenced":
                                     {HO3: {program: {label, status, rows, why}}}}}
@@ -73,27 +74,61 @@ def load_rows():
                     rows.setdefault(prog, []).append({
                         "id": r["Rule ID"], "topic": r["Topic"], "state": r["State"], "effect": r["Effect"],
                         "text": " ".join([r["Plain rule"], r["Verbatim quote from guide"], r["Applies when"]]),
+                        "plain": r["Plain rule"], "cure": r["Exceptions / cure"],
                         "fields": fields.get(r["Rule ID"], set())})
     return programs, rows
 
 
+# Round 47 step 3 (the graded rerun): how a row is read for a label.
+#   NEG      "attractive nuisances (except trampolines) are ineligible" is no trampoline decline (SAG-064)
+#   GENERIC  a damaged / dilapidated structure rule names trampolines among many things (ORI-076): not a trampoline rule
+#   COND     a decline that hangs on a condition is a Confirm: "accepted only with safety netting" (HAR-061), "cannot
+#            be the primary heat source" (LIB-025), "without a safety net" (MER-050)
+# A row that names the value in its plain rule outranks one that only lists it in its quote or context (MER-051's
+# catch-all "any attractive nuisance" vs MER-050's trampoline row).
+NEG = re.compile(r"\b(except|other than|excluding|not including|but not)\b[^.;]{0,40}$", re.I)
+GENERIC = re.compile(r"\b(damaged|deteriorat|dilapidat|dangerous|disrepair|poor condition|unsafe|unrepaired)", re.I)
+COND = re.compile(r"\b(only (with|if|when|in)|without|unless|primary|sole|must (be|have)|if|when|under \d+|over \d+|more than|"
+                  r"less than|at least|within|exceed|in protection class|protection class (9|10)|in pc ?\d+|tenant|"
+                  r"outbuilding|garage|not professionally|not factory|not installed|only (heat )?source|only heat|as the only|"
+                  r"rental|held for rent|for rent)\b", re.I)
+# ... but "declined even if not the primary source of heat" (TWI-040) hangs on nothing
+UNCOND = re.compile(r"\b(even if|even when|regardless|in any case)\b", re.I)
+
+
 def matching_rows(prog_rows, codes, pattern, pd_fields):
-    """A program's rows on this topic and value: in the topic's codes, or mapped to a field the value changes; and
-    about this value (the pattern) unless the field map ties the row to the changed field."""
+    """A program's rows on this topic and value: in the topic's codes and about this value (the pattern, not in an
+    "except ..."), or mapped to a field the value changes. Each row is marked: "about" (its text is about this value)
+    and "named" (its plain rule names it)."""
     rx = re.compile(pattern, re.I) if pattern else None
     out = []
     for r in prog_rows:
         mapped = bool(r["fields"] & pd_fields)
-        if not (mapped or r["topic"] in codes):
+        hit = rx.search(r["text"]) if rx else None
+        plain_hit = rx.search(r["plain"]) if rx else None
+        negated = bool(plain_hit and NEG.search(r["plain"][:plain_hit.start()]))
+        generic = r["effect"] in ("DECLINES", "REFERS_TO_UW") and GENERIC.search(r["plain"])   # ORI-114 (coverage) stays
+        about = bool(hit) and not negated and not generic
+        if not (mapped or (r["topic"] in codes and about)):
             continue
-        if mapped or (rx and rx.search(r["text"])):
-            out.append(r)
+        out.append(dict(r, about=about, named=bool(plain_hit) and about))
     return out
 
 
+def row_label(r):
+    """One rule row's label: a decline that hangs on a condition, or that the guide lets a cure lift (its Exceptions /
+    cure column: MER-043 "unless professionally installed or approved"), is a Confirm."""
+    if r["effect"] == "DECLINES" and not UNCOND.search(r["plain"]) and (COND.search(r["plain"]) or r.get("cure", "").strip()):
+        return "Confirm"
+    return EFFECT_LABEL[r["effect"]]
+
+
 def rows_label(rows):
-    """The strictest effect among a program's rules on it, else Guide silent."""
-    found = {EFFECT_LABEL[r["effect"]] for r in rows if r["state"] in ("RULE", "NO_RESTRICTION") and r["effect"] in EFFECT_LABEL}
+    """The strictest label among the program's rules about this value (those naming it in their rule first), else
+    Guide silent."""
+    about = [r for r in rows if r.get("about", True) and r["state"] in ("RULE", "NO_RESTRICTION") and r["effect"] in EFFECT_LABEL]
+    named = [r for r in about if r.get("named")]
+    found = {row_label(r) for r in (named or about)}
     for lab in STRICT:
         if lab in found:
             return lab
@@ -154,8 +189,7 @@ class Checker:
         if key not in self.cache:
             values = dict(self.defaults)
             values.update(answers)
-            ticked = topic if isinstance(topic, list) else [topic] if topic else []
-            values["chk"] = {t: t in ticked for t in self.topics.TOPIC_KEYS}
+            values["chk"] = {t: True for t in self.topics.TOPIC_KEYS}      # a full check (see the module doc)
             req = self.form.form_request(values)
             if not req["ok"]:
                 raise ValueError(f"{answers}: {req['error']}")
@@ -250,7 +284,8 @@ def export(out_dir):
     for f in ["chat/sweep_topics.json", "chat/programs.json"] + sorted(
             f for f in os.listdir(RULES) if f.startswith("carrier_rules_") or f.endswith("field_map.csv")):
         src.update(f.encode())
-        src.update(open(os.path.join(RULES, f), "rb").read())
+        # line endings normalised: a fresh Windows checkout writes CRLF (the step-1 fast tier's shard did), an edit LF
+        src.update(open(os.path.join(RULES, f), "rb").read().replace(b"\r\n", b"\n"))
     data = {"format": 1, "inputs_sha": src.hexdigest()[:16], "labels": list(LABELS), "scopes": scopes, "sweeps": sweeps}
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, "outcomes.json")

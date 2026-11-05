@@ -78,6 +78,7 @@ for (const q of questions) {
     // round 47: a sweep -- the table the page drew first, and every program's final line
     mode: start ? start.mode : null, sweep: start && start.sweep ? start.sweep : null,
     sweep_lines: done && done.sweep_lines ? done.sweep_lines : null, sweep_filled: done && done.sweep_filled ? done.sweep_filled : null,
+    sweep_note: done && done.sweep_note ? done.sweep_note : "",
     model_first_ms: done ? done.first_ms : null };
   lines.push(JSON.stringify(out));
   console.log(`${q.id}: ${error ? "ERROR " + error : (done ? done.stop : "no done")} first ${out.first_ms} ms, total `

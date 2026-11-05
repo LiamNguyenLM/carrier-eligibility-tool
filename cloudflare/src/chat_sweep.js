@@ -72,8 +72,16 @@ function valueOf(data, topic, q) {
 }
 
 /** The sweep for a question that names no carrier, or null (the question then goes through search as before). */
+// A question about carriers in general ("which carriers", "who takes", "any carrier", "carriers that ..."), or one with
+// no name in it at all. "Does State Farm take homes with a pool?" names a carrier CFIG has no guide for: it is not a
+// sweep, so the answer says CFIG has no State Farm guide (the 40-question set's Q25 was swept until this).
+const CROSS = /\b(carriers|companies|insurers|programs|markets|anyone|anybody|everyone)\b|\b(which|what) (carrier|company|program|insurer|market)s?\b|\bwho (takes?|will|writes?|accepts?|allows?|covers?|declines?|insures?|does|would|can)\b|\b(any|every|each) (carrier|company|program|insurer)\b/;
+export function isCrossCarrier(question) {
+  return CROSS.test(normalize(question)) || !/\s[A-Z]/.test(String(question).trim().slice(1));
+}
+
 export function detectSweep(data, question) {
-  if (!data.sweep) return null;
+  if (!data.sweep || !isCrossCarrier(question)) return null;
   const q = normalize(question);
   const { spec, sweeps, scopes } = data.sweep;
   for (const topic of spec.topics) {
@@ -138,7 +146,12 @@ export function finishSweep(data, sw, answer) {
     lines[p.k] = u ? `${u.pr} [S${p.srcs[0]}]` : "No rule on file for this.";
     filled.push(p.k);
   }
-  return { lines, filled };
+  return { lines, filled, note: sweepNote(answer) };
+}
+
+/** Anything the model wrote besides its P lines (a refusal to print its instructions): shown above the list. */
+export function sweepNote(answer) {
+  return String(answer).split("\n").filter((l) => l.trim() && !/^\s*\**P\d{1,3}\**\s*[:.)\-–—]/.test(l)).join("\n").trim();
 }
 
 /** What the page needs before the model writes: the scope line and every program, numbered, with its label. */

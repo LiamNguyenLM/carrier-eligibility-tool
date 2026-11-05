@@ -29,9 +29,16 @@ export function streamedLines(text) {
   return out;
 }
 
+/** Anything the model wrote besides its P lines (a refusal to print its instructions): shown above the list. */
+export function streamedNote(text) {
+  return String(text).split("\n").filter((l) => l.trim() && !/^\s*\**P\d{1,3}\**\s*[:.)\-–—]/.test(l)
+    && !/^\s*\**P\d{0,3}\**\s*$/.test(l)).join("\n").trim();
+}
+
 /** The list as HTML: groups in order, a program's line from lines[k] (or "…" while it is being written). */
-export function sweepHtml(sweep, lines, cite, writing) {
+export function sweepHtml(sweep, lines, cite, writing, note = "") {
   const parts = [`<p class="sweep-scope">${escapeHtml(sweep.scope_line)}</p>`];
+  if (note) parts.push(`<div class="sweep-note">${note.split("\n").map((l) => `<p>${cite(inline(l))}</p>`).join("")}</div>`);
   for (const [label, title, tone] of GROUPS) {
     const rows = sweep.programs.filter((p) => p.label === label);
     if (!rows.length) continue;

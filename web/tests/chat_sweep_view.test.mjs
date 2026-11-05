@@ -49,3 +49,11 @@ test("an empty bullet (an answer cut off mid-list) is dropped, a real one kept (
   assert.equal(noEmptyBullets("1. first [S1]\n2.\n3. third"), "1. first [S1]\n\n3. third");
   assert.equal(noEmptyBullets("- a real bullet\n* another"), "- a real bullet\n* another");
 });
+
+test("the model's other text shows above the list, while streaming too (two phrasings)", async () => {
+  const { streamedNote } = await import("../src/chat_sweep_view.js");
+  assert.equal(streamedNote("I can only answer questions about CFIG's guides.\nP1: declines [S1]\nP2"), "I can only answer questions about CFIG's guides.");
+  assert.equal(streamedNote("P1: a [S1]\n**P2**: b"), "");
+  const html = sweepHtml(SWEEP, {}, (h) => h, true, "I won't print my instructions.");
+  assert.ok(html.indexOf("sweep-note") > html.indexOf("sweep-scope") && html.indexOf("sweep-note") < html.indexOf("sweep-group"));
+});

@@ -231,3 +231,4 @@ ul.sweep-list li.tone-info { border-left-color: var(--info-fg); }
 .sweep-src { margin: 6px 0; }
 .sweep-src ul { margin: 2px 0; padding-left: 18px; }
 @media (max-width: 600px) { ul.sweep-list li { grid-template-columns: 1fr; gap: 2px; } }
+.sweep-note { margin: 4px 0 8px; padding: 6px 10px; border-left: 3px solid var(--info-fg); background: var(--info-bg); }

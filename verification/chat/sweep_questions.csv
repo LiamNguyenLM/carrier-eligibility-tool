@@ -18,3 +18,5 @@ X15,Which carriers allow short-term rentals?,short_term/short_term,DP3,short-ter
 X16,Which carriers take a home with a pit bull?,dogs/Pit Bull (American Pit Bull Terrier),HO3,a breed question
 X17,Which carriers take a home with 2 losses in 3 years?,losses/2,HO3,2 losses in 3 years
 X18,Which landlord carriers decline galvanized plumbing?,plumbing/galvanized,DP3,the same topic for rentals (DP3)
+X19,Which carriers decline wood-burning stoves?,wood_stove/wood_stove,HO3,wood stoves (no form value: labelled from the rows); the 40-question set's Q19
+X20,Which carriers have an acreage limit?,acreage/acreage,HO3,acreage (labelled from the rows); the 40-question set's Q18

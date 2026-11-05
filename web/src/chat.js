@@ -7,7 +7,7 @@
 
 import { markdown, escapeHtml, inline } from "./markdown.js";
 import { noEmptyBullets, splitCards } from "./chat_cards.js";
-import { streamedLines, sweepHtml, sweepText } from "./chat_sweep_view.js";
+import { streamedLines, streamedNote, sweepHtml, sweepText } from "./chat_sweep_view.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const MAX_TURNS = 6;
@@ -124,7 +124,8 @@ function citationHtml(c, id) {
 // Round 47: a cross-carrier answer (the Worker's sweep) -- every program, grouped by its label; the sources, by program,
 // behind "Show sources"
 function renderSweep(el, turn, id, writing) {
-  $(".answer", el).innerHTML = `<div class="sweep">${sweepHtml(turn.sweep, turn.lines, (h) => citeLinks(h, id), writing)}</div>`;
+  $(".answer", el).innerHTML = `<div class="sweep">${sweepHtml(turn.sweep, turn.lines, (h) => citeLinks(h, id), writing,
+    turn.note)}</div>`;
 }
 
 function sweepSourcesHtml(turn, id) {
@@ -225,12 +226,16 @@ async function ask(raw) {
           } else if (ev.t === "text") {
             turn.a += ev.d;
             $(".spinner", el)?.remove();
-            if (turn.sweep) { turn.lines = streamedLines(turn.a); renderSweep(el, turn, id, true); } else renderAnswer(el, turn, id);
+            if (turn.sweep) {
+              turn.lines = streamedLines(turn.a);
+              turn.note = streamedNote(turn.a);
+              renderSweep(el, turn, id, true);
+            } else renderAnswer(el, turn, id);
           } else if (ev.t === "done") {
             turn.citations = ev.citations || [];
             turn.unverified = ev.unverified || [];
             turn.stop = ev.stop;
-            if (ev.sweep_lines) turn.lines = ev.sweep_lines;
+            if (ev.sweep_lines) { turn.lines = ev.sweep_lines; turn.note = ev.sweep_note || ""; }
           } else if (ev.t === "error") fail(ev.error);
         }
       }
@@ -242,7 +247,7 @@ async function ask(raw) {
   $(".spinner", el)?.remove();
   if (turn.sweep && !turn.error) {
     renderSweep(el, turn, id, false);
-    turn.a = sweepText(turn.sweep, turn.lines);          // the history and a "looks wrong" report read the list as text
+    turn.a = (turn.note ? turn.note + "\n" : "") + sweepText(turn.sweep, turn.lines);   // history, "looks wrong" reports
     const cites = $(".chat-cites", el);
     cites.innerHTML = sweepSourcesHtml(turn, id);
     cites.hidden = !cites.innerHTML;
