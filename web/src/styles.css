@@ -213,3 +213,21 @@ details.all-sources > summary { cursor: pointer; font-size: 13px; }
   .chat-q { margin-left: 0; }
   .logo { height: 36px; }
 }
+
+/* Round 47: a cross-carrier answer -- every program, grouped by its label, one line each */
+.sweep-scope { font-weight: 600; margin: 4px 0 8px; }
+.sweep-group { margin: 10px 0 4px; }
+.sweep-head { margin-bottom: 4px; }
+.sweep-head .badge { font-size: 12px; }
+ul.sweep-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+ul.sweep-list li { padding: 5px 8px; border-bottom: 1px solid var(--line); border-left: 3px solid var(--muted);
+  font-size: 14px; display: grid; grid-template-columns: minmax(150px, 230px) 1fr; gap: 10px; }
+ul.sweep-list li.tone-ok { border-left-color: var(--ok-fg); }
+ul.sweep-list li.tone-warn { border-left-color: var(--warn-fg); }
+ul.sweep-list li.tone-bad { border-left-color: var(--err-fg); }
+ul.sweep-list li.tone-info { border-left-color: var(--info-fg); }
+.sw-name { font-weight: 600; }
+.sw-line { overflow-wrap: anywhere; }
+.sweep-src { margin: 6px 0; }
+.sweep-src ul { margin: 2px 0; padding-left: 18px; }
+@media (max-width: 600px) { ul.sweep-list li { grid-template-columns: 1fr; gap: 2px; } }

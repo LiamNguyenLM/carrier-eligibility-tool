@@ -6,13 +6,17 @@
 // question and the last few turns.
 
 import { markdown, escapeHtml, inline } from "./markdown.js";
-import { splitCards } from "./chat_cards.js";
+import { noEmptyBullets, splitCards } from "./chat_cards.js";
+import { streamedLines, sweepHtml, sweepText } from "./chat_sweep_view.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const MAX_TURNS = 6;
 const FEEDBACK_NOT_SAVED = "Couldn’t save — try again later.";     // the Worker's FEEDBACK_NOT_SAVED
 const CHAT_CHOICES = ["The answer is wrong", "A citation is wrong", "It didn't answer the question", "Not sure"];
 const UNREACHABLE = "Ask the Guides couldn't be reached. The eligibility check still works; please try again.";
+// Round 47: an answer that hit the model's length limit says so, instead of ending in empty bullets
+const CUT_OFF = "This answer was cut off; ask about fewer carriers or one carrier at a time.";
+const SWEEP_CUT_OFF = "Some lines were cut off; those programs show their rule's own text instead.";
 
 const chat = { turns: [], busy: false, seq: 0, posts: [] };
 
@@ -84,7 +88,7 @@ function cardHtml(c, k, id, turn) {
     <summary><span class="cc-head"><span class="cc-name">${escapeHtml(c.title)}</span>`
     + (c.verdict ? `<span class="badge tone-${c.tone}">${escapeHtml(c.verdict)}</span>` : "") + `</span>`
     + (c.summary ? `<span class="cc-line">${citeMarks(inline(c.summary))}</span>` : "") + `</summary>
-    <div class="cc-body md">${c.body ? citeLinks(markdown(c.body), kid) : ""}`
+    <div class="cc-body md">${c.body ? citeLinks(markdown(noEmptyBullets(c.body)), kid) : ""}`
     + (srcs.length ? `<div class="cc-src"><div class="caption">Sources</div><ul>${srcs.map((x) => citationHtml(x, kid)).join("")}</ul></div>`
       : (c.body ? "" : `<div class="caption">No more detail in the sources.</div>`))
     + `</div></details>`;
@@ -94,7 +98,7 @@ function renderAnswer(el, turn, id) {
   const { intro, cards } = splitCards(turn.a);
   turn.cards = cards.length;
   const box = $(".answer", el);
-  if (!cards.length) { box.innerHTML = citeLinks(markdown(turn.a), id); return; }
+  if (!cards.length) { box.innerHTML = citeLinks(markdown(noEmptyBullets(turn.a)), id); return; }
   box.innerHTML = (intro ? citeLinks(markdown(intro), id) : "")
     + (cards.length > 1 ? `<div class="cc-tools"><button type="button" class="linkish cc-all">`
       + `${turn.open.size === cards.length ? "Close all" : "Open all"}</button></div>` : "")
@@ -102,6 +106,7 @@ function renderAnswer(el, turn, id) {
 }
 
 function citationHtml(c, id) {
+  if (!String(c.text || "").trim() && !String(c.quote || "").trim()) return "";     // round 47: never an empty source
   const where = [c.carrier, c.guide_date ? `guide dated ${c.guide_date}` : "guide date not stated",
     c.page ? `page ${c.page}` : ""].filter(Boolean).join(", ");
   if (c.kind === "cfig") {
@@ -114,6 +119,21 @@ function citationHtml(c, id) {
   }
   return `<li id="${id}-s${c.n}"><b>S${c.n}</b> ${escapeHtml(where)}${c.section ? ` — ${escapeHtml(c.section)}` : ""}`
     + `<div class="quote">${escapeHtml(c.text)}</div></li>`;
+}
+
+// Round 47: a cross-carrier answer (the Worker's sweep) -- every program, grouped by its label; the sources, by program,
+// behind "Show sources"
+function renderSweep(el, turn, id, writing) {
+  $(".answer", el).innerHTML = `<div class="sweep">${sweepHtml(turn.sweep, turn.lines, (h) => citeLinks(h, id), writing)}</div>`;
+}
+
+function sweepSourcesHtml(turn, id) {
+  const byN = new Map(turn.citations.map((c) => [c.n, c]));
+  const blocks = turn.sweep.programs.map((p) => {
+    const items = p.srcs.map((n) => byN.get(n)).filter(Boolean).map((c) => citationHtml(c, id)).filter(Boolean);
+    return items.length ? `<div class="sweep-src"><b>${escapeHtml(p.name)}</b><ul>${items.join("")}</ul></div>` : "";
+  }).filter(Boolean);
+  return blocks.length ? `<details class="all-sources"><summary>Show sources (${turn.citations.length})</summary>${blocks.join("")}</details>` : "";
 }
 
 // a citation link opens the dropdowns it sits behind (a card, All sources) before it scrolls there
@@ -163,7 +183,8 @@ async function ask(raw) {
   chat.busy = true;
   $("#chat-ask").disabled = true;
   $("#chat-q").value = "";
-  const turn = { q: question, a: "", citations: [], unverified: [], error: null, carriers: [], open: new Set(), cards: 0 };
+  const turn = { q: question, a: "", citations: [], unverified: [], error: null, carriers: [], open: new Set(), cards: 0,
+    sweep: null, lines: {} };
   const { el, id } = turnBox(question, turn);
   const fail = (msg) => {
     turn.error = msg;
@@ -194,25 +215,38 @@ async function ask(raw) {
           buf = buf.slice(i + 1);
           if (!line.trim()) continue;
           const ev = JSON.parse(line);
-          if (ev.t === "start") turn.carriers = ev.carriers || [];
-          else if (ev.t === "text") {
+          if (ev.t === "start") {
+            turn.carriers = ev.carriers || [];
+            if (ev.sweep) {                      // every program and its label, before the model writes a word
+              turn.sweep = ev.sweep;
+              $(".spinner", el)?.remove();
+              renderSweep(el, turn, id, true);
+            }
+          } else if (ev.t === "text") {
             turn.a += ev.d;
             $(".spinner", el)?.remove();
-            renderAnswer(el, turn, id);
+            if (turn.sweep) { turn.lines = streamedLines(turn.a); renderSweep(el, turn, id, true); } else renderAnswer(el, turn, id);
           } else if (ev.t === "done") {
             turn.citations = ev.citations || [];
             turn.unverified = ev.unverified || [];
             turn.stop = ev.stop;
+            if (ev.sweep_lines) turn.lines = ev.sweep_lines;
           } else if (ev.t === "error") fail(ev.error);
         }
       }
-      if (!turn.a && !turn.error) fail(UNREACHABLE);
+      if (!turn.a && !turn.sweep && !turn.error) fail(UNREACHABLE);
     }
   } catch {
     fail(UNREACHABLE);
   }
   $(".spinner", el)?.remove();
-  if (turn.citations.length) {
+  if (turn.sweep && !turn.error) {
+    renderSweep(el, turn, id, false);
+    turn.a = sweepText(turn.sweep, turn.lines);          // the history and a "looks wrong" report read the list as text
+    const cites = $(".chat-cites", el);
+    cites.innerHTML = sweepSourcesHtml(turn, id);
+    cites.hidden = !cites.innerHTML;
+  } else if (turn.citations.length) {
     if (turn.cards) renderAnswer(el, turn, id);             // each card's own sources, now that they're known
     const cites = $(".chat-cites", el);
     const list = `<ul>${turn.citations.map((c) => citationHtml(c, id)).join("")}</ul>`;
@@ -221,7 +255,12 @@ async function ask(raw) {
       : `<div class="caption">Sources</div>${list}`;
     cites.hidden = false;
   }
-  if (turn.unverified.length && !turn.error) {
+  if (turn.stop === "max_tokens" && !turn.error) {
+    const note = $(".chat-note", el);
+    note.className = "chat-note alert warning";
+    note.textContent = turn.sweep ? SWEEP_CUT_OFF : CUT_OFF;
+    note.hidden = false;
+  } else if (turn.unverified.length && !turn.error) {
     const note = $(".chat-note", el);
     note.className = "chat-note alert warning";
     note.textContent = "A quote in this answer could not be found in the sources it was given. Check the guide before relying on it.";

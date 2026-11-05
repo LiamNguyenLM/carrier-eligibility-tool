@@ -50,3 +50,6 @@ export function splitCards(text) {
   }
   return { intro: intro.join("\n").trim(), cards: sections.map((s) => finish(s.title, s.lines)) };
 }
+
+/** Round 47: a bullet with nothing after it (an answer cut off mid-list) is never rendered. */
+export const noEmptyBullets = (md) => String(md).replace(/^[ \t]*(?:[-*+]|\d+[.)])[ \t]*$/gm, "").replace(/\n{3,}/g, "\n\n");
