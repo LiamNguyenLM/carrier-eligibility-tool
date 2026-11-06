@@ -197,8 +197,9 @@ failed", "feedback: D1 write failed" or "login_failures". The allowance resets a
 ## 9. Ask the Guides (round 45)
 
 The chat tab answers from CFIG's guides and rules tables only, with Claude Sonnet 5.5 (round 46, Liam 2026-10-29;
-it was Haiku 5.5 at about $0.001 a question). Sonnet costs about $0.02 a question on average, up to $0.06 for a long
-question across every carrier, so the $3 daily cap covers roughly 150 questions a day. Three limits keep the cost down:
+it was Haiku 5.5 at about $0.001 a question). Sonnet costs about $0.01 for a question about one carrier. A question
+across carriers ("which carriers take X", round 47) lists every program with the checker's label and costs about
+$0.04 (up to $0.07), so the $3 daily cap covers roughly 75 of those a day. Three limits keep the cost down:
 - 30 questions an hour per login;
 - $3 a day across everyone (`CHAT_DAILY_CAP_USD` in `wrangler.toml`; raise it there if agents hit it);
 - over a limit, the tab says so, and the checker is unaffected.
@@ -216,8 +217,9 @@ cut the cost again.
 3. **Push** `main`. The build bundles the guides' text into the Worker, never into the page.
 4. **Try it** in a private window, signed in with the agent password. Open **Ask the Guides** and ask:
    - "Does the Hartford take a home with a diving board?" Expect: No, labelled **CFIG experience** (not the guide).
-   - "Which carriers decline Federal Pacific panels?" Expect: one card per carrier with a coloured verdict
-     (Ineligible, Referral, ...); open one to see its conditions and its sources (guide date, page).
+   - "Which carriers will take an above ground pool with no fence?" Expect (round 47): "28 HO3 (owner-occupied home)
+     programs ..." then every program grouped under Eligible / Eligible if confirmed / Refer to underwriting / Not
+     eligible / ..., one line each; the Hartford under Refer (HAR-058); "Show sources" lists each program's rows.
    - "Does State Farm take homes with a pool?" Expect: CFIG has no State Farm guide on file.
 5. **See what agents ask:** sign in with the admin password, then use **Download chat log** in the top bar. It has
    one row per question: who, question, carriers cited, tokens and cost. Answers are not kept. Reports from "This

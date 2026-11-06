@@ -77,6 +77,15 @@ The design, chosen after measuring:
   - first words median 0.66 s;
   - full answer median 1.6 s, p95 5.5 s.
 
+- **Cross-carrier questions (round 47, Liam and Jonathan 2026-11):** top-k search left most programs out of "which
+  carriers take X". A question that names no carrier and matches a topic in `rules_data/chat/sweep_topics.json` is a
+  sweep (`cloudflare/src/chat_sweep.js`): every program in the scope (HO3 by default; DP3 for a rental word; HO6 for
+  condos) with a label the code decides -- the checker's own outcome for that form value on a neutral profile,
+  precomputed by `cloudflare/scripts/export_chat_outcomes.py` into `rules_data/chat/outcomes.json` (Eligible /
+  Confirm / Refer / Not eligible / Coverage limited / Guide silent / Closed); a value with no form answer (trampolines)
+  is labelled from the program's strictest matching row. The model writes one line per program; a program it skips
+  gets its first row's plain rule. The Worker only looks it up: under 1.5 ms.
+
 Tests: `cloudflare/test/chat.test.mjs` (zero API); live: `python verification/chat/run_live.py` (paid, capped); the page:
 `node web/tests/chat_page.mjs --answers <run.jsonl> --profiles <parity inputs>`; CPU: `node cloudflare/scripts/bench_chat.mjs --fetch`.
 

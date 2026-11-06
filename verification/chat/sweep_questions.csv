@@ -1,0 +1,22 @@
+id,question,key,scope,note
+L01,Which carriers will take an above ground pool with no fence,pool/above_unfenced,HO3,Liam's live question (2026-11); the Hartford Refer (HAR-058)
+X01,Which carriers will write a home with an above-ground pool that isn't fenced?,pool/above_unfenced,HO3,above-ground unfenced (second phrasing)
+X02,Which carriers take an in-ground pool with no fence?,pool/in_unfenced,HO3,in-ground unfenced
+X03,Who takes a fenced in-ground swimming pool?,pool/in_fenced,HO3,in-ground fenced
+X04,Which carriers accept a fenced above ground pool?,pool/above_fenced,HO3,above-ground fenced
+X05,Which carriers allow a pool with a diving board?,diving/diving_board,HO3,diving boards
+X06,Which carriers allow trampolines?,trampoline/trampoline,HO3,trampolines (no form value: labelled from the rows)
+X07,Which carriers decline galvanized plumbing?,plumbing/galvanized,HO3,galvanized
+X08,Which carriers will write a home with polybutylene pipes?,plumbing/polybutylene,HO3,polybutylene
+X09,Which carriers decline Federal Pacific panels?,electrical/fpe_zinsco,HO3,Federal Pacific
+X10,Which carriers take a roof that is 20+ years old?,roof_age/20,HO3,roof age 20+
+X11,Who writes wood shake roofs?,roof_type/wood_shake,HO3,wood shake
+X12,Which carriers write a home owned by an LLC?,ownership/llc,HO3,LLC owners
+X13,Which carriers take homes owned by a trust?,ownership/trust,HO3,trusts
+X14,Which carriers write vacant homes?,occupancy/vacant,HO3,vacant (routed to the dwelling programs)
+X15,Which carriers allow short-term rentals?,short_term/short_term,DP3,short-term rentals (a rental question: DP3)
+X16,Which carriers take a home with a pit bull?,dogs/Pit Bull (American Pit Bull Terrier),HO3,a breed question
+X17,Which carriers take a home with 2 losses in 3 years?,losses/2,HO3,2 losses in 3 years
+X18,Which landlord carriers decline galvanized plumbing?,plumbing/galvanized,DP3,the same topic for rentals (DP3)
+X19,Which carriers decline wood-burning stoves?,wood_stove/wood_stove,HO3,wood stoves (no form value: labelled from the rows); the 40-question set's Q19
+X20,Which carriers have an acreage limit?,acreage/acreage,HO3,acreage (labelled from the rows); the 40-question set's Q18

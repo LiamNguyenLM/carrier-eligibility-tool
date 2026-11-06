@@ -43,7 +43,7 @@ for (const q of questions) {
   const res = await worker.fetch(new Request("https://cfig-eligibility.example.workers.dev/api/chat", {
     method: "POST", headers: { "content-type": "application/json", cookie: `${COOKIE}=${cookie}` },
     body: JSON.stringify({ question: q.question, history }) }), env, { waitUntil: (p) => pending.push(p) });
-  let answer = "", done = null, error = null, firstWall = 0;
+  let answer = "", done = null, error = null, firstWall = 0, start = null;
   if (res.status !== 200) {
     error = `${res.status} ${(await res.json()).error}`;
   } else {
@@ -60,6 +60,7 @@ for (const q of questions) {
         buf = buf.slice(i + 1);
         if (ev.t === "text") { if (!firstWall) firstWall = performance.now() - t0; answer += ev.d; }
         if (ev.t === "done") done = ev;
+        if (ev.t === "start") { start = ev; if (ev.sweep && !firstWall) firstWall = performance.now() - t0; }   // round 47: a sweep's table is its first words
         if (ev.t === "error") error = ev.error;
       }
     }
@@ -73,7 +74,12 @@ for (const q of questions) {
     input_tokens: row.input_tokens, output_tokens: row.output_tokens, cache_read: row.cache_read_tokens,
     cost_usd: row.cost_usd, first_ms: Math.round(firstWall), total_ms: Math.round(performance.now() - t0),
     worker_first_ms: done ? done.first_ms : null, node_cpu_ms: +((cpu.user + cpu.system) / 1000).toFixed(1),
-    programs: row.programs };
+    programs: row.programs,
+    // round 47: a sweep -- the table the page drew first, and every program's final line
+    mode: start ? start.mode : null, sweep: start && start.sweep ? start.sweep : null,
+    sweep_lines: done && done.sweep_lines ? done.sweep_lines : null, sweep_filled: done && done.sweep_filled ? done.sweep_filled : null,
+    sweep_note: done && done.sweep_note ? done.sweep_note : "",
+    model_first_ms: done ? done.first_ms : null };
   lines.push(JSON.stringify(out));
   console.log(`${q.id}: ${error ? "ERROR " + error : (done ? done.stop : "no done")} first ${out.first_ms} ms, total `
     + `${out.total_ms} ms, ${out.input_tokens}+${out.output_tokens} tokens, $${Number(out.cost_usd || 0).toFixed(5)}, `

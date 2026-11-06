@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 import { startServer } from "../tools/serve.mjs";
 import { splitCards } from "../src/chat_cards.js";
+import { GROUPS } from "../src/chat_sweep_view.js";
 
 const WEB = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const argv = process.argv.slice(2);
@@ -34,9 +35,12 @@ const check = (ok, what) => { if (!ok) problems.push(what); };
 
 function ndjson(r) {
   const pieces = r.answer.match(/[\s\S]{1,40}/g) || [];
-  return [{ t: "start", carriers: [], mode: "named" }, ...pieces.map((d) => ({ t: "text", d })),
+  return [{ t: "start", carriers: [], mode: r.sweep ? "sweep" : "named", ...(r.sweep ? { sweep: r.sweep } : {}) },
+    ...pieces.map((d) => ({ t: "text", d })),
     { t: "done", citations: r.citations, unverified: r.unverified, stop: r.stop, cost_usd: r.cost_usd,
-      first_ms: r.first_ms, total_ms: r.total_ms }].map((e) => JSON.stringify(e)).join("\n") + "\n";
+      first_ms: r.first_ms, total_ms: r.total_ms,
+      ...(r.sweep_lines ? { sweep_lines: r.sweep_lines, sweep_filled: r.sweep_filled } : {}) }]
+    .map((e) => JSON.stringify(e)).join("\n") + "\n";
 }
 
 const server = await startServer({ dir: DIST, mockApi: true });
@@ -68,10 +72,33 @@ try {
   await page.waitForFunction(() => window.__chat.turns().length === 1, null, { timeout: 10000 });
   const turn = page.locator(".chat-turn").first();
   const answerText = await turn.locator(".answer").innerText();
-  check(answerText.replace(/\s+/g, " ").includes(rec.answer.replace(/\[S\d+[^\]]*\]/g, "").split("\n")[0].trim().slice(0, 30)),
-    "the answer text is not on the page");
   const sups = await turn.locator("sup.cite").count();      // round 46: a card's summary line has marks, not links
-  check(sups >= rec.citations.length, `${sups} citation links for ${rec.citations.length} citations`);
+  if (rec.sweep) {
+    // round 47: a cross-carrier answer -- every program in its label's group, each with a line, the scope first
+    const title = Object.fromEntries(GROUPS.map(([label, t]) => [label, t]));
+    check(answerText.startsWith(rec.sweep.scope_line), "no scope line");
+    const items = turn.locator("ul.sweep-list li");
+    check(await items.count() === rec.sweep.programs.length, `${await items.count()} rows for ${rec.sweep.programs.length} programs`);
+    for (const p of rec.sweep.programs) {
+      const li = turn.locator(`ul.sweep-list li[data-k="${p.k}"]`);
+      const [head, name, line] = await li.evaluate((n) => [n.closest(".sweep-group").querySelector(".badge").textContent,
+        n.querySelector(".sw-name").textContent, n.querySelector(".sw-line").textContent.trim()]);
+      check(head === title[p.label], `P${p.k} ${p.name}: under "${head}", label ${p.label}`);
+      check(name === p.name, `P${p.k}: name ${name}`);
+      check(line.length > 3 && line !== "…", `P${p.k} ${p.name}: no line`);
+    }
+  } else {
+    check(answerText.replace(/\s+/g, " ").includes(rec.answer.replace(/\[S\d+[^\]]*\]/g, "").split("\n")[0].trim().slice(0, 30)),
+      "the answer text is not on the page");
+    check(sups >= rec.citations.length, `${sups} citation links for ${rec.citations.length} citations`);
+  }
+  // round 47: never an empty bullet anywhere in the answer, nor an empty source
+  const emptyLi = await turn.locator(".answer li, .chat-cites li").evaluateAll((ls) => ls.filter((l) => !l.textContent.trim()).length);
+  check(emptyLi === 0, `${emptyLi} empty bullets`);
+  if (rec.stop === "max_tokens") {
+    const note = await turn.locator(".chat-note").innerText();
+    check(/cut off/.test(note), "a cut-off answer does not say so: " + note);
+  }
   // round 46: with cards, the full list is a closed "All sources" dropdown (its text reads empty until opened)
   const allSources = turn.locator(".chat-cites details.all-sources");
   if (await allSources.count()) {

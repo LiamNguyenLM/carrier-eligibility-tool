@@ -3041,6 +3041,19 @@ A Streamlit RAG app for an independent Texas insurance agency (CFIG). Takes a cu
     runs in 1.8 s with no API key and no network connection. (`HERMES_MCP.md`'s "Paid, 30-90 s" predates the
     switches defaulting ON.)
 
+- **2026-11-05 — Round 47: cross-carrier chat questions list every program, labelled by the checker.** Liam and
+  Jonathan: "which carriers take an above-ground pool with no fence" covered 16 programs.
+  - **Sweep:** a cross-carrier question on a topic in `rules_data/chat/sweep_topics.json` lists every program in the
+    scope (HO3; DP3 for rentals; HO6 for condos) grouped by label, one line each (`cloudflare/src/chat_sweep.js`,
+    `web/src/chat_sweep_view.js`). The label is the checker's: `export_chat_outcomes.py` runs a FULL check on a neutral
+    profile per form value and scope into `outcomes.json` (re-export after any rules-table / field-map / checker
+    change; `test_chat_outcomes.py` fails while stale). No form value (trampolines, stoves, acreage): the strictest
+    matching row, read for "except", conditions and cures.
+  - **Results** (`verification/chat/RESULTS_round47.md`): 21/21 complete and in agreement with a fresh checker run;
+    40-question set 39 correct, 1 partly, 0 made up, 0 wrong carrier; a sweep ~$0.04, CPU 1.5 ms median.
+  - **Also:** guide dates printed in the guides (`rules_data/chat/guide_dates.csv`; only TWICO has none); cut-off
+    answers say so; no empty bullets or sources; unknown carriers (State Farm) are not swept.
+
 - **2026-10-29 — Round 46: Ask the Guides on Sonnet 5.5, carrier cards, dark mode, the CFIG logo.** Liam's request.
   - **Model:** `CHAT_MODEL = "claude-sonnet-5-5"`. Sonnet 5.5 rejects `thinking: disabled`; its off setting is
     `between_tools` (`thinkingFor` in chat_route.js). Haiku is one line away in wrangler.toml.

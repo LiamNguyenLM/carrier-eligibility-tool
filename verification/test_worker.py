@@ -23,12 +23,13 @@ def _node(*args, timeout=900):
     return out.returncode, out.stdout + out.stderr
 
 
-@pytest.mark.parametrize("name", ["worker", "gate", "chat"])
+@pytest.mark.parametrize("name", ["worker", "gate", "chat", "chat_sweep"])
 def test_the_worker_node_tests_pass(name):
     # round 44: + gate.test.mjs, the password gate (no path without a session, tampered / expired cookies, admin
     # routes, the lockout, missing secrets, access mode unchanged)
     # round 45: + chat.test.mjs, Ask the Guides (retrieval per guaranteed topic, the cost guard, the stream and its
     # citations, the key never leaving the Worker, chat feedback) -- zero API, a fake model
+    # round 47: + chat_sweep.test.mjs, cross-carrier questions name every program with the checker's label
     rc, out = _node("--test", f"cloudflare/test/{name}.test.mjs")
     assert rc == 0 and re.search(r"\bfail 0\b", out), out[-3000:]
 

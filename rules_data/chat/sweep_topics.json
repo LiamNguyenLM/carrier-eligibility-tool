@@ -1,0 +1,85 @@
+{
+  "_about": "Round 47 (Liam and Jonathan, 2026-11): the topics a cross-carrier question is swept for (Ask the Guides). Read by cloudflare/scripts/export_chat_outcomes.py (the checker's outcome for every program, per scope and form value -> outcomes.json) and by the Worker (cloudflare/src/chat_sweep.js: which topic, value and scope a question asks about). Patterns are case-insensitive JavaScript/Python regexes over the normalized question (chat_text.normalize: lower case, possessives and thousands commas gone). Topics and values are tried in order; the first match wins. 'form' is the form's answers (engine/form.py keys) for the value, 'base' the answers it is compared with (default: the form's defaults); 'check' is the checker topic ticked (null: only the always-on topics). 'codes' are the rules tables' Topic labels, 'rows' the pattern a row's text must match to be this value's evidence.",
+  "scopes": {
+    "HO3": {"label": "HO3 (owner-occupied home)", "form": {"occupancy": "Owner Occupied", "dwelling_type": "House"}},
+    "DP3": {"label": "DP3 / landlord (tenant-occupied rental)", "form": {"occupancy": "Tenant Occupied", "dwelling_type": "House", "rental_units": "1-4", "rental_term": "Long-term"},
+            "match": "\\b(dp ?3|dp ?1|tdp ?3|landlord|landlords|rental|rentals|rented|tenant|tenants|non owner|investment propert)"},
+    "HO6": {"label": "HO6 (condo unit)", "form": {"occupancy": "Owner Occupied", "dwelling_type": "Condo", "units_in_building": "5 or more"},
+            "match": "\\b(ho ?6|condo|condos|condominium)"}
+  },
+  "topics": [
+    {"id": "diving", "match": "\\b(diving board|diving boards|pool slide|pool slides|water slide|slide)\\b", "check": "pool",
+     "codes": ["POOL", "LIABILITY_HAZARDS", "OTHER"],
+     "values": [
+       {"id": "diving_board", "text": "a pool with a diving board", "match": "diving", "rows": "diving",
+        "form": {"pool": "In Ground - Fenced", "poolacc": "Diving board only"}, "base": {"pool": "In Ground - Fenced"}},
+       {"id": "slide", "text": "a pool with a slide", "match": "slide", "rows": "\\bslides?\\b",
+        "form": {"pool": "In Ground - Fenced", "poolacc": "Slide only"}, "base": {"pool": "In Ground - Fenced"}}
+     ]},
+    {"id": "trampoline", "match": "\\btrampoline", "codes": ["LIABILITY_HAZARDS", "OTHER", "POOL"],
+     "values": [{"id": "trampoline", "text": "a trampoline", "match": ".", "rows": "trampoline"}]},
+    {"id": "pool", "match": "\\b(pools?|swimming)\\b", "check": "pool", "codes": ["POOL", "LIABILITY_HAZARDS", "OTHER"],
+     "values": [
+       {"id": "above_unfenced", "text": "an above-ground pool with no fence",
+        "match": "above[- ]?ground.*(unfenced|not fenced|isnt fenced|no fenc|without (a |any )?fenc|fenceless)|(unfenced|not fenced|isnt fenced|no fenc|without (a |any )?fenc|fenceless).*above[- ]?ground",
+        "rows": "above[- ]?ground|unfenced|not fenced|without (a )?fenc|fenc", "form": {"pool": "Above Ground - Unfenced"}},
+       {"id": "above_fenced", "text": "a fenced above-ground pool", "match": "above[- ]?ground",
+        "rows": "above[- ]?ground|fenc", "form": {"pool": "Above Ground - Fenced"}},
+       {"id": "in_unfenced", "text": "an in-ground pool with no fence", "match": "unfenced|not fenced|isnt fenced|no fenc|without (a |any )?fenc|fenceless",
+        "rows": "in[- ]?ground|unfenced|not fenced|fenc", "form": {"pool": "In Ground - Unfenced"}},
+       {"id": "in_fenced", "text": "a fenced in-ground pool", "match": ".",
+        "rows": "in[- ]?ground|swimming pool|pools?\\b|fenc", "form": {"pool": "In Ground - Fenced"}}
+     ]},
+    {"id": "plumbing", "match": "galvani|polybutylene|\\bpex\\b|cast iron|plumbing|\\bpipes?\\b", "check": "plumbing", "codes": ["PLUMBING"],
+     "values": [
+       {"id": "galvanized", "text": "galvanized plumbing", "match": "galvani", "rows": "galvani", "form": {"plumbing": "Galvanized"}},
+       {"id": "polybutylene", "text": "polybutylene plumbing", "match": "polybutylene|\\bpb\\b", "rows": "polybutylene", "form": {"plumbing": "Polybutylene"}},
+       {"id": "pex_pre_2011", "text": "PEX installed before 2011", "match": "\\bpex\\b", "rows": "\\bpex\\b", "form": {"plumbing": "PEX: installed before 2011"}},
+       {"id": "cast_iron", "text": "cast iron plumbing", "match": "cast iron", "rows": "cast[- ]iron", "form": {"plumbing": "Cast iron"}}
+     ]},
+    {"id": "electrical", "match": "federal pacific|\\bfpe\\b|stab[- ]?lok|zinsco|knob|aluminum (branch )?wiring|\\bfuses?\\b|fuse box", "check": null, "codes": ["ELECTRICAL"],
+     "values": [
+       {"id": "fpe_zinsco", "text": "a Federal Pacific or Zinsco panel", "match": "federal pacific|\\bfpe\\b|stab[- ]?lok|zinsco",
+        "rows": "federal pacific|\\bfpe\\b|stab[- ]?lok|zinsco", "form": {"electrical": ["Federal Pacific or Zinsco panel"]}},
+       {"id": "knob_tube", "text": "knob-and-tube wiring", "match": "knob", "rows": "knob", "form": {"electrical": ["Knob-and-tube wiring"]}},
+       {"id": "aluminum", "text": "aluminum branch wiring", "match": "aluminum", "rows": "aluminum", "form": {"electrical": ["Aluminum branch wiring"]}},
+       {"id": "fuses", "text": "fuses (a fuse box)", "match": "fuse", "rows": "\\bfuses?\\b|fuse box", "form": {"electrical": ["Fuses"]}}
+     ]},
+    {"id": "roof_type", "match": "wood shake|wood shingle|\\bshakes?\\b|tile roof|clay tile|\\bslate\\b|built[- ]?up|tar and gravel|rolled roof|roll roofing", "check": "roof_type", "codes": ["ROOF_ELIG", "ROOF_SETTLEMENT", "CONSTRUCTION"],
+     "values": [
+       {"id": "wood_shake", "text": "a wood shake or wood shingle roof", "match": "wood|shake", "rows": "wood shake|wood shingle|\\bshakes?\\b", "form": {"rooftype": "Wood shake / wood shingle"}},
+       {"id": "tile", "text": "a tile roof", "match": "tile", "rows": "\\btile", "form": {"rooftype": "Tile"}},
+       {"id": "slate", "text": "a slate roof", "match": "slate", "rows": "slate", "form": {"rooftype": "Slate"}}
+     ]},
+    {"id": "roof_age", "match": "\\broofs?\\b", "check": ["roof_age", "roof_type"], "codes": ["ROOF_ELIG", "ROOF_SETTLEMENT"],
+     "numeric": {"field": "roofage", "min": 1, "max": 40, "base": 1, "unit": "year", "text": "a {n}-year-old roof (composition shingle)"},
+     "rows": "roof"},
+    {"id": "short_term", "match": "short[- ]?term|airbnb|vrbo|vacation rental|nightly|weekly rental", "scope": "DP3", "check": null, "codes": ["OCCUPANCY"],
+     "values": [{"id": "short_term", "text": "a short-term rental", "match": ".", "rows": "short[- ]term|airbnb|vrbo|vacation rental|nightly|less than (6|six|12|twelve) months|month[- ]to[- ]month",
+                 "form": {"rental_term": "Short-term"}}]},
+    {"id": "occupancy", "match": "\\b(vacant|unoccupied|seasonal|second home|secondary home|vacation home)\\b", "check": null, "codes": ["OCCUPANCY"],
+     "values": [
+       {"id": "vacant", "text": "a vacant home", "match": "vacant|unoccupied", "rows": "vacan|unoccupied", "form": {"occupancy": "Vacant"}},
+       {"id": "seasonal", "text": "a seasonal home", "match": "seasonal", "rows": "seasonal", "form": {"occupancy": "Seasonal"}},
+       {"id": "secondary", "text": "a secondary home", "match": "second|vacation", "rows": "second(ary)? (home|residence)|seasonal", "form": {"occupancy": "Secondary Home"}}
+     ]},
+    {"id": "ownership", "match": "\\bllc\\b|limited liability|\\btrusts?\\b|corporation|partnership|\\bestates?\\b", "check": null, "codes": ["OWNERSHIP"],
+     "values": [
+       {"id": "llc", "text": "a home owned by an LLC", "match": "llc|limited liability", "rows": "\\bllc\\b|limited liability", "form": {"ownership": "LLC"}},
+       {"id": "trust", "text": "a home owned by a trust", "match": "trust", "rows": "\\btrusts?\\b", "form": {"ownership": "Trust"}},
+       {"id": "corporation", "text": "a home owned by a corporation or partnership", "match": "corporation|partnership", "rows": "corporat|partnership", "form": {"ownership": "Corporation / partnership"}},
+       {"id": "estate", "text": "a home owned by an estate", "match": "estate", "rows": "\\bestates?\\b", "form": {"ownership": "Estate"}}
+     ]},
+    {"id": "losses", "match": "\\b(loss|losses|claim|claims)\\b", "check": null, "codes": ["LOSS_HISTORY"],
+     "numeric": {"field": "losses", "min": 1, "max": 3, "base": 0, "unit": "loss", "text": "{n} losses in 3 years"},
+     "rows": "loss|claim"},
+    {"id": "dogs", "match": "\\b(dog|dogs|breed|breeds|canine)\\b|pit ?bull|rottweiler|doberman|shepherd|husky|mastiff|chow|akita|wolf|terrier|bulldog|bully|malinois|beauceron|boxer|cane corso|ovcharka|dogo|dane|schnauzer|presa|ridgeback|bernard|malamute", "check": "dogs", "codes": ["ANIMALS"],
+     "breeds": true, "rows": "dog|breed|canine|animal"},
+    {"id": "solar", "match": "\\bsolar\\b|photovoltaic", "check": "solar", "codes": ["SOLAR"],
+     "values": [{"id": "solar_roof", "text": "roof-mounted solar panels", "match": ".", "rows": "solar|photovoltaic", "form": {"solar": true, "solar_type": "Roof-mounted panels", "solar_tesla": "No"}}]},
+    {"id": "wood_stove", "match": "wood[- ]?(burning )?stoves?|wood[- ]burning|pellet stove|fireplace|space heater", "codes": ["OTHER_SYSTEMS", "OTHER", "LIABILITY_HAZARDS"],
+     "values": [{"id": "wood_stove", "text": "a wood-burning stove", "match": ".", "rows": "wood[- ]?(burning )?stove|wood[- ]burning|solid[- ]fuel|pellet|coal (burning )?stove|wood/coal|wood or coal|fireplace|\\bwood\\b[^.;]{0,40}\\bfuel\\b"}]},
+    {"id": "acreage", "match": "\\bacre|acreage|\\bacres\\b|farm|ranch", "codes": ["ACREAGE", "LOCATION"],
+     "values": [{"id": "acreage", "text": "acreage (several acres of land)", "match": ".", "rows": "\\bacre|acreage"}]}
+  ]
+}

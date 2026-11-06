@@ -53,7 +53,16 @@ def chunk_lines(chunks):
                         "s": m.get("section") or "", "x": text}, ensure_ascii=False) for m, text in chunks]
 
 
+def guide_dates():
+    """Round 47: rules_data/chat/guide_dates.csv -- dates printed in the guides whose file name has none."""
+    import csv
+    path = os.path.join(ROOT, "rules_data", "chat", "guide_dates.csv")
+    lines = [l for l in open(path, encoding="utf-8") if not l.startswith("#")]
+    return {r["program"]: r["date"] for r in csv.DictReader(lines)}
+
+
 def programs(chunk_programs):
+    printed = guide_dates()
     manifest = json.load(open(os.path.join(ROOT, "rules_data", "engine_manifest.json"), encoding="utf-8"))
     workbook = {}
     for name in WORKBOOK_MAPS:
@@ -69,7 +78,7 @@ def programs(chunk_programs):
         out.append({
             "program": p,
             "display": display_names.display_name(p),
-            "date": display_names.guide_date(p) or "",
+            "date": display_names.guide_date(p) or printed.get(p, ""),     # round 47: + the guide's own date
             "has_text": p in chunk_programs,
             "closed": p in manifest["closed"],
             "defect": defect["detail"] if defect else "",

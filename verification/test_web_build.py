@@ -77,7 +77,8 @@ def test_the_page_loads_the_manifest_before_any_check():
 def test_the_page_ships_the_logo_the_theme_and_the_chat_cards():
     page = re.search(r"const PAGE_FILES = \[(.*?)\];", BUILD, re.S).group(1)
     html = open(os.path.join(ROOT, "web", "index.html"), encoding="utf-8").read()
-    for f in ("src/chat_cards.js", "src/theme.js", "src/cfig-logo.png", "src/cfig-logo-dark.png"):
+    for f in ("src/chat_cards.js", "src/theme.js", "src/cfig-logo.png", "src/cfig-logo-dark.png",
+              "src/chat_sweep_view.js"):                                       # round 47: the cross-carrier list
         assert f'"{f}"' in page, f
         assert os.path.getsize(os.path.join(ROOT, "web", f)) > 0, f
     assert 'src="src/cfig-logo.png" alt="CFIG"' in html and 'src="src/cfig-logo-dark.png"' in html
@@ -99,6 +100,7 @@ def test_every_colour_token_has_a_dark_value():
 
 def test_the_chat_cards_split_in_node():
     import subprocess
-    out = subprocess.run(["node", "--test", "web/tests/chat_cards.test.mjs"], cwd=ROOT, capture_output=True, text=True,
-                         encoding="utf-8", timeout=300)
+    # round 47: + chat_sweep_view.test.mjs (the cross-carrier list; no empty bullet)
+    out = subprocess.run(["node", "--test", "web/tests/chat_cards.test.mjs", "web/tests/chat_sweep_view.test.mjs"], cwd=ROOT,
+                         capture_output=True, text=True, encoding="utf-8", timeout=300)
     assert out.returncode == 0, (out.stdout + out.stderr)[-3000:]
